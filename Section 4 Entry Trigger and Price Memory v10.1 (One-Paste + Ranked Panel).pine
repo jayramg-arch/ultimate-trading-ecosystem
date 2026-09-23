@@ -866,7 +866,7 @@ string S4_VER      = "v11.5"
 // row. Wrapped here it becomes two or three short lines and the table falls back to
 // the width of Confluence/RRG, which is what Jay asked for.
 int PANEL_ROW_WRAP = 96
-string S4_CORE_VER = "55"
+string S4_CORE_VER = "56"
 // S4Core/27 (29-Aug-2026) takes the VP gate as a PARAMETER. A function that indexes its
 // series params must be CALLED on every calculation, or Pine warns that it should be
 // extracted from the scope; so the call sits in global scope and the loop stays behind
@@ -876,7 +876,7 @@ string S4_CORE_VER = "55"
 // fundStr() and bitsRow(), which the two FUNDAMENTALS rows need. Keep S4_CORE_VER above
 // in step with this number -- the panel header prints it, and it had already drifted to
 // 23 while the import was on 24.
-import jayramg/S4Core/55 as core   // bump S4_CORE_VER (line ~860) with this - the panel stamp is hand-kept and Pine cannot read a library version at runtime
+import jayramg/S4Core/56 as core   // bump S4_CORE_VER (line ~860) with this - the panel stamp is hand-kept and Pine cannot read a library version at runtime
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
@@ -1518,9 +1518,7 @@ dashRsMomTr    = input.source(close, "v67: RS mom trail (N500)", group=grpDash, 
 // v9.17 - an unbound source and a genuinely absent signal are different states.
 bool _gOkTrail = dashRsValTr != close and dashRsMomTr != close
 [_rrgArw, _rrgTrj, _rrgCur, _rrgSc, _rrgTr] = core.rrgInfo(dashRsRatio, dashRsMom, _gOkTrail ? dashRsValTr : dashRsRatio, _gOkTrail ? dashRsMomTr : dashRsMom)
-en_rrg_gate = input.bool(false, "Gate 5: require RRG 'BUY OK' (R) - OFF, see tooltip", group=grpDash, tooltip="RE-MEASURED 18-Aug-2026 and turned OFF. The BUY OK whitelist was fitted in May on the OLD 12/5/12 RRG pair; every surface moved to the RRG Studio calibration that day, so the cells were being produced by a different function than the one whose alpha justified them.\n\nRe-measured on 473 symbols / 93,745 weekly observations, matched-horizon alpha, chronological IS-OOS, bootstrapped by SYMBOL: the 5-cell whitelist is worth +0.12pp at 4 weeks and +0.00pp at 12 - it blocks half the universe for nothing. IMPROVING->LEADING is reliably NEGATIVE (-0.33 / -0.87, CI excludes 0) and cancels what LEADING->LEADING earns.\n\nOnly LEADING->LEADING and WEAKENING->LEADING are positive at both horizons in both windows. Jay's call: no mechanical veto - he eyeballs those two cases. R still PRINTS on the TRIGGER chip and in the RRG row; turning this ON restores the veto.
-
-23-Sep-2026 (AUD-PAR-06): the DEFINITION is now those two cells everywhere, so this gate - and the cf_w_rrg confluence point, which had gone on awarding +1 on all five including the negative one - agree with the measurement rather than with the superseded May fit.")
+en_rrg_gate = input.bool(false, "Gate 5: require RRG 'BUY OK' (R) - OFF, see tooltip", group=grpDash, tooltip="RE-MEASURED 18-Aug-2026 and turned OFF. The BUY OK whitelist was fitted in May on the OLD 12/5/12 RRG pair; every surface moved to the RRG Studio calibration that day, so the cells were being produced by a different function than the one whose alpha justified them.\n\nRe-measured on 473 symbols / 93,745 weekly observations, matched-horizon alpha, chronological IS-OOS, bootstrapped by SYMBOL: the 5-cell whitelist is worth +0.12pp at 4 weeks and +0.00pp at 12 - it blocks half the universe for nothing. IMPROVING->LEADING is reliably NEGATIVE (-0.33 / -0.87, CI excludes 0) and cancels what LEADING->LEADING earns.\n\nOnly LEADING->LEADING and WEAKENING->LEADING are positive at both horizons in both windows. Jay's call: no mechanical veto - he eyeballs those two cases. R still PRINTS on the TRIGGER chip and in the RRG row; turning this ON restores the veto.\n\n23-Sep-2026 (AUD-PAR-06): the DEFINITION is now those two cells everywhere, so this gate - and the cf_w_rrg confluence point, which had gone on awarding +1 on all five including the negative one - agree with the measurement rather than with the superseded May fit.")
 bool rrg_ok = not en_rrg_gate or not _gOkTrail or _rrgTr
 // --- v67 PORTFOLIO SLOT (12-Aug-2026) ---------------------------------------
 // MY TRADE and POSITION STATUS, so the dashboard TABLE can stay shut. The slots,
