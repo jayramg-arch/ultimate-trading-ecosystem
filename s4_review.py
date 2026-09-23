@@ -981,6 +981,18 @@ _NUM = r"(?<![\w.])(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)(?![\d%]|\s*[Rx])
 # they are not prices
 _SKIP = r"(?:[^0-9]|\d+(?:\.\d+)?\s*[Rx])*?"
 
+# Tokens that own a price in a PLAN line. Scanned left-to-right, non-overlapping, so
+# "buy-stop" is consumed as an ENTRY and can never also register as a stop — which is
+# what the old `"buy-stop" not in low` string test was for. Entry alternatives that
+# contain "stop" are listed first so the longest match wins.
+_TOK = __import__("re").compile(
+    # "market fill at 1204.0" / "Market Fill (27.69)" / "Market fill @ 2173.0" is how the
+    # model writes an at-close entry. `market` alone is NOT a token — it turns up in prose
+    # ("the market is weak") where it would own the wrong number.
+    r"(?i)(?P<entry>buy[-\s]?stop|buy[-\s]?limit|limit\s+order|market[-\s]?(?:fill|order|entry)|entry|buy)"
+    r"|(?P<stop>stop[-\s]?loss|stop|\bsl\b)"
+    r"|(?P<t1>T1)|(?P<t2>T2)")
+
 
 def _first_num(txt: str):
     m = __import__("re").search(_NUM, txt)
@@ -1000,10 +1012,27 @@ def r_check(review: str, min_r: float = 2.0) -> str:
         ln = re.sub(r"(?i)(?<![\d.])\d{1,3}\s*-?\s*(?:mins?|minutes?|m|d|day|w|wk)(?![A-Za-z])", "", ln)
         low = ln.lower()
         body = re.sub(r"^[\s*\-•]+", "", ln)
-        if entry is None and re.search(r"entry|buy-?limit|buy-?stop|limit order", low) and "stop:" not in low:
-            entry = _first_num(re.sub(r"(?i)^.*?(entry|limit|buy-?stop)[^0-9]*", "", body))
-        if stop is None and re.search(r"(?<![a-z-])stop", low) and "buy-stop" not in low:
-            stop = _first_num(re.sub(r"(?i)^.*?stop[^0-9]*", "", body))
+        # ENTRY / STOP BY TOKEN POSITION, not line position (23-Sep-2026).
+        # The old form searched the whole line for the first number after the entry word
+        # and skipped the line entirely when it ALSO contained "stop:". A plan written on
+        # ONE line — "Entry: Limit order at 52.45 · Stop: 51.59 · T1 …", which is how the
+        # model writes about half of them — therefore never yielded an entry, and R-CHECK
+        # printed "could not parse" instead of running. 16 of 34 reviews on 23-Sep, three
+        # of which carried real R mis-statements (MOCAPITAL's T1 was labelled 3R and was
+        # 7.37R). The check was sound; only its input parser was not.
+        #
+        # Each token now owns the text from itself to the NEXT token, so layout and order
+        # stop mattering: stop-before-entry parses, and a second entry token is tried when
+        # the first owns no number ("Entry:" followed by "Limit order at 52.45").
+        _toks = list(_TOK.finditer(body))
+        for _i, _tk in enumerate(_toks):
+            if entry is not None and stop is not None:
+                break
+            _seg = body[_tk.end(): _toks[_i + 1].start() if _i + 1 < len(_toks) else len(body)]
+            if _tk.lastgroup == "entry" and entry is None:
+                entry = _first_num(_seg)
+            elif _tk.lastgroup == "stop" and stop is None:
+                stop = _first_num(_seg)
         # "T1/T2: 34.10 (2R) / 36.14 (4R)" — the pair form; a per-tag scan trips on the
         # digit in "T2" and misses T1 entirely
         pair = re.search(r"T1\s*/\s*T2" + _SKIP + _NUM + r"(?:[^/\n]*\(\s*([\d.]+)\s*R\))?\s*/\s*" + _NUM
@@ -1152,9 +1181,14 @@ def zone_audit(read_txt: str, review: str) -> str:
 
 def _ruling_line(review: str) -> str:
     for ln in review.splitlines():
-        t = ln.strip().lstrip("#*• ").strip()          # flash-lite prefixes headings with ###
+        # Asterisks are stripped THROUGHOUT, not just at the ends (23-Sep-2026). The model
+        # writes "**RULING:** PASS", which used to come back as "RULING:** PASS" — so
+        # r_check's `startswith("RULING: PASS")` early-return never fired and a ruling with
+        # no plan to check printed "could not parse" instead of staying quiet. The same
+        # string also lands in ai_review_log.csv, which is the scoring file.
+        t = ln.replace("*", "").strip().lstrip("#• ").strip()
         if t.upper().startswith("RULING"):
-            return t.rstrip("*").strip()[:160]
+            return t.strip()[:160]
     return ""
 
 
