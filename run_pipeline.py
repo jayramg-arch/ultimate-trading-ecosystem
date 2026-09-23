@@ -66,7 +66,7 @@ def _record_cleanup(p, res) -> None:
     elif failed:
         p.status = "WARN"
         p.message += " · failed: " + ", ".join(map(str, failed))[:200]
-    logger.info("   ↳ watchlist cleanup: " + p.message)
+    logging.getLogger("AutoPilot").info("   ↳ watchlist cleanup: " + p.message)
 
 def setup_logging():
     logger = logging.getLogger("AutoPilot")
