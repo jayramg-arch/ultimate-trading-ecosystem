@@ -67,6 +67,36 @@ Every number below is chosen now, from convention, not from looking at outcomes.
 
 If a parameter turns out to matter, that is a *new* pre-registration, not an edit to this one.
 
+## Amendment 1 — ceiling and floor are the nearest HVN, not the value-area edge
+
+**Made 23 September 2026, before the analysis was run, on a specification fault found by
+running the live check on real panels.** Recorded here rather than silently changed.
+
+The table above mapped the call wall to VAH and the put wall to VAL. Built on the
+pre-registered 120-day daily profile, ANANDRATHI came back `POC 1785 · VAH 2090 · VAL
+1703` against an entry of 2173 — **VAL sits 22% below price**. "The stop should be below
+VAL" would have demanded a 22% stop on a swing trade, which is not a rule, it is a
+reductio.
+
+The fault is in the analogy, not the parameters. An options wall is **near the money by
+construction** — writers sell strikes around the current price. A four-month value-area
+edge has no such anchoring and drifts arbitrarily far from price. The level that *is*
+anchored near price is the **HVN**: the shelf where size actually changed hands closest to
+where we are trading.
+
+So, for H1–H4:
+
+- **Ceiling** = the lowest **HVN above entry**; VAH, then the nearest S/R above, are
+  fallbacks used only when the profile yields no node on that side.
+- **Floor** = the highest **HVN below entry**; VAL is the fallback on the same terms.
+- POC is unchanged — a magnet is a magnet wherever it sits, and H4 already conditions on
+  distance from it.
+
+The HVN definition itself (≥ 1.5 × mean bin volume) is unchanged and was fixed before any
+of this. No pass bar moves. This is the same class of amendment as P3's Amendment 1, which
+fixed an empty control group found by a placebo pass — a defect in the test's construction,
+caught before it consumed the single run.
+
 ## Hypotheses
 
 **H0 — construct validity (gate for everything else).**

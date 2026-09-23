@@ -796,6 +796,141 @@ def _model_levels(review: str) -> dict:
     return out
 
 
+def _cash_levels(read_txt: str) -> dict:
+    """The cash substitutes for the options book, read off the panel.
+
+    23-Sep-2026. Half the board is cash-only, and on those names LEVEL CHECK had nothing
+    to validate against but footprint delta. Each options input is asking a question that
+    has a cash answer: call wall -> VAH / the first HVN above, put wall -> VAL, max pain ->
+    POC, futures long basis -> AVWAP-BO (literally what the trapped cohort paid).
+
+    ONE PROFILE, NOT TWO. S4's Volume Profile row and S5's VA row are different profiles -
+    on ANANDRATHI 75 they read POC 2204.8 and POC 2170.0 - so taking POC from one and
+    VAH/VAL from the other would put the POC ABOVE the value-area high, which is
+    impossible by construction. S5's triplet is preferred because it is internally
+    coherent; S4's row is the fallback and yields POC only. `src` says which.
+    """
+    out: dict = {}
+
+    def n(s):
+        try:
+            return float(str(s).replace(",", ""))
+        except Exception:
+            return None
+
+    m = re.search(r"POC\s*([\d,.]+)\s+VAH\s*([\d,.]+)\s+VAL\s*([\d,.]+)", read_txt)
+    if m:
+        out["poc"], out["vah"], out["val"] = n(m.group(1)), n(m.group(2)), n(m.group(3))
+        out["src"] = "S5 value area"
+    else:
+        m = re.search(r"Volume Profile[^\n]*?POC\s*([\d,.]+)", read_txt)
+        if m:
+            out["poc"] = n(m.group(1))
+            out["src"] = "S4 volume profile (POC only — no value area on this read)"
+
+    m = re.search(r"S/R \(nearest\)[^\n]*?\bS\s+([\d,.]+)", read_txt)
+    if m:
+        out["sr_below"] = n(m.group(1))
+    m = re.search(r"S/R \(nearest\)[^\n]*?\bR\s+([\d,.]+)", read_txt)
+    if m:
+        out["sr_above"] = n(m.group(1))
+
+    # "L·BO·Gap 1534.5  │  2198.9  │  1703.9" — low-anchor, breakout-anchor, gap-anchor
+    m = re.search(r"L.BO.Gap\s*([\d,.]+)\D{1,6}([\d,.]+)\D{1,6}([\d,.]+)", read_txt)
+    if m:
+        out["avwap_low"], out["avwap_bo"], out["avwap_gap"] = (
+            n(m.group(1)), n(m.group(2)), n(m.group(3)))
+    return out
+
+
+def _cash_level_lines(read_txt, entry, stop, t1, t2, risk):
+    """The cash half of LEVEL CHECK: (lines, flags, ceilings).
+
+    Deliberately the SAME five questions the options block asks, so the two read alike and
+    a cash name is not quietly held to a different standard. Every one is display-only and
+    UNVALIDATED — pre-registered 23-Sep in docs/PREREG_cash_levels.md and NOT YET RUN.
+    """
+    # The STRUCTURAL profile first: a 120-day daily profile on the pre-registered
+    # parameters, computed by the same module the test will use. The panel's value area is
+    # only the fallback — S5 computes it on the chart TF, which on a 75m chart put VAH 0.3%
+    # above entry (an intraday band, not a ceiling) and cannot be reconstructed for a past
+    # date, so a rule built on it could never be measured.
+    c = {}
+    m_sym = re.search(r"CHART:\s*(?:NSE:)?([A-Z0-9_&\-]+)", read_txt)
+    if m_sym:
+        try:
+            import volume_profile as _vp
+            c = _vp.structural_levels(m_sym.group(1)) or {}
+        except Exception:
+            c = {}
+    if not c:
+        c = _cash_levels(read_txt)
+    lines, flags, ceilings = [], [], []
+    poc, vah, val = c.get("poc"), c.get("vah"), c.get("val")
+    sr_above, bo = c.get("sr_above"), c.get("avwap_bo")
+    if not c:
+        return lines, flags, ceilings
+
+    lines.append("  cash proxy — no options on this name; levels below are from %s"
+                 % c.get("src", "the panel"))
+
+    # THE NEAREST HVN, NOT THE VALUE-AREA EDGE. A put wall is near the money by
+    # construction; a 120-day VAL is not — on ANANDRATHI it sat 22% below price, so
+    # "the stop must be below VAL" would have demanded a 22% stop. The shelf where size
+    # actually changed hands near price is the honest analogue, so the value-area edges
+    # are only the fallback when the profile yields no node on that side.
+    hvns = [h for h in (c.get("hvns") or []) if h]
+    hv_above = min([h for h in hvns if entry and h > entry], default=None)
+    hv_below = max([h for h in hvns if entry and h < entry], default=None)
+
+    # ── T1 vs the ceiling (the call-wall question) ────────────────────────────────────
+    ceil, ceil_nm = None, ""
+    for nm, lv in (("HVN", hv_above), ("VAH", vah), ("nearest S/R above", sr_above)):
+        if lv and entry and lv > entry and (ceil is None or lv < ceil):
+            ceil, ceil_nm = lv, nm
+    if ceil:
+        ceilings.append((ceil_nm, ceil))
+        if t1 and risk and t1 > ceil:
+            r_ceil = (ceil - entry) / risk
+            lines.append("  T1 %.2f is BEYOND %s %.2f — reachable R to it is %.2fR"
+                         % (t1, ceil_nm, ceil, r_ceil))
+            if r_ceil < 2.0:
+                flags.append("the reachable target (%.2fR to %s) is under the 2R canon floor — "
+                             "half size or skip, not the R the plan claims" % (r_ceil, ceil_nm))
+        elif t1:
+            lines.append("  T1 %.2f sits below %s %.2f — the target is inside value ✓"
+                         % (t1, ceil_nm, ceil))
+
+    # ── stop vs the floor (the put-wall question) ─────────────────────────────────────
+    floor, floor_nm = (hv_below, "HVN") if hv_below else (val, "VAL")
+    if stop and floor:
+        if stop < floor:
+            lines.append("  stop %.2f is below the %s %.2f — the defended shelf is inside the "
+                         "trade ✓" % (stop, floor_nm, floor))
+        else:
+            flags.append("stop %.2f sits ABOVE the %s %.2f — you are stopped out before the "
+                         "shelf that would actually defend" % (stop, floor_nm, floor))
+
+    # ── POC as the magnet (the max-pain question) ─────────────────────────────────────
+    if entry and t1 and poc and entry < poc < t1:
+        lines.append("  POC %.2f sits between entry and T1 — the magnet pulls against the target"
+                     % poc)
+        ceilings.append(("POC", poc))
+    elif entry and poc and poc < entry:
+        lines.append("  POC %.2f is BELOW entry — value is behind you; the pull is down" % poc)
+        ceilings.append(("POC", poc))
+
+    # ── AVWAP-BO as the trapped cohort (the futures-basis question) ───────────────────
+    if entry and bo:
+        if entry < bo:
+            lines.append("  AVWAP-BO %.2f is ABOVE entry — the breakout cohort is underwater "
+                         "overhead and sells into the rally" % bo)
+            ceilings.append(("AVWAP-BO", bo))
+        elif t1 and bo < entry:
+            lines.append("  AVWAP-BO %.2f is below entry — the breakout cohort is in profit ✓" % bo)
+    return lines, flags, ceilings
+
+
 def level_check(read_txt: str, review: str = "") -> tuple[str, str]:
     """(note for the prompt, block for the printed review). Empty for a cash-only name
     with no footprint — there is nothing to validate against."""
@@ -825,6 +960,16 @@ def level_check(read_txt: str, review: str = "") -> tuple[str, str]:
 
     risk = (entry - stop) if (entry and stop and entry > stop) else None
     lines, flags, caps = [], [], []
+    # A name with no wall, no put wall and no max pain is cash-only. It gets the SAME five
+    # questions answered from the volume profile and the AVWAP anchors instead, so half the
+    # board stops falling through to footprint delta alone. `cash_ceilings` feeds the same
+    # "a ceiling is not a target" guard the options path uses.
+    has_opts = any(x is not None for x in (cw, pw, mp))
+    cash_ceilings: list = []
+    if not has_opts:
+        _cl, _cf, cash_ceilings = _cash_level_lines(read_txt, entry, stop, t1, t2, risk)
+        lines += _cl
+        flags += _cf
 
     # ── T1 vs the call wall ───────────────────────────────────────────────────────────
     # The fattest call strike at/above spot is where writers are short gamma and defend.
@@ -896,7 +1041,8 @@ def level_check(read_txt: str, review: str = "") -> tuple[str, str]:
     for tag, lv in (("T1", t1), ("T2", t2)):
         if not (entry and lv and risk):
             continue
-        for nm, cl in (("max pain", mp), ("the call wall", cw)):
+        for nm, cl in ([("max pain", mp), ("the call wall", cw)]
+                       + [(n_, v_) for n_, v_ in cash_ceilings]):
             if cl and abs(lv - cl) < 0.002 * cl:
                 r = (lv - entry) / risk
                 flags.append("%s is parked ON %s %.2f (%.2fR) - a ceiling is not a target; "
@@ -909,8 +1055,16 @@ def level_check(read_txt: str, review: str = "") -> tuple[str, str]:
     # BACKWARDS on the only cell whose CI excluded zero. The facts are still printed,
     # because a trader should see the wall in front of the target; the header says what
     # the evidence does and does not support so a printed fact is not read as an edge.
-    head = ("LEVEL CHECK (derivatives + flow vs %s — they GRADE, never GATE; "
-            "the wall/pin rules are UNVALIDATED: P3 22-Sep failed all four)" % src)
+    head = (("LEVEL CHECK (derivatives + flow vs %s — they GRADE, never GATE; "
+             "the wall/pin rules are UNVALIDATED: P3 22-Sep failed all four)" % src)
+            if has_opts else
+            # A backward-looking record of where trade happened is NOT the same kind of
+            # fact as a wall, which is a forward commitment someone must defend. Said in
+            # the header so the reader discounts it correctly, and flagged NOT YET RUN so
+            # it is never mistaken for a measured edge.
+            ("LEVEL CHECK · CASH PROXY (volume profile + AVWAP vs %s — they GRADE, never "
+             "GATE; these are BACKWARD-looking records, weaker than an options wall, and "
+             "UNVALIDATED: pre-registered 23-Sep, not yet run)" % src))
     block = "\n".join([head] + lines + (["  ⚠ " + f for f in flags] if flags else []))
     note = (block + "\n\nUse these numbers in section 5. If a cap is named above, the plan's T1 is the "
             "CAPPED level and its R is the capped R — say so explicitly, and if that R is under the "
