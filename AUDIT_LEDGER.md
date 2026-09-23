@@ -383,3 +383,44 @@ the failing reviews, plus the recompute assertion, the loud-decline case and the
 
 **STANDING: the receiver must be restarted** — alert-driven reviews run the `s4_review` module
 loaded when the receiver started. `REVIEW.bat` and the CLI pick it up immediately.
+
+### AUD-REV-03 and AUD-REV-04 — FIXED (23 Sep, same session)
+
+**REV-03 — a failed review now says why.** The reason always existed: `review_one`
+prints it to stderr (`"S4 is not on this chart (tables found: …)"`), but stderr goes to
+the receiver's console window, which nobody watches and which does not persist — so
+BAJAJ_AUTO 125 left `review rc 1` and no other trace anywhere. `s4_alert_review._run`
+now wraps the review call in `contextlib.redirect_stderr` and, on a non-zero rc OR an
+exception, puts the last three non-empty stderr lines into `logs/s4_alert_review.log`
+AND into the Telegram failure message. On success the buffer is dropped. `_log` writes
+to stdout, so the running commentary is untouched.
+
+**REV-04 — the withheld S5 sections are now named to the model.** `SYSTEM` already said
+"sections marked [withheld] are not available - do not guess them", and CPPLUS 125 still
+wrote *"S5 confirms … the geometry is clean"*. A standing rule that names nothing is easy
+to read past, so `build_prompt` now detects the withheld headings from the read itself and
+puts them in the PRE-READ — the "computed by the script, not negotiable" block — as a fact
+about THIS read, with the loophole closed explicitly ("not even to call them clean, quiet
+or neutral"). §6 of SYSTEM points at that list and names the failure by example.
+
+**Verified on the offending name.** Re-running CPPLUS 125 through the live model:
+
+> **6. STRUCTURE (S5)** — Sections I, II, and VI are withheld. Based on the available
+> data, there is no range-edge or Wyckoff accumulation event currently in play. The
+> diagnostic section highlights the 200-DMA at 2501.4 as the floor …
+
+The fabricated geometry claim is gone and the paragraph is built from the sections that
+were actually present.
+
+`tests/test_review_failure_visibility.py` — 7 tests: the stderr tail (content, bounding,
+silence when empty), the rc-branch driven end to end through `_run` with a faked review
+that fails the way the real one did, and the prompt (names every withheld section,
+carries the "not even to call them clean" clause, claims nothing when nothing is
+withheld). Full suite 206.
+
+Caught while writing them: `_run`'s `finally` rebuilds the REAL Reviewer Log page, so the
+first run of that test rewrote `docs/portal/31_reviewer_log_v2.html` — the side-effect
+class `tests/conftest.py` exists to prevent. The rebuild is monkeypatched out and the
+file's mtime is asserted unchanged.
+
+**STANDING: restart the receiver again** — both files changed after the 17:00 restart.

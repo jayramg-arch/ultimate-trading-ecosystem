@@ -21,6 +21,8 @@ is all parse() needs; a JSON body {"ticker": …, "interval": …} is accepted t
 """
 from __future__ import annotations
 
+import contextlib
+import io
 import json
 import os
 import queue
@@ -156,14 +158,32 @@ def _review_with_retry(sr, symbol: str, tf: str) -> dict:
         return sr.review_symbol(symbol, tf)
 
 
+def _err_tail(buf: io.StringIO, n: int = 3) -> str:
+    """The last few non-empty stderr lines, flattened onto one log line.
+
+    23-Sep-2026. A failed review logged `review rc 1` and nothing else, so
+    BAJAJ_AUTO 125 (13:25 alert) could not be diagnosed afterwards at all: no .md,
+    no Reviewer Log row, no reason. The reason DID exist — review_one prints it to
+    stderr ("S4 is not on this chart (tables found: …)") — but stderr goes to the
+    receiver's console window, which nobody is watching and which does not persist.
+    """
+    lines = [ln.strip() for ln in buf.getvalue().splitlines() if ln.strip()]
+    return " | ".join(lines[-n:])[:400]
+
+
 def _run(symbol: str, tf: str, source: str) -> None:
     import s4_review as sr
     t0 = time.time()
     _status("busy", symbol, tf, t0)
     last = "%s %sm · failed" % (symbol, tf)
     prev_sym, prev_res = _chart_state() if RESTORE else (None, None)
+    err = io.StringIO()
     try:
-        res = _review_with_retry(sr, symbol, tf)
+        # stderr is captured for the duration of the review ONLY so a failure can say
+        # why (see _err_tail). _log prints to stdout, so the running commentary is
+        # unaffected, and on success the buffer is simply dropped.
+        with contextlib.redirect_stderr(err):
+            res = _review_with_retry(sr, symbol, tf)
         rc, review, path = res["rc"], res["review"], res["path"]
         if rc == 0 and review:
             msg = summary(review, symbol, tf)
@@ -172,10 +192,13 @@ def _run(symbol: str, tf: str, source: str) -> None:
                  os.path.basename(path), "sent" if sent else "not configured"))
             last = "%s %sm · %ds" % (symbol, tf, time.time() - t0)
         else:
-            sr.telegram("🔔 S4 GO · %s · %s — review FAILED (rc %s); see logs/s4_alert_review.log" % (symbol, tf, rc))
-            _log("%s %s review rc %s" % (symbol, tf, rc))
+            why = _err_tail(err)
+            sr.telegram("🔔 S4 GO · %s · %s — review FAILED (rc %s)%s" %
+                        (symbol, tf, rc, ("\n" + why) if why else "; see logs/s4_alert_review.log"))
+            _log("%s %s review rc %s · %s" % (symbol, tf, rc, why or "nothing on stderr"))
     except Exception as e:
-        _log("%s %s FAILED: %s: %s" % (symbol, tf, type(e).__name__, e))
+        why = _err_tail(err)
+        _log("%s %s FAILED: %s: %s%s" % (symbol, tf, type(e).__name__, e, (" · " + why) if why else ""))
         try:
             sr.telegram("🔔 S4 GO · %s · %s — review FAILED: %s" % (symbol, tf, e))
         except Exception:

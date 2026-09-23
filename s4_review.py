@@ -639,7 +639,9 @@ ANALYSIS
    footprint delta on the bar and 20-bar cumulative, absorption vs bleeding, delta
    divergence. One story - and if the name is cash-only, one line saying so.
 6. STRUCTURE (S5) — whatever S5 sections are present: Wyckoff / sweep / range-edge, and
-   anything not marked withheld.
+   anything not marked withheld. The PRE-READ names the sections withheld on THIS read;
+   say they are withheld rather than characterising them. "The geometry is clean" on a
+   read whose geometry you were not shown is a fabrication, not a summary.
 7. THE PANEL'S OWN PLAN — entry method as printed (and whether it is a real retest or a
    market fill), stop and its basis, T1/T2 with R, trade type, house gates (2R / 20%).
    Is the plan coherent with the analysis above?
@@ -925,6 +927,19 @@ def build_prompt(read_txt: str, pos_txt: str) -> str:
     lv, _ = level_check(read_txt)
     if lv:
         note = (note + "\n\n" + lv) if note else lv
+    # 23-Sep-2026 (AUD-REV-04). SYSTEM already said "sections marked [withheld] are not
+    # available - do not guess them", and a review still wrote "S5 confirms ... the
+    # geometry is clean" on a read whose I · GEOMETRY was withheld. A standing rule that
+    # names nothing is easy to read past, so the withheld sections are named HERE, in the
+    # not-negotiable block, as a fact about THIS read rather than a general instruction.
+    wh = re.findall(r"^\s*([IVX]+\s*·\s*[A-Z][A-Z ]*?)\s*—\s*\[withheld", read_txt, re.M)
+    if wh:
+        note = ((note + "\n\n") if note else "") + (
+            "S5 SECTIONS WITHHELD ON THIS READ: " + ", ".join(s.strip() for s in wh) + ".\n"
+            "  You were not shown them. In §6 name them as withheld and move on — do not\n"
+            "  characterise this name's geometry, levels or structural read, not even to\n"
+            "  call them clean, quiet or neutral. Write §6 from the sections that ARE\n"
+            "  present (participation, Wyckoff / sweep / range-edge, diagnostics).")
     pre = ("PRE-READ (computed by the script, not negotiable)\n%s\n\n" % note) if note else ""
     return (pre + "POSITION CONTEXT\n%s\n\n%s\n\nDeliberate now. S4's VERDICT and SUMMARY rows above are "
             "one mechanical opinion; weigh them last." % (pos_txt, read_txt))
