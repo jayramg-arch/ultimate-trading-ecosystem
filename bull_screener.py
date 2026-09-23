@@ -807,18 +807,33 @@ def _rrg_score(rs_ratio_centered: float, quadrant: str = "") -> int:
 #     WEAKENING (stable):    -0.23% (n=154)  ← drifting
 # The 5-bar smoothing destroyed the "deeper LEADING cushion = safer" gradient.
 # Now: LEADING heading to WEAKENING is FALSE regardless of cushion depth.
+# NARROWED TO TWO CELLS, 23-Sep-2026 (AUD-PAR-06). The five-cell list above was fitted in
+# May on the OLD 12/5/12 RRG pair. On 18-Aug every surface moved to the RRG Studio
+# calibration, so those cells were being produced by a different function than the one
+# whose alpha justified them, and the whitelist was re-measured: 473 symbols, 93,745 weekly
+# observations, matched-horizon alpha, chronological IS/OOS, bootstrapped BY SYMBOL.
+#
+#   LEADING  -> LEADING    positive at 4w AND 12w, in BOTH windows   KEPT
+#   WEAKENING-> LEADING    positive at 4w AND 12w, in BOTH windows   KEPT
+#   IMPROVING-> LEADING    reliably NEGATIVE (-0.33 / -0.87, CI excludes 0)   DROPPED
+#   LEADING  -> IMPROVING  does not survive the split                DROPPED
+#   LAGGING  -> IMPROVING  does not survive the split                DROPPED
+#
+# That re-measurement is why the gate was switched off in both surfaces; the DEFINITION
+# was never narrowed to match, so S4's confluence point went on awarding +1 on all five —
+# including the cell measured negative — while its own tooltip described these two. The
+# n=5,020 table above is kept as history: it is a raw cell-level tally with no IS/OOS
+# split and no symbol-level bootstrap, which is exactly how five cells looked positive.
 def _rrg_tradeable(current: str, nxt: str, rs_ratio_centered: float) -> bool:
-    """Boolean entry-timing gate based on cell-level backtest alpha.
-    Positive-alpha cells return True; negative or near-zero return False."""
-    # Trajectory-based — most reliable signal
+    """Boolean entry-timing gate — the two cells that survived re-measurement.
+
+    Kept byte-equivalent in S4Core.rrgInfo and v67's f_rrg_info; tests/test_rrg_whitelist_parity
+    fails if any of the three drifts.
+    """
     if current == "LEADING":
-        return nxt in ("LEADING", "IMPROVING")    # stable or fading slowly = OK
-    if current == "IMPROVING":
-        return nxt == "LEADING"                   # only the breakout cell is +alpha
-    if current == "LAGGING":
-        return nxt == "IMPROVING"                 # only the turn-up cell is +alpha
+        return nxt == "LEADING"                   # the stable leader
     if current == "WEAKENING":
-        return nxt == "LEADING"                   # only recovery cell is +alpha
+        return nxt == "LEADING"                   # recovery back into leadership
     return False
 
 def _rrg_trajectory(rs_ratio_series, rs_mom_series, current, trail_len):

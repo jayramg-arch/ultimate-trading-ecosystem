@@ -1507,8 +1507,9 @@ dashRsMomTr    = input.source(close, "v67: RS mom trail (N500)", group=grpDash, 
 // defined long before the old call site. Same call, same arguments, one place.
 //
 // R passes ONLY on v67's "BUY OK" — core.rrgInfo's `tr`, which is byte-identical
-// to f_rrg_info in v67.4.21: a cell-level whitelist of (current -> next) pairs,
-// LEADING->LEADING/IMPROVING, IMPROVING->LEADING, LAGGING->IMPROVING,
+// to f_rrg_info in v67 and to bull_screener._rrg_tradeable: a cell-level whitelist
+// of (current -> next) pairs. NARROWED 23-Sep-2026 (AUD-PAR-06) from five cells to
+// the TWO that survived the 18-Aug re-measurement — LEADING->LEADING and
 // WEAKENING->LEADING. It is an ENTRY-TIMING test, strictly narrower than "is the
 // quadrant green" - a stable LEADING name rolling over fails it.
 //
@@ -1517,7 +1518,9 @@ dashRsMomTr    = input.source(close, "v67: RS mom trail (N500)", group=grpDash, 
 // v9.17 - an unbound source and a genuinely absent signal are different states.
 bool _gOkTrail = dashRsValTr != close and dashRsMomTr != close
 [_rrgArw, _rrgTrj, _rrgCur, _rrgSc, _rrgTr] = core.rrgInfo(dashRsRatio, dashRsMom, _gOkTrail ? dashRsValTr : dashRsRatio, _gOkTrail ? dashRsMomTr : dashRsMom)
-en_rrg_gate = input.bool(false, "Gate 5: require RRG 'BUY OK' (R) - OFF, see tooltip", group=grpDash, tooltip="RE-MEASURED 18-Aug-2026 and turned OFF. The BUY OK whitelist was fitted in May on the OLD 12/5/12 RRG pair; every surface moved to the RRG Studio calibration that day, so the cells were being produced by a different function than the one whose alpha justified them.\n\nRe-measured on 473 symbols / 93,745 weekly observations, matched-horizon alpha, chronological IS-OOS, bootstrapped by SYMBOL: the 5-cell whitelist is worth +0.12pp at 4 weeks and +0.00pp at 12 - it blocks half the universe for nothing. IMPROVING->LEADING is reliably NEGATIVE (-0.33 / -0.87, CI excludes 0) and cancels what LEADING->LEADING earns.\n\nOnly LEADING->LEADING and WEAKENING->LEADING are positive at both horizons in both windows. Jay's call: no mechanical veto - he eyeballs those two cases. R still PRINTS on the TRIGGER chip and in the RRG row; turning this ON restores the veto.")
+en_rrg_gate = input.bool(false, "Gate 5: require RRG 'BUY OK' (R) - OFF, see tooltip", group=grpDash, tooltip="RE-MEASURED 18-Aug-2026 and turned OFF. The BUY OK whitelist was fitted in May on the OLD 12/5/12 RRG pair; every surface moved to the RRG Studio calibration that day, so the cells were being produced by a different function than the one whose alpha justified them.\n\nRe-measured on 473 symbols / 93,745 weekly observations, matched-horizon alpha, chronological IS-OOS, bootstrapped by SYMBOL: the 5-cell whitelist is worth +0.12pp at 4 weeks and +0.00pp at 12 - it blocks half the universe for nothing. IMPROVING->LEADING is reliably NEGATIVE (-0.33 / -0.87, CI excludes 0) and cancels what LEADING->LEADING earns.\n\nOnly LEADING->LEADING and WEAKENING->LEADING are positive at both horizons in both windows. Jay's call: no mechanical veto - he eyeballs those two cases. R still PRINTS on the TRIGGER chip and in the RRG row; turning this ON restores the veto.
+
+23-Sep-2026 (AUD-PAR-06): the DEFINITION is now those two cells everywhere, so this gate - and the cf_w_rrg confluence point, which had gone on awarding +1 on all five including the negative one - agree with the measurement rather than with the superseded May fit.")
 bool rrg_ok = not en_rrg_gate or not _gOkTrail or _rrgTr
 // --- v67 PORTFOLIO SLOT (12-Aug-2026) ---------------------------------------
 // MY TRADE and POSITION STATUS, so the dashboard TABLE can stay shut. The slots,

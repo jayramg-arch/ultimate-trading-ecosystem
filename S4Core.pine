@@ -1068,7 +1068,16 @@ export rrgInfo(float v, float m, float vt, float mt) =>
     string arw = dv > 0.3 ? (dm > 0.3 ? "↗️" : dm < -0.3 ? "↘️" : "➡️") : dv < -0.3 ? (dm > 0.3 ? "↖️" : "↙️") : (dm > 0.3 ? "⬆️" : dm < -0.3 ? "⬇️" : "➡️")
     string trj = nxt == cur ? cur + " (stable)" : cur + " → " + nxt
     int sc = cur == "LEADING" ? 2 : 0
-    bool tr = (cur == "LEADING" and (nxt == "LEADING" or nxt == "IMPROVING")) or (cur == "IMPROVING" and nxt == "LEADING") or (cur == "LAGGING" and nxt == "IMPROVING") or (cur == "WEAKENING" and nxt == "LEADING")
+    // TWO CELLS, not five (23-Sep-2026, AUD-PAR-06). The old list — LEADING->LEADING/
+    // IMPROVING, IMPROVING->LEADING, LAGGING->IMPROVING, WEAKENING->LEADING — was fitted
+    // in May on the OLD 12/5/12 RRG pair. Re-measured 18-Aug on the RRG Studio calibration
+    // (473 symbols, 93,745 weekly observations, IS/OOS, bootstrapped by SYMBOL), only
+    // LEADING->LEADING and WEAKENING->LEADING are positive at both horizons in both
+    // windows; IMPROVING->LEADING is reliably NEGATIVE (-0.33 / -0.87, CI excludes 0).
+    // Both gates were switched off on that evidence but the DEFINITION was never narrowed,
+    // so S4's cf_w_rrg went on awarding +1 on all five while its tooltip described these
+    // two. Byte-equivalent to bull_screener._rrg_tradeable and v67's f_rrg_info.
+    bool tr = (cur == "LEADING" and nxt == "LEADING") or (cur == "WEAKENING" and nxt == "LEADING")
     [arw, trj, cur, sc, tr]
 
 // STRIKE RRG — Jay's MANUAL Strike.Money weekly read, pasted from the Golden

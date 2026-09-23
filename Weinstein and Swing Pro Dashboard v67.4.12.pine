@@ -4995,10 +4995,15 @@ f_rrg_info(float v, float m, float vt, float mt) =>
     // Score: only LEADING earns bonus (+2). Other quadrants flat in new data.
     // Tradeable: cell-level — positive-alpha cells only.
     int sc = cur == "LEADING" ? 2 : 0
-    bool tr = (cur == "LEADING"   and (nxt == "LEADING"   or nxt == "IMPROVING")) or
-              (cur == "IMPROVING" and  nxt == "LEADING")  or
-              (cur == "LAGGING"   and  nxt == "IMPROVING") or
-              (cur == "WEAKENING" and  nxt == "LEADING")
+    // NARROWED 23-Sep-2026 (AUD-PAR-06) to the two cells that survived the 18-Aug
+    // re-measurement on the RRG Studio calibration (473 symbols, 93,745 weekly obs,
+    // IS/OOS, bootstrapped by SYMBOL). IMPROVING->LEADING is reliably NEGATIVE there;
+    // LEADING->IMPROVING and LAGGING->IMPROVING do not survive the split. Here this is
+    // display only (the BUY OK / WAIT text and its colour), but it must match
+    // S4Core.rrgInfo and bull_screener._rrg_tradeable or the two panels disagree on the
+    // same bar — which is how this drifted unnoticed for five weeks.
+    bool tr = (cur == "LEADING"   and nxt == "LEADING") or
+              (cur == "WEAKENING" and nxt == "LEADING")
     [arrow, traj, cur, nxt, sc, tr]
 
 // --- Market regime short code ---

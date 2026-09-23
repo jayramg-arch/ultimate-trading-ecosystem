@@ -424,3 +424,44 @@ class `tests/conftest.py` exists to prevent. The rebuild is monkeypatched out an
 file's mtime is asserted unchanged.
 
 **STANDING: restart the receiver again** — both files changed after the 17:00 restart.
+
+### AUD-PAR-06 — FIXED (23 Sep)
+
+The RRG "BUY OK" whitelist is now **two cells everywhere**: `LEADING → LEADING` and
+`WEAKENING → LEADING`, the pair that survived the 18-Aug re-measurement (473 symbols,
+93,745 weekly observations, matched-horizon alpha, chronological IS/OOS, bootstrapped by
+SYMBOL). `IMPROVING → LEADING` — measured reliably NEGATIVE at −0.33 / −0.87 with the CI
+excluding zero — is gone, along with `LEADING → IMPROVING` and `LAGGING → IMPROVING`,
+which do not survive the split.
+
+**What the bug actually was.** Both GATES were switched off on that 18-Aug evidence and
+the DEFINITION was never narrowed with them. So `cf_w_rrg` went on awarding its +1
+confluence point on all five cells — including the negative one — while its own tooltip
+told the reader the point was for the measured two. Doc and code disagreed for five weeks,
+and the doc was the one that matched the measurement.
+
+**THREE copies, not one.** The predicate lives in `bull_screener._rrg_tradeable` (Python,
+canonical → `RRG_Tradeable`, and the board's Gate 5), `S4Core.rrgInfo` (→ S4's Q chip, the
+confluence point, `en_rrg_gate`) and v67's `f_rrg_info` (display only). Nothing mechanical
+kept them equal, which is why the drift survived a re-measurement that was explicitly
+about these cells.
+
+**Blast radius, measured on the 515-trade validation set:** tradeable 220 → 156, so **64
+names (12.4%) lose the chip and the point**. Every one is a dropped cell —
+`LAGGING → IMPROVING` 49, `IMPROVING → LEADING` 15. Both gates remain OFF
+(`RRG_GATE=False`, `en_rrg_gate=false`), so nothing is vetoed; what changes is the
+confluence total and the BUY OK / Q display.
+
+**NEW `tests/test_rrg_whitelist_parity.py`** is the mechanism that was missing. It pins the
+Python predicate cell by cell, and reads the two Pine files' SOURCE for their `bool tr`
+assignment — stripping comments first, since all three now describe the dropped cells in
+prose directly above the code and a naive scan would match the history and always pass.
+Mutation-checked: fed the five-cell form it reports drift. Suite 228.
+
+**Pending on Jay, in this order** — the Pine half is not live until all of it is done:
+1. Publish `S4Core.pine` → report the new version number.
+2. I bump S4's `import jayramg/S4Core/55` to that number (never before it exists).
+3. Recompile S4 and v67, run `BIND_S4_SOURCES.bat`, recreate both GO alerts.
+
+`AUD-PINE-07` (the dead-band trajectory call, display-only) is still open and sits in the
+same function — worth carrying on the same compile rather than paying a second cycle.

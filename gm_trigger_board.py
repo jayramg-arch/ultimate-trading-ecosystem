@@ -1096,8 +1096,9 @@ def _role_mismatch(ctx: dict, path: str = "bull") -> bool:
 
 # GATE 5 (R) — RRG "BUY OK" (Jay, 18-Aug-2026). The stock's OWN RRG vs N500 must be
 # tradeable, using bull_screener._rrg_tradeable, which is the same cell-level whitelist
-# as v67's f_rrg_info and S4Core.rrgInfo: LEADING->LEADING/IMPROVING, IMPROVING->LEADING,
-# LAGGING->IMPROVING, WEAKENING->LEADING. Strictly narrower than "the quadrant is green".
+# as v67's f_rrg_info and S4Core.rrgInfo. NARROWED 23-Sep-2026 (AUD-PAR-06) from five cells
+# to the two that survived the 18-Aug re-measurement: LEADING->LEADING and
+# WEAKENING->LEADING. Strictly narrower than "the quadrant is green".
 #
 # Modelled as an UPSTREAM VETO, exactly like the Stage gate below it, rather than as a
 # 5th slot in the n/4 count. Two reasons: RRG is WEEKLY context, not a trigger mechanic
