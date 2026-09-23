@@ -181,3 +181,10 @@ Bull_Screener_Funnel.log
 # called from s4_alert_review._run) - ~6 MB rewritten 30x on a busy day. The
 # hand-written Library pages beside it stay tracked; only this generated one does not.
 docs/portal/31_reviewer_log_v2.html
+
+# The live journal. `*.db` above already matched it; it stayed TRACKED until now
+# because untracking changes the backup posture - git stops being a safety net.
+# Jay's call, 23-Sep: untrack it. The safety net is the dated backups beside it
+# (72 of them, daily since 2 Jun) plus the 16:30 journal_sync against Dhan, which
+# is authoritative anyway. Positions and P&L do not belong in a pushed repo.
+trade_journal_v6.db
