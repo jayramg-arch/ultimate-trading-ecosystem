@@ -97,6 +97,40 @@ of this. No pass bar moves. This is the same class of amendment as P3's Amendmen
 fixed an empty control group found by a placebo pass — a defect in the test's construction,
 caught before it consumed the single run.
 
+## Amendment 2 — H3's direction was transcribed backwards
+
+**Made 23 September 2026, before the analysis was run.** Found while writing the analysis
+code, by checking H3 against the P3 hypothesis it claims to mirror.
+
+H3 below reads "a stop **below** VAL — i.e. the defended floor sits inside the trade —
+stops out more". That is inverted. P3's H3, which this says it mirrors exactly, is "a stop
+**above** the put wall stops out more often", and the logic is plain: if the defended level
+sits *above* your stop it absorbs the decline before your stop is reached, so a stop
+*below* the floor should stop out **less**. The live `level_check()` already prints it that
+way ("stop below the shelf — the defended shelf is inside the trade ✓").
+
+So H3 is tested in the P3 direction: **a stop ABOVE the floor stops out MORE often**, floor
+being the nearest HVN below entry per Amendment 1. The pass bar (≥ 8 pp, n ≥ 40 per cell)
+is unchanged. Recording this rather than quietly testing the sensible direction, because a
+pre-registration that gets silently corrected to whatever the analyst meant is not a
+pre-registration.
+
+## Amendment 3 — H2 is NOT RUN, and why
+
+**Made 23 September 2026, before the analysis was run.**
+
+H2 asks whether capping T1 at the ceiling improves realised R, and specifies "replay each
+trade". The shipped exit ladder books 25% at T1, 25% at T2 and trails the rest, and moving
+T1 changes *when* the breakeven move and the trail engage — so a faithful answer needs a
+bar-level re-simulation of all 515 trades, not an arithmetic adjustment to the recorded
+outcome. The details file does not carry enough to reconstruct that ladder.
+
+H2 is therefore reported **NOT RUN**, on the same principle the data section already
+applies to H5 ("reported as NOT RUN rather than run on a short sample"). It is excluded
+from the Holm family, which then covers H1, H3, H4 and H5. A supplementary, clearly
+non-inferential observation about how often a cap would have bound is reported alongside —
+labelled as an observation, carrying no pass or fail.
+
 ## Hypotheses
 
 **H0 — construct validity (gate for everything else).**
@@ -167,11 +201,75 @@ display-only — which is all it will be at birth anyway.
 
 ## Result
 
-*(Left empty deliberately. To be filled in ONCE, by the run, against the bars above.)*
+**Run once, 23 September 2026.** `cash_levels_test.py`, full log at
+`validation_runs/_cash_levels_RESULT.log`. Plumbing was debugged first on a placebo pass
+(levels shuffled across trades), which correctly failed everything including H0.
 
-- H0 —
-- H1 —
-- H2 —
-- H3 —
-- H4 —
-- H5 —
+Population: 515 trades, of which **190 cash-only** and 325 F&O. Families: SWG-PB 321,
+POS-BO 147, POS-ACCUM 44. IS/OOS split at 2025-07-15.
+
+### Nothing passed.
+
+| | Verdict | Number |
+|---|---|---|
+| **H0** validity gate | **FAIL** | ceiling vs call wall median **3.52 ATR** (n=195); POC vs max pain **3.97 ATR**. Bar was ≤ 1.0 ATR. |
+| **H1** T1 beyond the ceiling | **THIN — cannot pass** | 169 beyond vs **21** below. Needed n ≥ 40 per cell. |
+| **H2** capping T1 | **NOT RUN** (Amendment 3) | — |
+| **H3** stop above the floor | **FAIL** | −17.6 pp, i.e. **opposite** to the prediction. p 0.977. |
+| **H4** POC drags the target | **FAIL** | pooled **+9.9 pp**, also opposite. Both conditioning cells thin. p 0.933. |
+| **H5** rising delivery | **FAIL** | **+0.014R** against a +0.15R bar. IS −0.013R, OOS +0.034R. p 0.461. |
+
+### What the numbers actually say
+
+**H0 is more interesting than a bare FAIL.** The substitutes beat the shuffled control
+enormously — 3.52 ATR against 48.87, and 3.97 against 50.29 — so they are emphatically
+*not* noise; they carry real information about where the options levels sit. They simply
+are not in the same *place*. On a book whose stops are 1.5–4 × ATR, a level 3.5 ATR away
+is a different level, not a proxy for the same one. **Related, not interchangeable**, and
+the pre-registration asked for interchangeable.
+
+**H1 could not be tested, and why is itself a finding.** Only 21 of 190 cash trades put T1
+*below* the nearest volume shelf: the R-canon targets (swing 2R/4R, positional 3R/5R)
+systematically reach past the first shelf above entry. There is no control group because
+the system almost never does the other thing.
+
+**H3 came back backwards, like P3's H1.** Trades whose stop sat ABOVE the defended shelf
+stopped out on the initial stop **less** often (43.5% vs 61.1%), not more. The mechanism
+was plausible and the data contradicts it. The likely mundane explanation is selection: a
+stop above the nearest shelf is a *tight* stop, and tight stops here belong to swing
+setups with different base rates — the test does not separate that, so the reverse is
+**not** established either. What it does establish is that the live warning built on this
+was pointing the wrong way; it has been demoted to a neutral line.
+
+**H4's mechanism test never got off the ground** — the near cell held 24 and the far cell
+4. A 120-day POC sits *below* entry on a breakout almost by construction, so "POC between
+entry and T1" is rare. The pooled number runs opposite to the prediction anyway.
+
+**H5 is a clean null.** Delivery % — the one genuinely new input, the closest thing a cash
+market has to open interest — separates nothing: +0.014R across 178 trades, and the sign
+flips between IS and OOS.
+
+### The supplementary observation from H2 (not a test, no verdict)
+
+A cap would have bound on **169 of 190** cash trades. Price reached the capped level in
+**143 (85%)**, and the shipped plan's own T1 in **29 (17%)**. The shelf is reached five
+times more often than the canon target.
+
+That is suggestive and must not be over-read. This book is big-winner-carried — the
+documented profile is a negative median with the mean rescued by a few large trades — so
+booking at the first shelf would convert many small losses into small wins *and* cap the
+few trades that pay for everything. Which effect dominates is precisely what H2 was
+written to settle, and H2 did not run. **Do not act on this line.** It is the strongest
+remaining candidate for a future, separately pre-registered replay.
+
+### Consequences
+
+1. The cash LEVEL CHECK **stays display-only**, which is all it ever was.
+2. The H3-derived **warning is removed** — not because the reverse is proven, but because
+   a ⚠ that the measurement contradicts is worse than no ⚠ at all.
+3. Nothing gates, nothing sizes, no number changes.
+4. Combined with P3: **nine pre-registered hypotheses across two families, zero
+   survivors.** The correct conclusion is not that this estate cannot find edges — the
+   selection edge measured in the validation runs is real — but that *plausible level
+   rules do not survive contact with data*, at a rate now approaching certainty. Cheap to
+   propose, cheap to test, and the testing is what stops them accumulating.

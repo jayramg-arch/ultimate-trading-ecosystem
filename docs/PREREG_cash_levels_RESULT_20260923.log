@@ -1,0 +1,60 @@
+trades 515 · cash-only 190 · F&O 325
+families: {'SWG-PB': 321, 'POS-BO': 147, 'POS-ACCUM': 44, 'SWG-BO': 2, 'SWG-GAP': 1}
+IS/OOS split at 2025-07-15 — IS 301, OOS 214
+
+==============================================================================
+H0  construct validity — do the cash levels locate the options levels?
+==============================================================================
+  ceiling vs call wall : median 3.52 ATR (n=195) · shuffled 48.87
+  POC     vs max pain  : median 3.97 ATR (n=195) · shuffled 50.29
+  VERDICT: FAIL — they do not locate the same prices
+
+==============================================================================
+H1  a T1 beyond the ceiling is reached LESS often   (bar: >=10pp, n>=40)
+==============================================================================
+  ALL        THIN (beyond n=169 / below n=21)
+  POS-ACCUM  THIN (beyond n=11 / below n=0)
+  POS-BO     THIN (beyond n=47 / below n=0)
+  SWG-BO     THIN (beyond n=1 / below n=0)
+  SWG-GAP    THIN (beyond n=1 / below n=0)
+  SWG-PB     THIN (beyond n=109 / below n=21)
+
+==============================================================================
+H2  NOT RUN (Amendment 3) — needs a bar-level replay of the partial ladder
+==============================================================================
+  observation only, no pass/fail: a cap would have bound on 169 of 190 cash trades
+  of those, price reached the capped level in 143 (85%), and the shipped
+  plan's own T1 in 29 (17%)
+
+==============================================================================
+H3  a stop ABOVE the floor stops out MORE (Amendment 2)   (bar: >=8pp, n>=40)
+==============================================================================
+  stop above floor 43.5% (n=46) vs below 61.1% (n=144)  ->  -17.6pp
+       bootstrap p(one-sided) = 0.977
+
+==============================================================================
+H4  POC between entry and T1 drags the target, and the pull WEAKENS with distance
+==============================================================================
+  near (<=1 ATR)   THIN (between n=24 / not n=16)
+  far (>2 ATR)     THIN (between n=4 / not n=120)
+  pooled           between 25.6% vs not 15.6%  ->  +9.9pp
+       bootstrap p(one-sided) = 0.933
+
+==============================================================================
+H5  entries on RISING delivery outperform   (bar: >=+0.15R, IS and OOS)
+==============================================================================
+  IS   rising -0.384R (n=40) vs falling -0.372R (n=52)  ->  -0.013R
+  OOS  rising -0.323R (n=46) vs falling -0.357R (n=40)  ->  +0.034R
+  ALL  rising -0.352R (n=86) vs falling -0.365R (n=92)  ->  +0.014R
+       bootstrap p(one-sided) = 0.461
+
+==============================================================================
+VERDICTS — effect-size bar AND Holm-Bonferroni at family-wise alpha 0.10
+==============================================================================
+  H1  NOT RUN / THIN
+  H2  NOT RUN (Amendment 3)
+  H3  size bar missed · p 0.977 vs Holm threshold 0.100 · FAIL
+  H4  size bar missed · p 0.933 vs Holm threshold 0.050 · FAIL
+  H5  size bar missed · p 0.461 vs Holm threshold 0.033 · FAIL
+
+H0 (validity gate): FAIL

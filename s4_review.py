@@ -910,8 +910,16 @@ def _cash_level_lines(read_txt, entry, stop, t1, t2, risk):
             lines.append("  stop %.2f is below the %s %.2f — the defended shelf is inside the "
                          "trade ✓" % (stop, floor_nm, floor))
         else:
-            flags.append("stop %.2f sits ABOVE the %s %.2f — you are stopped out before the "
-                         "shelf that would actually defend" % (stop, floor_nm, floor))
+            # DEMOTED FROM A ⚠ FLAG TO A NEUTRAL LINE (23-Sep, after the run). H3 predicted
+            # that a stop above the defended shelf would stop out MORE often. Measured on
+            # 190 cash trades it came back BACKWARDS: 43.5% initial-stop hits with the stop
+            # above the shelf against 61.1% below it. The reverse is NOT established either
+            # — a stop above the nearest shelf is a tight stop, and tight stops here belong
+            # to swing setups with their own base rates, which this test does not separate.
+            # So the fact is printed and the warning is gone: a ⚠ the measurement
+            # contradicts is worse than no ⚠ at all.
+            lines.append("  stop %.2f sits above the %s %.2f — the shelf is below your stop, "
+                         "not inside the trade" % (stop, floor_nm, floor))
 
     # ── POC as the magnet (the max-pain question) ─────────────────────────────────────
     if entry and t1 and poc and entry < poc < t1:
