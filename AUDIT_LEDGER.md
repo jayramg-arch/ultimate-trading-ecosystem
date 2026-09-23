@@ -465,3 +465,41 @@ Mutation-checked: fed the five-cell form it reports drift. Suite 228.
 
 `AUD-PINE-07` (the dead-band trajectory call, display-only) is still open and sits in the
 same function — worth carrying on the same compile rather than paying a second cycle.
+
+### AUD-PINE-07 — FIXED (23 Sep), and the original diagnosis was wrong
+
+Carried on the same compile as AUD-PAR-06. Re-deriving it before writing the fix showed
+the entry above had it backwards, so the correction is recorded rather than quietly
+shipped.
+
+**What the ledger said on 23-Sep morning:** that a quadrant CHANGE was being called off a
+momentum delta inside the ±0.3 dead band, and that the fix was to require the
+counter-clockwise secondary branch to carry a real y-component.
+
+**That fix would have broken correct behaviour.** `LEADING → IMPROVING` is a crossing of
+the line `v = 0` moving LEFT. It needs `dv` and needs no `dm` at all — demanding a y
+component would have suppressed a legitimate transition. Checked all four branches: each
+primary and each secondary requires the delta on the axis actually being crossed. The
+trajectory logic is right, in all three surfaces, and always was.
+
+**The real defect was the ARROW, and it was a parity drift.** S4Core's expression had no
+branch for `dv < -0.3` with flat momentum, so a purely LEFT move fell through to `↙️` and
+printed down-left beside an up-left label. It also printed `➡️` for a stationary point.
+**v67's `f_rrg_info` and `bull_screener._rrg_trajectory` both already had `⬅️`/`←` and
+`•`** — S4Core alone lagged. So the row Jay read as self-contradictory was exactly that:
+a correct label next to a stale arrow.
+
+Fixed by bringing S4Core into line; no threshold moved, no trajectory changed, and the
+`tr` whitelist is untouched by this (AUD-PAR-06 handled that separately). Display-only, so
+nothing scores differently.
+
+`tests/test_rrg_whitelist_parity.py` extended to pin the arrow as well as the cells:
+S4Core's glyph set must equal v67's, must contain a left-with-flat-momentum case, and must
+print `•` rather than a direction when the point is not moving. Mutation-checked — fed the
+old two-case form it reports 7 glyphs instead of 9 and fails. Suite 230.
+
+**A latent inconsistency defused in passing:** `_rrg_trajectory` computes
+`rs_ratio_centered = v_now - 100.0` on a value its own docstring calls "already centered",
+and passes it to `_rrg_tradeable`. After AUD-PAR-06 that parameter is unused, so it can no
+longer affect anything; a test pins that no value of it resurrects a dropped cell.
+

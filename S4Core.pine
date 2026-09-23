@@ -1065,7 +1065,17 @@ export rrgInfo(float v, float m, float vt, float mt) =>
         nxt := dm > 0.3 ? "IMPROVING" : (dv > 0.3 and dm > -0.3 ? "WEAKENING" : cur)
     else
         nxt := dv > 0.3 ? "LEADING" : (dm < -0.3 and dv < 0.3 ? "LAGGING" : cur)
-    string arw = dv > 0.3 ? (dm > 0.3 ? "↗️" : dm < -0.3 ? "↘️" : "➡️") : dv < -0.3 ? (dm > 0.3 ? "↖️" : "↙️") : (dm > 0.3 ? "⬆️" : dm < -0.3 ? "⬇️" : "➡️")
+    // AUD-PINE-07, fixed 23-Sep-2026 — and it was a PARITY DRIFT, not a design fault.
+    // This copy was missing two of v67's cases:
+    //   dv < -0.3 with FLAT momentum had no branch, so it fell through to "↙️" and
+    //   printed down-left for a move that is purely LEFT. That is what made the row read
+    //   "LEADING ↙️ … LEADING → IMPROVING" — a down-left arrow beside an up-left label.
+    //   The LABEL was right: LEADING -> IMPROVING is a crossing of v = 0 moving left, so
+    //   it needs dv and no dm at all. The arrow was the thing that was wrong.
+    //   A stationary point printed "➡️" (rightward) instead of "•".
+    // v67's f_rrg_info and bull_screener._rrg_trajectory both already had "⬅️"/"←" and
+    // "•"; only this copy lagged. Now byte-equivalent to both.
+    string arw = dv > 0.3 ? (dm > 0.3 ? "↗️" : dm < -0.3 ? "↘️" : "➡️") : dv < -0.3 ? (dm > 0.3 ? "↖️" : dm < -0.3 ? "↙️" : "⬅️") : (dm > 0.3 ? "⬆️" : dm < -0.3 ? "⬇️" : "•")
     string trj = nxt == cur ? cur + " (stable)" : cur + " → " + nxt
     int sc = cur == "LEADING" ? 2 : 0
     // TWO CELLS, not five (23-Sep-2026, AUD-PAR-06). The old list — LEADING->LEADING/

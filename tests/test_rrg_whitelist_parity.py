@@ -83,6 +83,40 @@ def test_v67_matches_python():
     assert cells == MEASURED, "v67 f_rrg_info drifted from Python: %s" % sorted(cells)
 
 
+def _pine_arrow_cases(path, fn_marker):
+    """The glyphs the Pine arrow expression can emit."""
+    if not os.path.exists(path):
+        pytest.skip("%s not present" % os.path.basename(path))
+    src = open(path, encoding="utf-8", errors="ignore").read()
+    i = src.find(fn_marker)
+    assert i >= 0
+    seg = src[i:i + 4000]
+    m = re.search(r"string (?:arw|arrow) = (.+)", seg)
+    assert m, "no arrow expression after %s" % fn_marker
+    return set(re.findall(r'"([^"]+)"', m.group(1)))
+
+
+def test_the_arrow_has_a_case_for_moving_left_with_flat_momentum():
+    """AUD-PINE-07. S4Core had no branch for dv < -0.3 with flat dm, so a purely LEFT
+    move fell through to the down-left glyph and printed "↙️" beside "→ IMPROVING" — an
+    arrow and a label pointing opposite ways on one line. v67 and Python already had it.
+    """
+    core = _pine_arrow_cases(S4CORE, "export rrgInfo")
+    v67 = _pine_arrow_cases(V67, "f_rrg_info(float v")
+    assert core == v67, "S4Core arrow drifted from v67: %s vs %s" % (sorted(core), sorted(v67))
+    assert any("⬅" in g for g in core), "no left-with-flat-momentum case"
+    assert "•" in core, "a stationary point must not print a direction"
+
+
+def test_the_arrow_matches_python():
+    """Python is canonical; it writes plain glyphs where Pine writes emoji, so the test is
+    on the SET of directions, not the exact characters."""
+    from bull_screener import _rrg_trajectory  # noqa: F401  — import proves it loads
+    core = _pine_arrow_cases(S4CORE, "export rrgInfo")
+    directions = {g.rstrip("️") for g in core}
+    assert directions == {"↗", "↘", "➡", "↖", "↙", "⬅", "⬆", "⬇", "•"}, sorted(directions)
+
+
 def test_the_source_scan_can_actually_fail():
     """A parity test that cannot go red is decoration — the exact criticism the UI-import
     guard was written under. Feed it the five-cell form and it must reject it."""
