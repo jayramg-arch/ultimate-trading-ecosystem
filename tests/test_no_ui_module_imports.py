@@ -159,20 +159,35 @@ def test_the_guard_actually_detects_the_known_offender():
     Rebuilds the exact line that caused it and asserts the checker flags it — so if the
     detection is ever weakened, THIS fails rather than the guard quietly passing an
     empty scan.
+
+    23-Sep-2026: the offender is now SYNTHETIC. dhan_journal_v7 was split
+    (journal_core = data, journal_page = render()), so it no longer paints on import and
+    can no longer serve as the canary. The bug SHAPE has not gone anywhere though — any
+    module that paints at import time reintroduces it — so the probe now writes its own
+    offender and asserts the detector still finds it.
     """
+    offender = os.path.join(ROOT, "_guard_probe_ui_tmp.py")
+    open(offender, "w", encoding="utf-8").write(chr(10).join([
+        "import streamlit as st",
+        "st.set_page_config(page_title='probe')",
+        "st.title('I paint at module level')",
+    ]))
     src = chr(10).join([
         "import streamlit as st",
         "page = 'RISK SHIELD'",
         "if page == 'RISK SHIELD':",
-        "    import dhan_journal_v7 as _dj_d",
+        "    import _guard_probe_ui_tmp as _dj_d",
         "    _dbf = _dj_d.DB_FILE",
     ])
     tmp = os.path.join(ROOT, "_guard_probe_tmp.py")
     open(tmp, "w", encoding="utf-8").write(src)
     try:
+        assert _module_paints_on_import("_guard_probe_ui_tmp"), \
+            "the probe's own offender is not detected as UI-heavy"
         assert _offending_imports(tmp), "the guard no longer detects the original bug"
     finally:
         os.remove(tmp)
+        os.remove(offender)
 
 
 def test_a_click_gated_import_is_allowed():
@@ -191,10 +206,26 @@ def test_a_click_gated_import_is_allowed():
         os.remove(tmp)
 
 
-def test_the_journal_module_is_still_ui_heavy():
-    """The premise. If dhan_journal_v7 is ever split so it no longer paints on import,
-    this test tells you the guard has become a no-op instead of leaving it to be
-    discovered by a page rendering the wrong thing."""
-    if not os.path.exists(os.path.join(ROOT, "dhan_journal_v7.py")):
-        pytest.skip("dhan_journal_v7.py not present")
-    assert _module_paints_on_import("dhan_journal_v7")
+def test_the_journal_module_no_longer_paints_on_import():
+    """The premise, INVERTED on 23-Sep-2026 — and it inverted exactly the way the old
+    version of this test said it would.
+
+    It used to assert dhan_journal_v7 was UI-heavy, with the note: "If dhan_journal_v7 is
+    ever split so it no longer paints on import, this test tells you the guard has become
+    a no-op." That is what happened. Jay asked for the journal to be an active part of Web
+    Commander, so it was split at the seam it already had:
+
+        journal_core.py   the data layer, verbatim — safe to import anywhere
+        journal_page.py   the dashboard, inside render() — draws only when called
+
+    Both halves are now asserted UI-free ON IMPORT. That is the whole point of the split:
+    the old module is what rendered the Active Trade Journal underneath Risk Shield's
+    header, and what made the Golden Matcher's "Log OPEN trade" button run a live Dhan
+    portfolio sync. If either regresses to painting at module level, that bug is back and
+    this fails.
+    """
+    for mod in ("dhan_journal_v7", "journal_core", "journal_page"):
+        if not os.path.exists(os.path.join(ROOT, mod + ".py")):
+            pytest.skip("%s.py not present" % mod)
+        assert not _module_paints_on_import(mod), \
+            "%s paints at module level again — importing it will render into the caller's page" % mod

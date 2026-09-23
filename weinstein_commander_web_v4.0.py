@@ -199,7 +199,10 @@ def journal_db_path():
     Read by AST so a rename in the module is still picked up, with no execution.
     """
     import ast as _ast
-    _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "dhan_journal_v7.py")
+    # 23-Sep: DB_FILE moved to journal_core.py in the split. This helper could now just
+    # `import journal_core` — that module is UI-free and safe — but reading it without
+    # executing anything is still the cheaper, stricter thing to do, so only the path moved.
+    _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "journal_core.py")
     try:
         for _n in _ast.parse(open(_p, encoding="utf-8").read()).body:
             if isinstance(_n, _ast.Assign) and any(
@@ -1619,8 +1622,13 @@ with st.sidebar:
         st.rerun()
 
     # ── v4.0 Grouped Navigation ─────────────────────────────────────────────
-    EXTERNAL_PAGES = {'JOURNAL': 'dhan_journal_v7.py'}
-    # X-RAY, TV SIDECAR and PYRAMID are inline pages (no external script needed)
+    # 23-Sep-2026 (Jay): "Journal should be an active part of web commander." JOURNAL was
+    # the last EXTERNAL page — clicking it spawned a SECOND Streamlit process, in its own
+    # console, on its own port, under whatever `streamlit` resolves to on PATH (Python313,
+    # not the venv). It is now an in-app page like every other, rendered by
+    # journal_page.render(). dhan_journal_v7.py still runs standalone if you want it.
+    EXTERNAL_PAGES: dict[str, str] = {}
+    # X-RAY, TV SIDECAR, PYRAMID and now JOURNAL are inline pages (no external script)
 
     # NAV reorg (10 May 2026):
     #   • New STATE OF MARKET group at the top (MACRO + BREADTH + NEWS) — these
@@ -8456,8 +8464,10 @@ elif page == 'COMMAND':
 
         st.markdown("---")
         section("External Apps")
-        if st.button("📓  Open Full Journal App\nLaunch the complete trade journal interface.\n→  Open", use_container_width=True, key="cmd_journal"):
-            launch_script("dhan_journal_v7.py", is_streamlit=True)
+        if st.button("📓  Open Full Journal\nActive trades, closed history, performance lab.\n→  Open", use_container_width=True, key="cmd_journal"):
+            # 23-Sep: navigates instead of spawning a second Streamlit process.
+            _goto_page("JOURNAL")
+            st.rerun()
 
     with _cm2:
         col1, col2 = st.columns([0.7, 0.3])
@@ -15895,7 +15905,10 @@ elif page == 'GOLDEN MATCHER':
                             _j_rat = st.text_input("Rationale", value=_rat_default)
                         if st.form_submit_button("📓 Log OPEN trade", type="primary"):
                             try:
-                                import dhan_journal_v7 as _dj
+                                # journal_core, not dhan_journal_v7: this only wants
+                                # upsert_trade, and importing the old module rendered the
+                                # entire journal into this page plus a live Dhan sync.
+                                import journal_core as _dj
                                 _bare_j = symbol.replace(".NS", "").replace(".BO", "").upper()
                                 _dj.upsert_trade({
                                     "Symbol": _bare_j, "Type": "LONG", "Status": "OPEN",
@@ -19516,3 +19529,41 @@ elif page == 'RISK SHIELD':
                             st.info("No open positions found in the journal to override.")
                     else:
                         st.info("Journal data not loaded.")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# JOURNAL (23-Sep-2026) — the Trade Journal, in-app.
+#
+# Jay: "Journal should be an active part of web commander." It was the last
+# EXTERNAL page: the nav button ran `streamlit run dhan_journal_v7.py` in a new
+# console, which opened a SECOND Streamlit server on another port, under whatever
+# `streamlit` resolves to on PATH — Python313's, not the venv the rest of the
+# ecosystem runs on. Two servers, two browser tabs, two interpreters, one DB.
+#
+# dhan_journal_v7.py was split at the seam it already had (its line 510):
+#   journal_core.py  the data layer, VERBATIM — one journal DB layer, not two
+#   journal_page.py  the dashboard, wrapped in render()
+# so this page is the same code the standalone app draws, not a reimplementation.
+# That also ended the "importing it paints the whole journal into your page" bug
+# class, which had cost Risk Shield and the Golden Matcher one rendering each.
+#
+# render(in_app=True) puts what used to be the journal's sidebar (account, open
+# P&L, realised P&L, the sync buttons) into an in-page expander instead, because
+# this app's sidebar is the navigation.
+# ─────────────────────────────────────────────────────────────────────────────
+elif page == 'JOURNAL':
+    st.markdown('<div class="page-title">📓 Trade Journal</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-desc">Active trades, closed history and the performance '
+                'laboratory — the same views as the standalone app, reading the same DB.</div>',
+                unsafe_allow_html=True)
+    try:
+        import journal_page
+        journal_page.render(in_app=True)
+    except Exception as _je:
+        # Loud, and specific about which half failed. A blank page here would read
+        # as "no trades" rather than "the journal did not load".
+        st.error(f"❌ Journal failed to render: {type(_je).__name__}: {_je}")
+        with st.expander("Traceback"):
+            import traceback as _tb
+            st.code(_tb.format_exc())
+        st.caption("The standalone app still works: `streamlit run dhan_journal_v7.py`")
