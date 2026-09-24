@@ -196,7 +196,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
 <main>
 
   <div class="sec-head">
-    <h2>Provenance</h2><div class="rule"></div><span class="ct">audited 27 Aug, re-audited 20 Sep · pages revised 22 Sep</span>
+    <h2>Provenance</h2><div class="rule"></div><span class="ct">audited 27 Aug, re-audited 20 &amp; 24 Sep · pages revised 24 Sep</span>
   </div>
 
   <a class="card" style="--spine:var(--evidence)"
@@ -224,8 +224,19 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     bundle never existed (<code>6943ch·15/14</code> received whole).</p>
   </div>
 
+  <div class="note" style="margin:0 0 34px">
+    <span class="tag">Third audit · 24 September 2026</span>
+    <p><b>Read every manual and its code, then fixed in steps.</b> Two findings changed what the
+    evidence says: the recovery backtest had scored history with <em>today's</em> fundamentals
+    (re-tested point-in-time, the RFF gate shows no measurable effect), and the simulator did not
+    trade the way the book does (time stops, partials and the swing trail all differed — now
+    aligned). Derivative level rules, the F&amp;O cheat sheets and the WCL/round/RRG confluence
+    weights are <b>held</b> (step 2, Jay's call) and still read as before. Ledger:
+    <code>AUDIT_LEDGER.md</code> §24 September.</p>
+  </div>
+
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 22 Sep · 22 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 24 Sep · 24 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -235,6 +246,25 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">24 Sep<br>evidence</td>
+        <td><b>Two pre-registered tests, run once.</b> Recovery RFF on point-in-time fundamentals:
+        <b>FAIL</b> — pass vs fail −0.57pp in-sample, +0.78pp out, CI [−2.07, +2.38]; the gate stays
+        as a quality preference, not a claimed edge. Swing trail width: <b>1.5× stays</b> — 2.5, 3.5
+        and 4.5× were all worse in both windows; the backtest now trails swing on the live 14-bar
+        1.5× Chandelier.</td>
+        <td class="af">09 · 16 · 23 · 25 · 25map · 27</td>
+      </tr>
+      <tr>
+        <td class="dt">24 Sep<br>one rule each</td>
+        <td><b>Risk, positions, exits and stage — one value everywhere.</b> New-entry risk 0.5%
+        (adds 1%) on S4, the GM sizer and the order gate, and the GM sizer is now S4's dynamic risk;
+        up to 25 open positions. <b>No time stop anywhere</b> (v67.4.23, Unified v3.6, pyramid, Risk
+        Shield). Live exits are 25/25 plus a runner (Risk Allocator v2.3, the shield). Stage is the
+        stateless 2×2 on Unified v3.6 and Chart Markup v2.12 too. The board's RV, volume profile and
+        stop are S4's. Doc 18 moved out of Doctrine.</td>
+        <td class="af">00 · 01 · 02 · 03 · 07 · 08 · 10 · 13 · 15 · 18 · 20 · 22 · 23 · 26 · 32</td>
+      </tr>
       <tr>
         <td class="dt">20 Sep<br>audit fixes</td>
         <td><b>Parity closed, gate closed, stop latched.</b> Bull Engulf is B6 on both sides again
@@ -510,9 +540,10 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     <a class="card" style="--spine:var(--funnel)" href="18_trade_funnel.html">
       <div class="spine"></div>
       <div class="card-b">
-        <p class="card-n">Doc 18 &middot; Doctrine</p>
+        <p class="card-n">Doc 18 &middot; Superseded reference</p>
         <p class="card-t">The Trade Funnel</p>
-        <p class="card-d">Nine gated steps from macro to order, for swing and positional alike.
+        <p class="card-d"><b>Out of Doctrine since 24 Sep</b> &mdash; contradicts eight current rules
+        (listed at the top of the page); Docs 25 and 26 win. Nine gated steps from macro to order, for swing and positional alike.
         Every row carries a hard floor that ends the trade and a confluence level that earns full
         size &mdash; plus the scorecard, the D&amp;S entry toolkit, and the exit tables.</p>
         <div class="card-m"><span>The whole validation sequence</span><span class="go">Open &rarr;</span></div>
@@ -670,7 +701,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         <p class="card-t">Quality on Sale</p>
         <p class="card-d">The recovery screener &mdash; the 15&ndash;35% band that keeps falling
         knives out, nine signal codes with Wyckoff on top, the ten adaptive gates, and the
-        best-evidenced gate change in the whole system.</p>
+        fundamental gate that failed its point-in-time re-test.</p>
         <div class="card-m"><span>Beaten down, not broken</span><span class="go">Open &rarr;</span></div>
       </div>
     </a>
@@ -680,7 +711,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       <div class="card-b">
         <p class="card-n">Doc 13 &middot; Screeners</p>
         <p class="card-t">The Unified Ecosystem</p>
-        <p class="card-d">Ten edges in one strategy, each with its own stop, trail and time stop.
+        <p class="card-d">Ten edges in one strategy, each with its own stop and trail (time stops retired in v3.6).
         The diagnostic panel that names the blocking gate, the exit engine, the sizing chain, and
         every input group.</p>
         <div class="card-m"><span>Which edge, and at what size</span><span class="go">Open &rarr;</span></div>
@@ -739,7 +770,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         <p class="card-n">Doc 03 &middot; Chart engines</p>
         <p class="card-t">Where The Money Actually Traded</p>
         <p class="card-d">Acceptance and rejection: the value area, the control point, and the air
-        pockets a breakout runs through. The one context component that survived measurement.</p>
+        pockets a breakout runs through. The one context component kept in the entry gate &mdash; for its fire rate, not a measured edge.</p>
         <div class="card-m"><span>Is there road above the level</span><span class="go">Open &rarr;</span></div>
       </div>
     </a>
@@ -815,8 +846,8 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         <tr><td class="id">25</td><td class="nm"><a href="25_golden_rules.html">Golden Rules</a></td><td>Choosing and shortlisting a trade</td><td class="st"><span class="pill page">Page</span></td></tr>
         <tr><td class="id">26</td><td class="nm"><a href="26_operating_loop.html">Operating Loop</a></td><td>The daily workflow, in order</td><td class="st"><span class="pill page">Page</span></td></tr>
         <tr><td class="id">24</td><td class="nm"><a href="24_pre_trade_gate.html">The Pre-Trade Gate</a></td><td>The gate between "armed" and "ordered"</td><td class="st"><span class="pill page gt">Page</span></td></tr>
-        <tr><td class="id">18</td><td class="nm"><a href="18_trade_funnel.html">The Trade Funnel</a></td><td>The nine gated steps, floors and exits</td><td class="st"><span class="pill page fn">Page</span></td></tr>
         <tr><td class="id">—</td><td class="nm"><a href="00_commander_bible.html">The Commander Bible</a></td><td>The original end-to-end guide, with stale claims flagged</td><td class="st"><span class="pill page bi">Page</span></td></tr>
+        <tr><td class="id">18</td><td class="nm"><a href="18_trade_funnel.html">The Trade Funnel</a></td><td><b>Superseded reference</b> — out of Doctrine 24 Sep; contradicts eight current rules</td><td class="st"><span class="pill page fn">Page</span></td></tr>
       </tbody>
     </table></div>
   </div>

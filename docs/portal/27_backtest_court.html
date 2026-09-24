@@ -309,10 +309,15 @@ harness is the court.</p>
     −0.48R → −1.01R and stop-outs 11.8% → 52.7%.</li>
     <li><b>Targets</b> — R-canon: positional 3R/5R, swing 2R/4R, nothing under 2R.
     Partials 25/25 for positional, so half the position rides the trail uncapped.</li>
-    <li><b>Exit</b> — initial SL, trail SL, target, or time expiry at the horizon.</li>
+    <li><b>Exit</b> — initial SL, trail SL or target. <b>No time stop</b> (since 5 Aug): the horizon
+    sets no exit; a 400-bar ceiling is a data guard, and a trade unresolved at the end of the data is
+    <code>Still open</code>. Swing trails on the live 14-bar Chandelier at 1.5× (tested 24 Sep).</li>
   </ul>
 
   <h3>The design horizons — <code>FWD_DAYS_BY_CATALYST</code></h3>
+  <p>Labels, not exits. They say which horizon a catalyst was built for and let you check a run was
+  configured correctly (<code>forward_days_used</code>). Alpha is matched to each trade's actual
+  hold.</p>
   <div class="tw"><table>
     <thead><tr><th>Family</th><th class="num">Days</th><th>Why</th></tr></thead>
     <tbody>
@@ -452,7 +457,7 @@ harness is the court.</p>
     <div class="gi"><dt>Slippage / cost per leg</dt><dd>0.10% charged on each entry and each exit.</dd></div>
     <div class="gi"><dt>Stop-out</dt><dd>An exit at the <em>initial</em> stop, distinct from a trail-SL exit. The distinction matters — a trail exit is often a profit-protect, and conflating the two once produced a false panic about the stop being too tight.</dd></div>
     <div class="gi"><dt>Survivorship bias</dt><dd>The universe holds only names that still exist today, so past failures are invisible and every result is an upper bound.</dd></div>
-    <div class="gi"><dt>Time expiry</dt><dd>The trade ran to the end of its forward window without hitting a stop or target. Historically the most profitable exit bucket — which is a comment on the stops, not a strategy.</dd></div>
+    <div class="gi"><dt>Time expiry</dt><dd><b>Retired 5 Aug.</b> The trade ran to the end of its forward window without hitting a stop or target. It was the most profitable exit bucket — a comment on the stops, not a strategy — and it no longer exists; runs since then report <code>Still open</code> instead.</dd></div>
     <div class="gi"><dt>Trail SL</dt><dd>The moving stop. Owns 88% of positional exits and is the least-tested lever in the system.</dd></div>
     <div class="gi"><dt>Walk-forward</dt><dd>Re-running the screen at successive historical anchors rather than fitting once across the whole period.</dd></div>
   </dl>

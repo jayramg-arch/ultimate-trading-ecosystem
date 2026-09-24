@@ -644,7 +644,7 @@ footer em{color:var(--ink-2)}
     <li><b>Extension predicts how long you are stuck.</b> <code>corr(ext, days_held) = +0.373</code>; holds stretch 13d → 43d. That is the cost of chasing, and it is not the stop.</li>
     <li><b>Alpha turns negative at 3 ATR, not 4.</b></li>
     <li><code>corr(ext, alpha) = 0.00</code> overall — extension is a <i>tail</i> risk, not a linear one.</li>
-    <li><b>Do not wait all the way back to the EMA20.</b> Under 1 ATR the initial stop-out rate is <b>70–75%</b>, the worst in the table, against 4.8% in the 1–2 band. "Wait for the pullback" is right; "buy at the EMA20" is not.</li>
+    <li><b>Read the under-1-ATR rows as a family split, not an extension effect.</b> 321 of the 337 trades under 1 ATR are SWG-PB, and all 175 at 1 ATR or more are POS (audit AUD-EVD-03). The 70–75% stop-out rate is SWG-PB's own stop rate, not a penalty for entering near the EMA20. Within one family, this table does not tell you where to enter.</li>
   </ul>
   <p class="muted">Thin tails: n=22 and n=11 in the top two bins; p90 is 2.72 ATR.</p>
 
@@ -767,14 +767,14 @@ footer em{color:var(--ink-2)}
       <tr><td>Risk per trade</td><td class="n">0.5% new entry · 1% pyramid add</td><td>Jay, 24 Sep</td></tr>
       <tr><td>Targets</td><td class="n">swing 2R/4R · positional 3R/5R</td><td>never under 2R — your ruling, 10 Aug</td></tr>
       <tr><td>Partials</td><td class="n">POS 25/25 · SWG 33/33 · GAP/REV 50/50</td><td>half rides the trail</td></tr>
-      <tr><td>Chandelier</td><td class="n">POS 4.5× · SWG 1.5× ATR</td><td>tighten-only</td></tr>
+      <tr><td>Chandelier</td><td class="n">POS 22-bar · 4.5× · SWG 14-bar · 1.5× ATR</td><td>tighten-only; SWG 1.5× beat 2.5–4.5× (pre-registered, 24 Sep)</td></tr>
       <tr><td>Stop sanity floor</td><td class="n">1×ATR(D)</td><td>below this, R is fiction</td></tr>
       <tr><td>RV floor</td><td class="n">1.0 breakout · 0.5 pullback</td><td>measured</td></tr>
       <tr><td>MTTWR</td><td class="n">6 touches = spent</td><td>house rule</td></tr>
       <tr><td>S/R lifespan</td><td class="n">D 126 · W 130 · M 120 bars, own TF</td><td>past it, out of the ceiling only — never off the chart</td></tr>
       <tr><td>Room</td><td class="n">information, not a gate</td><td>measured 11 Sep — 77% fail it, no worse outcome</td></tr>
-      <tr><td>Stage</td><td class="n">above: rising 2 / falling 3 / flat (RS↑ 1 : 3)<br>below: (falling &amp; RS↓) 4 : 1</td><td>all four surfaces</td></tr>
-      <tr><td>Forward windows</td><td class="n">POS-BO 120d · POS-ACCUM 180d<br>REV 90d · SWG 30–60d</td><td>never test outside these</td></tr>
+      <tr><td>Stage</td><td class="n">above: rising 2 / falling 3 / flat (trend↑ 1 : 3)<br>below: rising 2 (pullback) / (falling &amp; trend↓) 4 : 1</td><td>tie-break = weekly Zigzag strict trend (RS slope only if unbound); S4, v67, Unified, Markup, Python</td></tr>
+      <tr><td>Forward windows</td><td class="n">POS-BO 120d · POS-ACCUM 180d<br>REV 90d · SWG 30–60d</td><td>backtest measurement only — no exit is timed; there is no time stop anywhere (24 Sep)</td></tr>
     </tbody>
   </table></div>
 </section>
@@ -801,7 +801,7 @@ const STEPS=[
  ["Where is invalidation — and is it a different price from the stop?","S4 INVAL"],
  ["What is the R after fixing the stop? Under 2R → pass.","your arithmetic"],
  ["Does the SUMMARY say take it, or setup-sound-plan-is-not?","S4 SUMMARY, last line"],
- ["Size at 1% risk on the honest stop.","Risk Allocator"],
+ ["Size at 0.5% risk on the honest stop (1% for a pyramid add).","Risk Allocator"],
  ["Log the decision — including a pass, with the reason.","log_trade_review.py"]
 ];
 const host=document.getElementById('cksteps');

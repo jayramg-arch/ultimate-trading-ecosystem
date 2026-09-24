@@ -289,19 +289,19 @@ footer a{color:var(--acc)}
     <tbody>
       <tr><td class="k">Above</td><td>Rising</td><td class="k">2</td></tr>
       <tr><td class="k">Above</td><td>Falling</td><td class="k">3</td></tr>
-      <tr><td class="k">Above</td><td>Flat</td><td>RS up → 1, else 3</td></tr>
+      <tr><td class="k">Above</td><td>Flat</td><td>trend up → 1, else 3</td></tr>
       <tr><td class="k">Below</td><td>Rising</td><td class="k">2 — pullback</td></tr>
-      <tr><td class="k">Below</td><td>Falling</td><td><b>4</b> — unless RS is rising, then 1</td></tr>
+      <tr><td class="k">Below</td><td>Falling</td><td><b>4</b> — unless the trend is up, then 1</td></tr>
       <tr><td class="k">Below</td><td>Flat</td><td class="k">1</td></tr>
     </tbody>
   </table></div>
-  <p class="refnote"><b>Two cells use relative strength as the tie-break, not one.</b> Above a flat
-  average RS decides base (1) against top (3); and <em>below a falling</em> average RS decides
-  decline (4) against base (1) — a name still leading the index while it sits under a falling
-  30-WMA reads Stage 1, not 4. The two 30-WMA cells that matter for a trade (rising → 2, whether
-  price is above or below it) never consult RS. Same rule on all three surfaces
-  (<code>stage_n</code> in S4, <code>bull_screener.py</code>, v67). Corrected 21 Sep — the table had
-  flattened the falling cell to a plain 4.</p>
+  <p class="refnote"><b>Two cells use a tie-break, not one.</b> Above a flat average it decides base
+  (1) against top (3); <em>below a falling</em> average it decides decline (4) against base (1). The
+  tie-break is the <b>weekly Zigzag strict trend</b> read through the bound source (since 20 Sep;
+  <code>_rsUp</code> keeps its old name), with the RS slope only when the binding is cold. The two
+  cells that matter for a trade (rising → 2, above or below) never consult it. Same rule in S4
+  (<code>stage_n</code>), v67, <code>bull_screener.py</code> and, since 24 Sep, Unified v3.6 and Chart
+  Markup v2.12 — Markup has no Zigzag binding, so it breaks the tie on its Mansfield slope.</p>
   <div class="note no">
     <span class="tag">What was wrong, and why it hid so long</span>
     <p>The other two surfaces ran a <b>hysteresis state machine</b> that evolved the stage from its
@@ -314,21 +314,24 @@ footer a{color:var(--acc)}
   </div>
   <div class="note">
     <span class="tag">Two deliberate differences remain</span>
-    <p>The <b>flat cell</b> breaks its tie differently on each surface, because the tiebreaker each
-    one has in scope differs. And <b>Stage 2 (pullback)</b> is named as its own cell on the
-    dashboard while S4 folds it into Stage 2 — same family, different label granularity. Both are
-    documented in code rather than left to be discovered.</p>
+    <p>The tie-break cells can still differ on <b>Chart Markup</b>, which has no Zigzag binding and
+    uses its Mansfield slope. And <b>Stage 2 (pullback)</b> is named as its own cell on the
+    dashboard while S4 prints <code>Stage 2 (pullback)</code> in the basis row — same digit, different
+    label. Both are documented in code rather than left to be discovered.</p>
   </div>
 </section>
 
 <section id="since">
   <h2><span class="n">02b</span>What changed since 1 September</h2>
-  <p>The panel is <b>S4 v11.3 on S4Core v53</b> (file title v10.4). Five things moved on 8–9 September, one
+  <p>The panel is <b>S4 v11.5 on S4Core v56</b> (file title v10.6). Five things moved on 8–9 September, one
   measurement changed how a row should be read, the 12–15 September batch put the derivatives into
   the ladders, and the 20 September audit batch closed three parity drifts and latched the stop.</p>
   <div class="tw"><table>
     <thead><tr><th>Date</th><th>Change</th><th>Where on the panel</th></tr></thead>
     <tbody>
+      <tr><td class="m">24 Sep</td><td><b>Risk default 0.5%</b> (was 0.25%) — the house rule for a new entry, now the same on S4, the GM sizer and the order gate. The default lands at the next S4 compile; until then the chart input is set by hand. The Golden Matcher now sizes with this panel's Qty-row dynamic risk and computes the same stop ladder, RV and volume profile.</td><td>Qty row</td></tr>
+      <tr><td class="m">23 Sep</td><td><b>RRG whitelist is two cells everywhere</b> — LEADING→LEADING and WEAKENING→LEADING, in S4Core, v67 and Python alike (it was five on some surfaces). S4Core/56.</td><td>RS · RRG row, confluence</td></tr>
+      <tr><td class="m">22 Sep</td><td><b>OI labels readable and offset</b> — size and offset moved into S4Core's defaults so S4 pays no tokens (it was 14 over the ceiling). v10.6 / panel v11.5.</td><td>Chart labels</td></tr>
       <tr><td class="m">20 Sep</td><td><b>The stop is latched to the trigger bar.</b> Since v6.0 the entry
       was read off the bar the GO fired on, but the stop chain kept reading the zone distal, swing low
       and ATR on the <em>displayed</em> bar — a zone tested three bars later moved SL, and with it R,
@@ -1179,7 +1182,7 @@ R   RRG        chipped, measured, and deliberately off
   <h2><span class="n">15</span>Band I — Macro &amp; context, every row</h2>
   <p>Whether the name deserves your attention today. Almost entirely <b>weekly</b> information,
   because the framework underneath is Weinstein stage analysis and a stage is a weekly fact.
-  Row 0 is the header — <code>S4 v11.3 │ core/53 │ 10511ch·15/15</code>. Check it after every
+  Row 0 is the header — <code>S4 v11.5 │ core/56 │ 10511ch·15/15</code>. Check it after every
   recompile: a version mismatch means the library did not publish; a section count under 14 means
   the paste was short.</p>
 
@@ -1921,6 +1924,6 @@ R   RRG        chipped, measured, and deliberately off
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/22 · Section 4 — Entry Trigger &amp; Price Memory · S4 v11.3 / S4Core v53 · revised against the code 20 Sep 2026</span>
+  <span>docs/22 · Section 4 — Entry Trigger &amp; Price Memory · S4 v11.5 / S4Core v56 · revised against the code 24 Sep 2026</span>
   <span>Companions — <a href="30_section_five.html">30 Section Five</a> · <a href="23_golden_matcher.html">23 Golden Matcher</a> · <a href="24_pre_trade_gate.html">24 Pre-Trade Gate</a></span>
 </div></footer>

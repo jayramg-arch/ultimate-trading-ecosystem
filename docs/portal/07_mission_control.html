@@ -334,8 +334,10 @@ footer a{color:var(--acc)}
   <ol class="stack">
     <li><span><b>Tape.</b> Is the regime risk-on? Is breadth improving? If risk-off, only recovery
     setups earn a look.</span></li>
-    <li><span><b>Sector.</b> Hunt only where the sector is leading or improving. <b>Skip a stock in
-    a lagging sector regardless of its own chart.</b></span></li>
+    <li><span><b>Sector.</b> Prefer sectors that are leading. <b>Skip a stock in a lagging sector
+    regardless of its own chart.</b> Note what was measured: of the rotation transitions, only
+    leading → leading and weakening → leading were positive in both windows; improving → leading
+    was reliably negative.</span></li>
     <li><span><b>Catalyst.</b> Match the catalyst to your intended style — the map is below, and
     the catalyst <em>is</em> the horizon.</span></li>
     <li><span><b>Quality.</b> The fundamental scorecards confirm the backbone; the recovery gate is
@@ -356,7 +358,7 @@ footer a{color:var(--acc)}
       <tr><td class="k">Weinstein stage</td><td>1 basing → <b>2 advancing, the only stage you buy</b> → 3 topping → 4 declining. The exit scan flags stage decay on open positions</td></tr>
       <tr><td class="k">Mansfield RS</td><td>Above zero and rising means outperforming. The primary ranking input — and <b>RS fading on an open position is an early exit tell</b></td></tr>
       <tr><td class="k">Alpha score</td><td>Composite of stage, RS, volatility and catalyst. Rank candidates by this</td></tr>
-      <tr><td class="k">RRG quadrant</td><td>Leading beats improving beats weakening beats lagging, for new longs</td></tr>
+      <tr><td class="k">RRG quadrant</td><td>Only leading → leading and weakening → leading measured positive (18 Aug); improving → leading was negative. Read the transition, not the quadrant rank</td></tr>
       <tr><td class="k">Stop in ATR</td><td>How many ATRs your stop sits below price — keeps stops volatility-normalised rather than a flat percentage</td></tr>
       <tr><td class="k">Recovery fundamental score</td><td>The backbone of a beaten-down name. A <b>hard floor</b> — quality on sale, not falling knives</td></tr>
       <tr><td class="k">Diversification &amp; shadow concentration</td><td>If secretly-correlated pairs appear, <b>your effective position count is smaller than it looks.</b> Trim before adding another correlated name</td></tr>
@@ -472,10 +474,10 @@ footer a{color:var(--acc)}
     <li><span><b>Tape check.</b> Proceed only if risk-on or neutral.</span></li>
     <li><span><b>Fresh lists</b> from the auto-pilot.</span></li>
     <li><span><b>Screen</b> for the swing catalysts and sort by score.</span></li>
-    <li><span><b>Sector gate</b> — drop anything whose sector is not leading or improving.</span></li>
+    <li><span><b>Sector gate</b> — drop anything whose sector is lagging; prefer leading.</span></li>
     <li><span><b>Quality</b> on the top few names only.</span></li>
     <li><span><b>Location and trigger</b> on the real chart. <b>Wait for the closed bar.</b></span></li>
-    <li><span><b>Size and protect</b> — buy-stop above the trigger bar, never a limit at the zone. Protective order the same evening.</span></li>
+    <li><span><b>Size and protect</b> — enter off S4's Plan row (a retest limit at the trigger close by default; never a limit resting at the zone before a trigger). Protective order the same evening.</span></li>
     <li><span><b>Manage</b> via the exit scan and trailing engine. Trail under structure; take partials into the target band.</span></li>
   </ol>
 
@@ -659,7 +661,8 @@ footer a{color:var(--acc)}
   </div></details>
 
   <details class="ref"><summary>📁 Records — the journal</summary><div class="rb">
-  <p>Launches the standalone journal app in its own window — the full trade journal with entry
+  <p>Opens the trade journal <b>inside Mission Control</b> (ported in-app 23 Sep; the standalone app
+  reads the same database) — active trades, closed history and the performance lab, with entry
   snapshots. It is kept in step with your broker book by the scheduled daily sync, so
   <b>the journal you open is already reconciled</b> rather than something you have to reconcile
   first.</p>

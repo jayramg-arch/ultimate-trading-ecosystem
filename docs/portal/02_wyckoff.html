@@ -259,8 +259,10 @@ footer a{color:var(--acc)}
   <div class="note good">
     <span class="tag">So what is it good for</span>
     <p><b>Reading a chart, and grading what you are already looking at.</b> It stays on the panel as
-    context and as a decaying score component. It does not gate, it does not rank, and it should
-    never be the reason you take or skip a trade on its own.</p>
+    context and as a decaying score component. It does not gate. It <em>does</em> still add up to
+    <b>+2 to S4's confluence score</b>, which is used to rank, even though it was measured with no
+    value as a score input (held-out ρ +0.013). Whether to zero that weight is an open decision.
+    It should never be the reason you take or skip a trade on its own.</p>
   </div>
 </section>
 
@@ -415,7 +417,10 @@ footer a{color:var(--acc)}
 <section id="recovery">
   <h2><span class="n">08</span>The recovery catalysts — the one place Wyckoff trades</h2>
   <p>Separate from the context layer, the recovery screener implements its own stricter Wyckoff and
-  <b>emits real catalysts</b>. These are validated and they are the priority recovery edge.</p>
+  <b>emits real catalysts</b>. They are live, but <b>not a measured edge</b>: WYC-SOS returned
+  −2.06% and then −0.40% matched alpha in the two recovery re-baselines (10 Aug and 20 Sep), with a
+  negative median in both. Treat them as qualification for your own read, like the rest of the
+  recovery book.</p>
   <div class="tw"><table>
     <thead><tr><th>Catalyst</th><th>What must be true</th><th>Entry</th></tr></thead><tbody>
       <tr><td class="k">Spring</td><td>Within the recent window, dipping no more than a few percent below the base low, on volume <b>at or under</b> average, and closing back above the base low within a few bars</td><td>After the rejection back into the range</td></tr>

@@ -174,8 +174,12 @@ footer a{color:var(--acc)}
   <p><b>Alpha = your return − the benchmark's return over the same window.</b> It answers the only
   question worth asking: <em>did this beat the market, or just ride it?</em> A +8% trade in a +8%
   market is <b>zero alpha</b> — single-stock risk taken for nothing.</p>
-  <p><b>“Matched”</b> means each trade is measured over <em>its own design horizon</em>, not a
-  fixed 30 days:</p>
+  <p><b>“Matched”</b> means the benchmark is measured over <b>the trade's actual hold</b> — entry to
+  exit — not a fixed window. Until 26 Jul it was the full design window, which billed a 7-day
+  stop-out against a 120-day index move and inflated alpha from +0.80% to +2.56%. There is no time
+  stop (since 5 Aug): a trade runs to its own stop or trail, with a 400-bar data ceiling, and one
+  still unresolved at the end of the data is <code>Still open</code>. The catalyst windows below
+  are now <b>labels for the design horizon</b>; they set no exit:</p>
   <div class="tw"><table>
     <thead><tr><th>Catalyst</th><th class="num">Matched window</th></tr></thead>
     <tbody>
@@ -190,7 +194,9 @@ footer a{color:var(--acc)}
     <span class="tag">The cardinal rule</span>
     <p><b>Never judge a positional or recovery setup on a 30-day window.</b> Measuring a
     120–180-day setup over 30 days is invalid — it produced false “remove this catalyst” calls in
-    May 2026 that all had to be rolled back. Always pass <code>--catalyst_windows</code>.</p>
+    May 2026 that all had to be rolled back. Always pass <code>--catalyst_windows</code>, and check
+    <code>forward_days_used</code> reads the design horizons before quoting a run — that column is
+    how you tell a correctly configured run from a mislabelled one.</p>
   </div>
 
   <h3>Up tape / down tape — the regime cut</h3>
@@ -247,7 +253,9 @@ footer a{color:var(--acc)}
   <h2><span class="n">03</span><code>replay.py</code> — the execution simulator</h2>
   <p>For one anchor: pins data to that date, runs the screener, then <b>simulates each trade
   bar by bar</b> with stop, T1, T2 and Chandelier trail, charging <b>0.10% per leg</b> in
-  commission and slippage. Reports Sharpe, Sortino and Calmar.</p>
+  commission and slippage. Reports Sharpe, Sortino and Calmar. The trail is the live one: positional
+  highest close since entry − 4.5× ATR; <b>swing 14-bar highest close − 1.5× Wilder ATR</b>, the
+  width pre-registered and tested on 24 Sep (it beat 2.5–4.5×).</p>
   <div class="note rule">
     <span class="tag">Read the exit flags correctly — this distinction was once missed</span>
     <p><code>Hit_Initial_SL</code> is a <b>true loss</b> — use it as the failure metric.

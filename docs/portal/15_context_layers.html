@@ -532,6 +532,13 @@ Stage    ─┘        │         ├──&gt; FINAL SCORE ──&gt; band ─
   <p class="refnote">Sizing tracks the bonus, which tracks how much <em>independent</em> evidence the
   setup added. That is why the trio at zero bonus still sizes near full — they are good setups whose
   evidence was already counted, not weak ones.</p>
+  <div class="note warn">
+    <span class="tag">These multipliers were never outcome-tested</span>
+    <p>No study has measured whether sizing S2 at 1.25× or an unlabelled bull band at 0.75× improves
+    results (audit AUD-DOC-04). Read the table as this indicator's opinion. The size you actually
+    trade comes from <b>S4's dynamic risk</b> (0.5% base, then regime, structure, WCL and ATR terms),
+    which the GM sizer now mirrors.</p>
+  </div>
 </section>
 
 <section id="playbook">
@@ -550,8 +557,8 @@ Stage    ─┘        │         ├──&gt; FINAL SCORE ──&gt; band ─
   panel. The setup label is therefore also a <em>trade-class</em> label — reading S4 and holding it
   like S5 is a different trade from the one the system flagged.</p>
   <h3>The execution manual, setup by setup</h3>
-  <p>Sizing assumes the standard 1% risk rule; the multiplier scales that 1%, it does not replace
-  it. <b>Every stop is volatility-aware</b> — clamp it to at least one unit from entry so it
+  <p>Sizing assumes the house risk rule — <b>0.5% on a new entry, 1% on a pyramid add</b> (24 Sep);
+  the multiplier scales that, it does not replace it. <b>Every stop is volatility-aware</b> — clamp it to at least one unit from entry so it
   survives normal noise, however tight the structure looks.</p>
   <div class="note warn">
     <span class="tag">The universal rule people break first</span>
@@ -590,7 +597,9 @@ Stage    ─┘        │         ├──&gt; FINAL SCORE ──&gt; band ─
     <tr><td class="k">Force exit</td><td>Block low broken on a close · bias off accumulation · base score below 3</td></tr>
   </tbody></table></div>
   <p class="refnote">The time-stop is the part people skip. <b>A block that has not produced a higher
-  low in five bars is being distributed into, not defended.</b></p>
+  low in five bars is being distributed into, not defended.</b> <em>Conflicts with the 24-Sep
+  ruling — no time stop anywhere; exits are the stop, the trail and structure. Read this as a
+  structural warning, not an exit rule.</em></p>
   </div></details>
 
   <details class="ref"><summary>S4 · execution</summary><div class="rb">

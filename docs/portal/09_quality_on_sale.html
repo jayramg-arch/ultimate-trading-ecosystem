@@ -241,10 +241,12 @@ footer a{color:var(--acc)}
   source while this page was written.</p>
 
   <div class="note stop">
-    <span class="tag">1 · The fundamental gate is 5, not 1 — and it is the best-evidenced change in the repo</span>
-    <p>The guide describes a minimum of <b>1</b>. The engine requires <b>5 of 6</b>. That was raised
-    on measurement, not judgement, and the measurement is the single strongest piece of evidence
-    anywhere in this system — <b>see the last section</b>.</p>
+    <span class="tag">1 · The fundamental gate is 5, not 1 — a quality preference, not a measured edge</span>
+    <p>The guide describes a minimum of <b>1</b>. The engine requires <b>5 of 6</b>. It was raised on
+    a measurement that turned out to be look-ahead: the backtest scored 2024 anchors with 2026
+    balance sheets. Re-tested point-in-time on 24 Sep 2026, <b>the gate shows no measurable effect</b>.
+    It stays because it enforces the thesis — only fundamentally strong names — not because it has
+    been shown to add return. <b>See the last section.</b></p>
   </div>
 
   <div class="note stop">
@@ -623,7 +625,9 @@ AND stop distance within your risk budget</pre>
   <p class="refnote">Sort by drawdown — <b>deepest capitulation first</b>, within the band.</p>
   <h4>Survivor breakouts</h4>
   <pre>Signal = survivor  AND  relative strength positive  AND  strict trend intact
-AND rotation quadrant leading or improving  AND  reward-to-risk >= 2</pre>
+AND rotation quadrant leading             AND  reward-to-risk >= 2</pre>
+  <p class="refnote">Leading, not "leading or improving": of the rotation transitions only
+  leading → leading and weakening → leading measured positive in both windows (18 Aug).</p>
   <p class="refnote">Sort by relative strength descending — <b>the strongest survivors first</b>.</p>
   <h4>Early reclaims</h4>
   <pre>Signal = early  AND  weekly stage 1 or 2
@@ -700,7 +704,7 @@ AND relative volume elevated  AND  score >= 6</pre>
     matters.</p>
   </div>
 
-  <h3>Partitioned by the fundamental score</h3>
+  <h3>Partitioned by the fundamental score — the look-ahead measurement (superseded)</h3>
   <div class="tw"><table>
     <thead><tr><th>Cohort</th><th class="r">n</th><th class="r">Mean α</th><th class="r">Win rate</th></tr></thead>
     <tbody>
@@ -709,19 +713,34 @@ AND relative volume elevated  AND  score >= 6</pre>
       <tr><td class="k"><b>Edge</b></td><td class="num">—</td><td class="g">+2.40pp</td><td class="num">+16pp</td></tr>
     </tbody>
   </table></div>
-  <div class="note good">
-    <span class="tag">Why this is the best-evidenced gate change in the repo</span>
-    <ul>
-      <li>The confidence interval, blocked by symbol, is <b>[+0.92, +3.88] — it excludes zero</b>.</li>
-      <li>It <b>strengthens out of sample</b> rather than decaying: +1.01pp in-sample becomes
-      +4.52pp out-of-sample. That is the opposite of an overfit.</li>
-      <li>The high cohort beats the low in <b>14 of 19 anchors</b> — not one lucky stretch.</li>
-      <li><b>Nearly all of the book's loss sat in the bucket the old floor admitted.</b></li>
-    </ul>
+  <div class="note stop">
+    <span class="tag">Why the table above no longer counts — it was look-ahead</span>
+    <p>The replay pinned PRICES to each anchor but read fundamentals LIVE: every historical pick
+    was scored on today's screener.in page. A company that recovered after the anchor tends to
+    show better books today, which biases exactly this comparison in the gate's favour (audit
+    AUD-EVD-01). The +2.40pp, the [+0.92, +3.88] interval and the out-of-sample strengthening all
+    came from that run.</p>
   </div>
-  <p>So the floor moved to 5, and it is the reason the current book is positive where the raw
-  measurement is not. <b>The gate is doing the work</b> — which is exactly why it is a hard gate
-  rather than a ranking input.</p>
+  <h3>Re-tested point-in-time — 24 Sep 2026, pre-registered, run once</h3>
+  <p>Fundamentals rebuilt from screener.in's history tables as they were <b>published</b> at each
+  anchor (quarterly results +45 days, annual statements +60). Five of the six checks can be
+  rebuilt (current ratio cannot), so the analogue of 5-of-6 is 4-of-5. The replay ran with the
+  gate OFF so every technically qualified pick was kept: 445 picks, 24 months, 99.6% scored.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Window</th><th class="r">Pass (≥4 of 5)</th><th class="r">Fail</th><th class="r">Difference</th></tr></thead>
+    <tbody>
+      <tr><td class="k">In-sample</td><td class="num">−0.49%</td><td class="num">+0.08%</td><td class="b">−0.57pp</td></tr>
+      <tr><td class="k">Out-of-sample</td><td class="num">+0.36%</td><td class="num">−0.42%</td><td class="num">+0.78pp</td></tr>
+      <tr><td class="k"><b>Pooled</b></td><td class="num">—</td><td class="num">—</td><td class="num">+0.22pp · CI [−2.07, +2.38]</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note warn">
+    <span class="tag">Verdict: FAIL — the gate is doctrine, not evidence</span>
+    <p>Wrong sign in-sample, neither window reaches the +1.0pp bar, the interval straddles zero
+    and the median difference is negative. The stricter 5-of-5 cut fails too. <b>Keep the gate —
+    it enforces the thesis — but do not quote it as an edge</b>, and do not lean on it to size up.
+    Source: <code>docs/PREREG_rff_pit.md</code>, run <code>20260924_122149</code>.</p>
+  </div>
   <div class="note">
     <span class="tag">And the regime caveat still holds</span>
     <p>Recovery is <b>regime-fitted</b>: positive in falling and recovering tapes, negative in

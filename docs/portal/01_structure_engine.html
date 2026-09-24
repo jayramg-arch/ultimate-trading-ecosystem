@@ -482,7 +482,7 @@ footer a{color:var(--acc)}
     <thead><tr><th>Setting</th><th>Positional, daily</th><th>Swing, intraday</th><th>Funds</th></tr></thead><tbody>
       <tr><td class="k">Pivot length</td><td class="m">2 or 3</td><td class="m">2</td><td class="m">as the chart</td></tr>
       <tr><td class="k">Major mode</td><td class="m">auto</td><td class="m">auto</td><td class="m"><b>auto — do not override</b></td></tr>
-      <tr><td class="k">Equal threshold</td><td class="m">0.5%</td><td class="m">0.5%</td><td class="m">0.3%</td></tr>
+      <tr><td class="k">Equal threshold</td><td class="m">0.2%</td><td class="m">0.2%</td><td class="m">0.2%</td></tr>
       <tr><td class="k">Longs only</td><td class="m">on</td><td class="m">on</td><td class="m">on</td></tr>
       <tr><td class="k">Volume multiplier</td><td class="m">1.5&times;</td><td class="m">1.5&times;</td><td class="m">1.5&times;</td></tr>
       <tr><td class="k">Higher timeframe</td><td class="m">auto → weekly</td><td class="m">auto → daily</td><td class="m">auto</td></tr>
@@ -560,8 +560,12 @@ footer a{color:var(--acc)}
     regression suite, mutation-verified. Separately, <b>the two stage overrides were removed
     entirely</b> — a stage that a different engine can silently rewrite is a stage you cannot reason
     about.</p>
-    <p>So this engine no longer feeds the stage read at all. <b>It defines structure; the stage
-    engine defines stage.</b> That separation is the point.</p>
+    <p>So this engine can no longer <em>rewrite</em> a stage. It still has one job in it: since
+    20 Sep its <b>weekly strict trend is the stage tie-break</b> — the cell a price-vs-30WMA read
+    cannot settle on its own (a flat anchor above price; a falling anchor below it). S4 reads it
+    through the bound Zigzag source and falls back to the RS slope only when unbound; the Python
+    board uses the same trend. <b>It defines structure; the stage engine defines stage, and asks
+    this engine only to break its ties.</b></p>
   </div>
 
   <div class="note warn">

@@ -214,9 +214,9 @@ footer a{color:var(--acc)}
   <p>There are three allocator files on disk and two guides, and none of the pairings line up.</p>
   <div class="tw"><table>
     <thead><tr><th>File</th><th>In-file title</th><th>Status</th></tr></thead><tbody>
-      <tr><td class="m">…v1.0.pine</td><td>v1.1</td><td>The simpler two-leg predecessor</td></tr>
-      <tr><td class="m">…v2.0.pine</td><td><b>v2.1</b></td><td><b>Modified and uncommitted.</b> Its filename, its title and the guide that describes it are three different versions</td></tr>
-      <tr><td class="m">…v2.2.pine</td><td>v2.2</td><td><b>The live one.</b> Everything below is read from it</td></tr>
+      <tr><td class="m">…v1.0.pine</td><td>v1.1</td><td>Archived to <code>_archive/pine_superseded/</code> (20 Sep)</td></tr>
+      <tr><td class="m">…v2.0.pine</td><td>v2.1</td><td>Archived to <code>_archive/pine_superseded/</code> (20 Sep)</td></tr>
+      <tr><td class="m">…v2.2.pine</td><td><b>v2.3</b></td><td><b>The live one</b> (compiled 24 Sep). The filename stays v2.2. Everything below is read from it</td></tr>
     </tbody></table></div>
   <div class="tw"><table>
     <thead><tr><th>Guide</th><th>Describes</th></tr></thead><tbody>
@@ -326,6 +326,13 @@ quantity      = risk amount ÷ (entry − stop)
 <section id="adjust">
   <h2><span class="n">06</span>The three risk adjustments</h2>
   <p>Base risk is adjusted by three independent multipliers before the quantity is computed.</p>
+  <div class="note warn">
+    <span class="tag">The base defaults are not yet the house rule</span>
+    <p>The inputs still default to <b>Stock 0.75%</b> and <b>ETF 1.0%</b>. The house rule since 24 Sep
+    is <b>0.5% on a new entry, 1% on a pyramid add</b>, and S4, the GM sizer and the order gate
+    already use it. <b>Set Stock Risk % to 0.5 on your chart instance</b> until the default is changed
+    at the next allocator compile.</p>
+  </div>
   <div class="tw"><table>
     <thead><tr><th>Adjustment</th><th>How it works</th></tr></thead><tbody>
       <tr><td class="k">Conviction</td><td>Three points — stage 2, positive strength, volume above average. Three points scales risk <b>up 25%</b>; two leaves it; one or none cuts it <b>25%</b></td></tr>
@@ -367,11 +374,16 @@ quantity      = risk amount ÷ (entry − stop)
     untargeted runner from <b>50% to 25%</b>. Set it deliberately if you want a stretch target.</p>
   </div>
   <div class="note stop">
-    <span class="tag">The split mode still defaults to 50/50, and that costs the runner</span>
-    <p>Two OCO legs at 50% cover the <b>whole</b> position, so there is <b>no runner</b> — and it
-    changes the payoff: T1 pays on half the shares while the stop costs on all of them, making a 2R
-    first target roughly <b>1:1</b> in practice rather than 2:1. Left as the default because it is a
-    Dhan constraint, not a preference; the tooltip now says what it costs.</p>
+    <span class="tag">v2.3 (24 Sep): the split now defaults to 3-leg scale-out — 25/25 plus a runner</span>
+    <p><b>Dhan GTT Split Mode</b> defaults to <b>Strategy Default (3-Leg Scale-Out)</b>: OCO-1 and
+    OCO-2 carry the <code>partial_qty_for</code> split (positional 25/25, swing 33/33, gap and
+    reversion 50/50), and the rest is a <b>runner under a stop-only GTT</b> that the trail carries.
+    The OCO rows print their real percentages, and row 9 names the runner's share count. This is the
+    structure the backtest measures and that <code>gtt_auto_shield</code> now places.</p>
+    <p>The old <b>50/50</b> mode is still an option. Two OCOs at 50% cover the whole position, so
+    there is <b>no runner</b> — T1 pays on half the shares while the stop costs on all of them, which
+    makes a 2R first target roughly 1:1. <b>If your chart instance was saved on 50/50 it keeps it;
+    switch the input once.</b> Existing live 50/50 OCOs at Dhan are not changed by any of this.</p>
   </div>
   <div class="note warn">
     <span class="tag">Four legs here, three orders at the broker</span>
@@ -485,6 +497,6 @@ quantity      = risk amount ÷ (entry − stop)
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/10 · Commander Risk Allocator v2.2</span>
+  <span>docs/10 · Commander Risk Allocator v2.3 · revised against the code 24 Sep 2026</span>
   <span>Companions — <a href="13_unified_ecosystem.html">13 Unified Ecosystem</a> · <a href="15_context_layers.html">15 Context Layers</a></span>
 </div></footer>

@@ -466,10 +466,13 @@ AND market cap &gt; 5000</pre>
     survival gate it replaced on the recovery side.</p>
     <div class="tw"><table>
       <thead><tr><th>Gate</th><th class="r">Edge</th><th>Interval</th><th>In → out of sample</th></tr></thead><tbody>
-        <tr><td class="k">Survival, at 5</td><td class="num">+2.40pp</td><td class="m">[+0.92, +3.88] ✓</td><td class="m">+1.01 → +4.52</td></tr>
+        <tr><td class="k">Survival, at 5 <em>(look-ahead — superseded)</em></td><td class="num">+2.40pp</td><td class="m">[+0.92, +3.88] ✓</td><td class="m">+1.01 → +4.52</td></tr>
+        <tr><td class="k">Survival, point-in-time (24 Sep)</td><td class="num">+0.22pp</td><td class="m">[−2.07, +2.38] ✗</td><td class="m">−0.57 → +0.78</td></tr>
         <tr><td class="k">Growth, at 4</td><td class="num">+1.31pp</td><td class="m">[−0.67, +3.06] ✗</td><td class="m">+1.50 → +1.20</td></tr>
       </tbody></table></div>
-    <p><b>Do not raise it to five</b> — the cell holds 28 trades. And <b>every bucket&rsquo;s median
+    <p>The survival row was re-run point-in-time and failed; the growth row has not been, and its
+    replay also reads quarters before they were published (no reporting lag, AUD-EVD-02) — treat
+    +1.31pp as an upper bound. <b>Do not raise it to five</b> — the cell holds 28 trades. And <b>every bucket&rsquo;s median
     is negative.</b> The gate shifts the mean; it does not change the big-winner-carried shape of
     the book.</p>
   </div>

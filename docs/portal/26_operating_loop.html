@@ -193,8 +193,8 @@ footer em{color:var(--ink-2)}
       <div class="clk">16:00</div>
       <div class="bd">
         <p class="t">Exit Signal Scan<span class="who">automatic</span></p>
-        <p class="d">Checks the open book for stop hits, stage decay and time stops, and
-          Telegrams the ACTION rows.</p>
+        <p class="d">Checks the open book for stop hits, trail breaches and stage decay, and
+          Telegrams the ACTION rows. (There is no time stop anywhere since 24 Sep.)</p>
         <p class="d"><b>Since 20 Sep</b> a Task Scheduler job (<span class="m">Exit_Scan_Daily</span>,
           catch-up on) as well as the in-app one — and its trail level is the same Chandelier
           Risk Shield and the GTT trail use (trade-type window, catalyst multiplier), not the
@@ -595,7 +595,7 @@ footer em{color:var(--ink-2)}
       <tr><td class="n">Weekly</td><td>ETF screener + rotation</td><td>A separate alpha source — rotation-driven, not stock-picking</td></tr>
       <tr><td class="n">Monthly</td><td>Attribution (AUTOPSY → 📐)</td><td>P&amp;L by setup / stage / RS / conviction — meaningful only for system-tagged trades</td></tr>
       <tr><td class="n">On code change</td><td>Re-baseline validation</td><td>Any signal change invalidates prior walk-forward and Strategy Tester numbers</td></tr>
-      <tr><td class="n">Daily, post-close</td><td>Docs truth check (<span class="m">DOCS_TRUTH_CHECK</span>)</td><td>Reports which code facts MOVED and which guide pages cite each one. Reports only — a moved fact can mean the doc is stale <em>or</em> that the code change was the mistake, and both have happened</td></tr>
+      <tr><td class="n">17:15 Mon–Fri</td><td>Docs truth check (Task Scheduler <span class="m">Docs_Truth_Check</span>, since 24 Sep; log <span class="m">logs\docs_truth.log</span>)</td><td>Reports which code facts MOVED and which guide pages cite each one. Reports only — a moved fact can mean the doc is stale <em>or</em> that the code change was the mistake, and both have happened</td></tr>
     </tbody>
   </table></div>
 </section>

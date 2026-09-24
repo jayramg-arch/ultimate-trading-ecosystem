@@ -566,7 +566,7 @@ footer a{color:var(--acc)}
     not. New slots ship <b>empty</b>: a pre-filled slot for a stock you do not hold would put a
     phantom position on the panel, and an empty ticker is skipped.</p>
     <p>They are reserved for stocks you <b>currently hold</b>, never for watchlist tracking. Every
-    slot metric — P&amp;L, R-multiple, days held, time-stop warnings, trailed-stop tracking — only
+    slot metric — P&amp;L, R-multiple, days held, trailed-stop tracking — only
     makes sense once a position is live with a real entry, stop and date. <b>Put a watchlist ticker
     in a slot and all of them will lie to you.</b> The sync script enforces this by pulling only
     open positions.</p>
@@ -577,7 +577,7 @@ footer a{color:var(--acc)}
       <tr><td class="k">Entry</td><td>Your average entry — drives unrealised P&amp;L and the R-multiple</td></tr>
       <tr><td class="k">Stop</td><td>The active stop — drives distance-to-stop and its warnings</td></tr>
       <tr><td class="k">Sector</td><td>The sector index for relative-strength comparison. <b>Let the automation fill this</b> — a wrong sector makes the RS-vs-sector row meaningless</td></tr>
-      <tr><td class="k">Date</td><td>Entry date. <b>Without it the days-held counter and the time stop cannot function at all</b></td></tr>
+      <tr><td class="k">Date</td><td>Entry date. <b>Without it the days-held counter cannot function</b> (the time stop it once fed was retired in v67.4.23)</td></tr>
   </tbody></table></div></div></details>
 
   <details class="ref"><summary>Strategy inputs — the shared constants</summary><div class="rb">
@@ -587,8 +587,7 @@ footer a{color:var(--acc)}
       <tr><td class="k">30-week slope lookback</td><td class="m">4</td><td>Weeks used to judge the slope</td></tr>
       <tr><td class="k">Benchmarks</td><td class="m">index · broad</td><td>The broad index is the primary relative-strength benchmark</td></tr>
       <tr><td class="k">Manual sector override</td><td class="m">off</td><td>Off, the physical sector database resolves it — <b>which is what gives offline parity</b></td></tr>
-      <tr><td class="k">Positional time stop</td><td class="m">6 weeks</td><td>Fires when open that long below half an R</td></tr>
-      <tr><td class="k">Swing time stop</td><td class="m">10 days</td><td>Same rule, shorter clock</td></tr>
+      <tr><td class="k">Positional / swing time stop</td><td class="m">36 wk · 60 d</td><td><b>Retired in v67.4.23 (24 Sep)</b> — no time stop anywhere. The inputs stay so no other input shifts; they drive nothing. The panel row is now <b>Held</b> (<code>Nd held · no time stop</code>), and the pyramid EXIT rung no longer has a time leg</td></tr>
       <tr><td class="k">RS slope length · sensitivity · level period</td><td class="m">26 · 0.2 · 52</td><td>The relative-strength engine this surface owns</td></tr>
   </tbody></table></div></div></details>
 
@@ -650,6 +649,6 @@ footer a{color:var(--acc)}
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/08 · Weinstein &amp; Swing Pro Dashboard · v67.4.22 · checked 11 Sep 2026</span>
+  <span>docs/08 · Weinstein &amp; Swing Pro Dashboard · v67.4.23 · checked 24 Sep 2026</span>
   <span>Companions — <a href="22_section_four.html">22 Section Four</a> · <a href="23_golden_matcher.html">23 Golden Matcher</a></span>
 </div></footer>

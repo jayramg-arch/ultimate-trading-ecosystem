@@ -252,7 +252,7 @@ Run it in order. **Stop at the first NO.**
 | 8 | **Where is invalidation, and is it a different price from the stop?** | S4 `INVAL` |
 | 9 | What does the R look like *after* fixing the stop? Under 2R → pass. | your arithmetic |
 | 10 | Does the SUMMARY say "take it", or "setup sound, plan is not"? | S4 SUMMARY, last line |
-| 11 | Size at 1% risk on the honest stop. | Risk Allocator |
+| 11 | Size at 0.5% risk on the honest stop (1% for a pyramid add). | Risk Allocator |
 | 12 | Log the decision — including a pass, with the reason. | `log_trade_review.py` |
 
 ---
@@ -485,9 +485,9 @@ you remember above about +1% is from one exceptional stretch, 2023-05 to 2024-01
   stretch 13d → 43d. That is the cost of chasing, and it is not the stop.
 - **Alpha turns negative at 3 ATR, not 4.**
 - **`corr(ext, alpha) = 0.00` overall.** Extension is a *tail* risk, not a linear one.
-- **The counterintuitive one: do not wait all the way back to the EMA20.** Under 1 ATR the
-  initial stop-out rate is **70–75%**, the worst in the table, against 4.8% in the 1–2
-  band. "Wait for the pullback" is right; "buy at the EMA20" is not.
+- **Read the under-1-ATR rows as a family split, not an extension effect.** 321 of the 337
+  trades under 1 ATR are SWG-PB, and all 175 at 1 ATR or more are POS (AUD-EVD-03). The
+  70–75% stop-out rate is SWG-PB's own stop rate, not a penalty for entering near the EMA20.
 
 Thin tails: n=22 and n=11 in the top two bins, p90 is 2.72 ATR.
 
@@ -594,12 +594,12 @@ The hardest ones, and the reason the rest exist.
 | Risk per trade | 0.5% new entry · 1% pyramid add | Jay, 24 Sep 2026 |
 | Targets | swing 2R/4R · positional 3R/5R · **never under 2R** | Jay's ruling, 10-Aug |
 | Partials | POS 25/25 · SWG 33/33 · GAP/REV 50/50 | half rides the trail |
-| Chandelier | POS 4.5× · SWG 1.5× ATR, tighten-only | `risk_common` |
+| Chandelier | POS 22-bar 4.5× · SWG 14-bar 1.5× ATR, tighten-only (SWG 1.5× beat 2.5–4.5×, pre-registered 24 Sep) | `risk_common` |
 | Stop sanity floor | **1×ATR(D)** | below this, R is fiction |
 | RV floor | 1.0 breakout · 0.5 pullback context | measured |
 | MTTWR | 6 touches = spent | house rule |
-| Stage | above: rising 2 / falling 3 / flat (RS up ? 1 : 3) · below: (falling & RS down) 4 : 1 | all four surfaces |
-| Forward windows | POS-BO 120d · POS-ACCUM 180d · REV 90d · SWG 30–60d | never test outside these |
+| Stage | above: rising 2 / falling 3 / flat (trend up ? 1 : 3) · below: rising 2 (pullback) / (falling & trend down) 4 : 1. Tie-break = weekly Zigzag strict trend, RS slope only if unbound | S4, v67, Unified, Markup, Python |
+| Forward windows | POS-BO 120d · POS-ACCUM 180d · REV 90d · SWG 30–60d | backtest measurement only — no exit is timed; no time stop anywhere (24 Sep) |
 
 ---
 

@@ -685,3 +685,29 @@ to 20260920_212328 (the gated recovery baseline).
 Risk Allocator v2.3 all compiled clean; `BIND_S4_SOURCES` re-run after v67. S4 not recompiled —
 its only pending change is the 0.25→0.5% risk default, already set on the chart instance; it
 rides the next real S4 compile.
+
+### Step 5 — docs pass DONE (24 Sep)
+
+The Library (`docs/portal`, served on :8502) revised against the code — 22 pages, tags
+balance-checked against HEAD:
+- **AUD-DOC-02:** Doc 18 moved out of Doctrine, superseded banner listing its eight contradictions.
+- **AUD-DOC-03:** Docs 16 / 25 / 27 no longer describe exits at the horizon; "matched" = actual hold.
+- **AUD-DOC-04:** every item on the list (00, 01, 02, 03, 07, 13, 22, 23, 32; leading-or-improving
+  in 09/11; untested size multipliers in 15) except the CLAUDE.md DNA lines, which need Jay's say.
+- **Today's results:** RFF point-in-time FAIL (09, 25 map, index, 23), swing trail 1.5× (16, 25, 27),
+  board parity (23), risk 0.5% (15, 25), Pine batch versions (08, 10, 13, 20), no time stop (00,
+  08, 13, 15, 26), stage 2×2 with the Zigzag tie-break (01, 22, 25).
+- **AUD-OPS-03 FIXED:** truth baseline re-accepted (49 facts, clean); headless `run_docs_truth.bat`
+  scheduled as Task Scheduler `Docs_Truth_Check` 17:15 Mon–Fri → `logs/docs_truth.log` (verified,
+  result 0). `DOCS_TRUTH_CHECK.bat` stays the interactive/`--accept` entry.
+- **Held (step 2):** the F&O cheat sheets (AUD-DOC-01) and Doc 32's derivative sections are untouched.
+
+**Code gaps found while writing the docs (not fixed, need a compile or step 2):**
+
+| ID | Sev | Location | One line |
+|---|---|---|---|
+| AUD-PINE-10 | P2 | Weinstein_Unified_Ecosystem_v3.4.pine:2540 | SWG-REV still closes at 5 bars ("Mean Rev 5D Stop") — the one time rule left after "no time stop anywhere" |
+| AUD-PINE-11 | P2 | Commander_Risk_Allocator_v2.2.pine:27 | `stock_risk_pct` default 0.75% (ETF 1.0%) vs the 0.5% house rule on every other sizing surface |
+| AUD-PINE-12 | P3 | Commander_Risk_Allocator_v2.2.pine (OCO labels) | R printed with `"#.#"`, which rounds to an integer in Pine — use `"0.0"` |
+| AUD-REV-07 | P2 | s4_review.py:508 | Reviewer doctrine still says "RRG LEADING/IMPROVING"; measured, only L→L and W→L are positive |
+| AUD-REV-08 | P3 | s4_review.py:549, :704 | OI explanation says S4 pairs OI with the last chart-TF bar; since 11 Sep it uses the daily cash change (held with step 2) |

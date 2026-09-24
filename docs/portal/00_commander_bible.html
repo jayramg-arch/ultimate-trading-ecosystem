@@ -318,7 +318,7 @@ footer a{color:var(--brass)}
       <tr><td class="k num">4.7</td><td><b>Catalyst-first broad scan.</b> Exists because 4.6 only sees pre-filtered names — a funnel that narrows before it scans will starve of catalysts</td></tr>
       <tr><td class="k num">4.75</td><td>Recovery catalyst watchlist, and the <b>Pullback Finder</b> — the where-is-value sibling a trigger board structurally cannot be</td></tr>
       <tr><td class="k num">5 · 5.7</td><td>Watchlist build and stale-list cleanup</td></tr>
-      <tr><td class="k num">6 · 7</td><td>Sync out to Strike and TradingView</td></tr>
+      <tr><td class="k num">6 · 7</td><td>Sync out to RRG Studio (Strike.Money retired 13 Sep) and TradingView</td></tr>
       <tr><td class="k num">8 · 9</td><td>Backup, and the portfolio rotation guard</td></tr>
     </tbody>
   </table></div>
@@ -340,7 +340,7 @@ footer a{color:var(--brass)}
     <tbody>
       <tr><td class="k">Archetype</td><td>Which list qualified it — breakout, pullback, leader, recovery, catalyst-scan, at-value, or a pyramid add on something you already hold</td></tr>
       <tr><td class="k">Category</td><td>Pure <b>timing state</b>: invalidated · wait · armed · trigger live</td></tr>
-      <tr><td class="k">S4-GO</td><td>How close it is to Section 4's execution gate, as <code>n/4</code>. A preview, not the verdict</td></tr>
+      <tr><td class="k">S4-GO</td><td>How close it is to Section 4's execution gate, as <code>n/5</code> (fundamentals counted since 2 Sep). A preview, not the verdict</td></tr>
       <tr><td class="k">Overall</td><td>The ranking. Sorted descending by default</td></tr>
       <tr><td class="k">Loc</td><td>Which location sources place it — zone, S/R, AVWAP, value area</td></tr>
     </tbody>
@@ -357,14 +357,15 @@ footer a{color:var(--brass)}
 
 <section id="s4">
   <h2><span class="n">Section 6</span>Section 4 — the execution layer</h2>
-  <p>S4 owns the trigger and the final word. Its gate is four things, and the panel prints them as
+  <p>S4 owns the trigger and the final word. Its gate is five things, and the panel prints them as
   chips so you can see which one is missing:</p>
-  <pre><b>GO  =  PA  ·  LOCATION  ·  VOLUME  ·  BAR</b>
+  <pre><b>GO  =  PA  ·  LOCATION  ·  VOLUME  ·  BAR  ·  FUNDAMENTALS</b>
 
 PA        a pattern from the battery fired on this bar
 LOCATION  price is at a place worth buying — demand zone, S/R shelf, AVWAP, value area
 VOLUME    relative volume clears the floor
-BAR       the bar itself is not a distribution candle</pre>
+BAR       the bar itself is not a distribution candle
+F         the books clear the floor (BFF bull / RFF recovery) — an unscored name passes</pre>
   <p>Underneath the gate sits the part that took longest to get right: <b>location</b>. A
   leg-base-leg zone engine runs on the chart timeframe plus daily, weekly and monthly, with zones
   ageing per timeframe and moving fresh → tested → violated; alongside it, horizontal S/R levels
@@ -410,7 +411,7 @@ BAR       the bar itself is not a distribution candle</pre>
   <div class="tw"><table>
     <thead><tr><th>Rung</th><th>Fires when</th></tr></thead>
     <tbody>
-      <tr><td class="k">EXIT</td><td>At the stop, deeply underwater, Stage 4, price structure broken, trail stopped out, or the time stop expired</td></tr>
+      <tr><td class="k">EXIT</td><td>At the stop, deeply underwater, Stage 4, price structure broken, or trail stopped out. There is no time stop (retired 24 Sep)</td></tr>
       <tr><td class="k">TRIM</td><td>Winners only — a target hit, over-extension, or earnings within days. <b>The earnings trigger only became live on 22 September:</b> written in July but fed by a live per-symbol lookup inside the row loop that was too slow to answer, so it had never once fired. It now reads a nightly cache</td></tr>
       <tr><td class="k">REDUCE</td><td>Soft deterioration — lagging rotation, below the 50-day, weak score</td></tr>
       <tr><td class="k">ADD</td><td>Leader <b>and</b> at location — both required, and capped on extension so it cannot chase</td></tr>
@@ -477,7 +478,7 @@ BAR       the bar itself is not a distribution candle</pre>
       <tr><td class="k num">08:00</td><td>Token check</td><td>Broker auth, before anything needs it</td></tr>
       <tr><td class="k num">08:30</td><td>Pre-market report</td><td>Macro, flows, breadth</td></tr>
       <tr><td class="k num">09:00–15:45</td><td>Every 15 min</td><td>Price alerts · stale-feed watchdog · daily P&amp;L alarm</td></tr>
-      <tr><td class="k num">15:45</td><td>Trail job</td><td>Tighten-only stop trail at the broker <em>(currently disarmed by choice)</em></td></tr>
+      <tr><td class="k num">15:45</td><td>Trail job</td><td>Tighten-only stop trail at the broker (live since 9 Sep)</td></tr>
       <tr><td class="k num">16:00</td><td>Exit scan</td><td>Stop hits and stage decay, pushed as alerts</td></tr>
       <tr><td class="k num">16:30</td><td><b>Auto-pilot</b></td><td>The ten-phase pipeline — tomorrow's shortlist</td></tr>
       <tr><td class="k num">16:30</td><td><b>Journal sync</b></td><td>Reconcile the journal to the broker book</td></tr>
@@ -523,8 +524,8 @@ BAR       the bar itself is not a distribution candle</pre>
 
 <section id="mistakes">
   <h2><span class="n">Section 13</span>Thirty common mistakes</h2>
-  <p>The most durable section in the original Bible. Nothing here has been superseded — the tools
-  changed, these did not.</p>
+  <p>The most durable section in the original Bible. Most of it still stands; the exceptions are
+  marked where they sit.</p>
 
   <h4>Discovery</h4>
   <ol class="mistakes">
@@ -566,7 +567,7 @@ BAR       the bar itself is not a distribution candle</pre>
     <li><span><b>Chasing an extended breakout.</b> Past a few percent above the level the reward has gone. Wait for the first pullback.</span></li>
     <li><span><b>Overriding the breakeven lock.</b> It exists so a runner cannot become a loss.</span></li>
     <li><span><b>Adding before the first lot works.</b> That is averaging up before the thesis is validated.</span></li>
-    <li><span><b>Taking a breakout without the volatility squeeze.</b> Without it you are entering a loose, high-risk break.</span></li>
+    <li><span><b>Taking a breakout without the volatility squeeze.</b> <em>Superseded — this rule was the June bug:</em> requiring a squeeze on the breakout bar blacked out every positional pick for 24 months, because a breakout bar is the opposite of a contraction. Read a squeeze as context, never as a requirement on the breakout itself.</span></li>
   </ol>
 
   <h4>Recovery</h4>
@@ -579,7 +580,7 @@ BAR       the bar itself is not a distribution candle</pre>
 
   <h4>Portfolio</h4>
   <ol class="mistakes" style="counter-reset:m 27">
-    <li><span><b>Not recording entry dates.</b> Without them the days-held counter and time stop cannot function.</span></li>
+    <li><span><b>Not recording entry dates.</b> Without them the days-held counter cannot function.</span></li>
     <li><span><b>Exceeding the sector cap.</b> When a sector runs there is a natural pull to load up. Rotations reverse violently and concentration makes the drawdown severe.</span></li>
     <li><span><b>Moving a stop locally and not at the broker.</b> The next sync overwrites your change with the broker's value. <b>Update at the broker first.</b></span></li>
   </ol>

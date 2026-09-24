@@ -187,7 +187,7 @@ footer a{color:var(--acc)}
 <nav class="toc">
   <p>Read first</p>
   <ol>
-    <li><a href="#version">You are running v2.11</a></li>
+    <li><a href="#version">You are running v2.12</a></li>
     <li><a href="#pivot">The pivot — from auto to draggable</a></li>
   </ol>
   <p>The engine</p>
@@ -214,7 +214,7 @@ footer a{color:var(--acc)}
 <main>
 
 <section id="version">
-  <h2><span class="n">01</span>You are running v2.11, and the guide stops at v2.2</h2>
+  <h2><span class="n">01</span>You are running v2.12, and the guide stops at v2.2</h2>
   <p>Nine point releases landed after the markdown was written, and they change what this tool
   <em>is</em> — not just what it detects. Read section 02 before anything else.</p>
   <div class="tw"><table>
@@ -227,6 +227,7 @@ footer a{color:var(--acc)}
       <tr><td class="m">v2.9</td><td><b>Manual overrides — draggable handles the script can read.</b> Section 02</td></tr>
       <tr><td class="m">v2.10</td><td>Manual levels outrank auto ones; the ghost-drawing fix</td></tr>
       <tr><td class="m">v2.11</td><td><b>Timeframe-scoped manual levels.</b> Section 05</td></tr>
+      <tr><td class="m">v2.12</td><td><b>Stage is the shared stateless 2×2</b> (24 Sep). The old read had no flat band, a 6-week slope, called a flat anchor rising and called below-a-rising-anchor Stage 1 — a fifth stage definition, while this page claimed zero drift. Section 03</td></tr>
     </tbody></table></div>
 </section>
 
@@ -275,9 +276,12 @@ footer a{color:var(--acc)}
     curve, retracements.</li>
     <li><b>Verdict</b> — a panel giving setup, conviction, nearest levels, and a computed plan.</li>
   </ol>
-  <p class="refnote">Strength and stage reuse the same maths as the strength pane and the unified
-  strategy; the anchored curve is ported from the dashboard and the retracements from the swing
-  engine — <b>zero drift by intent</b>, with the other tools untouched.</p>
+  <p class="refnote">Since v2.12 the stage is S4's: the 4-week change of the weekly 30-week average
+  against a flat band of 0.12% of the average. Above: rising 2, falling 3, flat 1 if strength is
+  rising, else 3. Below: rising 2 (pullback), falling 4 unless strength is rising (then 1), flat 1.
+  The tie-break is the Mansfield slope over 5 bars, because this indicator has no Zigzag binding —
+  S4 uses the weekly Zigzag trend there, so the two can still differ on a flat or falling anchor.
+  The anchored curve is ported from the dashboard and the retracements from the swing engine.</p>
   <p>Pivot lengths resolve from the chart's own timeframe — monthly 1, weekly 5, daily 2, intraday 2
   — the same four numbers the structure engine uses. <b>Heavy pivot-pair fitting runs only on the
   last bar.</b></p>
@@ -468,6 +472,6 @@ footer a{color:var(--acc)}
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/20 · Commander Chart Markup v2.11</span>
+  <span>docs/20 · Commander Chart Markup v2.12 · revised against the code 24 Sep 2026</span>
   <span>Companions — <a href="01_structure_engine.html">01 Structure Engine</a> · <a href="04_smc_zones.html">04 Institutional Footprint</a></span>
 </div></footer>

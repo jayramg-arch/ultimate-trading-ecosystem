@@ -197,8 +197,8 @@ footer a{color:var(--acc)}
     <div class="stamp">
       <div class="lbl">The one rule</div>
       Never buy the <b>touch</b>.<br>
-      Buy the <b>buy-stop</b> above a<br>
-      <b>closed</b> trigger bar.
+      Wait for a <b>closed</b> trigger bar,<br>
+      then enter off S4's <b>Plan</b> row.
     </div>
   </div>
 </header>
@@ -334,6 +334,23 @@ footer a{color:var(--acc)}
   <h2><span class="n">04</span>S4-GO — the complete grammar</h2>
   <p>This is the single most-read cell on the board, and it carries seven kinds of suffix. Two of
   them look superficially alike and mean opposite things. <b>Read the glyph, not the letter.</b></p>
+  <div class="note">
+    <span class="tag">24 Sep — the board now computes four things exactly as S4 does</span>
+    <ul>
+      <li><b>Volume (V gate):</b> this bar ÷ the mean of the <em>prior 50</em> bars — S4's
+      <code>chart_rv</code>. It was ÷ the last 20 including this bar, so the board's
+      <span class="m">no vol</span> was not S4's test.</li>
+      <li><b>Volume profile location:</b> S4Core's 100-bar, 40-row, overlap-weighted profile. It was a
+      120-bar single-bin version.</li>
+      <li><b>Stop:</b> S4's ladder on the Trigger TF — zone distal, nearest zone below, 10-bar swing
+      low, 0.5% buffer, capped at 2.5× (swing) / 4.0× (positional) of the chart-TF ATR. The board
+      used order blocks and the daily ATR, so its R:R was computed on a different stop. Expect
+      tighter stops on the 75m and 125m tabs.</li>
+      <li><b>Size:</b> S4's dynamic risk (see §10).</li>
+    </ul>
+    <p>Board and chart can still differ on <em>feed</em> (Dhan vs TradingView bars) and on the
+    derivative stop rungs (put wall, futures basis), which the board does not carry.</p>
+  </div>
 
   <h4>The stem — the gate count, which is what the column sorts on</h4>
   <div class="tw"><table>
@@ -415,9 +432,11 @@ footer a{color:var(--acc)}
     <div class="gly neg"><div class="sym">· ⚠noedge</div><div class="bd">
       <p class="nm">Measured — no edge</p>
       <p>On every <b>recovery</b>-path row. Was <span class="m">⚠unval</span> until 20 Sep; the
-      recovery re-baseline has since reported (run 20260810_153105, 24 months, correctly
-      windowed): mean matched alpha −0.88%, CI95 [−1.51, −0.24], no family positive in both
-      windows. Roughly a fifth of the board. Tradeable on your own read through the reviewer;
+      recovery re-baseline has since reported (run 20260920_212328, 24 months, correctly
+      windowed, pre-signals excluded): mean matched alpha +0.15%, median −1.99%, CI95
+      [−1.95, +0.86], every family's median negative. Indistinguishable from zero — and the
+      RFF fundamental gate showed no measurable effect when re-tested point-in-time (24 Sep).
+      Roughly a fifth of the board. Tradeable on your own read through the reviewer;
       <b>it is a measured non-edge, not an unmeasured one.</b></p></div></div>
   </div>
 
@@ -609,7 +628,8 @@ footer a{color:var(--acc)}
   join — the two things that were starving pullback supply.</p>
   <div class="note">
     <p><code>Trigger&gt;</code> in its output is the <b>confirmation level, not an entry</b>. Wait
-    for a closed bar above it, then buy-stop above <em>that</em> bar.</p>
+    for a closed bar above it, then enter off S4's Plan row — by default a retest limit at that
+    bar's close, or a buy-stop above its high if you have set the entry method to buy-stop.</p>
   </div>
 </section>
 
@@ -652,7 +672,7 @@ footer a{color:var(--acc)}
     <tbody>
       <tr><td class="k">1 CONTEXT</td><td class="hard">Stage 2 · RS &gt; 0 · not Stage 3/4</td><td class="soft">Weekly trend, regime</td></tr>
       <tr><td class="k">1 <em>accumulation variant</em></td><td class="hard">Stage 1/2 · RS &gt; 0 · above the 200-day</td><td class="soft">Regime</td></tr>
-      <tr><td class="k">2 QUALITY</td><td class="hard">Alpha and Minervini both above floor</td><td class="soft">Rotation quadrant, fundamentals, ML probability</td></tr>
+      <tr><td class="k">2 QUALITY</td><td class="hard">Alpha and Minervini both above floor</td><td class="soft">Rotation quadrant, fundamentals, measured base rate</td></tr>
       <tr><td class="k">2 <em>accumulation variant</em></td><td class="hard">Lower alpha floor, plus rotation <b>or</b> volume accumulation</td><td class="soft">Accumulation days, fundamentals</td></tr>
       <tr><td class="k">3 SETUP</td><td class="soft">A catalyst is live</td><td class="soft">Freshness, VCP validity, pattern tier</td></tr>
       <tr><td class="k">4 LOCATION</td><td class="soft">Above value · R:R ≥ 2.0 · above EMA20 and not over-extended</td><td class="soft">Current distance from EMA20</td></tr>
@@ -687,16 +707,17 @@ footer a{color:var(--acc)}
   </div>
 
   <h2><span class="n">10</span>The guided execution</h2>
-  <p>At Step 5 the page produces a position size from your capital and risk percentage, halves it
-  automatically on counter-trend names, and — when an order block, gap or pivot support sits under
-  price — <b>auto-fills the first two checklist steps</b> with that zone and its proximal, so you
+  <p>At Step 5 the page produces a position size from your capital and <b>S4's dynamic risk</b> —
+  the same Qty-row arithmetic (0.5% base, then the regime, Kelly-structure, WCL and ATR terms,
+  each printed) — and, when a demand zone sits under price, <b>auto-fills the first two
+  checklist steps</b> with that zone and its proximal, so you
   <em>verify</em> rather than hand-draw.</p>
   <ol class="steps">
     <li><span><b>Mark the fresh demand zone</b> on daily or above — or verify the auto-detected one is genuinely fresh and untested.</span></li>
     <li><span><b>Set the alert at the zone proximal.</b> Arm the name at the same moment.</span></li>
     <li><span><b>Wait for a 75m or 125m bar to CLOSE</b> in your direction at the zone.</span></li>
-    <li><span><b>Place a buy-stop above that trigger bar's high.</b> Never buy the touch.</span></li>
-    <li><span><b>Stop below the zone distal</b>, sized at your risk percentage.</span></li>
+    <li><span><b>Enter off S4's Plan row</b> — a retest limit at the trigger bar's close by default, a buy-stop above its high if you have chosen that method. Never buy the touch.</span></li>
+    <li><span><b>Stop per the Plan row</b> — zone distal, else the nearest zone below, else the 10-bar swing low, capped at 2.5× ATR (swing) or 4.0× (positional). The board now computes the same stop.</span></li>
     <li><span><b>Place the order and the GTT the same evening</b>, and log the trade.</span></li>
   </ol>
   <p>Tick all six and a journal form appears, pre-filled from the active plan. Logging it
@@ -805,7 +826,7 @@ footer a{color:var(--acc)}
   <h4>The re-baseline, with both corrections</h4>
   <div class="tw"><table>
     <thead><tr><th>Run</th><th class="num">Trades</th><th class="num">Mean α</th><th class="num">Median</th><th class="num">Win%</th><th class="num">Anchor hit</th></tr></thead><tbody>
-      <tr><td class="k">Neither correction</td><td class="num">400</td><td class="num">−0.88%</td><td class="num">−2.38%</td><td class="num">33.8</td><td class="num">31.6</td></tr>
+      <tr><td class="k">Neither correction <em>(mislabelled — this row is the 10-Aug RECOVERY run, not bull)</em></td><td class="num">400</td><td class="num">−0.88%</td><td class="num">−2.38%</td><td class="num">33.8</td><td class="num">31.6</td></tr>
       <tr><td class="k">Calibration only</td><td class="num">510</td><td class="num">+0.07%</td><td class="num">−2.04%</td><td class="num">29.4</td><td class="num">52.6</td></tr>
       <tr><td class="k"><b>Both</b></td><td class="num"><b>515</b></td><td class="num"><b>+0.30%</b></td><td class="num">−1.93%</td><td class="num">30.7</td><td class="num"><b>55.0</b></td></tr>
     </tbody></table></div>
@@ -841,8 +862,8 @@ footer a{color:var(--acc)}
   checklist</b> — you read the tier. A high tier or a strong single pattern is a real trigger;
   <b>a lone coil means wait for the release</b>.</p>
   <h4>Guided execution</h4>
-  <p>A position sizer from your capital and risk percentage, <b>automatically halved on
-  counter-trend names</b>. When a zone sits under price the first two checklist items are
+  <p>A position sizer from your capital and <b>S4's dynamic risk</b> (0.5% base; the old
+  counter-trend halving is gone — S4 has no such step). When a zone sits under price the first two checklist items are
   <b>auto-filled</b> with that zone and its proximal, so you verify rather than hand-draw. Tick all
   six and a journal form appears pre-filled — logging it <b>captures the true entry snapshot</b>,
   which is the only way a system-only track record ever gets built.</p>
@@ -902,6 +923,6 @@ footer a{color:var(--acc)}
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/23 · Golden Matcher — the GM + S4 system · revised against the code 16 Sep 2026</span>
+  <span>docs/23 · Golden Matcher — the GM + S4 system · revised against the code 24 Sep 2026</span>
   <span>Companions — <a href="22_section_four.html">22 Section Four</a> · <a href="30_section_five.html">30 Section Five</a> · <a href="18_trade_funnel.html">18 Trade Funnel</a> · <a href="24_pre_trade_gate.html">24 Pre-Trade Gate</a></span>
 </div></footer>

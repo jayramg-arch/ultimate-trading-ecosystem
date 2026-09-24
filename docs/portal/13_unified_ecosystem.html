@@ -239,8 +239,9 @@ footer a{color:var(--acc)}
   </div>
   <div class="note warn">
     <span class="tag">And a consequence worth acting on</span>
-    <p><b>Strategy Tester results from before the v3.5 change are not comparable.</b> Both the
-    stage (which gates <em>entries</em>) and the target ladder (which sizes <em>exits</em>) moved.
+    <p><b>Strategy Tester results from before v3.5 — and again from before v3.6 (24 Sep) — are not
+    comparable.</b> v3.5 moved the stage and the target ladder; v3.6 moved the stage again, the RS
+    gate and the time stop (see §02).
     <b>Re-run before reading anything into a backtest.</b></p>
   </div>
 </section>
@@ -257,17 +258,24 @@ footer a{color:var(--acc)}
   defect was fixed on the dashboard it measured at <b>19 of 56 names mis-staged</b> — one sat at
   Stage 1 with its anchor falling 62.9 points, which is distribution, not a base.</p>
   <pre>above the 30-week average  →  rising ? <b>2</b> : falling ? <b>3</b> : (RS up ? <b>1</b> : <b>3</b>)
-below the 30-week average  →  (falling and RS not up) ? <b>4</b> : <b>1</b></pre>
+below the 30-week average  →  rising ? <b>2</b> (pullback) : (falling and RS not up) ? <b>4</b> : <b>1</b></pre>
   <p>A <b>flat</b> anchor resolves to <b>1</b>, however strong relative strength is — a flat anchor
   is a base, not an advance. Both overrides are gone; the pivot engine survives only as the
   flat-cell tiebreak.</p>
   <div class="note">
-    <span class="tag">One refinement deliberately NOT ported</span>
-    <p>The dashboard labels <em>below a rising anchor</em> as a pullback variant of Stage 2. Here
-    the stage is <b>an integer that feeds the catalyst gates</b>, not a display string — so
-    promoting that cell would <b>silently admit pullback-below-the-anchor names into every Stage-2
-    gate</b>. Python does not do it either. If you want it, make it a deliberate one-line change,
-    not a copy.</p>
+    <span class="tag">v3.6 (24 Sep) — three more rulings landed</span>
+    <ul>
+      <li><b>Below a rising anchor is Stage 2 (pullback).</b> v3.5 held it back as a display-only
+      refinement; Python gained the cell on 20 Sep and S4 always had it, so this strategy was the
+      last surface calling it 1. It now admits those names to the Stage-2 gates, as every other
+      surface does.</li>
+      <li><b>The RS gate reads RS-Ratio above 100</b> (leading or weakening), the screener's own
+      test. It read the momentum axis (leading or improving), which admitted names the screener
+      rejects; this file's own note measures RS-Ratio below 100 at −0.64%.</li>
+      <li><b>No time stop.</b> The half-an-R stagnation exit is disabled on every edge. One
+      exception survives in the code: <b>SWG-REV still closes after 5 bars</b> (§04). That
+      contradicts the ruling and is flagged for the next compile.</li>
+    </ul>
   </div>
   <div class="note warn">
     <span class="tag">The trade-off, stated rather than hidden</span>
@@ -350,7 +358,7 @@ below the 30-week average  →  (falling and RS not up) ? <b>4</b> : <b>1</b></p
 
 <section id="criteria">
   <h2><span class="n">04</span>Entry criteria, edge by edge</h2>
-  <p>Folded per edge. Each carries its own stop type, trail and time stop — <b>this is where the
+  <p>Folded per edge. Each carries its own stop type and trail (time stops retired in v3.6) — <b>this is where the
   ten edges actually differ</b>, and reading the wrong one is how a positional stop ends up on a
   swing trade.</p>
 
@@ -361,7 +369,7 @@ below the 30-week average  →  (falling and RS not up) ? <b>4</b> : <b>1</b></p
   <pre>bull book ON · edge ON
 AND base confirmed        (Stage 2 + market bull + the MA stack)
 AND alpha above floor
-AND rotation leading or improving
+AND RS-Ratio above 100       (leading or weakening — since v3.6)
 AND micro edge            (above the daily pivot and the monthly anchor)
 AND close above the 20-bar prior high
 AND volume above 1.5x average
@@ -411,7 +419,7 @@ AND <b>volume dry-up</b>             prior bars consolidating, not distributing<
   <div class="tw"><table><tbody>
     <tr><td class="k">Stop</td><td>Five-bar swing low less padding</td></tr>
     <tr><td class="k">Trail</td><td>Short-average ratchet, breakeven after the first target</td></tr>
-    <tr><td class="k">Time stop</td><td>Ten days below half an R</td></tr>
+    <tr><td class="k">Time stop</td><td>None — retired in v3.6 (was ten days below half an R)</td></tr>
     <tr><td class="k">Hard exit</td><td><b>A close below the medium average closes it immediately</b></td></tr>
   </tbody></table></div>
   </div></details>
@@ -439,7 +447,7 @@ AND a bullish bar
 AND close above the prior bar's high   <b>the reversal confirmation</b></pre>
   <div class="tw"><table><tbody>
     <tr><td class="k">First target</td><td><b>Fixed at 2R</b> — no dynamic adjustment, because a reversion is not a trend trade</td></tr>
-    <tr><td class="k">Time stop</td><td><b>Five days maximum.</b> If it has not reverted, the premise has failed</td></tr>
+    <tr><td class="k">Time stop</td><td><b>Five days maximum — still in the v3.6 code</b>, the one time rule that survived the 24-Sep ruling. Flagged for removal at the next compile</td></tr>
     <tr><td class="k">Hard exit</td><td>A close below the medium average</td></tr>
   </tbody></table></div>
   </div></details>
@@ -453,7 +461,7 @@ AND volume at least 3x average</pre>
   <div class="tw"><table><tbody>
     <tr><td class="k">Stop</td><td>The gap bar's low, less padding</td></tr>
     <tr><td class="k">Trail</td><td>Short-average ratchet</td></tr>
-    <tr><td class="k">Time stop</td><td>Ten days</td></tr>
+    <tr><td class="k">Time stop</td><td>None — retired in v3.6</td></tr>
   </tbody></table></div>
   <p class="refnote">The intraday-position test is the whole edge: <b>it separates conviction
   buying from a gap that faded</b>. Everything else is size and volume.</p>
@@ -476,7 +484,7 @@ AND volume at least 3x average</pre>
   <div class="tw"><table><tbody>
     <tr><td class="k">Stop</td><td><b>Snapped at the climax bar</b> — the structural low with an ATR pad. It does not move before the first target</td></tr>
     <tr><td class="k">Targets</td><td>The short-average reclaim, then the long average — <b>structure, not multiples</b></td></tr>
-    <tr><td class="k">Time stop</td><td>Fifteen days below half an R</td></tr>
+    <tr><td class="k">Time stop</td><td>None — retired in v3.6 (was fifteen days below half an R)</td></tr>
   </tbody></table></div>
   </div></details>
 
@@ -546,7 +554,7 @@ AND sector stage · fundamental score · regime gate</pre>
   <div class="tw"><table>
     <thead><tr><th>Level</th><th>Requirement</th></tr></thead><tbody>
       <tr><td class="k">Universal</td><td>Inside the backtest window · under the open-position cap · <b>no existing position</b> · fundamental gate (recovery only — <b>bull edges bypass it</b>)</td></tr>
-      <tr><td class="k">Bull</td><td>Market health — index above its long average with the medium above the long · weekly Stage 2 · base confirmed · alpha above floor · rotation leading or improving · the micro edge</td></tr>
+      <tr><td class="k">Bull</td><td>Market health — index above its long average with the medium above the long · weekly Stage 2 · base confirmed · alpha above floor · RS-Ratio above 100 · the micro edge</td></tr>
       <tr><td class="k">Recovery</td><td>Regime gate — market corrected, <em>or</em> the stock inside its own correction band · sector in an acceptable stage · positive relative strength · the fundamental score</td></tr>
     </tbody></table></div>
   <div class="note warn">
@@ -700,8 +708,7 @@ AND sector stage · fundamental score · regime gate</pre>
   <div class="note good">
     <span class="tag">The breakeven lock</span>
     <p>Once the first target hits, <b>every trailing stop is floored at the entry price</b>. The
-    runner cannot become a loss. This is also why the time stops do not fire on a position that
-    has already reached breakeven — <b>the runner is protected and can be held</b>.</p>
+    runner cannot become a loss — <b>the runner is protected and can be held</b>.</p>
   </div>
 
   <h3>Targets — the current canon</h3>
@@ -715,15 +722,11 @@ AND sector stage · fundamental score · regime gate</pre>
   and then the long average, because a recovery is measured against structure rather than a
   multiple.</p>
 
-  <h3>Time stops</h3>
-  <div class="tw"><table>
-    <thead><tr><th>Family</th><th class="r">Max hold</th><th>Condition</th></tr></thead><tbody>
-      <tr><td class="k">Positional</td><td class="num">6 weeks</td><td rowspan="3">Fires only when the position is <b>below half an R and not yet at breakeven</b></td></tr>
-      <tr><td class="k">Swing</td><td class="num">10 days</td></tr>
-      <tr><td class="k">Recovery</td><td class="num">15 days</td></tr>
-    </tbody></table></div>
-  <p>Time stops exist to <b>free capital from stagnant positions</b>, not to cap winners — which is
-  exactly why breakeven exempts them.</p>
+  <h3>Time stops — retired (v3.6, 24 Sep)</h3>
+  <p><b>There is no time stop.</b> Exits are the stop, the trail and structure — one rule on every
+  surface, and the backtest has had none since 5 Aug. The 6-week / 10-day / 15-day inputs are still
+  on the settings page so no other input shifts position; they drive nothing. The single leftover
+  is SWG-REV's 5-bar exit, flagged above.</p>
 </section>
 
 <section id="sizing">
@@ -896,7 +899,7 @@ stop distance = entry − initial stop
     <li>Is the trail still rising?</li>
     <li>Stage 4 reached → <b>close the positional trade immediately.</b></li>
     <li>Close below the medium average → close the swing trade immediately.</li>
-    <li>Time stop hit under half an R and not yet at breakeven → close.</li>
+    <li>SWG-REV only: five bars without the reversion → close (the one surviving time rule).</li>
   </ul>
   </div></details>
 
@@ -933,7 +936,7 @@ stop distance = entry − initial stop
       <tr><td class="k">Positional accumulation</td><td class="num">on</td><td>The in-base edge</td></tr>
       <tr><td class="k">Breakout confirmation</td><td class="num">daily close</td><td><b>Close</b> = signal only on a close above the level. <b>Intraday penetration</b> = the stop order fires the moment price touches it</td></tr>
       <tr><td class="k">Breakout lookback</td><td class="num">20 bars</td><td>How far back the resistance level is defined</td></tr>
-      <tr><td class="k">Positional time stop</td><td class="num">6 weeks</td><td>Maximum hold while the gain is under half an R</td></tr>
+      <tr><td class="k">Positional time stop</td><td class="num">6 weeks</td><td><b>Retired in v3.6</b> — kept on the page, drives nothing</td></tr>
     </tbody></table></div></div></details>
 
   <details class="ref"><summary>Bull — swing</summary><div class="rb">
@@ -943,7 +946,7 @@ stop distance = entry − initial stop
       <tr><td class="k">Swing breakout</td><td class="num">on</td><td>The contraction breakout</td></tr>
       <tr><td class="k">Swing reversion</td><td class="num">on</td><td>The oversold bounce off the long average</td></tr>
       <tr><td class="k">Gap and go</td><td class="num">on</td><td>The held institutional gap</td></tr>
-      <tr><td class="k">Swing time stop</td><td class="num">10 days</td><td>Maximum hold under half an R</td></tr>
+      <tr><td class="k">Swing time stop</td><td class="num">10 days</td><td><b>Retired in v3.6</b> — kept on the page, drives nothing</td></tr>
       <tr><td class="k">Market-aware first target</td><td class="num">on</td><td>The first target adapts to the regime</td></tr>
       <tr><td class="k">Fixed first target</td><td class="num">2R</td><td>Used only when the adaptive target is off</td></tr>
     </tbody></table></div>
@@ -960,7 +963,7 @@ stop distance = entry − initial stop
       <tr><td class="k">Require micro edge</td><td class="num">on</td><td>Price must sit above both the daily pivot and the monthly anchor</td></tr>
       <tr><td class="k">Minimum alpha score</td><td class="num">50</td><td>The composite quality floor, out of 100</td></tr>
       <tr><td class="k">Signal hold window</td><td class="num">3 bars</td><td>How long a fired signal stays in the hold state on the panel</td></tr>
-      <tr><td class="k">Require positive rotation</td><td class="num">on</td><td>Must be leading or improving</td></tr>
+      <tr><td class="k">Require positive rotation</td><td class="num">on</td><td>RS-Ratio above 100 — leading or weakening (v3.6; was leading or improving)</td></tr>
       <tr><td class="k">Liquidity-sweep detection</td><td class="num">on</td><td><b>Reserved</b> — no live consumer</td></tr>
     </tbody></table></div></div></details>
 
@@ -1069,6 +1072,6 @@ stop distance = entry − initial stop
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/13 · Weinstein Unified Ecosystem</span>
+  <span>docs/13 · Weinstein Unified Ecosystem · v3.6 · revised against the code 24 Sep 2026</span>
   <span>Companions — <a href="11_catalyst_engine.html">11 Catalyst Engine</a> · <a href="09_quality_on_sale.html">09 Quality on Sale</a></span>
 </div></footer>
