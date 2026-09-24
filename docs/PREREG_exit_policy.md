@@ -187,10 +187,42 @@ system intends. The SWG-PB cell is **reported, not tested**.
 
 ## Result
 
-*(Left empty deliberately. To be filled in ONCE, by the run.)*
+Run once, 24 Sep 2026 (`exit_ladder_study.py --run`, log
+`validation_runs/_exit_ladder_real_run.log`). Protocol held: placebo on shuffled returns
+(nothing passed, per-seed means swung −0.34 to +0.51R, i.e. noise) → E0 validity (median
+|error| 0.001pp, 99.2% within 1pp — VALID) → the single real run. IS = 11 anchors after the
+45-day purge, OOS = 8. POS-ACCUM is THIN in both windows (22 / 17), as predicted.
 
-- H1 —
-- H2 —
-- H3 —
-- H4 —
-- H5 —
+| | family | IS Δ mean R | OOS Δ mean R | Δ median | verdict |
+|---|---|---:|---:|---|---|
+| **H1** harvest vs pure trail (E0 − E1) | POS-BO | +0.011 | +0.020 | 0 / 0 | **FAIL** |
+| | SWG-PB | +0.169 | −0.000 | 0 / 0 | **FAIL** (IS only) |
+| **H2** ladder rungs vs 25/25 (E2 − E0) | POS-BO | +0.015 | −0.010 | 0 / 0 | **FAIL** |
+| | SWG-PB | −0.000 | +0.004 | 0 / 0 | **FAIL** |
+| **H3** extension trim (E4 − E1) | POS-BO | +0.030 | +0.029 | 0 / +0.06 | **FAIL** |
+| | SWG-PB | +0.032 | +0.085 | 0 / 0 | **FAIL** |
+| **H4** current trail not dominated | POS-BO | best 3.375×: +0.067 | +0.011 | | **HOLDS** — within 0.10R |
+| | SWG-PB | best 3.375×: +0.048 | +0.110 | | **HOLDS** — within 0.10R IS |
+| **H5** Weinstein exit (E5 − E0) | POS-BO | **−0.217** | +0.159 | **−0.48 / −0.53** | **FAIL, clearly** |
+
+No contrast reached significance (smallest p 0.131); nothing reaches Holm.
+
+- **H1–H3 FAIL.** The harvesting rungs move mean R by 0.00–0.03R on POS-BO, a fifth of the
+  pass bar, and the median does not move at all — the rungs almost never engage (P(≥2R) is
+  1–12%). **`pyramid_logic`'s ⅓@2R / ½@3R and the 4.0×ATR extension trim stay as written, now
+  MEASURED as inert rather than merely asserted.** There is nothing to tune in them.
+- **H4 holds.** 4.5× is not dominated. The best cell sits at the TIGHT edge (3.375×) on both
+  families, reversing the July "the trail wants to be wide" reading, but inside the bar and
+  not significant — noted, not acted on.
+- **H5 FAILS, and it tested the idea I proposed.** Weinstein's own exit on Weinstein's own
+  selection lifts OOS mean (+0.235R vs +0.076R) by holding winners longer (67 vs 33 days), but
+  without a breakeven move or a trail, **57.8% of IS POS-BO trades run back to the initial
+  stop** (E0: 13.3%) and the median falls by half an R in both windows. The "mismatched exit
+  is the leak" hypothesis is **refuted** on this data: the exit is not where the system loses.
+- **What the run says instead.** Every exit config lands within ~0.2R of every other in the
+  same cell, while the cells themselves differ by far more: POS-BO −0.33R IS vs +0.08R OOS,
+  SWG-PB −0.36 to −0.43R in both. **The exit layer moves results by hundredths of an R; the
+  entry and the tape move them by tenths.** Consistent with every prior stop study.
+
+**Stopping rule honoured:** no re-slice, no bar moved. The marker
+`validation_runs/_exit_ladder_REAL_RUN_DONE.json` blocks a second run.
