@@ -15782,11 +15782,23 @@ elif page == 'GOLDEN MATCHER':
             _qty_sized = 0
             if _pe and _psl and _pe > _psl:
                 if _gm_capital > 0:
-                    _risk_amt = _gm_capital * _gm_riskpct / 100.0
+                    # S4's DYNAMIC RISK, mirrored (Jay, 24-Sep-2026): the base scaled by regime,
+                    # volatility and conviction exactly as S4's Qty row does it, so both
+                    # screens size the same trade the same way. s4_sizing names every term.
+                    # This replaces the old counter-trend halving: S4 has no such step, and
+                    # its regime and conviction terms are what shrink a counter-trend name.
+                    _dyn = None
+                    try:
+                        import s4_sizing as _s4z
+                        _tfm = {"75m": 75, "125m": 125}.get(str(_trig_tf))
+                        _tfr = (gm_load_intraday(symbol, _tfm) or {}).get("df") if _tfm else None
+                        _dyn = _s4z.gm_dynamic_risk(symbol, _gm_riskpct, _tfr, ctx.get("wcl"))
+                    except Exception as _dz:
+                        _gm_logger.warning(f"{symbol}: dynamic risk failed, sizing at base: {_dz}")
+                    _act_pct = float(_dyn["active_pct"]) if _dyn else float(_gm_riskpct)
+                    _risk_amt = _gm_capital * _act_pct / 100.0
                     _qty_sized = int(_risk_amt // (_pe - _psl))
-                    _ct_half = bool(_g(rec, "Counter_Trend")) and not wf.get("recovery")
-                    if _ct_half and _qty_sized > 1:
-                        _qty_sized //= 2
+                    _ct_half = False
                     # MAX-ALLOCATION CEILING (mirrors S4: Qty = min(risk qty, cap ÷ entry)).
                     # Applied AFTER the counter-trend halving so the two reductions compose
                     # rather than one masking the other.
@@ -15800,14 +15812,18 @@ elif page == 'GOLDEN MATCHER':
                     # with the real number rather than leaving a misleading label on screen.
                     _eff_risk = _qty_sized * (_pe - _psl)
                     _eff_pct = (_eff_risk / _gm_capital * 100.0) if _gm_capital else 0.0
+                    if _dyn:
+                        st.caption("📐 Risk, as S4 computes it: " + _s4z.describe(_dyn))
+                    else:
+                        st.caption("⚠ Dynamic risk unavailable — sized at the flat base, which S4 would not use.")
                     st.markdown(
-                        f"**📏 Size @ {_gm_riskpct:.2f}% risk:** {inr(_risk_amt)} ÷ "
+                        f"**📏 Size @ {_act_pct:.2f}% risk:** {inr(_risk_amt)} ÷ "
                         f"(entry {inr(_pe)} − SL {inr(_psl)}) = **{_qty_sized} shares** · "
                         f"position {inr(_pos_val)}"
                         + (f" ({_pos_val / _gm_capital * 100:.1f}% of capital)" if _gm_capital else "")
                         + (" · ⚠ counter-trend — size halved" if _ct_half else "")
                         + (f" · 🧢 **capped by Max ₹/trade {inr(_gm_maxalloc)}** — actual risk "
-                           f"{inr(_eff_risk)} ({_eff_pct:.2f}% of capital), not {_gm_riskpct:.2f}%"
+                           f"{inr(_eff_risk)} ({_eff_pct:.2f}% of capital), not {_act_pct:.2f}%"
                            if _cap_bound else ""))
                 else:
                     st.caption("📏 Set your capital above to get an auto position size at the configured risk.")

@@ -596,3 +596,18 @@ current-values snapshot, by design; it was restored with `git checkout`. The acc
   1.0 → 0.5, the GM sizer's code default 0.25 → 0.5, S4 `size_risk` default 0.25 → 0.5 (lands
   on the next compile; until then set the input on the chart). Pyramid adds stay at 1%. Golden
   Rules, the Operating Loop and CLAUDE.md now state the same rule.
+
+### GM sizer mirrors S4's dynamic risk — FIXED (24 Sep, Jay's call)
+
+`s4_sizing.py` ports S4's Qty-row risk (regime −0.25 when the tape is not bull · Kelly
+0.75–1.25× from S2 structure, RS slope and RV>1.1 · the WCL ±0.25 · ATR>3% discount · floors
+at 0.75× and 0.25× base). The GM sizer now sizes at that number and prints each term; it
+reproduces the live ACUTAAS panel (0.5% base → 0.19%). The GM's own counter-trend halving
+is removed — S4 has no such step. Six tests in `tests/test_s4_sizing.py`.
+
+Two further parity gaps found while porting (not fixed):
+
+| ID | Sev | Location | One line |
+|---|---|---|---|
+| AUD-PAR-12 | P1 | web v4.0 gm_load_intraday :5512 vs S4 chart_rv :3850 | Board RV = volume / mean of the last 20 bars INCLUDING the current one; S4 = volume / mean of the PRIOR 50. The board's V gate and `4/5 · no vol` are not S4's test |
+| AUD-PAR-13 | P2 | wcl_context.py setup ladder vs S4 :3576-3602 | Python still carries setups S3 and S6, which S4 removed (29 Jul); "priority ≥ 4" is S2-or-S3 in Python, S2-only on S4 — the board's WCL setup and bonus can differ from the chart's |
