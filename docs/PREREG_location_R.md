@@ -133,4 +133,44 @@ stop has to come from zone structure (L1/L2).
 
 ## Result
 
-*(Left empty deliberately. To be filled in ONCE, by the run.)*
+Run once, 24 Sep 2026 (`location_r_test.py --run`, log
+`validation_runs/_location_r_real_run.log`). Protocol held: coverage (20,932 Stage-2
+name-dates, 449 symbols) → placebo (nothing passed; MDEs printed) → the single real run.
+
+**No cell passes, in either style.** Most are UNDERPOWERED by the registered rule (MDE
+above the bar); the positional line-level H2 cells are THIN, as predicted in Amendment 1.
+
+**Coverage confirmed the prediction.** The line levels put a valid POSITIONAL stop only
+1–2% of the time (median stop 0.5 ATR below entry). Zones do: 65% (daily, median 1.65 ATR)
+and 80% (weekly, 2.97 ATR). **S/R, AVWAP and VP are swing-scale instruments; a positional
+stop can only come from zone structure.**
+
+**POSITIONAL (the verdicts)**
+
+| row | H1 MAE diff IS / OOS (ATR) | H2 R struct − perm IS / OOS | stop hit | verdict |
+|---|---|---|---|---|
+| L1 zone_d | −0.118 / −0.008 | +0.013 / −0.048 | 70 / 85% | H1 FAIL · H2 UNDERPOWERED |
+| L2 zone_w | +0.120 / +0.017 | +0.083 / −0.086 | 57 / 75% | UNDERPOWERED |
+| L3 near_sr | +0.164 / +0.116 | THIN (52 / 34) | | |
+| L4 near_avwap | +0.116 / +0.107 | THIN (32 / 20) | | |
+| L5 at_vp | +0.060 / +0.169 | THIN (15 / 16) | | |
+
+**SWING (reported)** — H1 for S/R, AVWAP and VP: +0.09/+0.10, +0.08/+0.14, +0.02/+0.11 ATR.
+H2 near zero everywhere (−0.09 to +0.24R, no consistent sign). Level stops at ~0.5 ATR hit
+88–93% of the time within 60 bars.
+
+**What the point estimates say — none is significant, so these are directions, not findings:**
+
+1. **Placement buys nothing measurable.** In every cell with data, the structural stop and
+   an arbitrary stop at the same distance earn almost the same R (e.g. positional daily
+   zone 1.87R vs 1.86R IS, −0.09 vs −0.04 OOS). Nothing here supports the claim that a stop
+   anchored to a level beats one at the same distance placed anywhere.
+2. **Entries AT a line level draw DEEPER, not shallower, adverse moves** — positive MAE
+   difference for S/R, AVWAP and VP in all four windows (positional and swing, IS and OOS).
+   That is the opposite of the doctrine that a level cushions the entry. Not significant;
+   noted as the direction to watch.
+3. **Level stops mostly get hit.** A stop 0.5 ATR under a line is taken out ~90% of the time
+   within 60 bars; a positional zone stop at ~1.7 ATR, 70–85% within 120 bars. Consistent
+   with every stop study here: tight stops on a positional hold give the edge back.
+
+**Stopping rule honoured.** Marker `validation_runs/_location_r_REAL_RUN_DONE.json`.

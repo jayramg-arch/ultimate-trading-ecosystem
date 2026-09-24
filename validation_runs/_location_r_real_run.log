@@ -1,0 +1,30 @@
+
+==== REAL RUN · POSITIONAL (hold 120, MAE 40, stop 1.0-6.0 ATR) ====
+     IS dates 34  OOS dates 30
+     row                  IS      OOS     n IS/OOS      p    MDE  verdict
+  H1 L1_zone_d       -0.118A  -0.008A   4174/1975   0.438  0.147  FAIL
+  H2 L1_zone_d       +0.013R  -0.048R   2769/1243   0.805  0.145  UNDERPOWERED   R struct/perm IS +1.87/+1.86 OOS -0.09/-0.04  hit 70/85%  dist 1.65 ATR  med -0.02/-0.00
+  H1 L2_zone_w       +0.120A  +0.017A   1628/892    0.968  0.460  UNDERPOWERED
+  H2 L2_zone_w       +0.083R  -0.086R   1336/687    0.938  0.219  UNDERPOWERED   R struct/perm IS +1.02/+0.94 OOS -0.06/+0.02  hit 57/75%  dist 2.97 ATR  med -0.46/-0.00
+  H1 L3_near_sr      +0.164A  +0.116A   2192/1317   0.964  0.242  UNDERPOWERED
+  H2 L3_near_sr      -0.032R  -0.096R     52/34     0.827  0.399  THIN   R struct/perm IS +1.57/+1.61 OOS -0.41/-0.32  hit 87/94%  dist 1.08 ATR  med -0.00/-0.00
+  H1 L4_near_avwap   +0.116A  +0.107A   2968/1233   0.924  0.329  UNDERPOWERED
+  H2 L4_near_avwap   +0.291R  +0.026R     32/20     0.273  1.422  THIN   R struct/perm IS +9.90/+9.61 OOS +0.58/+0.55  hit 69/90%  dist 1.10 ATR  med -0.01/+0.00
+  H1 L5_at_vp        +0.060A  +0.169A    895/597    0.833  0.602  UNDERPOWERED
+  H2 L5_at_vp        +0.223R  -0.064R     15/16       nan    nan  THIN
+
+==== REAL RUN · SWING (hold 60, MAE 20, stop 0.25-4.0 ATR) ====
+     IS dates 40  OOS dates 30
+     row                  IS      OOS     n IS/OOS      p    MDE  verdict
+  H1 L1_zone_d       -0.151A  -0.002A   4776/2312   0.483  0.158  UNDERPOWERED
+  H2 L1_zone_d       -0.049R  -0.071R   4585/2221   0.977  0.161  UNDERPOWERED   R struct/perm IS +0.84/+0.88 OOS -0.10/-0.03  hit 73/80%  dist 1.35 ATR  med -0.03/-0.00
+  H1 L2_zone_w       -0.004A  +0.079A   2051/1049   0.805  0.255  UNDERPOWERED
+  H2 L2_zone_w       +0.021R  +0.028R   1432/768    0.366  0.234  UNDERPOWERED   R struct/perm IS +0.54/+0.51 OOS -0.10/-0.13  hit 62/72%  dist 2.22 ATR  med -0.26/+0.00
+  H1 L3_near_sr      +0.089A  +0.097A   2566/1544   0.989  0.159  UNDERPOWERED
+  H2 L3_near_sr      -0.090R  +0.007R   2558/1539   0.835  0.257  UNDERPOWERED   R struct/perm IS +1.02/+1.11 OOS -0.28/-0.28  hit 88/93%  dist 0.51 ATR  med +0.01/+0.01
+  H1 L4_near_avwap   +0.078A  +0.140A   3265/1485   0.977  0.196  UNDERPOWERED
+  H2 L4_near_avwap   -0.093R  +0.009R   3265/1485   0.845  0.256  UNDERPOWERED   R struct/perm IS +1.18/+1.28 OOS +0.13/+0.12  hit 89/92%  dist 0.48 ATR  med +0.01/+0.01
+  H1 L5_at_vp        +0.017A  +0.113A   1088/689    0.961  0.188  UNDERPOWERED
+  H2 L5_at_vp        +0.023R  +0.243R   1088/689    0.403  0.276  UNDERPOWERED   R struct/perm IS +1.28/+1.26 OOS +0.07/-0.18  hit 88/92%  dist 0.48 ATR  med +0.01/+0.02
+
+saved validation_runs/_location_r_result.csv; marker written.

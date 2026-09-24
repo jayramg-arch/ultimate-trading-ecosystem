@@ -1,0 +1,21 @@
+
+
+Stage-2 name-dates 20932 across 449 symbols
+  100/449
+  200/449
+  300/449
+  400/449
+
+rows 20932
+  -- POSITIONAL: dates with a 120-bar path 95.2%
+     L1_zone_d      at  35.1%   valid stop  65.3%   median dist 1.30 ATR
+     L2_zone_w      at  15.9%   valid stop  79.6%   median dist 2.70 ATR
+     L3_near_sr     at  20.7%   valid stop   2.1%   median dist 0.51 ATR
+     L4_near_avwap  at  23.2%   valid stop   1.1%   median dist 0.48 ATR
+     L5_at_vp       at   8.9%   valid stop   1.7%   median dist 0.48 ATR
+  -- SWING: dates with a 60-bar path 100.0%
+     L1_zone_d      at  35.1%   valid stop  95.9%   median dist 1.30 ATR
+     L2_zone_w      at  15.9%   valid stop  71.9%   median dist 2.70 ATR
+     L3_near_sr     at  20.7%   valid stop  99.7%   median dist 0.51 ATR
+     L4_near_avwap  at  23.2%   valid stop 100.0%   median dist 0.48 ATR
+     L5_at_vp       at   8.9%   valid stop 100.0%   median dist 0.48 ATR
