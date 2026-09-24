@@ -718,3 +718,12 @@ Risk Allocator → **v2.4**: Stock and ETF risk default 0.5% (were 0.75 / 1.0); 
 `"0.0"` (7 sites); and, found alongside, the Telegram / Pine-log note hardcoded "50/50" and
 "(50% x" — it now names the real split and the runner. Docs 10 and 13 updated. A chart instance
 saved on the old risk values keeps them — check the two inputs after the compile.
+
+**Risk by asset — stock 0.5%, ETF 0.75% (Jay, 24 Sep).** Risk Allocator **v2.5**: ETF Risk % default
+0.75 (Stock 0.5). S4 **v10.7 / panel v11.6**: `_szb = _isEtf ? size_risk × 1.5 : size_risk` feeds
+the regime, dynamic-risk and floor terms and the Qty tag — a factor rather than a second input
+because S4 sits at its token ceiling; the size_risk tooltip states it. GM sizer: the same 1.5×
+when `etf_universe.is_etf()` (NEW — selected ∪ hand-written ∪ the 125-name candidate pool;
+`get_meta` answered "screened", not "ETF", and missed GOLDBEES). Known limit: S4's ETF test is
+the board bundle (ETFL/ETFP), so an ETF absent from today's board sizes as a stock on S4.
+CLAUDE.md DNA risk line, Docs 10/22/23/25/26 updated.

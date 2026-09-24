@@ -486,3 +486,28 @@ try:
         SELECTION_SOURCE = "legacy (candidate pool unavailable)"
 except Exception as _e:      # never let universe construction take the app down
     SELECTION_SOURCE = f"legacy (selection failed: {_e})"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# IS THIS AN ETF? (24-Sep-2026, for sizing — stock 0.5% / ETF 0.75%)
+# ETF_UNIVERSE is the SELECTED screening set (one tracker per index), so it says
+# "screened ETF", not "ETF": GOLDBEES is in the candidate pool but not selected
+# (GOLDIETF is), and sizing it off that set would treat it as a stock. This asks
+# the widest list we hold: selected ∪ the hand-written list ∪ the candidate pool.
+# ─────────────────────────────────────────────────────────────────────────────
+_ALL_ETF_SYMBOLS = None
+
+
+def is_etf(symbol: str) -> bool:
+    global _ALL_ETF_SYMBOLS
+    if _ALL_ETF_SYMBOLS is None:
+        syms = set(ETF_UNIVERSE) | set(_LEGACY_ETF_UNIVERSE)
+        try:
+            import etf_candidates as _c
+            _d = _c.load_candidates()
+            if _d is not None and "Symbol" in _d:
+                syms |= set(_d["Symbol"].astype(str).str.upper().str.strip())
+        except Exception:
+            pass      # the two in-module lists still answer
+        _ALL_ETF_SYMBOLS = syms
+    return str(symbol).upper().replace(".NS", "").replace("NSE:", "").strip() in _ALL_ETF_SYMBOLS

@@ -15398,7 +15398,9 @@ elif page == 'GOLDEN MATCHER':
         with _szc2:
             _gm_riskpct = st.number_input("Risk %", min_value=0.05, max_value=2.0, step=0.05,
                                           value=float(_gmset.get("risk_pct", 0.5)),   # house new-entry risk (Jay, 24-Sep-2026) — same as S4 size_risk
-                                          key="gm_riskpct")
+                                          key="gm_riskpct",
+                                          help="Stock base risk for a new entry (house rule 0.5%). An ETF sizes "
+                                               "at 1.5x this (0.75%), the same factor S4 applies.")
         with _szc3:
             _gm_pyrrisk = st.number_input("Add risk %", min_value=0.05, max_value=3.0, step=0.05,
                                           value=float(_gmset.get("pyr_risk_pct", 1.0)),
@@ -15880,15 +15882,24 @@ elif page == 'GOLDEN MATCHER':
                     # screens size the same trade the same way. s4_sizing names every term.
                     # This replaces the old counter-trend halving: S4 has no such step, and
                     # its regime and conviction terms are what shrink a counter-trend name.
+                    # RISK BASE BY ASSET (Jay, 24-Sep-2026): stock 0.5%, ETF 0.75% — 1.5x the
+                    # Risk % above, the same factor S4 applies (`_szb`), so the two cannot drift.
+                    _is_etf = False
+                    try:
+                        import etf_universe as _etfu
+                        _is_etf = _etfu.is_etf(symbol)
+                    except Exception as _ez:
+                        _gm_logger.warning(f"{symbol}: ETF lookup failed, sizing as a stock: {_ez}")
+                    _base_pct = float(_gm_riskpct) * (1.5 if _is_etf else 1.0)
                     _dyn = None
                     try:
                         import s4_sizing as _s4z
                         _tfm = {"75m": 75, "125m": 125}.get(str(_trig_tf))
                         _tfr = (gm_load_intraday(symbol, _tfm) or {}).get("df") if _tfm else None
-                        _dyn = _s4z.gm_dynamic_risk(symbol, _gm_riskpct, _tfr, ctx.get("wcl"))
+                        _dyn = _s4z.gm_dynamic_risk(symbol, _base_pct, _tfr, ctx.get("wcl"))
                     except Exception as _dz:
                         _gm_logger.warning(f"{symbol}: dynamic risk failed, sizing at base: {_dz}")
-                    _act_pct = float(_dyn["active_pct"]) if _dyn else float(_gm_riskpct)
+                    _act_pct = float(_dyn["active_pct"]) if _dyn else _base_pct
                     _risk_amt = _gm_capital * _act_pct / 100.0
                     _qty_sized = int(_risk_amt // (_pe - _psl))
                     _ct_half = False

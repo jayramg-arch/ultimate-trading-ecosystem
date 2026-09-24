@@ -323,13 +323,13 @@ footer a{color:var(--acc)}
 
 <section id="since">
   <h2><span class="n">02b</span>What changed since 1 September</h2>
-  <p>The panel is <b>S4 v11.5 on S4Core v56</b> (file title v10.6). Five things moved on 8–9 September, one
+  <p>The panel is <b>S4 v11.6 on S4Core v56</b> (file title v10.7). Five things moved on 8–9 September, one
   measurement changed how a row should be read, the 12–15 September batch put the derivatives into
   the ladders, and the 20 September audit batch closed three parity drifts and latched the stop.</p>
   <div class="tw"><table>
     <thead><tr><th>Date</th><th>Change</th><th>Where on the panel</th></tr></thead>
     <tbody>
-      <tr><td class="m">24 Sep</td><td><b>Risk default 0.5%</b> (was 0.25%) — the house rule for a new entry, now the same on S4, the GM sizer and the order gate. The default lands at the next S4 compile; until then the chart input is set by hand. The Golden Matcher now sizes with this panel's Qty-row dynamic risk and computes the same stop ladder, RV and volume profile.</td><td>Qty row</td></tr>
+      <tr><td class="m">24 Sep</td><td><b>Risk default 0.5% — an ETF sizes at 1.5× it, 0.75%</b> (v10.7 / v11.6; was 0.25%). The ETF test is the board bundle, so an ETF not on today's board sizes as a stock — the house rule for a new entry, now the same on S4, the GM sizer and the order gate. The default lands at the next S4 compile; until then the chart input is set by hand. The Golden Matcher now sizes with this panel's Qty-row dynamic risk and computes the same stop ladder, RV and volume profile.</td><td>Qty row</td></tr>
       <tr><td class="m">23 Sep</td><td><b>RRG whitelist is two cells everywhere</b> — LEADING→LEADING and WEAKENING→LEADING, in S4Core, v67 and Python alike (it was five on some surfaces). S4Core/56.</td><td>RS · RRG row, confluence</td></tr>
       <tr><td class="m">22 Sep</td><td><b>OI labels readable and offset</b> — size and offset moved into S4Core's defaults so S4 pays no tokens (it was 14 over the ceiling). v10.6 / panel v11.5.</td><td>Chart labels</td></tr>
       <tr><td class="m">20 Sep</td><td><b>The stop is latched to the trigger bar.</b> Since v6.0 the entry
@@ -1182,7 +1182,7 @@ R   RRG        chipped, measured, and deliberately off
   <h2><span class="n">15</span>Band I — Macro &amp; context, every row</h2>
   <p>Whether the name deserves your attention today. Almost entirely <b>weekly</b> information,
   because the framework underneath is Weinstein stage analysis and a stage is a weekly fact.
-  Row 0 is the header — <code>S4 v11.5 │ core/56 │ 10511ch·15/15</code>. Check it after every
+  Row 0 is the header — <code>S4 v11.6 │ core/56 │ 10511ch·15/15</code>. Check it after every
   recompile: a version mismatch means the library did not publish; a section count under 14 means
   the paste was short.</p>
 
@@ -1924,6 +1924,6 @@ R   RRG        chipped, measured, and deliberately off
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/22 · Section 4 — Entry Trigger &amp; Price Memory · S4 v11.5 / S4Core v56 · revised against the code 24 Sep 2026</span>
+  <span>docs/22 · Section 4 — Entry Trigger &amp; Price Memory · S4 v11.6 / S4Core v56 · revised against the code 24 Sep 2026</span>
   <span>Companions — <a href="30_section_five.html">30 Section Five</a> · <a href="23_golden_matcher.html">23 Golden Matcher</a> · <a href="24_pre_trade_gate.html">24 Pre-Trade Gate</a></span>
 </div></footer>

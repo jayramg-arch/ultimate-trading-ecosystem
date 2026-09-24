@@ -215,7 +215,7 @@ you need follow-through. The RV floor drops to 0.5 in pullback context for exact
 
 **DO**
 
-- **0.5% risk on a new entry, 1% on a pyramid add** (Jay, 24 Sep; new entries were 0.25%). Volatility-
+- **0.5% risk on a new entry in a stock, 0.75% in an ETF, 1% on a pyramid add** (Jay, 24 Sep; new entries were 0.25%). Volatility-
   adjusted off the 14-day ATR, always.
 - **Let the trail do the work.** Measured over 203 POS trades: **88% exit on the trail**,
   11.8% at the initial stop, and **only 8.4% ever reach 3R**. Targets are upside; the trail
@@ -591,7 +591,7 @@ The hardest ones, and the reason the rest exist.
 
 | Thing | Value | Why |
 |---|---|---|
-| Risk per trade | 0.5% new entry · 1% pyramid add | Jay, 24 Sep 2026 |
+| Risk per trade | 0.5% stock · 0.75% ETF new entry · 1% pyramid add | Jay, 24 Sep 2026 |
 | Targets | swing 2R/4R · positional 3R/5R · **never under 2R** | Jay's ruling, 10-Aug |
 | Partials | POS 25/25 · SWG 33/33 · GAP/REV 50/50 | half rides the trail |
 | Chandelier | POS 22-bar 4.5× · SWG 14-bar 1.5× ATR, tighten-only (SWG 1.5× beat 2.5–4.5×, pre-registered 24 Sep) | `risk_common` |

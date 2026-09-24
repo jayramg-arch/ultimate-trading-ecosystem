@@ -216,7 +216,7 @@ footer a{color:var(--acc)}
     <thead><tr><th>File</th><th>In-file title</th><th>Status</th></tr></thead><tbody>
       <tr><td class="m">…v1.0.pine</td><td>v1.1</td><td>Archived to <code>_archive/pine_superseded/</code> (20 Sep)</td></tr>
       <tr><td class="m">…v2.0.pine</td><td>v2.1</td><td>Archived to <code>_archive/pine_superseded/</code> (20 Sep)</td></tr>
-      <tr><td class="m">…v2.2.pine</td><td><b>v2.4</b></td><td><b>The live one</b> (24 Sep). The filename stays v2.2. Everything below is read from it</td></tr>
+      <tr><td class="m">…v2.2.pine</td><td><b>v2.5</b></td><td><b>The live one</b> (24 Sep). The filename stays v2.2. Everything below is read from it</td></tr>
     </tbody></table></div>
   <div class="tw"><table>
     <thead><tr><th>Guide</th><th>Describes</th></tr></thead><tbody>
@@ -327,10 +327,10 @@ quantity      = risk amount ÷ (entry − stop)
   <h2><span class="n">06</span>The three risk adjustments</h2>
   <p>Base risk is adjusted by three independent multipliers before the quantity is computed.</p>
   <div class="note warn">
-    <span class="tag">Base risk is the house rule — 0.5% (v2.4)</span>
-    <p>Stock and ETF risk both default to <b>0.5%</b> (they were 0.75% and 1.0%): the rule since 24
-    Sep is <b>0.5% on a new entry, 1% on a pyramid add</b>, the same on S4, the GM sizer and the order
-    gate. <b>A chart instance saved on the old values keeps them</b> — check both inputs once after
+    <span class="tag">Base risk is the house rule — stock 0.5%, ETF 0.75% (v2.5)</span>
+    <p><b>Stock Risk %</b> defaults to <b>0.5%</b> and <b>ETF Risk %</b> to <b>0.75%</b> (they were 0.75% and
+    1.0%). The rule since 24 Sep: <b>0.5% for a stock, 0.75% for an ETF on a new entry, 1% on a pyramid
+    add</b> — the same on S4 (an ETF sizes at 1.5× its base) and the GM sizer. <b>A chart instance saved on the old values keeps them</b> — check both inputs once after
     the compile. v2.4 also prints R to one decimal (<code>"#.#"</code> had rounded it to a whole
     number) and the Telegram / log note now names the real split and the runner instead of a fixed
     "50/50".</p>
@@ -499,6 +499,6 @@ quantity      = risk amount ÷ (entry − stop)
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/10 · Commander Risk Allocator v2.4 · revised against the code 24 Sep 2026</span>
+  <span>docs/10 · Commander Risk Allocator v2.5 · revised against the code 24 Sep 2026</span>
   <span>Companions — <a href="13_unified_ecosystem.html">13 Unified Ecosystem</a> · <a href="15_context_layers.html">15 Context Layers</a></span>
 </div></footer>

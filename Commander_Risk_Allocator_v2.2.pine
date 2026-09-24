@@ -10,7 +10,7 @@
 //   • OCO-2 (50% Qty): Fixed Static Target 2 + Stop Loss.
 //   • Panel Table and Chart Labels reflect clean 50/50 static OCO targets with Chandelier SL.
 // ============================================================================
-indicator("Commander Risk Allocator v2.4", overlay=true, format=format.inherit, precision=2, max_lines_count=20, max_labels_count=20, max_boxes_count=10)
+indicator("Commander Risk Allocator v2.5", overlay=true, format=format.inherit, precision=2, max_lines_count=20, max_labels_count=20, max_boxes_count=10)
 
 // ============================================================================
 // 1. INPUTS
@@ -23,7 +23,7 @@ grp_port = "Portfolio & Risk"
 portfolio_capital = input.float(4000000.0, "Total Portfolio Capital (Reference)", step=1000.0, group=grp_port)
 etf_capital       = input.float(1200000.0, "ETF Portfolio Capital", step=1000.0, group=grp_port)
 stock_capital     = input.float(2800000.0, "Stock Portfolio Capital", step=1000.0, group=grp_port)
-etf_risk_pct      = input.float(0.5,  "ETF Risk %",   minval=0.01, step=0.01, group=grp_port, tooltip="House rule 0.5% on a new entry, 1% on a pyramid add (24-Sep-2026; was 1.0%).")
+etf_risk_pct      = input.float(0.75, "ETF Risk %",   minval=0.01, step=0.01, group=grp_port, tooltip="House rule for an ETF: 0.75% on a new entry (Jay, 24-Sep-2026; stocks 0.5%). Same value as S4 (1.5x its base on an ETF) and the GM sizer.")
 stock_risk_pct    = input.float(0.5,  "Stock Risk %", minval=0.01, step=0.01, group=grp_port, tooltip="House rule 0.5% on a new entry, 1% on a pyramid add (24-Sep-2026; was 0.75%). Same value as S4 Qty, the GM sizer and the order gate.")
 etf_max_alloc     = input.float(240000.0, "Max Alloc per ETF Trade", step=1000.0, group=grp_port)
 stock_max_alloc   = input.float(280000.0, "Max Alloc per Stock Trade", step=1000.0, group=grp_port)
