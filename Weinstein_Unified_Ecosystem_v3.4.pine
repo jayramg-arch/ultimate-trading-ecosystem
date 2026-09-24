@@ -312,7 +312,7 @@
 // LOGIC UNCHANGED — display-layer-only compression.
 // ==========================================
 
-strategy("Weinstein Unified Ecosystem [v3.6]", overlay=true,
+strategy("Weinstein Unified Ecosystem [v3.7]", overlay=true,
          initial_capital=100000,
          default_qty_type=strategy.percent_of_equity,
          default_qty_value=10,
@@ -2535,10 +2535,11 @@ if strategy.position_size > 0
         if is_breakeven
             pb_sl := math.max(pb_sl, entry_px)
         // SWG contextual exits (trump the trail)
+        // SWG-REV's 5-bar "Mean Rev 5D Stop" removed 24-Sep-2026 (audit AUD-PINE-10): it
+        // was the last time rule left after "no time stop anywhere". SWG-REV now exits like
+        // every other swing edge — the 50-MA fail, the stop and the trail.
         if d_sma50 > 0 and close < d_sma50
             strategy.close("Long", comment="50MA Fail")
-        else if entry_cmt == "SWG-REV" and bars_open >= 5
-            strategy.close("Long", comment="Mean Rev 5D Stop")
         else
             strategy.exit("SL-SWG", "Long", stop=pb_sl, comment="SMA50 Trail")
 

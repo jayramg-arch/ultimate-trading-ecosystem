@@ -711,3 +711,10 @@ balance-checked against HEAD:
 | AUD-PINE-12 | P3 | Commander_Risk_Allocator_v2.2.pine (OCO labels) | R printed with `"#.#"`, which rounds to an integer in Pine — use `"0.0"` |
 | AUD-REV-07 | P2 | s4_review.py:508 | Reviewer doctrine still says "RRG LEADING/IMPROVING"; measured, only L→L and W→L are positive |
 | AUD-REV-08 | P3 | s4_review.py:549, :704 | OI explanation says S4 pairs OI with the last chart-TF bar; since 11 Sep it uses the daily cash change (held with step 2) |
+
+**AUD-PINE-10 / 11 / 12 — FIXED (24 Sep), pending Jay's compile.** Unified → **v3.7**: SWG-REV's
+5-bar "Mean Rev 5D Stop" removed; it now exits like every swing edge (50-MA fail, stop, trail).
+Risk Allocator → **v2.4**: Stock and ETF risk default 0.5% (were 0.75 / 1.0); R printed with
+`"0.0"` (7 sites); and, found alongside, the Telegram / Pine-log note hardcoded "50/50" and
+"(50% x" — it now names the real split and the runner. Docs 10 and 13 updated. A chart instance
+saved on the old risk values keeps them — check the two inputs after the compile.

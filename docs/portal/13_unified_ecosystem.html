@@ -272,9 +272,8 @@ below the 30-week average  →  rising ? <b>2</b> (pullback) : (falling and RS n
       <li><b>The RS gate reads RS-Ratio above 100</b> (leading or weakening), the screener's own
       test. It read the momentum axis (leading or improving), which admitted names the screener
       rejects; this file's own note measures RS-Ratio below 100 at −0.64%.</li>
-      <li><b>No time stop.</b> The half-an-R stagnation exit is disabled on every edge. One
-      exception survives in the code: <b>SWG-REV still closes after 5 bars</b> (§04). That
-      contradicts the ruling and is flagged for the next compile.</li>
+      <li><b>No time stop.</b> The half-an-R stagnation exit is disabled on every edge, and v3.7
+      (24 Sep) removed the last one: SWG-REV's 5-bar exit.</li>
     </ul>
   </div>
   <div class="note warn">
@@ -447,7 +446,7 @@ AND a bullish bar
 AND close above the prior bar's high   <b>the reversal confirmation</b></pre>
   <div class="tw"><table><tbody>
     <tr><td class="k">First target</td><td><b>Fixed at 2R</b> — no dynamic adjustment, because a reversion is not a trend trade</td></tr>
-    <tr><td class="k">Time stop</td><td><b>Five days maximum — still in the v3.6 code</b>, the one time rule that survived the 24-Sep ruling. Flagged for removal at the next compile</td></tr>
+    <tr><td class="k">Time stop</td><td>None — the five-day exit was removed in v3.7 (24 Sep). SWG-REV now exits like the other swing edges: the 50-MA fail, the stop and the trail</td></tr>
     <tr><td class="k">Hard exit</td><td>A close below the medium average</td></tr>
   </tbody></table></div>
   </div></details>
@@ -725,8 +724,8 @@ AND sector stage · fundamental score · regime gate</pre>
   <h3>Time stops — retired (v3.6, 24 Sep)</h3>
   <p><b>There is no time stop.</b> Exits are the stop, the trail and structure — one rule on every
   surface, and the backtest has had none since 5 Aug. The 6-week / 10-day / 15-day inputs are still
-  on the settings page so no other input shifts position; they drive nothing. The single leftover
-  is SWG-REV's 5-bar exit, flagged above.</p>
+  on the settings page so no other input shifts position; they drive nothing. SWG-REV's 5-bar
+  exit, the last leftover, went in v3.7.</p>
 </section>
 
 <section id="sizing">
@@ -899,7 +898,7 @@ stop distance = entry − initial stop
     <li>Is the trail still rising?</li>
     <li>Stage 4 reached → <b>close the positional trade immediately.</b></li>
     <li>Close below the medium average → close the swing trade immediately.</li>
-    <li>SWG-REV only: five bars without the reversion → close (the one surviving time rule).</li>
+
   </ul>
   </div></details>
 
@@ -1072,6 +1071,6 @@ stop distance = entry − initial stop
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/13 · Weinstein Unified Ecosystem · v3.6 · revised against the code 24 Sep 2026</span>
+  <span>docs/13 · Weinstein Unified Ecosystem · v3.7 · revised against the code 24 Sep 2026</span>
   <span>Companions — <a href="11_catalyst_engine.html">11 Catalyst Engine</a> · <a href="09_quality_on_sale.html">09 Quality on Sale</a></span>
 </div></footer>
