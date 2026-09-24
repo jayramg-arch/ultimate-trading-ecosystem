@@ -105,6 +105,32 @@ are the only runs before the real one.
 
 Runs **once**. No re-slice, no moved bar, no changed buffer. Results go in this file.
 
+## Amendment 1 — 24 Sep 2026, BEFORE the build completed or any statistic was computed
+
+Jay: *"target primarily positional trades, with an option for swing trades. I do not day
+trade."* The design above (60-bar hold, 0.25–4.0 ATR stops) is **swing scale**, so the
+headline cell measured a trade he mostly does not take. The build was stopped before it
+wrote any data. The test now has two styles, run together in the single run:
+
+| | **POSITIONAL — primary** | SWING — secondary (option) |
+|---|---|---|
+| hold (exit if the stop is not hit) | **120 bars** (~6 months) | 60 bars (as registered) |
+| H1 MAE window | **40 bars** | 20 bars |
+| valid structural stop | **1.0 – 6.0 × ATR14** (the system's positional stop is ~3.85×) | 0.25 – 4.0 × ATR14 |
+| sample dates | those with 120 forward bars | those with 60 forward bars |
+| IS/OOS purge | IS dates within **120** trading days of the first OOS date | 60 (as registered) |
+| Holm family | its own 10 cells, α = 0.10 — **the verdicts** | its own 10 cells, α = 0.10 — reported |
+
+Everything else is unchanged: rows, levels, buffers, pass bars (H1 ≤ −0.15 ATR; H2 ≥ +0.10R
+with median not worse than −0.10R), n ≥ 100, the date-block bootstrap, the placebo and MDE
+print.
+
+**Expected consequence, stated in advance:** the line levels (S/R, AVWAP, VP) are "near"
+only within 1.5% of price, so their stops mostly sit under 1 ATR, which is below the positional
+floor. Those positional cells may well come back **THIN**. If so, that is a finding, not a
+failure of the test: it would mean those rows are **swing-scale instruments**, and a positional
+stop has to come from zone structure (L1/L2).
+
 ## Result
 
 *(Left empty deliberately. To be filled in ONCE, by the run.)*
