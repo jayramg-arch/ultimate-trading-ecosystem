@@ -511,8 +511,9 @@ longer affect anything; a test pins that no value of it resurrects a dropped cel
 Method: every Library page read in full (docs/portal, converted to text), plus
 `AUDIT_LEDGER.md`, the two new F&O cheat sheets and CLAUDE.md; each claim checked at
 file:line or re-measured. Market-hours rule waived by Jay for the day. **Nothing was changed
-except this ledger** — an accidental baseline write by `docs_audit/code_truth.py` was reverted
-with `git checkout` (the report-only checker is `truth_watch.py`). Fixes are PROPOSED and held.
+except this ledger**. (Running the docs checker rewrites `docs_audit/code_truth.json`, the
+current-values snapshot, by design; it was restored with `git checkout`. The accepted baseline,
+`truth_baseline.json`, was never touched.) Fixes are PROPOSED and held.
 
 ## Five themes
 
@@ -552,7 +553,7 @@ with `git checkout` (the report-only checker is `truth_watch.py`). Fixes are PRO
 | AUD-DOC-02 | P1 | docs/portal/18_trade_funnel.html (listed as Doctrine) | Contradicts ≥8 measured or current rules: Wyckoff DISTRIBUTION disqualifier (measured backwards), IMPROVING→LEADING "sweet spot" (measured negative), ADX/wRSI gates (removed in the PA conversion), Strike.Money (retired), risk 0.75% / max 6 positions / ₹25k cap, the legacy exit table, scorecard sizing, buy-stop entries |
 | AUD-DOC-03 | P2 | Docs 16, 25, 27 | Describe exits at the catalyst horizon ("time expiry", "never test outside these", the forward_days_used check) — removed 5 Aug; the windows no longer set any exit |
 | AUD-DOC-04 | P2 | Docs 00, 01, 02, 03, 07, 13, 22, 23, 32 + CLAUDE.md | Stale or wrong claims — detail list below |
-| AUD-OPS-03 | P3 | DOCS_TRUTH_CHECK.bat; docs_audit/code_truth.json (baseline 9 Sep) | Doc 26 lists it as a daily post-close job; it is in no scheduler. Baseline not re-accepted since 9 Sep; 5 pages flagged today. It watches ~47 constants, so none of the findings above could have been caught by it |
+| AUD-OPS-03 | P3 | DOCS_TRUTH_CHECK.bat; docs_audit/truth_baseline.json (accepted 27 Aug) | Doc 26 lists it as a daily post-close job; it is in no scheduler. Baseline not re-accepted since 27 Aug; 5 pages flagged today. It watches ~47 constants, so none of the findings above could have been caught by it |
 
 ## AUD-DOC-04 — stale claims, page by page
 
@@ -587,3 +588,11 @@ with `git checkout` (the report-only checker is `truth_watch.py`). Fixes are PRO
    structure — then make the backtest trade what the book trades, or the reverse.
 5. **Docs:** move Doc 18 out of Doctrine; fix 16/25/27 on time stops and the page list above;
    schedule and re-baseline DOCS_TRUTH_CHECK.
+
+### AUD-OPS-01 and AUD-OPS-02 — FIXED (24 Sep, Jay's values)
+
+- **OPS-01:** `pre_trade_gate.MAX_OPEN_POSITIONS` default 15 → **25** (still overridable by env).
+- **OPS-02:** new-entry risk is **0.5%** on every sizing surface — `gm_settings.json` risk_pct
+  1.0 → 0.5, the GM sizer's code default 0.25 → 0.5, S4 `size_risk` default 0.25 → 0.5 (lands
+  on the next compile; until then set the input on the chart). Pyramid adds stay at 1%. Golden
+  Rules, the Operating Loop and CLAUDE.md now state the same rule.

@@ -50,7 +50,7 @@
 - **Strategy:** Weinstein Stage Analysis, RRG charts, Mansfield RS for sector/stock selection
 
 ### Common Rules
-- **Risk per trade:** 1% of capital
+- **Risk per trade:** 0.5% of capital on a new entry, 1% on a pyramid add (Jay, 24 Sep 2026 — one value on every sizing surface: S4 Qty, GM sizer, order gate)
 - **Higher Timeframe (HTF):** Demand/Supply Zones (Weekly/Monthly)
 - **Lower Timeframe (LTF):** Daily, 125-min, 75-min
 - **Approach:** Pure price action — indicators for confluence only

@@ -157,7 +157,7 @@ Recreating is mandatory, not housekeeping. Full procedure: [S4 guide §7b](./22_
 ping  →  open S4 on the alert's timeframe
       →  read the SUMMARY (bottom-right column) first
       →  run the 12-step checklist, stop at the first NO
-      →  size at 1% risk on the HONEST stop (≥1×ATR)
+      →  size at 0.5% risk on the HONEST stop (≥1×ATR) — 1% on a pyramid add
       →  place entry + GTT stop
       →  log the decision, including a pass
 ```

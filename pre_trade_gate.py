@@ -38,7 +38,9 @@ def _env_num(name: str, default: str, cast=float):
         return cast(default)
 
 
-MAX_OPEN_POSITIONS = _env_num("MAX_OPEN_POSITIONS", "15", int)
+# 25 (Jay, 24-Sep-2026). Was 15 while the book held 22, so every gated NEW buy was
+# refused (adds pass — the symbol is already open). Override with MAX_OPEN_POSITIONS.
+MAX_OPEN_POSITIONS = _env_num("MAX_OPEN_POSITIONS", "25", int)
 SECTOR_CAP_PCT     = _env_num("SECTOR_CAP_PCT", "25", float)
 MAX_RISK_PCT       = _env_num("MAX_RISK_PCT", "1.5", float)   # of portfolio equity
 

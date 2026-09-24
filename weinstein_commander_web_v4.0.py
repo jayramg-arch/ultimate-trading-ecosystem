@@ -15304,7 +15304,7 @@ elif page == 'GOLDEN MATCHER':
                                           help="Trading capital used for position sizing.")
         with _szc2:
             _gm_riskpct = st.number_input("Risk %", min_value=0.05, max_value=2.0, step=0.05,
-                                          value=float(_gmset.get("risk_pct", 0.25)),
+                                          value=float(_gmset.get("risk_pct", 0.5)),   # house new-entry risk (Jay, 24-Sep-2026) — same as S4 size_risk
                                           key="gm_riskpct")
         with _szc3:
             _gm_pyrrisk = st.number_input("Add risk %", min_value=0.05, max_value=3.0, step=0.05,
