@@ -1518,6 +1518,15 @@ def screen_symbol(symbol: str, edge_hint: str, regime: dict,
     # fills only the gaps Screener.in's public page cannot provide (ICR, Current
     # ratio) — Screener.in wins every field it has (far more accurate for NSE).
     fund_source = "Screener.in"
+    # MEASUREMENT MODE (24-Sep-2026, PREREG_rff_pit.md). Every recovery backtest used to
+    # score historical anchors with TODAY's fundamentals — the live pool, the live page and
+    # yfinance .info are none of them date-aware (audit AUD-EVD-01). With this flag set the
+    # screener uses NO fundamentals and applies NO RFF gate, so the replay keeps every
+    # technically-qualified pick and the point-in-time RFF is attached afterwards from
+    # dated history. Unset (the default) it changes nothing.
+    _no_fund = os.getenv("RECOVERY_NO_FUNDAMENTALS", "") == "1"
+    if _no_fund:
+        screener_row, allow_live_fundamentals = None, False
     if screener_row is None and not allow_live_fundamentals:
         # Interactive/non-blocking path: no live Screener.in scrape or yfinance
         # fundamental fetch. RFF will read INSUFFICIENT for uncached names.
@@ -1535,7 +1544,7 @@ def screen_symbol(symbol: str, edge_hint: str, regime: dict,
     # Back-compat: legacy callers/columns expect a single rff_score (0-6, base only).
     rff_score = rff_base
     # Gate uses the BASE score (Pine parity) so behaviour matches Pine v2.2.
-    rff_ok = (CONFIG["rff_min_score"] == 0
+    rff_ok = (_no_fund or CONFIG["rff_min_score"] == 0
               or (rff_quality != "INSUFFICIENT" and rff_base >= CONFIG["rff_min_score"]))
 
     # -- 9. Edge detection ----------------------------------------------------

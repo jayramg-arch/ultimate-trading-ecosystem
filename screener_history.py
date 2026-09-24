@@ -1,259 +1,193 @@
-"""Point-in-time fundamentals from screener.in's own history tables.
+"""screener_history.py — point-in-time fundamentals from screener.in's history tables.
 
-WHY (14 Aug 2026)
------------------
-`bff_as_of()` was built to score a historical anchor with the fundamentals that
-were actually REPORTED then - scoring a 2024 anchor with today's screener.in
-page leaks look-ahead into every row and makes the partition measure nothing.
+WHY (24-Sep-2026, audit AUD-EVD-01, docs/PREREG_rff_pit.md). The recovery backtest scored
+every historical anchor with TODAY's fundamentals. yfinance cannot fix that: its quarterly
+statements hold ~5 quarters and roll forward. A screener.in company page, though, carries
+~12 quarterly results and 10+ years of annual P&L / balance sheet / cash flow — enough to
+rebuild five of RFF's six checks AS OF any past date.
 
-The first attempt sourced it from yfinance and could not work: yfinance returns
-only FIVE quarters (oldest 2025-03-31, with a gap), while the bull anchors run
-2024-06 to 2025-11. Most anchors had neither the quarter nor its year-ago pair,
-so every row came back INSUFFICIENT.
+POINT-IN-TIME RULE: a period counts at date t only once it was PUBLISHED by t —
+quarterly results at period end + 45 days, annual statements at period end + 60 days
+(SEBI LODR deadlines; the March quarter rides with the annual at 60).
 
-screener.in carries the history on the company page itself:
-    #quarters  -> ~13 quarters: Sales, Net Profit, OPM %
-    #ratios    -> ~12 annual years: ROCE %
-That is ~3.25 years of quarterly data - enough for every anchor - and it
-includes the OPM row, so the reconstruction is the FULL 5-check BFF rather
-than the degraded 4-check version yfinance allowed.
+Same URL and the same row names the live fetcher (fundamental_hub.fetch_screener_rff_row)
+uses, so the two read the same fields. Pages are cached to data/screener_pages/ so a run is
+reproducible and the site is hit once per name. Known residual: screener shows figures as
+last reported, so a later RESTATEMENT of an old period is visible here — minor, and stated.
 
-It is also the right source by the project's own hierarchy: screener.in is
-PRIMARY for Indian fundamentals.
-
-HONESTY
--------
-Returns None when the page cannot be read; never fabricates a quarter. A caller
-that gets fewer than the periods it needs must report INSUFFICIENT rather than
-scoring what it has - a missing fundamental must never look like a failing one.
+CURRENT RATIO is not rebuildable: the page's balance sheet has no current/non-current split.
 """
 from __future__ import annotations
 
-import logging
 import os
 import re
-import sys
-import time
-from datetime import date
+from datetime import timedelta
 
-logger = logging.getLogger(__name__)
+import pandas as pd
 
-try:
-    if (sys.stdout.encoding or "").lower() != "utf-8":
-        sys.stdout.reconfigure(encoding="utf-8")
-except Exception:
-    pass
-
-_CACHE: dict = {}
-CACHE_TTL_S = 24 * 3600          # quarterly data; a day is generous
+_DIR = os.path.dirname(os.path.abspath(__file__))
+CACHE = os.path.join(_DIR, "data", "screener_pages")
+Q_LAG_DAYS = 45
+A_LAG_DAYS = 60
+ICR_MIN, DE_MAX, ROA_MIN = 3.5, 2.0, 5.0      # compute_rff Tier-A thresholds
+MIN_CHECKS = 4
 
 _MONTHS = {m: i for i, m in enumerate(
-    ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
-     "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], start=1)}
+    ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"], 1)}
 
 
-def _period_to_date(label: str):
-    """'Jun 2026' -> date(2026, 6, 30). None if unparseable."""
-    m = re.match(r"([A-Za-z]{3})\s+(\d{4})", (label or "").strip())
-    if not m:
-        return None
-    mo = _MONTHS.get(m.group(1).title())
-    if not mo:
-        return None
-    yr = int(m.group(2))
-    # last day of that month is close enough — quarters are period-END labels
-    nxt = date(yr + (mo == 12), 1 if mo == 12 else mo + 1, 1)
-    return date.fromordinal(nxt.toordinal() - 1)
+def _clean(sym: str) -> str:
+    s = str(sym).strip().upper()
+    for suf in (".NS", ".BO", ".NSE", "-EQ"):
+        if s.endswith(suf):
+            s = s[: -len(suf)]
+    return s
 
 
-def _num(txt):
-    """'57%' -> 57.0 · '1,234' -> 1234.0 · '' -> None · '-51' -> -51.0"""
-    if txt is None:
+def fetch_page(symbol: str, refresh: bool = False) -> str | None:
+    os.makedirs(CACHE, exist_ok=True)
+    sym = _clean(symbol)
+    path = os.path.join(CACHE, sym.replace("&", "_AND_") + ".html")
+    if os.path.exists(path) and not refresh:
+        return open(path, encoding="utf-8").read()
+    import screener_breaker as brk
+    # The PAID session (Jay: screener.in is the fundamentals source, subscription). A bare
+    # shell does not load .env, and a logged-out page is a different, thinner page — so
+    # load it here rather than trusting the caller's environment.
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(os.path.join(_DIR, ".env"))
+    except Exception:
+        pass
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+    ck = os.getenv("SCREENER_COOKIE", "")
+    if not ck:
+        raise RuntimeError("SCREENER_COOKIE not set — refusing a logged-out fetch")
+    if ck:
+        headers["Cookie"] = ck
+    html = brk.fetch_html(f"https://www.screener.in/company/{sym}/", headers, timeout=15, tag=sym)
+    if html:
+        open(path, "w", encoding="utf-8").write(html)
+    return html
+
+
+def _period_end(label: str):
+    m = re.match(r"\s*([A-Za-z]{3})\w*\s+(\d{4})", label or "")
+    if not m or m.group(1).lower() not in _MONTHS:
         return None
-    t = str(txt).strip().replace(",", "").replace("%", "").replace("₹", "")
-    if t in ("", "-", "—"):
-        return None
+    return (pd.Timestamp(int(m.group(2)), _MONTHS[m.group(1).lower()], 1)
+            + pd.offsets.MonthEnd(0))
+
+
+def _num(txt: str):
+    t = (txt or "").strip().replace(",", "").replace("%", "")
     try:
         return float(t)
     except ValueError:
         return None
 
 
-def _cookie() -> str:
-    ck = os.getenv("SCREENER_COOKIE", "").strip("'\"")
-    if not ck:
-        try:
-            from dotenv import load_dotenv
-            load_dotenv(override=False)
-            ck = os.getenv("SCREENER_COOKIE", "").strip("'\"")
-        except Exception:
-            pass
-    return ck
-
-
-def _section_rows(soup, section_id: str):
-    """(periods, {row_label_lower: [values]}) for a company-page table section."""
-    sec = soup.find("section", id=section_id)
-    if not sec:
-        return [], {}
-    tbl = sec.find("table")
-    if not tbl:
-        return [], {}
-    heads = [" ".join(th.text.split()) for th in tbl.select("thead th")]
-    periods = [p for p in heads[1:]]          # first header cell is the row label
-    out = {}
-    for tr in tbl.select("tbody tr"):
-        tds = [" ".join(td.text.split()) for td in tr.select("td")]
-        if len(tds) < 2:
-            continue
-        label = tds[0].replace("+", "").strip().lower()
-        out[label] = tds[1:]
-    return periods, out
-
-
-def fetch_history(symbol: str, ttl: int = CACHE_TTL_S):
-    """Quarterly + annual history for one symbol, or None if unreadable.
-
-    {
-      "quarters": [ {"end": date, "sales": float|None,
-                     "net_profit": float|None, "opm": float|None}, ... ]  # oldest→newest
-      "roce_by_year": { 2026: 40.0, 2025: 47.0, ... }
-    }
-    """
-    import requests
+def parse_tables(html: str) -> dict:
+    """{section_id: DataFrame(index=row label lower, columns=period-end Timestamp)}."""
     from bs4 import BeautifulSoup
-
-    key = symbol.strip().upper()
-    hit = _CACHE.get(key)
-    if hit and time.time() < hit["expires"]:
-        return hit["data"]
-
-    clean = key
-    for suf in (".NS", ".BO", ".NSE", "-EQ"):
-        if clean.endswith(suf):
-            clean = clean[: -len(suf)]
-            break
-
-    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
-    ck = _cookie()
-    if ck:
-        headers["Cookie"] = ck
-    try:
-        r = requests.get(f"https://www.screener.in/company/{clean}/",
-                         headers=headers, timeout=20)
-        if r.status_code != 200:
-            return None
-    except Exception as e:
-        logger.warning("screener history %s: %s", symbol, e)
-        return None
-
-    soup = BeautifulSoup(r.text, "html.parser")
-
-    qp, qrows = _section_rows(soup, "quarters")
-    if not qp:
-        return None
-
-    def _row(rows, *names):
-        for n in names:
-            for k in rows:
-                if k.startswith(n):
-                    return rows[k]
-        return None
-
-    sales = _row(qrows, "sales", "revenue")
-    npf = _row(qrows, "net profit")
-    opm = _row(qrows, "opm")
-
-    quarters = []
-    for i, label in enumerate(qp):
-        d = _period_to_date(label)
-        if not d:
+    soup = BeautifulSoup(html, "html.parser")
+    out = {}
+    for sid in ("quarters", "profit-loss", "balance-sheet", "cash-flow"):
+        sec = soup.find("section", id=sid)
+        table = sec.find("table") if sec else None
+        if table is None:
             continue
-        def _at(row):
-            return _num(row[i]) if row and i < len(row) else None
-        quarters.append({"end": d, "sales": _at(sales),
-                         "net_profit": _at(npf), "opm": _at(opm)})
-    quarters.sort(key=lambda q: q["end"])
-
-    rp, rrows = _section_rows(soup, "ratios")
-    roce_row = _row(rrows, "roce")
-    roce_by_year = {}
-    for i, label in enumerate(rp):
-        d = _period_to_date(label)
-        v = _num(roce_row[i]) if roce_row and i < len(roce_row) else None
-        if d and v is not None:
-            roce_by_year[d.year] = v
-
-    data = {"quarters": quarters, "roce_by_year": roce_by_year}
-    _CACHE[key] = {"data": data, "expires": time.time() + ttl}
-    return data
+        heads = [th.text.strip() for th in table.find_all("th")]
+        cols = [_period_end(h) for h in heads[1:]]
+        rows = {}
+        for tr in table.find_all("tr"):
+            td = tr.find_all("td")
+            if not td:
+                continue
+            label = re.sub(r"\s*\+\s*$", "", td[0].text.strip()).lower()
+            vals = [_num(c.text) for c in td[1:]]
+            rows.setdefault(label, vals)
+        keep = [i for i, c in enumerate(cols) if c is not None]
+        df = pd.DataFrame({lab: [v[i] if i < len(v) else None for i in keep]
+                           for lab, v in rows.items()}, index=[cols[i] for i in keep]).T
+        out[sid] = df
+    return out
 
 
-def as_of(symbol: str, anchor):
-    """The reported picture as of `anchor` (date or 'YYYY-MM-DD'), or None.
-
-    Uses the latest quarter ENDING ON OR BEFORE the anchor, and compares it to
-    the quarter four back (YoY) and one back (sequential margin). Returns None
-    when the history does not reach far enough — the caller reports INSUFFICIENT
-    rather than scoring a partial picture.
-    """
-    if isinstance(anchor, str):
-        try:
-            y, m, d = (int(x) for x in anchor[:10].split("-"))
-            anchor = date(y, m, d)
-        except Exception:
-            return None
-
-    h = fetch_history(symbol)
-    if not h or not h.get("quarters"):
+def _row(df: pd.DataFrame, contains: str):
+    if df is None or df.empty:
         return None
+    for lab in df.index:
+        if contains in lab:
+            return df.loc[lab]
+    return None
 
-    qs = [q for q in h["quarters"] if q["end"] <= anchor]
-    if not qs:
-        return None
-    i = len(qs) - 1
-    cur = qs[i]
-    prev = qs[i - 1] if i >= 1 else None
-    yoy = qs[i - 4] if i >= 4 else None
 
-    def _growth(now, before):
-        if now is None or before is None or before == 0:
-            return None
-        return (now - before) / abs(before) * 100.0
+def _published(cols, t: pd.Timestamp, lag: int):
+    return [c for c in cols if c + timedelta(days=lag) <= t]
 
-    # ROCE for the financial year in force at the anchor. screener labels Indian
-    # FYs by their March end, so an anchor in Aug-2025 sits in FY Mar-2026, which
-    # was NOT yet reported — use the latest year ENDING on or before the anchor.
-    roce = None
-    for yr in sorted(h["roce_by_year"], reverse=True):
-        if date(yr, 3, 31) <= anchor:
-            roce = h["roce_by_year"][yr]
-            break
 
-    return {
-        "quarter_end": cur["end"].isoformat(),
-        "profit_growth_pct": _growth(cur["net_profit"], yoy["net_profit"] if yoy else None),
-        "sales_growth_pct": _growth(cur["sales"], yoy["sales"] if yoy else None),
-        "opm_now": cur["opm"],
-        "opm_prev": prev["opm"] if prev else None,
-        "net_profit": cur["net_profit"],
-        "roce_pct": roce,
-        "n_quarters": len(qs),
-    }
+def rff_pit(tables: dict, as_of) -> dict:
+    """The five rebuildable Tier-A checks as of `as_of`. None = not computable."""
+    t = pd.Timestamp(as_of)
+    chk = {"NI": None, "FCF": None, "ICR": None, "DE": None, "ROA": None}
+    q = tables.get("quarters")
+    ni_ttm = None
+    if q is not None and not q.empty:
+        pub = sorted(_published(q.columns, t, Q_LAG_DAYS))[-4:]
+        if len(pub) == 4:
+            ni = _row(q, "net profit")
+            op = _row(q, "operating profit")
+            it = _row(q, "interest")
+            if ni is not None and all(pd.notna(ni[c]) for c in pub):
+                ni_ttm = float(sum(ni[c] for c in pub))
+                chk["NI"] = ni_ttm > 0
+            if op is not None and it is not None and all(pd.notna(op[c]) and pd.notna(it[c]) for c in pub):
+                o, i = float(sum(op[c] for c in pub)), float(sum(it[c] for c in pub))
+                chk["ICR"] = True if i <= 0 else (o / i) > ICR_MIN
+    bs = tables.get("balance-sheet")
+    if bs is not None and not bs.empty:
+        pub = sorted(_published(bs.columns, t, A_LAG_DAYS))
+        if pub:
+            c = pub[-1]
+            borr, res, eq = _row(bs, "borrowing"), _row(bs, "reserve"), _row(bs, "equity capital")
+            if eq is None:
+                eq = _row(bs, "share capital")
+            if borr is not None and res is not None and eq is not None:
+                b, r_, e = borr[c], res[c], eq[c]
+                if pd.notna(b) and pd.notna(r_) and pd.notna(e) and (e + r_) > 0:
+                    chk["DE"] = (b / (e + r_)) < DE_MAX
+            ta = _row(bs, "total assets")
+            if ta is not None and pd.notna(ta[c]) and ta[c] > 0 and ni_ttm is not None:
+                chk["ROA"] = (ni_ttm / ta[c] * 100.0) > ROA_MIN
+    cf = tables.get("cash-flow")
+    if cf is not None and not cf.empty:
+        pub = sorted(_published(cf.columns, t, A_LAG_DAYS))
+        if pub:
+            c = pub[-1]
+            fcf = _row(cf, "free cash flow")
+            if fcf is not None and pd.notna(fcf[c]):
+                chk["FCF"] = fcf[c] > 0
+    known = [v for v in chk.values() if v is not None]
+    return {"checks": chk, "n_known": len(known), "passed": int(sum(bool(v) for v in known)),
+            "quality": "OK" if len(known) >= MIN_CHECKS else "INSUFFICIENT"}
+
+
+def rff_pit_symbol(symbol: str, as_of) -> dict:
+    html = fetch_page(symbol)
+    if not html:
+        return {"checks": {}, "n_known": 0, "passed": 0, "quality": "NO_PAGE"}
+    return rff_pit(parse_tables(html), as_of)
 
 
 if __name__ == "__main__":
-    import argparse
-    ap = argparse.ArgumentParser()
-    ap.add_argument("symbol")
-    ap.add_argument("--anchor", default=None)
-    a = ap.parse_args()
-    if a.anchor:
-        print(as_of(a.symbol, a.anchor))
-    else:
-        h = fetch_history(a.symbol) or {}
-        qs = h.get("quarters", [])
-        print(f"  {len(qs)} quarters {qs[0]['end'] if qs else '-'} → {qs[-1]['end'] if qs else '-'}")
-        for q in qs[-4:]:
-            print("   ", q)
-        print("  ROCE by year:", h.get("roce_by_year"))
+    import sys
+    import validation as V
+    syms = V.default_universe("nifty500") if len(sys.argv) < 2 else sys.argv[1].split(",")
+    ok = miss = 0
+    for i, s in enumerate(syms, 1):
+        html = fetch_page(s)
+        ok, miss = (ok + 1, miss) if html else (ok, miss + 1)
+        if i % 50 == 0:
+            print(f"  {i}/{len(syms)}  cached {ok}  missing {miss}", flush=True)
+    print(f"done: {ok} pages cached, {miss} missing -> {CACHE}")
