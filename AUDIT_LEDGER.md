@@ -503,3 +503,87 @@ old two-case form it reports 7 glyphs instead of 9 and fails. Suite 230.
 and passes it to `_rrg_tradeable`. After AUD-PAR-06 that parameter is unused, so it can no
 longer affect anything; a test pins that no value of it resurrects a dropped cell.
 
+
+---
+
+# 24 September 2026 — Full read: 27 Library pages + CLAUDE.md, against the code
+
+Method: every Library page read in full (docs/portal, converted to text), plus
+`AUDIT_LEDGER.md`, the two new F&O cheat sheets and CLAUDE.md; each claim checked at
+file:line or re-measured. Market-hours rule waived by Jay for the day. **Nothing was changed
+except this ledger** — an accidental baseline write by `docs_audit/code_truth.py` was reverted
+with `git checkout` (the report-only checker is `truth_watch.py`). Fixes are PROPOSED and held.
+
+## Five themes
+
+1. **Evidence built on look-ahead.** The recovery backtest scores every historical anchor with
+   TODAY's fundamentals; the growth-gate test uses quarters not yet published.
+2. **Rules left live after their own test failed.** Derivative level rules (P3 failed 4/4),
+   Wyckoff, round numbers and the old RRG whitelist still score or steer.
+3. **The simulator does not trade the way the book does.** Time stops, OCO partials, the swing
+   trail and the intraday PA battery all differ between live and backtest.
+4. **No single owner for shared concepts.** Five stage definitions, three volume profiles,
+   four time stops, two order gates, three sizing rules.
+5. **Doctrine pages contradict each other and the code.** Doc 18 most of all.
+
+## Findings
+
+| ID | Sev | Location | One line |
+|---|---|---|---|
+| AUD-EVD-01 | **P0** | replay.run_recovery_replay → recovery_screener._fundamental_row :1342 | Recovery replay pins OHLCV only; RFF reads the LIVE screener.in pool/page + yfinance `.info`. Every recovery backtest — and the "best-evidenced gate in the repo" (RFF≥5, +2.40pp, Doc 09 §14 / Doc 25* §07) — is look-ahead biased |
+| AUD-EVD-02 | P1 | fundamental_replay._latest_quarter_on_or_before :209 | Takes any quarter ENDED ≤ anchor with no reporting lag (NSE: up to 45d, 60d for Q4). Mid-month anchors in Jan/Apr/Jul/Oct use unpublished quarters — the growth-gate (+1.31pp) evidence is partially look-ahead |
+| AUD-REV-06 | **P0** | s4_review.py prompt :663-670, level_check :1003-1018; Doc 32 §08b | P3 (22 Sep 19:54) FAILED all four derivative hypotheses; H1 and H4 INVERTED (T1 beyond the call wall reached MORE often — SWG-PB +13.3pp, CI excludes 0). The reviewer (last commit 23 Sep, after P3) still instructs capping T1 before the call wall and flags put-wall stops and max-pain paths |
+| AUD-DOC-01 | P1 | docs/portal/fo_cheat_sheet_*.html (untracked) | Teach the P3-rejected rules as an execution protocol; "close before THURSDAY expiry" — NSE monthly expiry is TUESDAY (fno_history: 12 of the 16 recent expiries); recovery targets 2R/4R vs canon 3R/5R; "long build-up → full aggression, else pullbacks only" is a gate despite "never gate" |
+| AUD-OPS-01 | **P0** | pre_trade_gate.py:41 | MAX_OPEN_POSITIONS default 15, no .env override; journal OPEN = 22 → every gated NEW buy (Streamlit CNC, MCP, n8n) is refused. Adds pass (existing symbol) |
+| AUD-OPS-02 | P1 | gm_settings.json risk_pct 1.0 vs S4 size_risk 0.25 (:1248) | GM guided-execution sizes a new entry at 1%, S4's Qty row at 0.25% — 4× the quantity for the same trade. Docs disagree too: CLAUDE.md DNA 1% · Doc 25 0.25% new / 1% adds · Doc 26 "1%" · Doc 18 0.75% · Doc 13 0.5–1.25% |
+| AUD-PAR-07 | P1 | Weinstein_Unified_Ecosystem_v3.4.pine:784-786, :1805 | AUD-PAR-06 (23 Sep) narrowed the RRG whitelist in Python/S4Core/v67 but not in Unified (still 5 cells). Unified's entry gate `rs_ok` admits LEADING **or IMPROVING** while its own note (:1914) measures RS-Ratio<100 at −0.64% |
+| AUD-PAR-08 | P1 | Commander_Chart_Markup_v2.0.pine:439-440; Unified stage | Stage has five definitions. Markup: no flat band, 6-week slope, flat counts as rising, below-rising → 1. Unified: below-rising → 1 where S4/Python/v67 give 2. Doc 20 claims "zero drift by intent"; Doc 25's appendix says "all four surfaces" agree |
+| AUD-PAR-09 | P1 | zone_engine.vp_support :1301-1330 vs S4 vp_lookback :3501 | Board VP location = 120 bars, typical-price single-bin (the method Doc 03 §02 calls wrong); S4 = 100 bars, overlap-weighted. Board and chart can disagree on "at VAL/POC". volume_profile.py is a third (120d / 50 bins) |
+| AUD-PAR-10 | P2 | weinstein_commander_web_v4.0.py:3495-3518; Docs 23/04 | Board location and stop still admit order blocks (S4 removed them 16 Jul); the board SL resets to 2.5×ATR past 3×ATR while S4 caps by trade type (swing 2.5 / pos 4.0). The board's Step-4 "R:R ≥ 2.0" is computed on a different stop |
+| AUD-PAR-11 | P2 | sniper_trigger.py:297-299 vs pre_trade_gate.py:41-43 | Two order gates: sniper sector cap 35%, no position cap, 20% capital per stock; pre_trade_gate 25% / 15 positions / 1.5% risk. Bible §3 says the gate's cap is imported by every order surface — sniper does not |
+| AUD-SIM-01 | P1 | replay NO_TIME_STOP (5 Aug); pyramid_logic:255-257; v67:991-992; Unified:340,377 | Four time stops: backtest none · pyramid 180/60d · v67 36wk/60d (tooltips still say 6W/10D) · Unified 6wk/10d/15d. The live EXIT rung's time stop is untested |
+| AUD-SIM-02 | P1 | Risk Allocator v2.2 split default 50/50; replay partial_qty_for 25/25 | Live OCOs cover 100% of the position (no runner); the backtest's edge lives in the 50% runner (88% of POS exits on the trail). The book does not run the tested structure |
+| AUD-SIM-03 | P1 | replay._simulate_one_trade trail_atr_mult=4.5 for every family | Swing trades trail at 4.5× in every validation run; live trails swing at 1.5× on a 14-bar window (recorded in PREREG_exit_policy Amendment 1) |
+| AUD-SIM-04 | P1 | S4 use_chart_tf ON; GM intraday battery; Doc 08 §01 | Doc 08: pattern alphas "validated on DAILY only … do not transfer to intraday; do not trust the tier output intraday". The P gate of every GO runs the battery on 75/125m |
+| AUD-CF-01 | P2 | S4 :1277-1280, :4063-4165; S4Core :1995, :2263/2299/2326 | Confluence still pays WCL +2, round +1, RRG +1 (all measured failed), prints "TAKE IT ★strong", and the SUMMARY calls its terms "independent facts" (the panel-row audit found the context rows correlated ≥0.6 and no row carrying IC) |
+| AUD-EVD-03 | P2 | Doc 25 Part 10b "Where to enter, relative to the EMA20" | The table is a family split, not an extension effect: the <1 ATR bins are 321/337 SWG-PB, the ≥1 ATR bins 175/175 POS. "Don't wait back to the EMA20 — under 1 ATR stop-outs run 70–75%" is SWG-PB's stop rate |
+| AUD-PY-13 | P2 | docs_audit code_truth: rev_screener_t1_r 2.5 vs rev_canon_t1_r 3.0 | The recovery screener emits T1 at 2.5R against the 3R canon |
+| AUD-PINE-08 | P3 | v67:5850-5851 | v67 still computes and plots `s4_mlWinProb`; S4 dropped the binding 21 Sep. Dead export, one plot slot |
+| AUD-DOC-02 | P1 | docs/portal/18_trade_funnel.html (listed as Doctrine) | Contradicts ≥8 measured or current rules: Wyckoff DISTRIBUTION disqualifier (measured backwards), IMPROVING→LEADING "sweet spot" (measured negative), ADX/wRSI gates (removed in the PA conversion), Strike.Money (retired), risk 0.75% / max 6 positions / ₹25k cap, the legacy exit table, scorecard sizing, buy-stop entries |
+| AUD-DOC-03 | P2 | Docs 16, 25, 27 | Describe exits at the catalyst horizon ("time expiry", "never test outside these", the forward_days_used check) — removed 5 Aug; the windows no longer set any exit |
+| AUD-DOC-04 | P2 | Docs 00, 01, 02, 03, 07, 13, 22, 23, 32 + CLAUDE.md | Stale or wrong claims — detail list below |
+| AUD-OPS-03 | P3 | DOCS_TRUTH_CHECK.bat; docs_audit/code_truth.json (baseline 9 Sep) | Doc 26 lists it as a daily post-close job; it is in no scheduler. Baseline not re-accepted since 9 Sep; 5 pages flagged today. It watches ~47 constants, so none of the findings above could have been caught by it |
+
+## AUD-DOC-04 — stale claims, page by page
+
+- **00 Bible** — GO is four gates (five since 1 Sep); S4-GO "n/4"; phase 6·7 "sync to Strike"; 15:45 trail "currently disarmed" (live since 9 Sep); "nothing here has been superseded" while mistake #22 (a breakout needs a squeeze) is the June POS-blackout bug.
+- **01 Structure** — "no longer feeds the stage read" (it is the stage tie-break on S4 :3189 and in bull_screener, where the variable is misnamed `rs_up`); equal threshold "0.5% / 0.3%" vs code 0.2% (Zigzag :148, strict_trend :68).
+- **02 Wyckoff** — "does not rank" (it scores +2 in confluence, whose documented job is ranking); recovery Wyckoff catalysts "validated … the priority recovery edge" (WYC-SOS −2.06% / −0.40% in the two re-baselines).
+- **03 Volume profile** — "survived measurement" was a fire rate (~18%), never an outcome test; the panel-row audit found no IC.
+- **07 Mission Control** — the journal "opens in its own window" (ported in-app 23 Sep); the swing workflow says "buy-stop, never a limit" against the retest default; RRG ranking "improving beats weakening".
+- **13 Unified** — "Python does not map below-rising to Stage 2 either" (it has since 20 Sep).
+- **22 / 25 / 13** — the stage tie-break is labelled "RS"; the code reads the Zigzag strict trend and falls back to the RS slope only when unbound.
+- **23 Golden Matcher** — ⚠noedge cites run 20260810 (now 20260920); the re-baseline table's "Neither correction 400 / −0.88 / −2.38 / 33.8" row IS the recovery run mislabelled as bull (also in CLAUDE.md, 19 Aug block); "the one rule: buy-stop above a closed bar" and guided-exec step 4 against the measured retest default; Step 2 still lists "ML probability".
+- **32 Reviewer** — doctrine "RRG LEADING / IMPROVING"; "S4 pairs OI with the last chart-TF bar" (fixed 12 Sep per Doc 22).
+- **09 / 10 / 11 / 18 / 23** — "leading or improving" accepted as a rotation floor in five places; only L→L and W→L measured positive.
+- **15 / 18 / 20** — setup-, scorecard- and conviction-based size multipliers (1.25× / full / half) — none outcome-tested.
+- **CLAUDE.md DNA** — web app `weinstein_commander_web_v2.5.py` (it is v4.0); RS "Mansfield, 52-wk primary" (the engine is JdK strike_cal; the `mansfield` fields hold JdK−100); "risk per trade 1%" (house rule 0.25% new entries).
+
+## Observation, not a finding
+
+`FINAL_Portfolio_Picks.csv` (23 Sep): of 22 holdings the ladder rates **5 EXIT, 7 REDUCE,
+3 TRIM, 5 HOLD, 2 ADD**.
+
+## Proposed order of work (HELD — Jay's call)
+
+1. **Ops, small:** set MAX_OPEN_POSITIONS to the book's real policy; make GM's new-entry risk
+   read the same 0.25% as S4, from one source.
+2. **Stop enforcing rejected rules:** remove the call-wall / put-wall / max-pain directives from
+   the reviewer prompt and level_check (keep them as displayed facts); retire or correct the
+   F&O cheat sheets (Tuesday expiry). Zero the WCL / round / RRG confluence weights; drop ★strong.
+3. **Redo the evidence:** a point-in-time RFF (as-of fundamentals with a reporting lag) before
+   the RFF=5 gate is cited again; add the lag to fundamental_replay.
+4. **One owner per concept:** stage (retire Markup's and Unified's variants), VP, time stop, OCO
+   structure — then make the backtest trade what the book trades, or the reverse.
+5. **Docs:** move Doc 18 out of Doctrine; fix 16/25/27 on time stops and the page list above;
+   schedule and re-baseline DOCS_TRUTH_CHECK.
