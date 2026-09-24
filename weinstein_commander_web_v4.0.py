@@ -3492,31 +3492,101 @@ from gm_log import gm_log as _gm_logger
 # ----------------------------------------------------------------------------------------
 # STRUCTURAL PLAN SL  (twin of the S4 Pine v3.0 Plan fix)
 # ----------------------------------------------------------------------------------------
-def _plan_structural_sl(ctx, entry, atr):
-    """The disciplined stop = the nearest FRESH structural support BELOW entry (zone
-    distal / FVG bottom / pivot, on Daily + Weekly), buffered 1%, then HARD-CAPPED at
-    3×ATR from entry. Returns a price or None. This replaces the old behaviour that
-    anchored the stop to the far Stage-1 AVWAP / EMA20 and produced ~20-24% 'stops'."""
+# ── STOP = S4's LADDER (24-Sep-2026, AUD-PAR-10) ─────────────────────────────────────
+# The board used to stop on the OB/FVG/pivot PROXY (D+W), 1% buffer, 3xATR->2.5xATR cap,
+# on the DAILY ATR -- so board and chart printed different stops, R and targets for the
+# same trigger. This is S4's chain (Section 4 v10.x, the `if go_v` plan block), read on
+# the TRIGGER TF exactly as S4 reads it on the chart:
+#   in-zone distal (inside or reacting, best recency score, any TF incl. the chart TF)
+#   -> nearest demand distal below (any kind)  -> 10-bar swing low on the chart TF
+#   buffer 0.5% below the level; no level below entry -> entry - mult x ATR;
+#   cap at mult x ATR, mult = 2.5 (swing) / 4.0 (positional), ATR = Wilder 14 on the
+#   chart TF (S4 `chart_atr = ta.atr(14)`).
+# Trade type is S4's `tt_swing`: ATR% > 4 OR > 30% off the 52W high OR below the 200-DMA.
+# ATR% is the CHART-TF ATR, as S4 computes it (its tooltip says "daily"; flagged
+# AUD-PINE-09) -- mirrored, not corrected, so the board shows what the chart shows.
+# The put-wall and futures-basis rungs are left out: step 2 (derivatives) is frozen.
+SL_BUF_PCT = 0.5          # S4 plan_slbuf_pct
+SL_MULT_SWING, SL_MULT_POS = 2.5, 4.0   # S4 tt_sl_swing / tt_sl_pos
+TT_SWING_ATR_PCT, TT_SWING_OFF52 = 4.0, 30.0   # S4 swing_atr_max / swing_off52_max
+
+
+def _gm_zone_rungs(zs_list):
+    """(in-zone distal, nearest-below distal) across zone_support() results, S4 order."""
+    in_best, near_best = None, None
+    for z in zs_list:
+        if not z:
+            continue
+        if z.get("zone_state") in ("inside", "reacting") and z.get("distal") is not None:
+            sc = z.get("recency_score")
+            sc = z.get("score") if sc is None else sc
+            sc = -1.0 if sc is None else float(sc)
+            if in_best is None or sc > in_best[0]:
+                in_best = (sc, float(z["distal"]))
+        if z.get("near_dz_proximal") is not None and z.get("near_dz_distal") is not None:
+            if near_best is None or float(z["near_dz_proximal"]) > near_best[0]:
+                near_best = (float(z["near_dz_proximal"]), float(z["near_dz_distal"]))
+    return (in_best[1] if in_best else None), (near_best[1] if near_best else None)
+
+
+def _gm_sl_basis(zs_list, df, tf):
+    """Everything the stop ladder needs, on the chart TF `df`. Never raises."""
+    b = {"tf": tf, "in_dist": None, "near_dist": None, "swing_lo10": None, "atr": None,
+         "close": None}
+    try:
+        b["in_dist"], b["near_dist"] = _gm_zone_rungs(zs_list)
+    except Exception:
+        pass
+    try:
+        if df is not None and len(df) >= 15:
+            h, l, c = df["High"], df["Low"], df["Close"]
+            tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+            b["atr"] = float(tr.ewm(alpha=1 / 14, adjust=False).mean().iloc[-1])
+            b["swing_lo10"] = float(l.iloc[-10:].min())
+            b["close"] = float(c.iloc[-1])
+    except Exception:
+        pass
+    return b
+
+
+def _plan_structural_sl(ctx, entry, atr, ret_src=False):
+    """S4's stop ladder (see the block comment above). Returns a price (or
+    (price, source) with ret_src) -- None when there is no entry. `atr` is only the
+    last-resort ATR when the chart-TF basis is missing."""
     if not entry:
-        return None
+        return (None, "") if ret_src else None
     sup = _g(ctx, "support", default={}) or {}
-    cands = []
-    for _tf in ("daily", "weekly"):
-        z = sup.get(_tf) or {}
-        for _k in ("ob_bot", "fvg_bot", "pivot"):
-            v = z.get(_k)
-            try:
-                v = float(v) if v is not None else None
-            except (TypeError, ValueError):
-                v = None
-            if v is not None and 0 < v < entry:
-                cands.append(v)
-    if not cands:
-        return None
-    sl = max(cands) * (1.0 - 0.01)                 # highest support below entry (tightest) + 1% buffer
-    if atr and atr > 0 and (entry - sl) > 3.0 * atr:
-        sl = entry - 2.5 * atr                     # sanity cap — never absurdly far
-    return sl if sl < entry else None
+    b = sup.get("sl_basis") or {}
+    a = b.get("atr") or atr
+    _cl = b.get("close") or entry
+    atr_pct = (a / _cl * 100.0) if (a and _cl) else 0.0
+    _d52 = _g(ctx, "dist52wh")                       # negative % off the 52W high
+    _off52 = abs(_d52) if (_d52 is not None and _d52 < 0) else 0.0
+    _s200, _cmp = _g(ctx, "sma200"), _g(ctx, "cmp") or _cl
+    _bel200 = bool(_s200 and _cmp and _cmp < _s200)
+    tt_swing = atr_pct > TT_SWING_ATR_PCT or _off52 > TT_SWING_OFF52 or _bel200
+    mult = SL_MULT_SWING if tt_swing else SL_MULT_POS
+    lvl, src = None, ""
+    for key, name in (("in_dist", "zone distal (in-zone)"),
+                      ("near_dist", "nearest zone distal"),
+                      ("swing_lo10", "10-bar swing low")):
+        v = b.get(key)
+        if v is not None:
+            lvl, src = float(v), name
+            break
+    if not a or a <= 0:
+        # No ATR at all: the structural level alone, else nothing (never invent a stop).
+        sl = lvl * (1 - SL_BUF_PCT / 100) if (lvl is not None and lvl < entry) else None
+    elif lvl is None or lvl >= entry:
+        sl, src = entry - mult * a, f"{mult:.1f}xATR (no structure below)"
+    else:
+        sl = lvl * (1 - SL_BUF_PCT / 100)
+        if (entry - sl) > mult * a:
+            sl, src = entry - mult * a, f"{src} capped at {mult:.1f}xATR"
+    if sl is not None and sl >= entry:
+        sl = None
+    src = (src + f" · {'SWING' if tt_swing else 'POSITIONAL'} · {b.get('tf') or '?'}") if sl else ""
+    return (sl, src) if ret_src else sl
 
 
 # ----------------------------------------------------------------------------------------
@@ -3725,13 +3795,13 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     # ── STRUCTURAL + ATR-CAPPED SL (twin of the S4 Pine v3.0 fix). Prefer the nearest
     # FRESH zone distal BELOW entry; then cap risk at 3×ATR so the stop can never be
     # absurdly far. Recompute sl_pct / rr (a tighter, correct stop also fixes the R:R).
-    _ssl = _plan_structural_sl(ctx, entry, _atr)
+    _ssl, _ssl_src = _plan_structural_sl(ctx, entry, _atr, ret_src=True)
     if entry and _ssl is not None:
         sl = _ssl
         sl_pct = (entry - sl) / entry * 100.0
         if t1 and t1 > entry:
             rr = (t1 - entry) / (entry - sl)
-        plan = (f"Buy-STOP above the trigger bar · SL {inr(sl)} (structural, −{sl_pct:.1f}%)"
+        plan = (f"Buy-STOP above the trigger bar · SL {inr(sl)} ({_ssl_src}, −{sl_pct:.1f}%)"
                 + (f" · T1 {inr(t1)} ({fnum(rr,1)}R)" if (t1 and rr) else "")
                 + " · size at 0.25% risk.")
     elif entry and sl is not None and _atr and _atr > 0 and (entry - sl) > 3.0 * _atr:
@@ -4077,8 +4147,6 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
     _ssl_r = _plan_structural_sl(ctx, entry, _atr_r2)
     if entry and _ssl_r is not None:
         sl = _ssl_r
-    elif entry and sl is not None and _atr_r2 and _atr_r2 > 0 and (entry - sl) > 3.0 * _atr_r2:
-        sl = entry - 2.5 * _atr_r2
     if entry and sl and sl < entry:
         sl_pct = (entry - sl) / entry * 100.0
     if rr is None and entry and sl and t1 and (entry - sl):
@@ -4530,6 +4598,12 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
                             except Exception as _ze2:
                                 _gm_logger.warning(f"{symbol}: trigger-TF zones failed ({trigger_tf}): {_ze2}")
                                 _izI = _srI = {}
+                        # Stop ladder on the TRIGGER TF, as S4 reads it on the chart:
+                        # chart-TF zones compete with D/W/M, and the swing low + ATR are
+                        # the chart TF's. Only when the chart-TF read worked.
+                        if _iz_tf:
+                            _s["sl_basis"] = _gm_sl_basis(
+                                [_izI] + list(_s.get("sl_zones_htf") or []), _idf, trigger_tf)
                         _s["tf_zone_at"] = bool(_izI.get("at_support"))
                         _s["tf_zone_pattern"] = bool(_izI.get("at_support_pattern"))
                         _s["tf_zone_pivot"] = bool(_izI.get("at_support_pivot"))
@@ -5294,6 +5368,13 @@ def gm_load_symbol(symbol: str) -> dict:
                     if _cands:
                         _best = min(_cands, key=lambda t: t[0])
                         _sup["next_zone_pct"], _sup["next_zone_tf"] = _best
+                    # Stop ladder (AUD-PAR-10): Daily is the native TF for a Daily board;
+                    # an intraday board re-derives it with its own zones/ATR (gm_evaluate).
+                    _sup["sl_zones_htf"] = [
+                        {k: _z.get(k) for k in ("zone_state", "distal", "score", "recency_score",
+                                                "near_dz_proximal", "near_dz_distal")}
+                        for _z in (_izD, _izW, _izM)]
+                    _sup["sl_basis"] = _gm_sl_basis((_izD, _izW, _izM), _df, "Daily")
                     _sup["ize_zone"] = _izD.get("zone") or _izW.get("zone") or _izM.get("zone")
                     _sup["ize_score"] = _izD.get("score") or _izW.get("score") or _izM.get("score")
                     _sup["ize_n_dz"] = int(_izD.get("n_dz") or 0) + int(_izW.get("n_dz") or 0) + int(_izM.get("n_dz") or 0)

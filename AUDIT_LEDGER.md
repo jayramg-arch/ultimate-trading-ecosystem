@@ -657,3 +657,18 @@ trail). Placebo caught a harness bias first (stop raised above the market on pul
 fixed by applying the live BREACHED rule (Amendment 1). The swing book stays negative at every
 width — least-bad exit, not an edge. Past bull re-baselines ran under the old 4.5× swing trail;
 the next re-baseline is the first on the live one.
+
+**AUD-PAR-10 — FIXED (24 Sep).** Board stop = S4's ladder (`_plan_structural_sl`,
+`_gm_sl_basis`): in-zone distal (inside/reacting, best recency score, chart-TF zones
+competing with D/W/M) → nearest demand distal below (new `zone_support.near_dz_*`, pivots
+included, as S4) → 10-bar swing low; 0.5% buffer; fallback and cap at 2.5×ATR swing /
+4.0×ATR positional on the CHART-TF Wilder ATR. Replaces the OB/FVG/pivot proxy, 1% buffer
+and the daily-ATR 3×→2.5× cap. Put-wall / basis rungs omitted (step 2 frozen). Checked on
+TITAN, SAILIFE, CGPOWER, COALINDIA at Daily and 75m. Expect board stops on 75m/125m tabs to
+TIGHTEN (the chart-TF ATR cap binds) — that is what S4 has always printed.
+
+**AUD-PINE-09 — OPEN (found 24 Sep).** S4's `tt_swing` ATR% uses `chart_atr` (the 75m ATR
+on a 75m chart) while its tooltip says "daily ATR%". On intraday charts the ATR% leg can
+almost never exceed 4%, so swing/positional is decided by off-52W and the 200-DMA alone,
+and the same name can change trade type between the Daily and 75m tabs. The board mirrors
+S4 as-is. Fix = one line (`d_atr` from the daily security) + a compile — Jay's call.

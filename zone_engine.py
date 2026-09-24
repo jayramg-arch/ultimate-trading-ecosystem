@@ -904,7 +904,7 @@ def zone_support(df: pd.DataFrame, tf: str = "D", price: float | None = None,
            # #27 / #3: the age-adjusted read and the Controlling flag. `score` stays the
            # INTRINSIC merit so nothing downstream that already reads it changes meaning.
            "recency_score": None, "controlling": False, "n_ctrl": 0,
-           "n_dz_spent": 0}
+           "n_dz_spent": 0, "near_dz_proximal": None, "near_dz_distal": None}
     zones = detect_zones(df, tf, daily_df=daily_df)
     if not zones:
         return out
@@ -949,6 +949,15 @@ def zone_support(df: pd.DataFrame, tf: str = "D", price: float | None = None,
                     out["at_support_pivot"] = True
                 else:
                     out["at_support_pattern"] = True
+    # NEAREST DEMAND BELOW, ANY KIND (24-Sep-2026, AUD-PAR-10) -- S4's z_nearDZdist, the
+    # second rung of its stop ladder: a fresh demand zone price is not inside or reacting
+    # to, highest proximal under price, pivots INCLUDED (unlike next_zone_* below, which
+    # is a pullback-destination read and excludes pivots on purpose).
+    _nb = [z for z in dz if not z.tested and z.proximal is not None and z.proximal < px
+           and not (z.distal <= px <= z.proximal) and not (z.reacted and px >= z.distal)]
+    if _nb:
+        _n = max(_nb, key=lambda z: z.proximal)
+        out["near_dz_proximal"], out["near_dz_distal"] = _n.proximal, _n.distal
     if best is not None:
         out.update(zone=best.pattern, proximal=best.proximal, distal=best.distal,
                    score=best.score, has_fvg=best.has_fvg,
