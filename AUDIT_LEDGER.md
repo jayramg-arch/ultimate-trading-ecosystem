@@ -627,3 +627,8 @@ Two further parity gaps found while porting (not fixed):
 - **AUD-PAR-13:** `wcl_context` setup ladder matches S4's (S3 and S6 removed).
 - **SIM-03 held:** the swing trail. 1.5× was never tested; a pre-registered width test
   (1.5 / 2.5 / 3.4 / 4.5×, in R) decides the live and backtest value together.
+- **SIM-02, broker side:** `gtt_auto_shield` now places the house structure — OCO at T1, OCO at
+  T2 (journal target1/target2), sized by `partial_qty_for`, plus a stop-only order over the
+  runner — instead of one OCO over 100% at one target. New shielding only; existing 50/50
+  OCOs are untouched until re-placed (Jay's call). The Risk Allocator's 50/50 split default
+  follows in the Pine batch. 7 tests.

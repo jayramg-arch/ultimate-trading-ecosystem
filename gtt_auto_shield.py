@@ -73,7 +73,7 @@ def load_journal_data():
         return {}
     try:
         conn = sqlite3.connect(DB_FILE)
-        df = pd.read_sql("SELECT symbol, stoploss, target, setup, timeframe, "
+        df = pd.read_sql("SELECT symbol, stoploss, target, target1, target2, setup, timeframe, "
                          "manual_sl_override, custom_ce_mult "
                          "FROM journal WHERE status = 'OPEN'", conn)
         conn.close()
@@ -82,6 +82,7 @@ def load_journal_data():
         for _, r in df.iterrows():
             sym = str(r['symbol']).strip().upper().replace("NSE:", "").replace("BSE:", "")
             data[sym] = {'SL': r['stoploss'], 'Target': r['target'],
+                         'T1': r['target1'], 'T2': r['target2'],
                          'setup': r['setup'],
                          'timeframe': r['timeframe'],
                          'manual_sl': r['manual_sl_override'],
@@ -94,6 +95,52 @@ def load_journal_data():
         print(f"❌ Journal read FAILED (nothing will be shielded): {e}")
         log.error(f"load_journal_data failed: {e}")
         return {}
+
+def _num_ok(x) -> bool:
+    try:
+        import math
+        return x is not None and float(x) > 0 and not math.isnan(float(x))
+    except Exception:
+        return False
+
+
+def plan_legs(qty: int, setup=None, timeframe=None, t1=None, t2=None, target=None) -> list:
+    """The house exit structure as broker orders (Jay, 24-Sep-2026: "live to 25/25 + runner").
+
+    Two OCO legs sized by bull_screener.partial_qty_for -- the SAME function the backtest and
+    Risk Shield use (POS/WYC/REV 25/25 · SWG 33/33 · GAP/REV 50/50) -- and a stop-only order
+    over the rest, which is the runner the trail carries. This used to be ONE OCO over 100% at
+    a single target: no runner, so the part of the position where the measured edge lives
+    (88% of positional exits are on the trail) was capped at a target on every live trade.
+
+    A position under 4 shares cannot be split meaningfully: one OCO at T1 covers it.
+    Returns [{"kind": "OCO"|"SL", "qty": int, "target": float|None}], summing to qty.
+    """
+    qty = int(qty)
+    T1 = float(t1) if _num_ok(t1) else (float(target) if _num_ok(target) else None)
+    T2 = float(t2) if _num_ok(t2) else None
+    if qty <= 0 or T1 is None:
+        return []
+    if qty < 4:
+        return [{"kind": "OCO", "qty": qty, "target": T1}]
+    tf = str(timeframe or "").strip().lower()
+    swing = True if tf.startswith("swing") else (False if tf.startswith("posit") else None)
+    try:
+        import bull_screener as _bs
+        q1p, q2p = _bs.partial_qty_for(setup, swing=swing)
+    except Exception:
+        q1p, q2p = (33, 33) if swing else (25, 25)
+    q1 = max(1, qty * q1p // 100)
+    q2 = (qty * q2p // 100) if T2 is not None else 0
+    q2 = min(q2, qty - q1)
+    legs = [{"kind": "OCO", "qty": q1, "target": T1}]
+    if q2 > 0:
+        legs.append({"kind": "OCO", "qty": q2, "target": T2})
+    runner = qty - q1 - q2
+    if runner > 0:
+        legs.append({"kind": "SL", "qty": runner, "target": None})
+    return legs
+
 
 def run_auto_shield(auto_yes: bool = False):
     print("="*60)
@@ -147,7 +194,8 @@ def run_auto_shield(auto_yes: bool = False):
             status_msg = "🟢 PROTECTED (GTT)"
         elif sym in journal_data:
             sl = journal_data[sym]['SL']
-            tgt = journal_data[sym]['Target']
+            _jd = journal_data[sym]
+            tgt = _jd['T1'] if _num_ok(_jd.get('T1')) else _jd['Target']
             
             # Robust check for NaN or 0
             import math
@@ -161,6 +209,8 @@ def run_auto_shield(auto_yes: bool = False):
                     'qty': qty,
                     'sl': sl,
                     'target': tgt,
+                    'legs': plan_legs(qty, _jd.get('setup'), _jd.get('timeframe'),
+                                      _jd.get('T1'), _jd.get('T2'), _jd.get('Target')),
                     'exchange': h.get('exchangeSegment', 'NSE_EQ')
                 })
             else:
@@ -180,6 +230,11 @@ def run_auto_shield(auto_yes: bool = False):
         return
 
     print("-" * 60)
+    print("\nPLAN -- two OCO legs + a stop-only runner per name (house 25/25 + runner):")
+    for it in shieldable_list:
+        print(f"  {it['symbol']:<14} " + " | ".join(
+            (f"OCO {l['qty']} @ {l['target']:.2f}" if l['kind'] == 'OCO' else f"runner {l['qty']} SL-only")
+            for l in it['legs']) + f"  · SL {it['sl']}")
     confirm = "Y" if auto_yes else input(f"\n🚀 SHIELD ALL {len(shieldable_list)} READY TRADES? (Y/N): ").upper()
 
     if confirm == 'Y':
@@ -210,28 +265,34 @@ def run_auto_shield(auto_yes: bool = False):
                 except Exception as e:
                     pass
 
-                # OCO Order Logic
-                res = dhan.place_forever(
-                    security_id=str(sec_id),
-                    exchange_segment=dhan.NSE,
-                    product_type=dhan.CNC,
-                    order_type=dhan.LIMIT,
-                    transaction_type=dhan.SELL,
-                    quantity=item['qty'],
-                    # Target Leg
-                    price=item['target'],
-                    trigger_Price=item['target'],
-                    # Stop Leg (OCO)
-                    order_flag="OCO",
-                    quantity1=item['qty'],
-                    price1=item['sl'] * 0.995, # Slight buffer for SL limit
-                    trigger_Price1=item['sl']
-                )
-                if res['status'] == 'success':
-                    print(f"   ✅ SHIELD ACTIVE (ID: {res['data']['orderId']})")
-                else:
-                    print(f"   ❌ FAILED: {res.get('remarks')}")
-                time.sleep(0.5) # Anti-throttle
+                # THREE ORDERS, not one (24-Sep-2026): OCO at T1, OCO at T2, and a stop-only
+                # order over the runner -- see plan_legs.
+                for leg in item['legs']:
+                    if leg["kind"] == "OCO":
+                        res = dhan.place_forever(
+                            security_id=str(sec_id), exchange_segment=dhan.NSE,
+                            product_type=dhan.CNC, order_type=dhan.LIMIT,
+                            transaction_type=dhan.SELL, quantity=leg["qty"],
+                            price=leg["target"], trigger_Price=leg["target"],   # target leg
+                            order_flag="OCO", quantity1=leg["qty"],
+                            price1=item['sl'] * 0.995, trigger_Price1=item['sl'])   # stop leg
+                        what = f"OCO {leg['qty']} sh @ T {leg['target']:.2f} / SL {item['sl']:.2f}"
+                    else:
+                        res = dhan.place_forever(
+                            security_id=str(sec_id), exchange_segment=dhan.NSE,
+                            product_type=dhan.CNC, order_type=dhan.LIMIT,
+                            transaction_type=dhan.SELL, quantity=leg["qty"],
+                            price=item['sl'] * 0.995, trigger_Price=item['sl'],
+                            order_flag="SINGLE")          # the runner keeps NO target
+                        what = f"runner SL-only {leg['qty']} sh @ {item['sl']:.2f}"
+                    if isinstance(res, dict) and res.get('status') == 'success':
+                        print(f"   OK {what} (ID: {res['data']['orderId']})")
+                        log.info("shield: %s %s", sym, what)
+                    else:
+                        print(f"   FAILED {what}: {res.get('remarks') if isinstance(res, dict) else res}")
+                        log.error("shield: %s %s failed: %s", sym, what, res)
+                    time.sleep(0.5)
+
             except Exception as e:
                 print(f"   ❌ ERROR: {e}")
 
