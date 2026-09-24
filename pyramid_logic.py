@@ -9,7 +9,7 @@ SELECTION tool, never a forced exit:
   • EXIT   (full, 100%)  = structure/thesis/risk broken — price-structure break
       (positional close < 30-WMA / swing close < swing-low), Stage 4, Chandelier
       stop-out (catalyst-aware trail via risk_common — SAME as Risk Shield), at
-      journal SL with P&L≤0, thesis underwater (≤ −8%), or dead-money time-stop.
+      journal SL with P&L≤0, or thesis underwater (≤ −8%). (No time stop since 24-Sep-2026.)
   • TRIM   (partial)     = harvest a WINNER, trend intact — R-multiple ladder
       (≥2R book ⅓, ≥3R book ½), target hit, over-extension (≥4×ATR over 20-EMA),
       or earnings within 3 days.
@@ -19,7 +19,7 @@ SELECTION tool, never a forced exit:
       a good location (pullback to 20-EMA, above rising 200-DMA, not extended).
   • HOLD                 = everything else.
 Triggers drawn from Pyramid/Trim (price-structure, REDUCE), Risk Shield
-(pullback-location, time-stop, earnings) and the Exit Signal Engine (R-ladder).
+(pullback-location, earnings) and the Exit Signal Engine (R-ladder).
 """
 from __future__ import annotations
 
@@ -264,7 +264,7 @@ def classify(row: dict) -> tuple[str, str]:
 
     Five-rung ladder, best-of-each logic (2026-07):
       EXIT  (full)   — structure/thesis/risk broken (price-structure, Stage 4,
-                       at-SL, ≤−8%, dead-money time-stop). trade_type-aware.
+                       at-SL, ≤−8%). trade_type-aware. No time stop.
       TRIM  (partial)— trend intact, harvest/de-risk (R-multiple ladder, target
                        hit, over-extension, earnings-soon). Winners only.
       REDUCE (soft)  — RS/decay warning, price intact (RRG LAGGING, <50-DMA,
@@ -336,10 +336,11 @@ def classify(row: dict) -> tuple[str, str]:
     chandelier = row.get("chandelier", np.nan)
     if _numok(chandelier) and _numok(ltp) and ltp < chandelier:
         return "EXIT", f"Chandelier stop-out — price below trail ₹{chandelier:,.0f}"
-    if days_held is not None and _numok(R):
-        _lim = SWING_DAYS if is_swing else POS_DAYS
-        if days_held >= _lim and R < TIME_STOP_R:
-            return "EXIT", f"Time-stop: {int(days_held)}d held, only {R:.1f}R — dead money, exit"
+    # NO TIME STOP (Jay, 24-Sep-2026). A time-based exit existed in five places with five
+    # clocks (this rung 180/60d, Risk Shield 42/10d, v67 36wk/60d, Unified 6wk/10d/15d) and in
+    # none of the backtests, which dropped it on 5-Aug ("nobody sells because sixty days
+    # elapsed"). One rule now: exits are the stop, the trail and structure. SWING_DAYS /
+    # POS_DAYS / TIME_STOP_R are kept as names only so an old import does not break.
 
     # ══ 2. TRIM (partial) — trend intact, harvest / de-risk (winners only) ══
     if pnl > 0:
@@ -690,7 +691,7 @@ def render_pyramid_trim(df_precomputed: pd.DataFrame = None):
     st.markdown('<div class="page-title">⚖️ Pyramid / Trim Manager</div>', unsafe_allow_html=True)
     st.caption(
         "Five-rung ladder — **ADD → HOLD → REDUCE → TRIM → EXIT** — best-of-each logic. "
-        "**EXIT** (full) = structure/thesis broken (30-WMA / swing-low / Stage 4 / at-SL / −8% / dead-money). "
+        "**EXIT** (full) = structure/thesis broken (30-WMA / swing-low / Stage 4 / at-SL / −8%). "
         "**TRIM** (partial) = harvest a winner (≥2R / target / over-extended / earnings-soon). "
         "**REDUCE** (soft) = RS/decay warning → tighten stop & don't add (never a sell). "
         "**ADD** = a leader (RRG) at a good location (pullback to EMA20). RRG is selection-only, never a forced exit."
@@ -783,7 +784,7 @@ def render_pyramid_trim(df_precomputed: pd.DataFrame = None):
     m3.metric("◑ Trim", cnt_trim, help="Partial profit-take/de-risk — trend intact (≥2R / target / over-extended / earnings).")
     m4.metric("◐ Reduce", cnt_reduce, help="RS/decay warning — tighten stop & don't add. NOT a sell.")
     m5.metric("⬇ Exit", cnt_exit, delta=f"-{cnt_exit}", delta_color="inverse",
-              help="Full exit — structure/thesis broken (30-WMA / swing-low / Stage 4 / at-SL / −8% / dead-money).")
+              help="Full exit — structure/thesis broken (30-WMA / swing-low / Stage 4 / at-SL / −8%).")
     m6.metric("━ Hold", cnt_hold)
 
     st.divider()
@@ -791,8 +792,8 @@ def render_pyramid_trim(df_precomputed: pd.DataFrame = None):
     st.subheader("⬇ EXIT (Full — structure / thesis broken)")
     st.caption("Positional: closed below 30-WMA (Stage-4). Swing: closed below swing low. "
                "Plus Stage 4, **Chandelier stop-out** (price below the catalyst-aware trail — "
-               "same as Risk Shield), at-SL with P&L ≤ 0, thesis-broken (≤ −8%), or dead-money "
-               "time-stop. **Close the whole position.** Worst first.")
+               "same as Risk Shield), at-SL with P&L ≤ 0, or thesis-broken (≤ −8%). "
+               "**Close the whole position.** Worst first.")
     render_section("EXIT", df[df["classification"] == "EXIT"], "pnl_pct", ascending=True)
 
     st.subheader("◑ TRIM (Partial — harvest a winner)")

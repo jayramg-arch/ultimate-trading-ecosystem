@@ -18394,11 +18394,9 @@ elif page == 'RISK SHIELD':
                                             days_held = (date.today() - entry_d).days
                                         except: pass
 
+                                    # No time stop (Jay, 24-Sep-2026) — this tile ran its own 42/10-day clock,
+                                    # a fifth definition. Exits are the stop, the trail and structure.
                                     time_stop_hit = False
-                                    if days_held is not None and holding and buy_price and total_risk_at_entry > 0 and total_qty > 0:
-                                        limit_days = 10 if is_swing else 42
-                                        if days_held >= limit_days and r_multiple < 0.5:
-                                            time_stop_hit = True
 
                                     flags_html = ""
                                     cond_trim = False
@@ -18809,11 +18807,7 @@ elif page == 'RISK SHIELD':
                                     if ltp:
                                         ema20 = _tech.get("ema20") if _tech else None
                                         
-                                        time_stop_price = None
-                                        if holding and buy_price:
-                                            if total_risk_at_entry > 0 and total_qty > 0:
-                                                if r_multiple < 0.5:
-                                                    time_stop_price = buy_price + (0.5 * total_risk_at_entry / total_qty)
+                                        time_stop_price = None   # no time stop (24-Sep-2026) — marker retired
                                         
                                         all_lows = []
                                         if sl_vals: all_lows.extend(sl_vals)
