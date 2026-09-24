@@ -60,6 +60,40 @@ harness first; any width "winning" there is a bug.
 Runs **once**. Result recorded here, and the chosen k goes into both `risk_common` (live)
 and `replay` (backtest) in the same commit.
 
+## Amendment 1 — 24 Sep, after the placebo, before the real run
+
+The placebo (shuffled, driftless prices) showed the 1.5× trail at +0.83R with a one-day
+median hold — impossible on a random walk. Cause: SWG-PB enters after a pullback, so the
+14-bar highest close sits ABOVE the entry and the Chandelier level lands above the market;
+the harness raised the stop there and filled it at a price that never traded. Live, the
+trail job reports such a level as BREACHED and never pushes it. The harness now applies the
+same rule: the trail only rises to a level below the prior close. No other change; the
+placebo is re-run before the real run.
+
 ## Result
 
-*(Left empty deliberately. To be filled in ONCE, by the run.)*
+**Run 24 Sep 2026, once** (`validation_runs/_swing_trail_run.log`, trades in
+`_swing_trail_trades.csv`). Placebo after Amendment 1: every width flat to negative, none
+passes. Validity: C reproduces the recorded returns exactly (median |err| 0.000pp, 100%
+within 1pp). SWG-PB, 321 trades.
+
+| trail | IS mean R | IS median | OOS mean R | OOS median | trail exits | median days |
+|---|---:|---:|---:|---:|---:|---:|
+| C (old backtest) | −0.400 | −1.056 | −0.325 | −1.065 | 24.9% | — |
+| **W1.5 (live)** | **−0.232** | **−0.470** | **−0.103** | **−0.501** | 83.8% | 3 |
+| W2.5 | −0.346 | −1.048 | −0.319 | −1.048 | 46.7% | 4 |
+| W3.5 | −0.381 | −1.055 | −0.288 | −1.064 | 27.4% | 4 |
+| W4.5 | −0.404 | −1.056 | −0.350 | −1.065 | 24.9% | 4 |
+
+Every wider width **fails, and is worse**: ΔIS −0.11 to −0.17R, ΔOOS −0.19 to −0.25R, and
+every pooled CI95 excludes zero *below* it (W2.5 [−0.26, −0.02], W4.5 [−0.31, −0.06]).
+
+**Decision: 1.5× stays live; the backtest's swing trail is aligned to it** (`replay.py`
+`SWING_TRAIL_MULT`/`SWING_TRAIL_WINDOW`, main replay path; verified against this harness to
+≤ 0.005pp on 80 trades). Positional trails are unchanged.
+
+**What this does NOT say:** the swing book is still negative at every width (−0.23R IS,
+−0.10R OOS at the best one). The tight trail is the least-bad exit for SWG-PB, not an edge.
+And the median hold of 3 days means the trail is doing most of the exiting — a tight trail
+on a pullback entry takes you out on the first normal down day. Jay's instinct that 1.5×
+is small is correct in kind; it is simply that wider was worse here, not better.

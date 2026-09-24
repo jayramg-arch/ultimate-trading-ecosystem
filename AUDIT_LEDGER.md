@@ -648,3 +648,12 @@ recompile drops S4's bindings). The other three carry no bindings and no alerts.
 New finding from the Unified work: **AUD-PY-14** — `bull_screener.sector_stage_ok = True`
 ("TODO: wire up sector data"); Doc 11 lists it as one of the six base gates, but it has never
 gated anything.
+
+**AUD-SIM-03 — FIXED (24 Sep, pre-registered).** `docs/PREREG_swing_trail.md`, run once. The
+live swing trail (14-bar Chandelier, 1.5×ATR) beat 2.5/3.5/4.5× on SWG-PB in IS and OOS; every
+wider width was significantly worse (pooled CI excludes zero below). Backtest aligned:
+`replay.SWING_TRAIL_MULT/WINDOW`, main replay path only (the s4go harness still uses its own
+trail). Placebo caught a harness bias first (stop raised above the market on pullback entries);
+fixed by applying the live BREACHED rule (Amendment 1). The swing book stays negative at every
+width — least-bad exit, not an edge. Past bull re-baselines ran under the old 4.5× swing trail;
+the next re-baseline is the first on the live one.

@@ -315,6 +315,10 @@ def _realize(tranches: list, exit_at: float, exit_qty: float) -> float:
     return pnl
 
 
+SWING_TRAIL_MULT = 1.5      # PREREG_swing_trail.md — equals risk_common's swing multiplier
+SWING_TRAIL_WINDOW = 14     # risk_common.trail_window_for(swing=True)
+
+
 def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: float,
                          sl_price: float, t1_price: Optional[float], t2_price: Optional[float],
                          t1_qty_pct: int, t2_qty_pct: int,
@@ -322,9 +326,16 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
                          atr_len: int = 14, cost_pct: float = COST_PER_LEG_DEFAULT,
                          stage_pct: float = 100.0, stage_ref_close: Optional[float] = None,
                          stage_ref_high: Optional[float] = None,
-                         stage_window: int = 20) -> dict:
+                         stage_window: int = 20,
+                         trail_window: Optional[int] = None) -> dict:
     """Simulate one trade bar-by-bar. Returns {realized_pct, exit_reason, days_held,
-    hit_sl, hit_t1, hit_t2, max_dd_pct, max_runup_pct}."""
+    hit_sl, hit_t1, hit_t2, max_dd_pct, max_runup_pct}.
+
+    `trail_window` (24-Sep-2026, docs/PREREG_swing_trail.md): None = the historical trail
+    (highest close SINCE ENTRY − mult × ATR14 SMA). An int N = the LIVE Chandelier
+    (risk_common.chandelier_exit): highest close of the last N bars − mult × Wilder ATR(N),
+    both from the PRIOR bar, and only applied when the level sits below the prior close —
+    the live trail job reports a level at/above the market as BREACHED and never pushes it."""
     if df_d is None or df_d.empty or entry_idx_pos < 0 or entry_idx_pos >= len(df_d):
         return {"realized_pct": None, "exit_reason": "no entry", "days_held": 0,
                  "hit_sl": False, "hit_t1": False, "hit_t2": False,
@@ -372,6 +383,10 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
     h, l, c = df_d["High"], df_d["Low"], df_d["Close"]
     tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
     atr_series = tr.rolling(atr_len).mean()
+    if trail_window:
+        _atr_live = tr.ewm(alpha=1 / trail_window, adjust=False).mean().values
+        _hc_live = c.rolling(trail_window).max().values
+        _c_arr = c.values
     # Track DD + runup
     lowest_low = float("inf")
     highest_high = -float("inf")
@@ -392,10 +407,18 @@ def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: flo
         highest_high = max(highest_high, bar_high)
 
         # Update trailing stop (Chandelier — only ratchets up)
-        atr_now = float(atr_series.iloc[entry_idx_pos + 1 + i]) if entry_idx_pos + 1 + i < len(atr_series) else None
-        if atr_now is not None and not np.isnan(atr_now):
-            new_trail = highest_close - atr_now * trail_atr_mult
-            trail_sl = max(trail_sl, new_trail)
+        if trail_window:
+            _p = entry_idx_pos + i            # the PRIOR bar of this one
+            _a, _hc = _atr_live[_p], _hc_live[_p]
+            if not (np.isnan(_a) or np.isnan(_hc)):
+                _lvl = _hc - _a * trail_atr_mult
+                if _lvl < _c_arr[_p]:
+                    trail_sl = max(trail_sl, _lvl)
+        else:
+            atr_now = float(atr_series.iloc[entry_idx_pos + 1 + i]) if entry_idx_pos + 1 + i < len(atr_series) else None
+            if atr_now is not None and not np.isnan(atr_now):
+                new_trail = highest_close - atr_now * trail_atr_mult
+                trail_sl = max(trail_sl, new_trail)
 
         # Order priority on a single bar: SL → T1 → T2 (conservative — assume worst case if bar spans both)
         # If bar's low touched SL: full exit
@@ -644,9 +667,15 @@ def forward_returns_with_exits(picks_df: pd.DataFrame, as_of: str,
         import bull_screener as _bs_q
         t1_qty, t2_qty = _bs_q.partial_qty_for(cat)
 
+        # SWING TRAIL = LIVE (24-Sep-2026, PREREG_swing_trail.md, run once): 14-bar
+        # Chandelier at 1.5×ATR, as risk_common trails a swing position. Wider widths
+        # (2.5/3.5/4.5) were measurably worse in IS and OOS. Positional keeps its trail.
+        _swg = str(cat).upper().startswith("SWG")
         res = _simulate_one_trade(df2, entry_pos, entry_price, sl_price,
                                      t1_price, t2_price, t1_qty, t2_qty,
-                                     max_bars=fwd, cost_pct=cost_pct)
+                                     max_bars=fwd, cost_pct=cost_pct,
+                                     trail_atr_mult=(SWING_TRAIL_MULT if _swg else 4.5),
+                                     trail_window=(SWING_TRAIL_WINDOW if _swg else None))
 
         # v3.0 (26-Jul-2026) HORIZON FIX. The benchmark leg must span the trade's
         # ACTUAL hold, not the catalyst's full design window. `res["realized_pct"]`
