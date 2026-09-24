@@ -34,6 +34,8 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
+import time
 from datetime import date, datetime, timedelta
 
 _ROOT = os.path.dirname(os.path.abspath(__file__))
@@ -102,13 +104,44 @@ def load() -> dict:
     it degrades to empty and SAYS SO in the log rather than raising into a rebuild."""
     if not os.path.exists(_STORE):
         return {}
+    # RETRY A TRANSIENT OPEN (24-Sep-2026). On Windows the destination cannot be opened
+    # during the instant os.replace swaps it, so a reader racing a save gets
+    # `[Errno 13] Permission denied` — measured at 46 of ~3,000 reads under concurrency.
+    # The old code treated that as "the register is corrupt" and returned {}, which on
+    # this path means every armed name silently disappears from the board. A file that is
+    # busy is not a file that is broken.
+    last = None
+    for attempt in range(4):
+        try:
+            with open(_STORE, "r", encoding="utf-8") as f:
+                d = json.load(f)
+            return d if isinstance(d, dict) else {}
+        except OSError as e:                     # busy — the swap is mid-flight
+            last = e
+            time.sleep(0.05 * (attempt + 1))
+        except Exception as e:                   # genuinely unparseable — stop retrying
+            last = e
+            break
+    # PRESERVE THE EVIDENCE. This warning fired 440 times between 31-Jul and 23-Sep and
+    # every line said the same thing, so there was nothing to diagnose afterwards: no
+    # size, no first bytes, no copy of what was actually on disk. Keep one snapshot per
+    # day (not per read — this can fire dozens of times a minute) and say what was seen.
     try:
-        with open(_STORE, "r", encoding="utf-8") as f:
-            d = json.load(f)
-        return d if isinstance(d, dict) else {}
-    except Exception as e:
-        _log.warning(f"gm_armed: store unreadable — register treated as empty: {e}")
-        return {}
+        size = os.path.getsize(_STORE)
+        with open(_STORE, "rb") as f:
+            head = f.read(40)
+    except OSError:
+        size, head = -1, b""
+    _log.warning("gm_armed: store unreadable — register treated as empty: %s "
+                 "[%d bytes, starts %r]" % (last, size, head))
+    try:
+        keep = _STORE + ".unreadable-" + date.today().isoformat()
+        if size > 0 and not os.path.exists(keep):
+            shutil.copyfile(_STORE, keep)
+            _log.warning("gm_armed: kept a copy at %s" % os.path.basename(keep))
+    except OSError:
+        pass
+    return {}
 
 
 def save(reg: dict) -> None:
