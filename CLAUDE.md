@@ -47,7 +47,7 @@
 ### Positional Trading
 - **Timeframe:** 6–8 months
 - **Target:** 10–30% per trade
-- **Strategy:** Weinstein Stage Analysis, RRG charts, Mansfield RS for sector/stock selection
+- **Strategy:** Weinstein Stage Analysis, RRG charts, JdK RS (RRG `strike_cal`) for sector/stock selection
 
 ### Common Rules
 - **Risk per trade:** 0.5% of capital on a new entry in a stock, **0.75% in an ETF**, 1% on a pyramid add (Jay, 24 Sep 2026 — the same on every sizing surface: S4 Qty (ETF = 1.5× its base), GM sizer, Risk Allocator)
@@ -75,7 +75,7 @@
 | EMA 20 | On chart (Daily and above); EMA20(Daily) overlaid on 125/75-min |
 | SMA 50 | Volume baseline |
 | 30-Week MA | Weinstein Stage anchor (Weekly) |
-| RS (Relative Strength) | Mansfield RS vs Nifty 50/500/Sector; 52-wk primary, 3/6-mo tactical |
+| RS (Relative Strength) | JdK RS-Ratio / RS-Momentum on confirmed weekly bars — RRG `strike_cal` (ratio SMA 25, smooth 10, momentum 7, origin-preserving affine), one calibration on every surface via `rrg_engine.STRIKE_CAL`. Benchmarks: Nifty 500 (primary) and the stock's sector index. Fields still named `mansfield` hold RS-Ratio − 100 (> 0 = outperforming) — the name is legacy, the maths is JdK |
 | Volume Baselines | 50-SMA of volume |
 | Stage Classification | Weekly-anchored, derived from 30-WMA slope + price position |
 
@@ -92,7 +92,7 @@ Additional confluence: Trendlines, Fibonacci, Order Flow, RSI, ATR
 - Screener User Guide — logic and threshold documentation
 
 ### Weinstein Commander Web App
-- **File:** `weinstein_commander_web_v2.5.py`
+- **File:** `weinstein_commander_web_v4.0.py`
 - **Stack:** Python / Streamlit
 - Real-time portfolio health vitals dashboard
 - Indian currency formatting: **₹1,23,456** (mandatory across all financial displays)

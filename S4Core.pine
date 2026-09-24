@@ -1992,7 +1992,10 @@ export summaryRead(int stage, float stgWks, float trW, float trD, bool tfUp,
     // v51 / H10: thin room removed from the problem set - only IN SUPPLY and a hairline stop remain.
     bool bigProblem = inSZ or (not na(rATR) and rATR < 0.5)
     string sDir = not go ? "DIRECTION · Nothing to do yet. The trigger is incomplete, so the work now is to decide IN ADVANCE what would make this actionable and let the alert do the waiting - a name watched tick by tick gets bought early." : not bigProblem and (wUp or dUp) ? "DIRECTION · This is a take-it. Trend, leadership and location agree, the geometry is honest and the trigger is live, so what remains is ordinary trade risk rather than a flaw in the setup. Execute the plan as written and let the stop, not an opinion, decide the outcome." : bigProblem and (wUp or dUp) ? "DIRECTION · The SETUP is sound but the TRADE as planned is not. What is wrong is fixable - the entry, the stop or the target, not the thesis - so either restructure it with a deeper entry, a stop that clears noise, or a target beyond the obstacle, or leave it alone. Do not take the plan as printed merely because the trigger fired." : "DIRECTION · The trigger is live but the context is against it. A long here is counter-trend, which is legitimate only if you size it as one, take the first obstacle as the target and accept a lower hit rate. If you would not defend this entry out loud, that is your answer."
-    string sConf = cf >= cfMax / 2 ? "  Confluence is dense - several independent facts point the same way." : "  Confluence is thin: few independent facts agree, so this rests largely on the trigger alone."
+    // AUD-CF-01 (24-Sep-2026): the old wording called these "independent facts". They are not -
+    // the panel-row audit found the context rows correlated >= 0.6 and no row carrying measurable
+    // edge - so the count is described as what it is: how many reads line up, nothing more.
+    string sConf = cf >= cfMax / 2 ? "  Confluence is dense - many of the panel's reads line up. They overlap, and the count has no measured edge, so it describes the setup rather than grading it." : "  Confluence is thin: few of the panel's reads line up, so this rests largely on the trigger itself."
     string sPath = isRec ? "  Read this as a RECOVERY entry: qualification is fundamental (RFF), and since Gate 6 that score does reach this chart - see the QUALITY line above. What crosses over is the SCORE only, not the six-check verdict, the growth history or the quality rejection behind it, so the Golden Matcher is still the authority on whether the name belongs on the list at all." : ""
     sTrend + sStage + sAge + "\n" + sLead + sSec + "\n" + sLoc + sOff + "\n" + sPart + sFlow + sOf + sOi + "\n" + sGeo + sRoom + sType + sWall + "\n" + sDir + sConf + sPath
 
@@ -2260,7 +2263,7 @@ export verdictRead(color C_NO, color C_OK, color C_WARN, string _act, bool _atVa
         // in-progress recovery that reclaimed the 30WMA but is still under the 200-DMA
         // fails _stage2ok and KEEPS this branch, which is correct. Costs nothing new.
         else if is_rec_v and not _stage2ok
-            _L1 := "TAKE IT — Recovery" + (cf_v >= cf_strong ? " ★strong" : "") + ((_qArrBad or _qLocWeak) ? " (size down)" : "")
+            _L1 := "TAKE IT — Recovery" + ((_qArrBad or _qLocWeak) ? " (size down)" : "")
             _L2 := "A recovery climbs back THROUGH overhead —\nthe levels above ARE the target ladder (T1/T2), not a wall.\nThin room / 'in supply' is EXPECTED for a recovery and does NOT deny the trade."
             // v5.4 (#3 of 3): this buy-STOP is DELIBERATE for a recovery — you confirm the
             // TURN before entering, never buy the touch of a level in a name that has been
@@ -2296,7 +2299,7 @@ export verdictRead(color C_NO, color C_OK, color C_WARN, string _act, bool _atVa
         // the reward gates clear — the headline says which and _rule carries the number,
         // so a thin-reward pullback reads ARM, never a green light.
         else if _atValue
-            _L1 := ((_posOk or _swingOk) ? "TAKE IT — PULLBACK TO VALUE" : "ARM — PULLBACK TO VALUE, reward still thin") + (cf_v >= cf_strong ? " ★strong" : "")
+            _L1 := ((_posOk or _swingOk) ? "TAKE IT — PULLBACK TO VALUE" : "ARM — PULLBACK TO VALUE, reward still thin")
             _L2 := _rule
             // _atValue admits a chart-TF demand zone OR a daily/weekly FVG-or-pivot,
             // so this cannot assert a zone. A level is a line, not an area: it gives
@@ -2323,7 +2326,7 @@ export verdictRead(color C_NO, color C_OK, color C_WARN, string _act, bool _atVa
             _L3 := "Buying from inside a supply band is not a trade - be paid for BREAKING it, or wait above it."
             _anCol := C_NO
         else if _posOk or _swingOk
-            _L1 := (_qLocWeak or _qExt) ? "CAUTION — momentum/chase" : ("TAKE IT" + (cf_v >= cf_strong ? " ★strong" : "") + (_qArrGood ? " · quality arrival" : ""))
+            _L1 := (_qLocWeak or _qExt) ? "CAUTION — momentum/chase" : ("TAKE IT" + (_qArrGood ? " · quality arrival" : ""))
             _L2 := _rule
             _L3 := _qLocWeak ? "Location is the AVWAP/EMA only — NOT a demand zone. A momentum/breakout entry,\nnot a pullback to support (your A+ setup). Size down or wait for a pullback into a zone." : _qExt ? ("Caveat: EXTENDED " + str.tostring(_extV, "0.0") + " ATR above the EMA20 — chasing;\nsize down or wait for a pullback toward value.") : _qArrBad ? "Caveat: GRIND arrival with Δ− — size down or wait for a sharper re-test." : ""
             // #verdict (30-Jul, TITAN): the panel was giving THREE entry instructions at

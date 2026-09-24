@@ -853,10 +853,10 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v10.7 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.7", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v10.8 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.8", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.6"
+string S4_VER      = "v11.7"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -1258,7 +1258,6 @@ tt_t1r_swing    = input.float(2.0,  "Swing: T1 (R)",     group=grpTT, minval=1.0
 tt_t2r_swing    = input.float(4.0,  "Swing: T2 (R)",     group=grpTT, minval=1.0, maxval=15.0, step=0.5)
 tt_t1r_pos      = input.float(3.0,  "Positional: T1 (R)",group=grpTT, minval=1.0, maxval=15.0, step=0.5)
 tt_t2r_pos      = input.float(5.0, "Positional: T2 (R)",group=grpTT, minval=1.0, maxval=25.0, step=0.5)
-cf_strong   = input.int(6, "Score for a STRONG trigger", group=grpCF, minval=1, maxval=20, tooltip="At or above this the TRIGGER row reads 'GO ★strong'. Purely a read-out — it does NOT gate the GO.")
 cf_w_avwap  = input.int(2, "AVWAP trigger (timing)",      group=grpCF, minval=0, maxval=5)
 cf_w_intra  = input.int(2, "Intraday leg (timing)",       group=grpCF, minval=0, maxval=5)
 cf_w_fvg    = input.int(1, "⚡ FVG-qualified zone",        group=grpCF, minval=0, maxval=5)
@@ -1274,10 +1273,10 @@ cf_w_tl     = input.int(1, "On your manual trendline",    group=grpCF, minval=0,
 cf_w_flag   = input.int(1, "Bull flag",                   group=grpCF, minval=0, maxval=5, tooltip="A qualified bull flag (pole + tight + counter-trend drift + dry volume + proportional retrace). Not part of the PA battery, so this does not double-count with the P gate.")
 cf_rv_strong= input.float(1.25, "RV counts as 'strong' at", group=grpCF, minval=1.0, step=0.05, tooltip="The GO gate only needs RV >= the floor (volume PRESENT). This is the higher bar for volume EXPANDING, which is what earns the point.")
 cf_w_arrival= input.int(1, "Sharp arrival at a zone",     group=grpCF, minval=0, maxval=5, tooltip="Confluence point when price arrived into the zone FAST — a high-velocity drop into demand (or rally into supply), which tends to produce a sharp, immediate rejection. A slow stair-step (GRIND) does NOT earn it. Configured in the 'Arrival & Order-Flow' group.")
-cf_w_wcl    = input.int(2,      "WCL Context (Bullish/Accumulation)", group=grpCF, minval=0, maxval=5, tooltip="Grants confluence points (+1 to +2) when WCL Context Score is BULL/STRONG BULL or Wyckoff is ACCUMULATION.")
+cf_w_wcl    = input.int(0,      "WCL Context (Bullish/Accumulation)", group=grpCF, minval=0, maxval=5, tooltip="ZEROED 24-Sep-2026 (audit AUD-CF-01; was 2): Wyckoff was tested as a score input and came back null (held-out rho +0.013, p 0.74), and as a veto it was backwards. Grants +1 to +2 when WCL reads BULL/STRONG BULL or ACCUMULATION if you set it above 0.")
 cf_w_dailypa= input.int(1, "Daily battery agrees",        group=grpCF, minval=0, maxval=5, tooltip="#10 (19-Jul): when the chart-TF (75/125m) trigger fires AND the DAILY battery for the same path also has a pattern live, the trigger has multi-timeframe agreement — a stronger signal. GRADE not GATE (a daily pattern confirms only at the daily close; hard-requiring it would make every intraday trigger late — the anti-Holy-Grail ruling). Only counted on an intraday chart with 'Use chart timeframe' ON (elsewhere the battery IS the daily one). 0 = off.")
-cf_w_rrg    = input.int(1, "RRG trajectory (measured whitelist)", group=grpCF, minval=0, maxval=5, tooltip="#6 (25-Aug-2026). One point when the RRG TRAJECTORY is on the measured whitelist - LEADING->LEADING or WEAKENING->LEADING - not merely when the quadrant reads LEADING.\n\nWhy the distinction: measured over 473 symbols and 93,745 weekly observations, IS/OOS, bootstrapped by symbol, the whitelist is worth +0.12pp at 4 weeks and +0.00pp at 12. IMPROVING->LEADING is reliably NEGATIVE and cancels what LEADING->LEADING earns, which is why the same test is available as a GATE (en_rrg_gate) and defaults OFF.\n\nAn edge that size belongs in a score, not a veto. Scores nothing when v67 is unbound - the trajectory needs the trailing RS pair, and an unknown must never read as a pass.")
-cf_w_round  = input.int(1, "At a round number",           group=grpCF, minval=0, maxval=5, tooltip="#13 (19-Jul): price within 0.3% of a psychological round number (step scales with price: 100 above 5000 · 50 above 1000 · 10 above 100 · 1 above 10). Round numbers attract resting orders and act as magnet/reaction levels — a location confluence, +1 like the other location facts.")
+cf_w_rrg    = input.int(0, "RRG trajectory (measured whitelist)", group=grpCF, minval=0, maxval=5, tooltip="ZEROED 24-Sep-2026 (audit AUD-CF-01; was 1): +0.12pp at 4 weeks and +0.00pp at 12 is no edge to score. The RS · RRG row still shows the trajectory.\n\n#6 (25-Aug-2026). One point when the RRG TRAJECTORY is on the measured whitelist - LEADING->LEADING or WEAKENING->LEADING - not merely when the quadrant reads LEADING.\n\nWhy the distinction: measured over 473 symbols and 93,745 weekly observations, IS/OOS, bootstrapped by symbol, the whitelist is worth +0.12pp at 4 weeks and +0.00pp at 12. IMPROVING->LEADING is reliably NEGATIVE and cancels what LEADING->LEADING earns, which is why the same test is available as a GATE (en_rrg_gate) and defaults OFF.\n\nAn edge that size belongs in a score, not a veto. Scores nothing when v67 is unbound - the trajectory needs the trailing RS pair, and an unknown must never read as a pass.")
+cf_w_round  = input.int(0, "At a round number",           group=grpCF, minval=0, maxval=5, tooltip="ZEROED 24-Sep-2026 (audit AUD-CF-01; was 1): the round-number test did not replicate (harmful on one sample, helpful on the other, no CI excluding zero).\n\n#13 (19-Jul): price within 0.3% of a psychological round number (step scales with price: 100 above 5000 · 50 above 1000 · 10 above 100 · 1 above 10). Round numbers attract resting orders and act as magnet/reaction levels — a location confluence, +1 like the other location facts.")
 cf_w_absorb = input.int(1, "Absorbing (Δ order-flow)",    group=grpCF, minval=0, maxval=5, tooltip="Confluence point when the intrabar up/down-volume delta shows the level being ABSORBED — Δ+ (net buying) or a bullish delta divergence (price lower low, delta higher low) at a demand zone; mirror at supply. This is a bar-classified volume-delta PROXY (via request.security_lower_tf), not true tick/aggressor order-flow, which Pine cannot access on any TradingView plan.")
 
 // ==========================================================================
@@ -4344,12 +4343,12 @@ if not go_v and _trigStale
 // which want `simple` — a function return is always `series`.
 f_fold3954() =>
     int trigAge = na(trigBar) ? 0 : _dispBar - trigBar
-    string cf_txt   = show_cf ? ("  " + (go_v and cf_v >= cf_strong ? "★strong " : "") + str.tostring(cf_v) + "/" + str.tostring(cf_max)) : ""
+    string cf_txt   = show_cf ? ("  " + str.tostring(cf_v) + "/" + str.tostring(cf_max)) : ""
     string path_txt = any_pa_v ? (shared_v ? "  ⇄both" : ("  " + (is_rec_v ? "Rec" : "Bull") + "-only")) : ""
     string pb_txt = pb_ctx_v ? (gm_pb ? "  ·PB(GM)" : "  ·PB") : ""
     string role_txt = roleMism_v ? "  ⚠role" : ""
     string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : not ema_ok[_so] ? "below EMA20" : not fund_ok[_so] ? "fundamentals" : "weak/red bar") + "   " + (any_pa_v?"🟢":"⚪") + "P " + (support_v?"🟢":"⚪") + "L " + (vol_dead[_so] ? "?" : vol_ok_v ? "🟢" : "⚪") + "V " + (bar_ok_v?"🟢":"⚪") + "B " + (not _gOkTrail[_so] ? "?" : _rrgTr[_so] ? "🟢" : "⚪") + "Q " + fundChip[_so] + "F" + "  " + (timing_v ? "🟢" : "⚪") + "⏱" + pb_txt + path_txt + cf_txt + role_txt
-    color trig_col = go_v ? (cf_v >= cf_strong ? C_GO : C_OK) : C_WARN
+    color trig_col = go_v ? C_GO : C_WARN
     color rv_col = chart_rv_v >= 1.25 ? C_OK : chart_rv_v >= 1.0 ? C_WARN : C_NO
     [trigAge, trig_txt, trig_col, rv_col]
 [trigAge, trig_txt, trig_col, rv_col] = f_fold3954()
@@ -4396,10 +4395,9 @@ plotshape(avwap_trig and _mkOK and d_markers,    title="AVWAP trigger",    style
 // v3.2: the marker splits by CONFLUENCE so strength is readable off the chart without
 // opening the panel — a stacked GO is a brighter label. Same gate either way; the
 // score never decides whether a GO exists, only how strong it is.
-plotshape(go and _mkOK and d_markers and cf <  cf_strong and _mkDot, title="S4 GO", style=shape.circle, location=location.belowbar, color=C_OK, size=size.tiny)
-plotshape(go and _mkOK and d_markers and cf >= cf_strong and _mkDot, title="S4 GO ★strong (high confluence)", style=shape.diamond, location=location.belowbar, color=C_GO, size=size.tiny)
-plotshape(go and _mkOK and d_markers and cf <  cf_strong and not _mkDot, title="S4 GO (label)", style=shape.labelup, location=location.belowbar, color=C_OK, textcolor=color.white, size=size.tiny, text="GO")
-plotshape(go and _mkOK and d_markers and cf >= cf_strong and not _mkDot, title="S4 GO ★strong (label)", style=shape.labelup, location=location.belowbar, color=C_GO, textcolor=color.black, size=size.tiny, text="GO★")
+// ★strong retired 24-Sep-2026 (AUD-CF-01): confluence has no measured edge, so a GO is a GO.
+plotshape(go and _mkOK and d_markers and _mkDot, title="S4 GO", style=shape.circle, location=location.belowbar, color=C_GO, size=size.tiny)
+plotshape(go and _mkOK and d_markers and not _mkDot, title="S4 GO (label)", style=shape.labelup, location=location.belowbar, color=C_GO, textcolor=color.black, size=size.tiny, text="GO")
 // Intraday momentum LEG that fired but the gate is NOT yet met (thin volume / no
 // support) — small cyan triangle, NO "GO" text, so it's clearly not a trade.
 plotshape(show_intraday and intraday_trig and not go and _mkOK and d_markers, title="Intraday leg (gate not met)", style=shape.triangleup, location=location.belowbar, color=C_REC, size=size.tiny)
@@ -5216,7 +5214,7 @@ if show_panel and d_panel and barstate.islast
     int[] _cfSt = array.from(ev_ok[_so] ? 1 : 0, show_intraday ? (intra_ok[_so] ? 1 : 0) : -1, z_inDZ_fvg[_so] ? 1 : 0, z_inDZ_ctrl[_so] ? 1 : 0, near_sr[_so] ? 1 : 0, tl_extra[_so] ? 1 : 0, bullFlag[_so] ? 1 : 0, near_ema[_so] ? 1 : 0, near_avwap[_so] ? 1 : 0, near_fib[_so] ? 1 : 0, pinched[_so] ? 1 : 0, chart_rv[_so] >= cf_rv_strong ? 1 : 0, near_round[_so] ? 1 : 0, daily_pa_agrees[_so] ? 1 : 0, show_arrival ? (arr_fav[_so] ? 1 : 0) : -1, en_wcl ? ((_total_final >= 4 or wyk_bias == "ACCUMULATION") ? 1 : 0) : -1, _gOkTrail ? (_rrgTr ? 1 : 0) : -1, _so_dzTfN >= 2 ? 1 : 0)
     int[] _cfWt = array.from(cf_w_avwap, cf_w_intra, cf_w_fvg, cf_w_ctrl, cf_w_sr, cf_w_tl, cf_w_flag, cf_w_ema, cf_w_avwl, cf_w_fib, cf_w_pinch, cf_w_rv, cf_w_round, cf_w_dailypa, cf_w_arrival, cf_w_wcl, cf_w_rrg, cf_w_mtf * math.max(_so_dzTfN, 1))
     string cfb = f_rankRow(_cfNm, _cfSt, _cfWt)
-    f_row(31, "Confluence " + (show_cf ? str.tostring(cf_v) + "/" + str.tostring(cf_max) : ""), not show_cf ? "off" : cfb + f_vCF(cf_v, cf_max), not show_cf ? color.gray : cf_v >= cf_strong ? C_GO : cf_v > 0 ? C_OK : color.gray)
+    f_row(31, "Confluence " + (show_cf ? str.tostring(cf_v) + "/" + str.tostring(cf_max) : ""), not show_cf ? "off" : cfb + f_vCF(cf_v, cf_max), not show_cf ? color.gray : cf_v > 0 ? C_OK : color.gray)
 
     // ARRIVAL · Δ (row 26) — how price arrived at the zone (velocity) + intrabar
     // volume-delta absorption read. "— (not at a zone)" when price is in open space.
@@ -6158,7 +6156,7 @@ if show_panel and d_panel and barstate.islast
     // (trigAge == 0) the limit sits AT that bar's close — there is no pullback to wait for,
     // it fills at market. Same false-comfort the _retestLive guard had. Say which it is.
     string _verdict = isIdxChart ? ("PHASE 1 — structure only. These levels are INDEX levels, not order prices; the plan is made on NSE:" + pairSym)
-      : go_v ? ("GO" + (fund_raw[_so] ? "" : "  ⚠ " + fundNote[_so]) + (cf_v >= cf_strong ? " ★strong" : "") + (use_retest ? (trigAge > 0 ? " — arm buy-limit @ trigger close on the pullback" : " — buy-limit @ this bar's close (fills at MARKET)") : " — arm buy-stop > bar high")) : not any_pa_v ? "NO PA PATTERN" : not support_v ? "NO LOCATION" : not vol_ok_v ? (vol_dead[_so] ? "NO VOLUME DATA — phase-1 index chart, trigger on the ETF" : "NO VOLUME") : not ema_ok[_so] ? "BELOW EMA20" : not rrg_ok ? "RRG — rotation is outside the whitelist" : not fund_ok[_so] ? ("FUNDAMENTALS — " + fundNote[_so]) : "WEAK/RED BAR — no entry"
+      : go_v ? ("GO" + (fund_raw[_so] ? "" : "  ⚠ " + fundNote[_so]) + (use_retest ? (trigAge > 0 ? " — arm buy-limit @ trigger close on the pullback" : " — buy-limit @ this bar's close (fills at MARKET)") : " — arm buy-stop > bar high")) : not any_pa_v ? "NO PA PATTERN" : not support_v ? "NO LOCATION" : not vol_ok_v ? (vol_dead[_so] ? "NO VOLUME DATA — phase-1 index chart, trigger on the ETF" : "NO VOLUME") : not ema_ok[_so] ? "BELOW EMA20" : not rrg_ok ? "RRG — rotation is outside the whitelist" : not fund_ok[_so] ? ("FUNDAMENTALS — " + fundNote[_so]) : "WEAK/RED BAR — no entry"
     // DE-DUPLICATED (Jay, 10-Aug). STATUS used to re-print `P· L· V· B· ⏱ · conf n/23 ·
     // RV x/y · Bull Σ+n` — and every one of those already has its OWN row two inches
     // above: the gate chips are on TRIGGER, conf is the Confluence row, RV is the RV row,
@@ -6374,7 +6372,7 @@ if show_panel and d_panel and barstate.islast
     [_aVerL, _anColL] = core.verdictRead(
       C_NO, C_OK, C_WARN, _act, _atValue, _band_r, _blk, _blueSky, _cl_r, _degTxt, _extTxt,
       _extV, _off52v, _ovh, _pbLvl, _qArrBad, _qArrGood, _qExt, _qLocWeak, _qRoomBad, _qSupply, 
-      _roomWord, _so_high, _stage2ok, any_pa_v, cf_strong, cf_v, go_v, is_rec_v, momentum_clear, 
+      _roomWord, _so_high, _stage2ok, any_pa_v, 999, cf_v, go_v, is_rec_v, momentum_clear, 
       pl_entry, pl_rr1, pl_t1, stage_n, stage_skip, support_v, trigAge, trigHi, tt_swing, 
       use_retest, z_inDZ[_so], vol_ok_v, bar_ok_v)
     _aVer  := _aVerL

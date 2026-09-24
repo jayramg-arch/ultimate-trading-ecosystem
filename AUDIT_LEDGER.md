@@ -727,3 +727,15 @@ when `etf_universe.is_etf()` (NEW — selected ∪ hand-written ∪ the 125-name
 `get_meta` answered "screened", not "ETF", and missed GOLDBEES). Known limit: S4's ETF test is
 the board bundle (ETFL/ETFP), so an ETF absent from today's board sizes as a stock on S4.
 CLAUDE.md DNA risk line, Docs 10/22/23/25/26 updated.
+
+**AUD-CF-01 + AUD-REV-07 — FIXED (24 Sep, Jay's call on step 2).** Confluence weights zeroed
+by default: WCL 2→0, RRG trajectory 1→0, round number 1→0 (inputs kept; tooltips say why).
+★strong retired: the `cf_strong` input is deleted, and the TRIGGER tag, STATUS text, colours
+and the four GO plotshapes (now two) no longer tier a GO. S4Core: the verdict's three
+" ★strong" suffixes removed (param kept for call compatibility; S4 passes 999, so it is
+harmless against the old library too), and the SUMMARY no longer calls confluence terms
+"independent facts". Reviewer prompt: RRG doctrine = L→L / W→L only, IMPROVING→LEADING
+named as negative; confluence n/max described as descriptive, not a grade. S4 → v10.8 /
+panel v11.7. **S4Core publish PENDING** — S4's import stays /56 until Jay reports the version.
+Held by Jay's call: reviewer derivative directives, F&O cheat sheets.
+CLAUDE.md DNA: web app file → v4.0; RS = JdK strike_cal (the `mansfield` fields hold RS-Ratio − 100).

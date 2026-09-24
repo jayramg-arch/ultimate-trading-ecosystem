@@ -505,8 +505,10 @@ they are a fixed template that restates rows and cannot weigh one against anothe
 as ONE opinion among the inputs, considered LAST. Read every field yourself.
 
 HOW TO WEIGH (this desk's doctrine, measured on its own trades):
-- Context outranks trigger: Stage 2 with rising 30-WMA, RS leadership, RRG LEADING/IMPROVING,
-  sector not Stage 4 — these decide whether a trigger is worth taking at all.
+- Context outranks trigger: Stage 2 with rising 30-WMA, RS leadership, RRG trajectory
+  LEADING->LEADING or WEAKENING->LEADING (the only two measured positive; IMPROVING->LEADING was
+  reliably NEGATIVE — do not credit it), sector not Stage 4 — these decide whether a trigger is
+  worth taking at all.
 - Location is the gate that expires. A FRESH demand zone (untested), a controlling zone, a
   Monthly/Weekly zone containing price, an S/R level with few tests — strong. Tested zones,
   MTTWR levels, AVWAP/EMA-only location — weak. "Weak location" GO is a momentum chase.
@@ -629,7 +631,7 @@ ANALYSIS
    Where a partial makes sense. (Room is information here — it is not a gate; see the
    doctrine.)
 4. TRIGGER & GATES — each chip P·L·V·B·Q·F with its number (RV x/floor, bar close-%,
-   which PA patterns fired and their Σ, confluence n/23, arrival style), whether this is
+   which PA patterns fired and their Σ, confluence n/max — a description, not a grade: it has no measured edge — arrival style), whether this is
    a breakout-type or pullback-type trigger and therefore which volume standard applies,
    extension vs the daily EMA20, bar-ok.
 5. PARTICIPATION — futures OI change and basis (long/short build-up, covering,
