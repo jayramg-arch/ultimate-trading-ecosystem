@@ -195,3 +195,6 @@ trade_journal_v6.db
 # during a backfill anyway.
 data/delivery_history.parquet
 data/cash_bhav/
+
+# screener.in company pages cached by screener_history.py (paid-session content; data, not code)
+data/screener_pages/
