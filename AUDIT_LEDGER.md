@@ -680,3 +680,8 @@ IS −0.57pp, OOS +0.78pp, CI [−2.07, +2.38] → **FAIL**. The gate shows no m
 look-ahead is removed; the old "RFF ≥ 5 near-breakeven" bucket was a live-fundamentals artifact.
 No code change: the gate stays as a quality preference, not a claimed edge. LAST_RUN.txt restored
 to 20260920_212328 (the gated recovery baseline).
+
+**Step-4 Pine batch — COMPILED (24 Sep, Jay).** v67.4.23 · Unified v3.6 · Chart Markup v2.12 ·
+Risk Allocator v2.3 all compiled clean; `BIND_S4_SOURCES` re-run after v67. S4 not recompiled —
+its only pending change is the 0.25→0.5% risk default, already set on the chart instance; it
+rides the next real S4 compile.
