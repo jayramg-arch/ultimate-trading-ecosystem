@@ -1,0 +1,43 @@
+universe 500  sample dates 76 (2023-06-07..2026-06-17)
+  50/500 symbols, 3138 rows
+  100/500 symbols, 6557 rows
+  150/500 symbols, 9918 rows
+
+======================================================================
+[!] Dhan DH-905 on this request -- retrying, then falling back for
+    THIS SYMBOL ONLY (the rest of the run stays on the paid feed).
+   DH-905 Missing required fields, bad values for parameters etc.  symbol=HEG
+   Usually burst load rather than a broken backend: the same call
+   typically succeeds moments later. If EVERY symbol reports this,
+   raise DHAN_MIN_INTERVAL_S (currently 0.3) and re-run.
+======================================================================
+  200/500 symbols, 13315 rows
+  250/500 symbols, 16487 rows
+  300/500 symbols, 19777 rows
+  350/500 symbols, 22982 rows
+  400/500 symbols, 26165 rows
+  450/500 symbols, 29408 rows
+  500/500 symbols, 32822 rows
+
+name-dates 32822  symbols 459  dates 76
+coverage (non-missing %) and mean per row:
+  C1_stage2       100.0%   mean +0.638
+  C2_above200     100.0%   mean +0.642
+  C3_off52        100.0%   mean -0.173
+  C4_minervini    100.0%   mean +4.334
+  C5_rs_ratio     100.0%   mean +101.595
+  C6_rs_mom       100.0%   mean +100.089
+  C7_rsi14        100.0%   mean +52.178
+  C8_adx_di       100.0%   mean +5.157
+  L1_zone_d       100.0%   mean +0.347
+  L2_zone_w       100.0%   mean +0.189
+  L3_near_sr      100.0%   mean +0.234
+  L4_near_avwap   100.0%   mean +0.231
+  L5_at_vp        100.0%   mean +0.105
+  L6_ema_ext      100.0%   mean +0.193
+  L7_room         100.0%   mean +0.928
+  X1_pa_sigma     100.0%   mean +0.965
+  X2_bar_ok       100.0%   mean +0.556
+  X3_rv           100.0%   mean +1.071
+  X4_arrival      100.0%   mean +0.466
+  Y60 100.0%  Stage-2 share 63.8%

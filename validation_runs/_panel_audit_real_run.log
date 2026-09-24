@@ -1,0 +1,26 @@
+
+==== REAL RUN ====
+name-dates 32822  IS dates 40  OOS dates 30 (purged 6)
+
+  row               pop   IC IS  IC OOS      p IC other  IC Y20  verdict
+  C1_stage2         all  +0.005  +0.041  0.860     +nan  +0.012  INFO-ONLY  ~C2_above200,C3_off52,C4_minervini,C5_rs_ratio
+  C2_above200       all  +0.017  +0.036  0.506   -0.005  +0.012  INFO-ONLY  ~C1_stage2,C3_off52,C4_minervini,C5_rs_ratio
+  C3_off52          all  +0.003  +0.058  0.913   -0.004  +0.016  INFO-ONLY  ~C1_stage2,C2_above200,C4_minervini,C7_rsi14
+  C4_minervini      all  +0.033  +0.050  0.400   +0.013  +0.020  INFO-ONLY  ~C1_stage2,C2_above200,C3_off52,C5_rs_ratio
+  C5_rs_ratio       all  +0.053  +0.005  0.891   +0.009  +0.017  INFO-ONLY  ~C1_stage2,C2_above200,C4_minervini
+  C6_rs_mom         all  +0.018  -0.050  0.483   -0.017  -0.008  INFO-ONLY
+  C7_rsi14          all  +0.007  -0.005  0.880   -0.002  -0.004  INFO-ONLY  ~C3_off52,C8_adx_di,L6_ema_ext
+  C8_adx_di         all  +0.016  -0.021  0.598   -0.010  -0.005  INFO-ONLY  ~C7_rsi14,L6_ema_ext
+  L1_zone_d      stage2  +0.010  +0.039  0.259   +0.020  +0.019  INFO-ONLY
+  L2_zone_w      stage2  +0.005  -0.027  0.709   -0.001  -0.003  INFO-ONLY
+  L3_near_sr     stage2  -0.025  -0.009  0.439   -0.012  -0.013  INFO-ONLY
+  L4_near_avwap  stage2  -0.020  -0.010  0.649   -0.017  -0.003  INFO-ONLY
+  L5_at_vp       stage2  -0.012  -0.003  0.899   -0.009  -0.001  INFO-ONLY
+  L6_ema_ext     stage2  +0.013  -0.001  0.974   -0.009  +0.012  INFO-ONLY  ~C7_rsi14,C8_adx_di
+  L7_room        stage2  +0.012  +0.023  0.322   +0.015  +0.016  INFO-ONLY
+  X1_pa_sigma    stage2  -0.010  -0.003  0.713   -0.007  +0.002  INFO-ONLY
+  X2_bar_ok      stage2  -0.017  -0.012  0.255   -0.021  -0.018  INFO-ONLY
+  X3_rv          stage2  -0.012  -0.013  0.524   -0.005  -0.011  INFO-ONLY
+  X4_arrival     stage2  -0.003  +0.009  0.837   +0.008  -0.001  INFO-ONLY
+
+saved validation_runs/_panel_audit_result.csv; marker written.

@@ -149,4 +149,68 @@ failed **in this file**.
 
 ## Result
 
-*(Left empty deliberately. To be filled in ONCE, by the run.)*
+Run once, 24 Sep 2026 (`panel_row_audit.py --run`, log
+`validation_runs/_panel_audit_real_run.log`). Protocol held: plumbing check (32,822
+name-dates, 459 symbols, 76 dates Jun 2023 → Jun 2026, every row 100% populated; 41 names
+lacked 420 bars) → placebo (Y60 permuted within date: all 19 rows INFO-ONLY, noise ICs up to
+±0.03) → the single real run. IS 40 dates, OOS 30, 6 purged.
+
+**Every row: INFO-ONLY. No row earns a vote; none is BACKWARDS.**
+
+| row | pop | IC IS | IC OOS | p |
+|---|---|---:|---:|---:|
+| C1 stage2 | all | +0.005 | +0.041 | 0.86 |
+| C2 above200 | all | +0.017 | +0.036 | 0.51 |
+| C3 off52 | all | +0.003 | +0.058 | 0.91 |
+| C4 minervini | all | +0.033 | +0.050 | 0.40 |
+| C5 rs_ratio | all | +0.053 | +0.005 | 0.89 |
+| C6 rs_mom | all | +0.018 | −0.050 | 0.48 |
+| C7 rsi14 | all | +0.007 | −0.005 | 0.88 |
+| C8 adx_di | all | +0.016 | −0.021 | 0.60 |
+| L1 zone_d | stage2 | +0.010 | +0.039 | 0.26 |
+| L2 zone_w | stage2 | +0.005 | −0.027 | 0.71 |
+| L3 near_sr | stage2 | −0.025 | −0.009 | 0.44 |
+| L4 near_avwap | stage2 | −0.020 | −0.010 | 0.65 |
+| L5 at_vp | stage2 | −0.012 | −0.003 | 0.90 |
+| L6 ema_ext | stage2 | +0.013 | −0.001 | 0.97 |
+| L7 room | stage2 | +0.012 | +0.023 | 0.32 |
+| X1 pa_sigma | stage2 | −0.010 | −0.003 | 0.71 |
+| X2 bar_ok | stage2 | −0.017 | −0.012 | 0.26 |
+| X3 rv | stage2 | −0.012 | −0.013 | 0.52 |
+| X4 arrival | stage2 | −0.003 | +0.009 | 0.84 |
+
+**Power — computed after the run, stated because it changes what the null means.** The
+prereg omitted a power statement (the exit-study prereg had one; this one should have).
+Block-bootstrap standard errors of the mean IC:
+
+- **Location and execution rows: SE 0.008–0.020 → detectable IC ≈ 0.02–0.05.** A
+  well-powered null. In Stage-2 names, none of zone/S-R/AVWAP/VP/room/PA/bar/RV ranks 60-day
+  outcomes by as much as that; S/R, AVWAP, VP, bar and RV lean slightly *negative* in both
+  windows (not significant).
+- **Context rows: SE 0.026–0.039 → detectable IC ≈ 0.07–0.11.** Underpowered: their daily
+  IC swings with the market regime. C1–C4 are positive in BOTH windows and the cluster
+  composite reads +0.035 / +0.041 — consistent with the selection edge the validation runs
+  measure (+~1% matched alpha), but not established by this test.
+
+**Redundancy (Q1, descriptive):** C1–C5 form one cluster at |ρ| ≥ 0.6 (stage, above-200,
+off-52w, Minervini, RS-Ratio); C7, C8 and L6 form another (RSI, ADX, EMA20 extension).
+Counting the members of a cluster as separate confluence points counts one fact several
+times.
+
+**What this does and does not say.**
+
+- It **does** say: summing these rows into a confluence count adds confidence without adding
+  measurable information about where price goes over 60 days. The context rows are one
+  vote at most, not five.
+- It **does not** say the location rows are useless. Their job on the panel is RISK
+  GEOMETRY — where the stop sits and how far the entry is from it (the R). A 60-day
+  close-to-close IC cannot see that; it asks whether the location predicts return, not
+  whether it gives a better entry for the same return. That is a separate, measurable
+  question.
+- **L1 (daily demand zone)** is the one row with a notable OOS read (+0.039, ~4 SE) but a
+  weak IS (+0.010). It fails as registered. It is the natural candidate for a forward,
+  pre-registered confirmatory test on dates after this sample.
+- The execution rows were tested on DAILY bars; S4 reads them on 75/125-minute bars. Their
+  verdicts are provisional, as stated.
+
+**Stopping rule honoured.** Marker `validation_runs/_panel_audit_REAL_RUN_DONE.json`.
