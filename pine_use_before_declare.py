@@ -16,7 +16,7 @@ import re
 import sys
 
 P = sys.argv[1] if len(sys.argv) > 1 else \
-    r"C:\Users\jayra\Documents\GeminiVSCode\Section4_Entry_Trigger_v7.2.pine"
+    r"C:\Users\jayra\Documents\GeminiVSCode\Section 4 Entry Trigger and Price Memory v10.1 (One-Paste + Ranked Panel).pine"
 
 TYPES = r"(?:int|float|bool|string|color|line|label|box|table|array|matrix|map|" \
         r"simple|series|var|varip)"
