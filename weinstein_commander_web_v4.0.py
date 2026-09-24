@@ -4379,6 +4379,16 @@ def _gm_apply_location_rule(_s, vp_at=False):
     return _s
 
 
+def _s4_rv(v):
+    """S4's RV: this bar's volume / mean of the PRIOR 50 bars (S4 `volume / sma(volume,50)[1]`).
+    One definition for the board and Single Symbol, so the V gate is S4's test."""
+    try:
+        import s4_sizing as _s4z
+        return _s4z.s4_rv(pd.DataFrame({"Volume": v}))
+    except Exception:
+        return None
+
+
 def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) -> dict:
     """SINGLE SOURCE OF TRUTH for one symbol's GM decision. Both the Single Symbol
     page AND the Trigger Board (via loaders["evaluate"]) call THIS — so they can
@@ -5091,8 +5101,10 @@ def gm_load_symbol(symbol: str) -> dict:
             "adx": _f(adx), "plus_di": _f(pdi), "minus_di": _f(mdi),
             "high52w": _f(h52), "low52w": _f(l52),
             "dist52wh": (last - _f(h52)) / _f(h52) * 100 if _f(h52) else None,
-            "relvol": (float(v.iloc[-1] / vol20)
-                       if (vol20 and not math.isnan(vol20)) else None),
+            # S4's chart_rv, exactly (24-Sep-2026, AUD-PAR-12): this bar over the mean of
+            # the PRIOR 50 bars. It was over a 20-bar mean that included this bar, so the
+            # board's V gate and '· no vol' were a different test from the chart's.
+            "relvol": _s4_rv(v),
             "vol_dry": (vol5 / vol20) if vol20 else None,
             "bbw": bbw,
             "cpr_p": cpr_p, "cpr_tc": cpr_tc, "cpr_bc": cpr_bc,
@@ -5574,7 +5586,7 @@ def gm_load_intraday(symbol: str, minutes: int) -> dict:
             "rpa_recent": (_pa_recency(_pap.detect_recovery_patterns)
                            if not any(f for _n, f, _t, _x in _rpa_now) else None),
             "rsi": _f(_rsi), "adx": _f(_adx),
-            "relvol": (float(v.iloc[-1] / _vol20) if (_vol20 and not math.isnan(_vol20)) else None),
+            "relvol": _s4_rv(v),   # S4 chart_rv: prior-50 baseline (AUD-PAR-12)
             "vol_dry": (_vol5 / _vol20) if _vol20 else None,
             "bar_ok": _bar_ok,
             "cmp": (float(df["Close"].iloc[-1]) if len(df) else None),   # live intraday last price

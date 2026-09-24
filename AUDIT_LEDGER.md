@@ -611,3 +611,19 @@ Two further parity gaps found while porting (not fixed):
 |---|---|---|---|
 | AUD-PAR-12 | P1 | web v4.0 gm_load_intraday :5512 vs S4 chart_rv :3850 | Board RV = volume / mean of the last 20 bars INCLUDING the current one; S4 = volume / mean of the PRIOR 50. The board's V gate and `4/5 · no vol` are not S4's test |
 | AUD-PAR-13 | P2 | wcl_context.py setup ladder vs S4 :3576-3602 | Python still carries setups S3 and S6, which S4 removed (29 Jul); "priority ≥ 4" is S2-or-S3 in Python, S2-only on S4 — the board's WCL setup and bonus can differ from the chart's |
+
+### Step 4, parity batch 1 — FIXED (24 Sep)
+
+- **Time stop (SIM-01), Python side:** removed from the pyramid EXIT rung and the Risk Shield tile
+  (a fifth clock, 42/10 days, flag + marker). Jay's ruling: no time stop anywhere. v67 and Unified
+  follow in the Pine batch.
+- **AUD-PAR-12:** board RV is now S4's `chart_rv` (this bar ÷ mean of the prior 50) on both the
+  daily and the intraday path, via one helper.
+- **AUD-PAR-09:** `zone_engine.vp_support` ported term for term from `S4Core.volumeProfile`
+  (100 bars, 40 rows, overlap-weighted, value area grown toward the heavier row, row-edge
+  VAH/VAL, S4's ±1.5% near rule). Four tests.
+- **AUD-PAR-11:** `sniper_trigger` imports `pre_trade_gate.SECTOR_CAP_PCT` (block 25%, warn 20%);
+  it had blocked at 35%.
+- **AUD-PAR-13:** `wcl_context` setup ladder matches S4's (S3 and S6 removed).
+- **SIM-03 held:** the swing trail. 1.5× was never tested; a pre-registered width test
+  (1.5 / 2.5 / 3.4 / 4.5×, in R) decides the live and backtest value together.

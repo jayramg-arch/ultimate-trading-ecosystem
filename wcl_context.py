@@ -388,19 +388,18 @@ def wcl_context(df: pd.DataFrame, vp_score: int = 0, below_30w=None,
     wyk_fresh_10 = wyk["age_bars"] <= 10
     smc_fresh_10 = smc["age_bars"] <= 10
 
+    # S3 (sweep + CHoCH) and S6 (SOS push) were REMOVED from S4 on 29-Jul-2026 to buy
+    # tokens; this ladder kept them, so "priority >= 4" meant S2-or-S3 here and S2 only on
+    # the chart, and the board's setup label and bonus could differ from S4's (audit
+    # AUD-PAR-13, 24-Sep). The ladder now matches S4's: S2, S1, S5, S7, S8.
     if wyk["score_base"] == 3 and wyk_fresh_15 and smc["trend_up"] \
             and vp_s >= 1 and total_base >= 4:
         setup, pri = "✓ S2 — Spring/LPS Reversal", 5
-    elif smc["sweep_bull"] and smc["sweep_age_bars"] <= 10 and smc["last_choch"] \
-            and smc["last_was_bull"] and smc_fresh_10 and vp_s > -3:
-        setup, pri = "✓ S3 — Sweep+CHoCH Reversal", 4
     elif vp_s >= 1 and wyk["bias"] == "ACCUMULATION" and total_base >= 2:
         setup, pri = "✓ S1 — OB Retest + VP Support", 3
     elif smc["last_was_bull"] and (not smc["last_choch"]) and smc["age_bars"] <= 20 \
             and bool(vp_above_vah) and choch <= 1:
         setup, pri = "✓ S5 — Stage 2 Continuation > VAH", 2
-    elif wyk["score_base"] == 4 and wyk_fresh_10 and vp_s >= 1 and smc["trend_up"]:
-        setup, pri = "✓ S6 — SOS Momentum Push", 2
     elif wyk["score_base"] <= -3 and wyk_fresh_15 and (not smc["trend_up"]) \
             and total_base <= -3:
         setup, pri, bear = "✗ S7 — Distribution Breakdown", 3, True

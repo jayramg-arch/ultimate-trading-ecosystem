@@ -1298,57 +1298,69 @@ def avwap_support(df: pd.DataFrame, price: float | None = None, **kw) -> dict:
 
 
 # ── VOLUME PROFILE SUPPORT (port of S4 v5.0 Pine VP support gate) ────────────
+VP_LOOKBACK = 100   # S4 vp_lookback
+VP_ROWS = 40        # S4 vp_num_rows
+VP_NEAR = 0.015     # S4 near_vp_val / near_vp_poc tolerance
+
+
 def vp_support(df: pd.DataFrame, price: float | None = None) -> dict:
-    """Volume Profile (POC / VAH / VAL) support gate check mirroring S4 v5.0 Pine.
-    Price near VAL (within 1.5%) or near POC (within 1.5%) turns support_pass = True.
+    """Volume Profile (POC / VAH / VAL) location, ported term for term from
+    S4Core.volumeProfile (24-Sep-2026, audit AUD-PAR-09).
+
+    It used to be a 120-bar window with each bar's WHOLE volume dropped into the bin of its
+    typical price — the method Doc 03 calls wrong — while S4 used 100 bars and spreads each
+    bar's volume over every row its range overlaps. The board and the chart could then
+    disagree on whether a name sat at VAL/POC. Now: the last 100 bars (current included),
+    40 rows between their highest high and lowest low, overlap-weighted volume, POC at the
+    heaviest row's midpoint, value area grown one row at a time toward the heavier
+    neighbour until it holds 70%, VAH = top edge and VAL = bottom edge of that area.
+    Location: at or above VAL/POC and within 1.5% — exactly S4's near_vp_val / near_vp_poc.
     """
     out = {"near_vp_val": False, "near_vp_poc": False, "at_vp_support": False,
            "vp_val": None, "vp_poc": None, "vp_vah": None, "vp_pos": "—"}
     if df is None or len(df) < 40:
         return out
     px = float(price) if price is not None else float(df["Close"].iloc[-1])
-    win = df.iloc[-120:] if len(df) >= 120 else df
-    tp = (win["High"] + win["Low"] + win["Close"]) / 3.0
-    vol = win["Volume"]
-    lo_p, hi_p = float(win["Low"].min()), float(win["High"].max())
-    nb = 40
-    if hi_p > lo_p:
-        edges = np.linspace(lo_p, hi_p, nb + 1)
-        bidx = np.clip(np.digitize(tp, edges) - 1, 0, nb - 1)
-        prof = np.zeros(nb)
-        for bi, vv in zip(bidx, vol):
-            prof[bi] += vv
-        pb = int(prof.argmax())
-        poc = float((edges[pb] + edges[pb + 1]) / 2.0)
-        tgt = float(prof.sum() * 0.70)
-        lo_b, hi_b = pb, pb
-        acc_v = float(prof[pb])
-        while acc_v < tgt and (lo_b > 0 or hi_b < nb - 1):
-            lft = float(prof[lo_b - 1]) if lo_b > 0 else -1.0
-            rgt = float(prof[hi_b + 1]) if hi_b < nb - 1 else -1.0
-            if rgt >= lft:
-                hi_b += 1
-                acc_v += float(prof[hi_b])
-            else:
-                lo_b -= 1
-                acc_v += float(prof[lo_b])
-        val_lo = float((edges[lo_b] + edges[lo_b + 1]) / 2.0)
-        vah_hi = float((edges[hi_b] + edges[hi_b + 1]) / 2.0)
-        
-        near_val = px >= val_lo and (px - val_lo) / px <= 0.015
-        near_poc = px >= poc and abs(px - poc) / px <= 0.015
-        
-        pos = "ABOVE VAH" if px > vah_hi else ("IN VA (upper)" if px > poc else ("IN VA (lower)" if px >= val_lo else "BELOW VAL"))
-        
-        out.update({
-            "near_vp_val": near_val,
-            "near_vp_poc": near_poc,
-            "at_vp_support": near_val or near_poc,
-            "vp_val": val_lo,
-            "vp_poc": poc,
-            "vp_vah": vah_hi,
-            "vp_pos": pos
-        })
+    win = df.iloc[-VP_LOOKBACK:]
+    hi = win["High"].to_numpy(float)
+    lo = win["Low"].to_numpy(float)
+    vol = win["Volume"].to_numpy(float)
+    rng_hi, rng_lo = float(np.nanmax(hi)), float(np.nanmin(lo))
+    if not (rng_hi > rng_lo):
+        return out
+    row = (rng_hi - rng_lo) / VP_ROWS
+    lv_lo = rng_lo + np.arange(VP_ROWS) * row
+    lv_hi = lv_lo + row
+    brang = hi - lo
+    ok = brang > 0
+    ov = np.clip(np.minimum(hi[ok, None], lv_hi[None, :]) - np.maximum(lo[ok, None], lv_lo[None, :]), 0.0, None)
+    prof = (vol[ok, None] * ov / brang[ok, None]).sum(axis=0)
+    if prof.sum() <= 0:
+        return out
+    pb = int(prof.argmax())
+    poc = rng_lo + (pb + 0.5) * row
+    tgt = float(prof.sum() * 0.70)
+    va_vol, vai, vbi = float(prof[pb]), pb, pb
+    for _ in range(VP_ROWS):
+        if va_vol >= tgt:
+            break
+        nhi = float(prof[vai + 1]) if vai + 1 < VP_ROWS else 0.0
+        nlo = float(prof[vbi - 1]) if vbi - 1 >= 0 else 0.0
+        if nhi >= nlo:
+            vai += 1
+            va_vol += nhi
+        else:
+            vbi -= 1
+            va_vol += nlo
+    vah = rng_lo + (vai + 1) * row
+    val = rng_lo + vbi * row
+    near_val = px >= val and (px - val) / px <= VP_NEAR
+    near_poc = px >= poc and abs(px - poc) / px <= VP_NEAR
+    pos = ("ABOVE VAH" if px > vah else "IN VA (upper)" if px > poc
+           else "IN VA (lower)" if px > val else "BELOW VAL")
+    out.update({"near_vp_val": near_val, "near_vp_poc": near_poc,
+                "at_vp_support": near_val or near_poc,
+                "vp_val": float(val), "vp_poc": float(poc), "vp_vah": float(vah), "vp_pos": pos})
     return out
 
 

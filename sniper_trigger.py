@@ -294,8 +294,15 @@ REL_VOL_PREFERRED      = 1.5 # below this = sub-Minervini volume
 EXTENDED_PCT           = 5.0 # price > X% above EMA20 = chasing risk
 
 # E7 — Sector / correlation gate
-SECTOR_CONCENTRATION_BLOCK_PCT = 35.0  # post-trade sector exposure > 35% → block
-SECTOR_CONCENTRATION_WARN_PCT  = 25.0  # > 25% → warn (Minervini's classic ceiling)
+# ONE sector cap (24-Sep-2026, audit AUD-PAR-11): this gate blocked at 35% while the order
+# gate every other surface uses (pre_trade_gate) blocks at 25%, so the same entry could pass
+# here and fail there. The cap is imported, never restated; warn at 80% of it.
+try:
+    from pre_trade_gate import SECTOR_CAP_PCT as _SECTOR_CAP
+except Exception:
+    _SECTOR_CAP = 25.0
+SECTOR_CONCENTRATION_BLOCK_PCT = float(_SECTOR_CAP)          # post-trade sector exposure > cap → block
+SECTOR_CONCENTRATION_WARN_PCT  = 0.8 * float(_SECTOR_CAP)    # > 80% of the cap → warn
 CORRELATION_BLOCK              = 0.90  # any pair r > 0.90 with new entry → block
 CORRELATION_WARN               = 0.75  # > 0.75 → warn
 
