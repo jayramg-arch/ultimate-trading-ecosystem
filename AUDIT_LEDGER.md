@@ -672,3 +672,11 @@ on a 75m chart) while its tooltip says "daily ATR%". On intraday charts the ATR%
 almost never exceed 4%, so swing/positional is decided by off-52W and the 200-DMA alone,
 and the same name can change trade type between the Daily and 75m tabs. The board mirrors
 S4 as-is. Fix = one line (`d_atr` from the daily security) + a compile — Jay's call.
+
+**AUD-EVD-01 — RESOLVED (24 Sep, pre-registered, run once).** Recovery RFF re-tested on
+point-in-time fundamentals (screener.in history tables, +45/+60 day publication lag) against a
+replay with the gate OFF (`20260924_122149`, 445 picks, coverage 99.6/100%). Primary cut ≥4 of 5:
+IS −0.57pp, OOS +0.78pp, CI [−2.07, +2.38] → **FAIL**. The gate shows no measurable effect once
+look-ahead is removed; the old "RFF ≥ 5 near-breakeven" bucket was a live-fundamentals artifact.
+No code change: the gate stays as a quality preference, not a claimed edge. LAST_RUN.txt restored
+to 20260920_212328 (the gated recovery baseline).

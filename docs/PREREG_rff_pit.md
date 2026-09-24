@@ -86,4 +86,29 @@ Runs **once**. No re-slice, no changed lag, no changed threshold. Result recorde
 
 ## Result
 
-*(Left empty deliberately. To be filled in ONCE, by the run.)*
+**Run 24 Sep 2026, once** (`validation_runs/_rff_pit_run.log`, trades in `_rff_pit_trades.csv`).
+Input: recovery replay `20260924_122149` with `RECOVERY_NO_FUNDAMENTALS=1` (RFF gate off, no live
+fundamentals), 24 months, nifty500, catalyst windows verified 90/120, CB-Watch excluded, 445 picks.
+Coverage 99.6% IS / 100% OOS (443 scored, 2 no page). Placebo (scores shuffled within anchor):
+FAIL, CI [−3.53, +1.12], as it should.
+
+| cut ≥4 of 5 (primary) | high α | low α | Δ mean | Δ median |
+|---|---:|---:|---:|---:|
+| IS (180 / 65) | −0.49% | +0.08% | **−0.57pp** | +1.03 |
+| OOS (123 / 51) | +0.36% | −0.42% | +0.78pp | −0.67 |
+| ALL (321 / 122) | −0.07% | −0.28% | +0.22pp | −0.36 |
+
+Pooled CI95 [−2.07, +2.38]. **Verdict: FAIL** — the IS difference has the wrong sign, neither
+window reaches +1.0pp, the CI straddles zero and the median difference is negative. The
+secondary cut (5 of 5) also fails: IS −1.02pp, OOS +0.79pp, CI [−2.71, +1.32].
+
+**What this says:** once look-ahead is removed, the RFF fundamental gate shows no measurable
+effect on recovery outcomes — it neither helps nor hurts at 90–120 days. The earlier "RFF ≥ 5
+is the only near-breakeven bucket" reading came from live fundamentals applied to historical
+anchors and does not survive point-in-time data. The whole technically-qualified pool, gate
+off, runs about −0.1% matched α — the same neighbourhood as the gated book.
+
+**What it does NOT say:** that the gate should come out. A null is not evidence of harm, and
+the gate still does the job Jay set it for (only fundamentally strong names). It says the gate
+is a *quality preference*, not a measured edge — so it should not be sold to the reviewer or the
+docs as one. Current ratio (the sixth check) was not rebuildable and is not in the test.
