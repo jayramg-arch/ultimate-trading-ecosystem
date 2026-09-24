@@ -10,7 +10,7 @@
 //   • OCO-2 (50% Qty): Fixed Static Target 2 + Stop Loss.
 //   • Panel Table and Chart Labels reflect clean 50/50 static OCO targets with Chandelier SL.
 // ============================================================================
-indicator("Commander Risk Allocator v2.2", overlay=true, format=format.inherit, precision=2, max_lines_count=20, max_labels_count=20, max_boxes_count=10)
+indicator("Commander Risk Allocator v2.3", overlay=true, format=format.inherit, precision=2, max_lines_count=20, max_labels_count=20, max_boxes_count=10)
 
 // ============================================================================
 // 1. INPUTS
@@ -43,7 +43,7 @@ tick_size   = input.float(0.10, "Price Tick Size", step=0.05, group=grp_trade, t
 grp_dhan = "Dhan GTT 2-OCO Execution Settings"
 auto_trail_jump   = input.bool(true, "Trail Jump = catalyst-aware (recommended)", group=grp_dhan, tooltip="ON: the Dhan Trail Jump uses the SAME catalyst-aware multiplier as the Chandelier — POS 4.5 / WYC 3.5 / REV 2.5 / SWG 1.5 xATR, +0.5 in a weak tape.")
 atr_trail_mult    = input.float(1.5, "Trail Jump ATR Multiple (manual override)", minval=0.1, step=0.1, group=grp_dhan, tooltip="Only used when catalyst-aware toggle is OFF.")
-dhan_split_mode   = input.string("50/50 Split (OCO-1 & OCO-2)", "Dhan GTT Split Mode", options=["50/50 Split (OCO-1 & OCO-2)", "Strategy Default (3-Leg Scale-Out)"], group=grp_dhan, tooltip="50/50 Split: Dhan 2-OCO GTT execution - OCO-1 (50%) at T1, OCO-2 (50%) at T2.\n\nREAD THIS BEFORE LEAVING IT ON A POSITIONAL TRADE. Two legs at 50% cover the WHOLE position, so there is NO untargeted runner - and 88% of positional trades exit on the trail, not on a target. It also changes the payoff: T1 pays on half the shares while the stop costs on all of them, which makes a 2R first target roughly 1:1 in practice, not 2:1.\n\nKept as the DEFAULT because it is a broker constraint, not a preference - Dhan OCO legs cover the position - but the panel now says when the active split departs from house policy so it is a choice you make rather than one you inherit.")
+dhan_split_mode   = input.string("Strategy Default (3-Leg Scale-Out)", "Dhan GTT Split Mode", options=["50/50 Split (OCO-1 & OCO-2)", "Strategy Default (3-Leg Scale-Out)"], group=grp_dhan, tooltip="50/50 Split: Dhan 2-OCO GTT execution - OCO-1 (50%) at T1, OCO-2 (50%) at T2.\n\nREAD THIS BEFORE LEAVING IT ON A POSITIONAL TRADE. Two legs at 50% cover the WHOLE position, so there is NO untargeted runner - and 88% of positional trades exit on the trail, not on a target. It also changes the payoff: T1 pays on half the shares while the stop costs on all of them, which makes a 2R first target roughly 1:1 in practice, not 2:1.\n\nKept as the DEFAULT because it is a broker constraint, not a preference - Dhan OCO legs cover the position - but the panel now says when the active split departs from house policy so it is a choice you make rather than one you inherit.")
 
 grp_legs = "Scale-Out Split (3-leg)"
 t2_exit_pct = input.int(0, "T2 exit %  (0 = house canon)", minval=0, maxval=100, group=grp_legs, tooltip="0 (default) uses the SAME split Risk Shield and the backtester use - bull_screener.partial_qty_for: POS/WYC/REV 25 · SWG-GAP/SWG-REV 50 · SWG 33. A non-zero value OVERRIDES it for every catalyst, which is what the old flat 25 did silently.")
@@ -278,9 +278,6 @@ float m_final_qty  = math.min(qty_r, qty_c)
 float m_invested   = m_final_qty * m_entry * multiplier
 float m_act_risk   = m_final_qty * m_dist * multiplier
 
-// --- Dhan 2-OCO Quantities (50% / 50%) ---
-float q_dhan_oco1 = math.floor(m_final_qty * 0.5)
-float q_dhan_oco2 = math.max(0, m_final_qty - q_dhan_oco1)
 
 // --- Standard 3-Leg Quantities ---
 int run_pct = math.max(0, 100 - t1_qty_pct - t2_qty_pct - t3_exit_pct)
@@ -289,9 +286,19 @@ float q_t2  = math.floor(m_final_qty * t2_qty_pct / 100.0)
 float q_t3  = math.floor(m_final_qty * t3_exit_pct / 100.0)
 float q_run = math.max(0, m_final_qty - q_t1 - q_t2 - q_t3)
 
+// --- Dhan orders (24-Sep-2026, Jay: "live to 25/25 + runner") ---
+// DEFAULT = the house canon: OCO-1 and OCO-2 at the partial_qty_for split (POS 25/25, SWG
+// 33/33, GAP/REV 50/50) and the rest as a RUNNER under a stop-only GTT the trail carries —
+// the structure the backtest measures and gtt_auto_shield now places. The 50/50 mode
+// (two OCOs covering 100%, no runner) stays available but is no longer the default.
 bool is_dhan_5050 = dhan_split_mode == "50/50 Split (OCO-1 & OCO-2)"
-float active_q1 = is_dhan_5050 ? q_dhan_oco1 : q_t1
-float active_q2 = is_dhan_5050 ? q_dhan_oco2 : q_t2
+float q_dhan_oco1 = is_dhan_5050 ? math.floor(m_final_qty * 0.5) : q_t1
+float q_dhan_oco2 = is_dhan_5050 ? math.max(0, m_final_qty - math.floor(m_final_qty * 0.5)) : q_t2
+float q_dhan_run  = math.max(0, m_final_qty - q_dhan_oco1 - q_dhan_oco2)
+string p_oco1 = m_final_qty > 0 ? str.tostring(math.round(q_dhan_oco1 / m_final_qty * 100)) + "%" : "—"
+string p_oco2 = m_final_qty > 0 ? str.tostring(math.round(q_dhan_oco2 / m_final_qty * 100)) + "%" : "—"
+float active_q1 = q_dhan_oco1
+float active_q2 = q_dhan_oco2
 
 // ============================================================================
 // 10. OVERHEAD RESISTANCE CHECK
@@ -341,16 +348,16 @@ if barstate.islast and show_alloc_table and m_entry > 0
 
     // --- DHAN EXECUTION ORDERS CARD (Restored 50/50 OCO-1 & OCO-2) ---
     // Order 1: OCO-1 (50% Qty) -> Fixed Static Target 1 + SL
-    table.cell(tbl_alloc, 0, 7, "📌 DHAN OCO-1 (50% Qty)", bgcolor=color.navy, text_color=color.white, text_size=size.small, text_halign=text.align_right)
+    table.cell(tbl_alloc, 0, 7, "📌 DHAN OCO-1 (" + p_oco1 + " Qty)", bgcolor=color.navy, text_color=color.white, text_size=size.small, text_halign=text.align_right)
     table.cell(tbl_alloc, 1, 7, "Qty: " + str.tostring(q_dhan_oco1) + " Shares | T1: " + str.tostring(m_t1, "0.00") + " (" + str.tostring(t1_r, "#.#") + "R) | SL: " + str.tostring(m_stop, "0.00"), bgcolor=color.navy, text_color=color.yellow, text_size=size.small, text_halign=text.align_left)
 
     // Order 2: OCO-2 (50% Qty) -> Fixed Static Target 2 + SL
-    table.cell(tbl_alloc, 0, 8, "📌 DHAN OCO-2 (50% Qty)", bgcolor=color.purple, text_color=color.white, text_size=size.small, text_halign=text.align_right)
+    table.cell(tbl_alloc, 0, 8, "📌 DHAN OCO-2 (" + p_oco2 + " Qty)", bgcolor=color.purple, text_color=color.white, text_size=size.small, text_halign=text.align_right)
     table.cell(tbl_alloc, 1, 8, "Qty: " + str.tostring(q_dhan_oco2) + " Shares | T2: " + str.tostring(m_t2, "0.00") + " (" + str.tostring(t2_r, "#.#") + "R) | SL: " + str.tostring(m_stop, "0.00"), bgcolor=color.purple, text_color=color.white, text_size=size.small, text_halign=text.align_left)
 
     // Trailing SL Management Directive
     table.cell(tbl_alloc, 0, 9, "Trail SL Method", bgcolor=color.gray, text_color=color.white, text_size=size.small, text_halign=text.align_right)
-    table.cell(tbl_alloc, 1, 9, trail_kind + " (Step: ₹" + str.tostring(trail_jump, "0.00") + ")", bgcolor=color.gray, text_color=color.aqua, text_size=size.small, text_halign=text.align_left)
+    table.cell(tbl_alloc, 1, 9, (q_dhan_run > 0 ? "RUNNER " + str.tostring(q_dhan_run) + " sh: SL-only GTT @ " + str.tostring(m_stop, "0.00") + " · " : "") + trail_kind + " (Step: ₹" + str.tostring(trail_jump, "0.00") + ")", bgcolor=color.gray, text_color=color.aqua, text_size=size.small, text_halign=text.align_left)
 
     // Trade Validation & Resistance
     table.cell(tbl_alloc, 0, 10, "Trade Validation", text_color=color.white, text_size=size.small, text_halign=text.align_right)
@@ -399,8 +406,8 @@ if barstate.islast and show_lines and m_entry > 0 and m_stop > 0
     l_t1    := line.new(lx1, m_t1,    lx2, m_t1,    color=color.green, style=line.style_dashed, width=1)
     l_t2    := line.new(lx1, m_t2,    lx2, m_t2,    color=color.lime,  style=line.style_dashed, width=1)
 
-    string lbl_t1_txt = "DHAN OCO-1 (50% ×" + str.tostring(q_dhan_oco1) + "): " + str.tostring(m_t1, "0.00") + " (" + str.tostring(t1_r, "#.#") + "R)"
-    string lbl_t2_txt = "DHAN OCO-2 (50% ×" + str.tostring(q_dhan_oco2) + "): " + str.tostring(m_t2, "0.00") + " (" + str.tostring(t2_r, "#.#") + "R)"
+    string lbl_t1_txt = "DHAN OCO-1 (" + p_oco1 + " ×" + str.tostring(q_dhan_oco1) + "): " + str.tostring(m_t1, "0.00") + " (" + str.tostring(t1_r, "#.#") + "R)"
+    string lbl_t2_txt = "DHAN OCO-2 (" + p_oco2 + " ×" + str.tostring(q_dhan_oco2) + "): " + str.tostring(m_t2, "0.00") + " (" + str.tostring(t2_r, "#.#") + "R)"
 
     lbl_entry := label.new(lx2, m_entry, "Entry: " + str.tostring(m_entry, "0.00"), xloc=xloc.bar_index, color=color.new(color.blue, 70), textcolor=color.white, style=label.style_label_left, size=size.small)
     lbl_stop  := label.new(lx2, m_stop,  "SL: " + str.tostring(m_stop, "0.00") + " [" + trail_kind + " Step: " + str.tostring(trail_jump, "0.00") + "]", xloc=xloc.bar_index, color=color.new(color.red, 70), textcolor=color.white, style=label.style_label_left, size=size.small)

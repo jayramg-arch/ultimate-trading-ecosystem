@@ -203,7 +203,7 @@
 //   Ties resolve to the HIGHER timeframe: a Monthly and a Daily level at the same
 //   price reads Monthly. Conviction takes the higher reading, never the lower.
 // ============================================================================
-indicator("Commander Chart Markup v2.11", overlay=true, max_lines_count=80, max_labels_count=200, max_boxes_count=30)
+indicator("Commander Chart Markup v2.12", overlay=true, max_lines_count=80, max_labels_count=200, max_boxes_count=30)
 max_bars_back(close, 600)  // history buffer for the "no candle closes through the trendline" check
 
 // ============================================================================
@@ -435,13 +435,6 @@ float ema_slope = (ema20 - ema20_pN) / (5.0 * math.max(1, _emaTfBars))   // pric
 [d_sma50, d_sma150, d_sma200] = request.security(syminfo.tickerid, "D", [ta.sma(close, 50), ta.sma(close, 150), ta.sma(close, 200)], lookahead=barmerge.lookahead_off)
 bool minervini_up = not na(d_sma200) and close > d_sma50 and d_sma50 > d_sma150 and d_sma150 > d_sma200
 
-// Weekly 30-WMA Weinstein anchor (works on any chart TF)
-[wma30, wma30p] = request.security(syminfo.tickerid, "W", [ta.sma(close, 30), ta.sma(close, 30)[6]], lookahead=barmerge.lookahead_off)
-int stage = na(wma30) ? 0 : (close > wma30 and wma30 >= wma30p ? 2 : close > wma30 ? 3 : wma30 < wma30p ? 4 : 1)
-// reversal flag: was below the 30-WMA within the last 25 bars, now reclaimed
-float lowest25 = ta.lowest(close, 25)
-bool reclaim_30w = close > wma30 and lowest25 < wma30
-
 // v2.1 FIX2: Mansfield RS — CANONICAL WEEKLY-52, independent of chart TF.
 // Computed on the SYM/BENCH spread in the WEEKLY context (the 52-bar SMA of the
 // ratio is a true 52-WEEK average). Previously a daily chart silently computed
@@ -453,6 +446,31 @@ f_mans_weekly() =>
 string rsSpread = syminfo.prefix + ":" + syminfo.ticker + " / " + benchSym
 float mansfield = request.security(rsSpread, "W", f_mans_weekly(), lookahead=barmerge.lookahead_off, ignore_invalid_symbol=true)
 bool rs_pos = not na(mansfield) and mansfield > 0
+bool rsUpStage = not na(mansfield) and not na(mansfield[5]) and mansfield > mansfield[5]
+
+// Weekly 30-WMA Weinstein anchor (works on any chart TF)
+// STAGE = THE SHARED STATELESS 2x2 (24-Sep-2026, audit AUD-PAR-08). This read had no flat
+// band, a 6-week slope and called FLAT "rising" and below-a-rising-MA "Stage 1" — a fifth
+// stage definition, while the page claimed zero drift. Now S4's: 4-week raw change of the
+// weekly 30-SMA against a 0.0012 x MA flat band; above rising 2, above falling 3, above
+// flat RS-up 1 else 3; below rising 2 (pullback), below falling RS-up 1 else 4, below flat 1.
+// RS tie-break = Mansfield rising over 5 weeks (S4 uses the bound Zigzag trend when it has
+// one and its RS slope otherwise; this indicator has no Zigzag binding).
+[wma30, wma30p] = request.security(syminfo.tickerid, "W", [ta.sma(close, 30), ta.sma(close, 30)[4]], lookahead=barmerge.lookahead_off)
+float _wchg = wma30 - wma30p
+float _wthr = nz(wma30) * 0.0012
+bool  _wUp  = _wchg > _wthr
+bool  _wDn  = _wchg < -_wthr
+int stage = 0
+if not na(wma30)
+    if close > wma30
+        stage := _wUp ? 2 : _wDn ? 3 : (rsUpStage ? 1 : 3)
+    else
+        stage := _wUp ? 2 : _wDn ? (rsUpStage ? 1 : 4) : 1
+// reversal flag: was below the 30-WMA within the last 25 bars, now reclaimed
+float lowest25 = ta.lowest(close, 25)
+bool reclaim_30w = close > wma30 and lowest25 < wma30
+
 
 // 52-week extremes (rolling)
 int look52 = 252

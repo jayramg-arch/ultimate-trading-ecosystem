@@ -1,5 +1,5 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.22]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.23]", overlay=true, max_bars_back=5000, max_lines_count=500)
 // v67.4.17 (31 Jul 2026): RESTORE INLINE TREND ARROWS (Jay: "place arrow icons properly,
 //   they should appear like Pre-S2 on Weekly structure row"). Reverted badge column split:
 //   restored 4-column compressed panel layout. Re-embedded W & 30WMA arrows into WEEKLY STRUCTURE,
@@ -988,8 +988,8 @@ benchSector = input.symbol("NSE:CNX500", title="Benchmark 3 (Manual Sector)", gr
 useManual   = input.bool(false, title="[Enable] Manual Sector Override", group=groupStrat, tooltip="If checked, Benchmark 3 is used. If unchecked, the Dashboard auto-detects the sector based on your portfolio and internal database.")
 
 
-pos_time_stop_w = input.int(36, title="Positional Time Stop (Weeks Stagnant)", group=groupStrat, tooltip="Mirror of Strategy: close positional if open ≥ N weeks with unrealised profit < 0.5R. Default 6W.")
-swg_time_stop_d = input.int(60, title="Swing Time Stop (Days Stagnant)",        group=groupStrat, tooltip="Mirror of Strategy: close swing if open ≥ N days with unrealised profit < 0.5R. Default 10D.")
+pos_time_stop_w = input.int(36, title="Positional Time Stop (Weeks Stagnant)", group=groupStrat, tooltip="RETIRED 24-Sep-2026 — no time stop anywhere (Jay). Kept so input positions do not shift; it drives nothing.")
+swg_time_stop_d = input.int(60, title="Swing Time Stop (Days Stagnant)",        group=groupStrat, tooltip="RETIRED 24-Sep-2026 — no time stop anywhere (Jay). Kept so input positions do not shift; it drives nothing.")
 
 rsLength        = input.int(26,   title="RS Slope Length (Weeks)",               group=groupStrat, tooltip="Lookback for the RS slope (↑↓→ arrows). 26W = 6 months of momentum.")
 rsSlopeLen      = input.int(8,    title="RS Slope Lookback (Weeks)",               group=groupStrat)
@@ -4381,27 +4381,14 @@ if tradeActive
         daysHeld := math.floor((time - finalDate) / 86400000)
         entryDateStr := str.format("{0,date,yyyy-MM-dd}", finalDate)
 
-    // Gap 5: Time Stop Proximity Warning (mirrors Strategy v4.42 inputs)
-    int pos_stop_thresh = pos_time_stop_w * 5  // weeks → trading days
+    // NO TIME STOP (Jay, 24-Sep-2026). This panel ran its own clock (36w / 60d) beside
+    // four others; the backtest has had none since 5-Aug. Exits are the stop, the trail
+    // and structure. The row now reports age only. Inputs kept so no position shifts.
+    int pos_stop_thresh = pos_time_stop_w * 5
     int swg_stop_thresh = swg_time_stop_d
-    int pos_days_left   = pos_stop_thresh - daysHeld
-    int swg_days_left   = swg_stop_thresh - daysHeld
     if daysHeld > 0
-        if daysHeld >= pos_stop_thresh
-            timeWarnStr := "⏰ POS TIME STOP HIT"
-            timeWarnCol := color.red
-        else if pos_days_left <= 5
-            timeWarnStr := "⚠️ POS: " + str.tostring(pos_days_left) + "d left"
-            timeWarnCol := color.orange
-        else if daysHeld >= swg_stop_thresh
-            timeWarnStr := "⏰ SWG TIME STOP HIT"
-            timeWarnCol := color.red
-        else if swg_days_left <= 3
-            timeWarnStr := "⚠️ SWG: " + str.tostring(swg_days_left) + "d left"
-            timeWarnCol := color.orange
-        else
-            timeWarnStr := "OK (P:" + str.tostring(pos_days_left) + "d | S:" + str.tostring(swg_days_left) + "d)"
-            timeWarnCol := color.gray
+        timeWarnStr := str.tostring(daysHeld) + "d held · no time stop"
+        timeWarnCol := color.gray
 
     float curPnL = ((close - finalEntry) / finalEntry) * 100
     string pnlStr = (curPnL > 0 ? "+" : "") + str.tostring(curPnL, "0.00") + "%"
@@ -4441,7 +4428,7 @@ if tradeActive
     string pyrWhy     = ""
     pyrPnlG      := curPnL
     pyrSwingNum  := pyrSwing ? 1 : 0
-    pyrDaysLeftG := (pyrSwing ? swg_stop_thresh : pos_stop_thresh) - daysHeld
+    pyrDaysLeftG := na   // no time stop (24-Sep-2026); S4's POSITION row handles na
     // ADD's two halves, each on ONE line. Wrapped boolean expressions in Pine
     // break with "end of line without line continuation" when the continuation
     // lands on a multiple-of-4 indent (it parses as a new block), so keep them
@@ -4472,7 +4459,7 @@ if tradeActive
     // and "POS TIME STOP HIT" in the same panel: 65 days is past 30 but nowhere near
     // 180. Both now read the inputs, whose defaults moved to 36w/60d = the 180/60 of
     // pyramid_logic.POS_DAYS/SWING_DAYS. Keep them there or Pine and Python drift.
-    bool ex_time   = daysHeld > 0 and not na(pyrR) and pyrR < 0.5 and daysHeld >= (pyrSwing ? swg_stop_thresh : pos_stop_thresh)
+    bool ex_time   = false   // no time stop (Jay, 24-Sep-2026) — one rule across every surface
 
     if ex_atsl or ex_under or ex_stage4 or ex_swglow or ex_wma30 or ex_chand or ex_time
         pyrWhy := ex_atsl   ? "at SL (" + str.tostring((close - visualSL) / pyrAtr, "0.0") + "×ATR)" :
@@ -5279,7 +5266,7 @@ if barstate.islast and show_detailed_view
         rowL += 1
         drawRowL(panel, rowL, "DAYS HELD", str.tostring(daysHeld) + " Day(s)", daysHeld > 30 ? C_BULL : C_NEUT, C_LBL, C_LBL_TXT, C_VAL_TXT)
         rowL += 1
-        drawRowL(panel, rowL, "Time Stop (P/S)", timeWarnStr, timeWarnCol, C_LBL, C_LBL_TXT, C_VAL_TXT)
+        drawRowL(panel, rowL, "Held", timeWarnStr, timeWarnCol, C_LBL, C_LBL_TXT, C_VAL_TXT)
         rowL += 1
         if finalSL > 0
             drawRowL(panel, rowL, "Dynamic Profile", mktProfile, isBullMarket ? C_BULL : C_BEAR, C_LBL, C_LBL_TXT, C_VAL_TXT)

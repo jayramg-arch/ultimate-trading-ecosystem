@@ -632,3 +632,19 @@ Two further parity gaps found while porting (not fixed):
   runner — instead of one OCO over 100% at one target. New shielding only; existing 50/50
   OCOs are untouched until re-placed (Jay's call). The Risk Allocator's 50/50 split default
   follows in the Pine batch. 7 tests.
+
+### Step 4, Pine batch — PREPARED, needs Jay's compile (24 Sep)
+
+| File | New title | Change |
+|---|---|---|
+| Weinstein and Swing Pro Dashboard v67.4.12.pine | v67.4.23 | No time stop: the row reports age, `ex_time` is false, `s4_pyrDaysLeft` exports na (S4 already handles na) |
+| Weinstein_Unified_Ecosystem_v3.4.pine | v3.6 | Stage below-rising → 2; RS entry gate = RS-Ratio > 100 (Python's `rs_ok`); RRG display whitelist = the two measured cells; time-decay exit disabled |
+| Commander_Chart_Markup_v2.0.pine | v2.12 | Stage = the shared stateless 2×2 (4-week change, 0.0012 band, below-rising 2, RS tie-break) |
+| Commander_Risk_Allocator_v2.2.pine | v2.3 | Default split = house canon 25/25 (+33/33, 50/50 by family) + a runner line; 50/50 kept as an option |
+
+After compiling **v67**, re-run `BIND_S4_SOURCES.bat` (its plot order is unchanged, but a
+recompile drops S4's bindings). The other three carry no bindings and no alerts.
+
+New finding from the Unified work: **AUD-PY-14** — `bull_screener.sector_stage_ok = True`
+("TODO: wire up sector data"); Doc 11 lists it as one of the six base gates, but it has never
+gated anything.
