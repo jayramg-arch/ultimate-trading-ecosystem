@@ -853,10 +853,10 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v10.11 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.11", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v10.12 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.12", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.10"
+string S4_VER      = "v11.11"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -1764,15 +1764,30 @@ float _szb = _isEtf ? size_risk * 1.5 : size_risk
 // board already refuses to publish an ETF over the cap, so an unknown here means
 // coverage rather than danger.
 bool _etfPrmBad = _isEtf and not na(_etfPrm) and math.abs(_etfPrm) > etf_prem_max
-float atrW_tf = request.security(syminfo.tickerid, "W", ta.atr(14), lookahead=barmerge.lookahead_off)
-float atrM_tf = request.security(syminfo.tickerid, "M", ta.atr(14), lookahead=barmerge.lookahead_off)
+// OWN-TIMEFRAME ZONE LIFECYCLE (Jay, 25-Sep-2026): "A weekly zone should be treated as
+// tested when price actually tests the zone in the WEEKLY timeframe. Price touching the
+// weekly zone and reacting within the 75min timeframe is not a test of the weekly zone."
+// So each D/W/M zone is judged on its OWN timeframe's last CLOSED bar - touch, reaction,
+// travel (2x own-TF ATR), EMA20 cross, swing-high close and violation - once per bar of
+// that TF. expr[1] + lookahead_on is the non-repainting last-closed-bar idiom.
+// EMA reference is unchanged: Monthly EMA20 for M, Weekly for W, Daily for D (and the
+// Daily EMA20 for native 125m/75m zones). Rule-3 swing high = the zone's own-TF pivot (5),
+// the same source zone_engine uses on the board. These replace the four forming-bar W/M
+// ATR/EMA calls, which fed only this lifecycle and the creation-time confluence boost.
+f_htfClosed() =>
+    [_ph, _pl] = core.htfPivots(5)
+    [time[1], high[1], low[1], close[1], ta.ema(close, 20)[1], ta.atr(14)[1], _ph[1], _pl[1]]
+[hdT, hdH, hdL, hdC, hdE, hdA, hdPH, hdPL] = request.security(syminfo.tickerid, "D", f_htfClosed(), lookahead=barmerge.lookahead_on)
+[hwT, hwH, hwL, hwC, ema20W_tf, atrW_tf, hwPH, hwPL] = request.security(syminfo.tickerid, "W", f_htfClosed(), lookahead=barmerge.lookahead_on)
+[hmT, hmH, hmL, hmC, ema20M_tf, atrM_tf, hmPH, hmPL] = request.security(syminfo.tickerid, "M", f_htfClosed(), lookahead=barmerge.lookahead_on)
+bool hdNew = ta.change(hdT) != 0
+bool hwNew = ta.change(hwT) != 0
+bool hmNew = ta.change(hmT) != 0
 // v10.1 — tested-rules 2 & 3 reference (Jay, 26-Aug-2026): a WEEKLY or MONTHLY zone is
 // judged against the CHART's own EMA20 (weekly EMA20 for a weekly zone), while DAILY,
 // 125m and 75m zones are judged against the DAILY EMA20. The rules themselves apply on
 // EVERY timeframe -- only the series changes. The #25 over-removal was the wrong SERIES
 // (daily EMA20 adjudicating a weekly base at daily granularity), not the wrong scope.
-float ema20W_tf = request.security(syminfo.tickerid, "W", ta.ema(close, 20), lookahead=barmerge.lookahead_off)
-float ema20M_tf = request.security(syminfo.tickerid, "M", ta.ema(close, 20), lookahead=barmerge.lookahead_off)
 // ONE arrow renderer for all three trend columns (chart TF / D / W). Three
 // identical nested ternaries were three copies of the same six operations;
 // the file sits against the compiled-token ceiling, and only operations cost.
@@ -2133,7 +2148,7 @@ f_createZone(core.ZoneSig sig, string tfTag, bool isNative) =>
             bx  := box.new(leftBar, topVal, bar_index, botVal, border_color=bdC, bgcolor=bgC, border_width=bwidth, border_style=_bstyle, extend=extend.right, xloc=xloc.bar_index, text=_lblShown, text_color=_txtC, text_size=size.small, text_halign=text.align_left, text_valign=text.align_center)
         else
             bx  := box.new(sig.baseStartTime, topVal, time, botVal, border_color=bdC, bgcolor=bgC, border_width=bwidth, border_style=_bstyle, extend=extend.right, xloc=xloc.bar_time, text=_lblShown, text_color=_txtC, text_size=size.small, text_halign=text.align_left, text_valign=text.align_center)
-        z = core.Zone.new(sig.proximal, sig.distal, bar_index, sig.baseStartTime, sig.isDemand, finalScore, cBonus, sig.nBase, sig.pattern, tfTag, finalCtrl, bx, na, false, false, na, na, false, sig.hasFVG, false)
+        z = core.Zone.new(sig.proximal, sig.distal, (tfTag == "C" ? bar_index : time), sig.baseStartTime, sig.isDemand, finalScore, cBonus, sig.nBase, sig.pattern, tfTag, finalCtrl, bx, na, false, false, na, na, false, sig.hasFVG, false)
         z.bgKeep := bgC
         z.bdKeep := bdC
         z.txtKeep := _lblShown
@@ -2509,7 +2524,18 @@ f_zoneMaintain() =>
             // the engine too: nothing permanent happens on an unconfirmed bar.
             // #41: a zone already greyed as tested is FROZEN — skip all reaction / tested /
             // violation reprocessing so it stays put for visual verification.
-            if barstate.isconfirmed and not z.tested
+            // Own-TF gate: a D/W/M zone is judged only when a bar of ITS timeframe has just
+            // closed, and only on bars that closed after the zone arrived (originBar holds the
+            // arrival time for HTF zones), so the leg-out bar can never count as the 1st test.
+            bool _isH = z.tf == "D" or z.tf == "W" or z.tf == "M"
+            int  _hT  = z.tf == "M" ? hmT : z.tf == "W" ? hwT : hdT
+            bool _hOk = not _isH or ((z.tf == "M" ? hmNew : z.tf == "W" ? hwNew : hdNew) and not na(_hT) and _hT > z.originBar)
+            float _zh = not _isH ? high : z.tf == "M" ? hmH : z.tf == "W" ? hwH : hdH
+            float _zl = not _isH ? low : z.tf == "M" ? hmL : z.tf == "W" ? hwL : hdL
+            float _zc = not _isH ? close : z.tf == "M" ? hmC : z.tf == "W" ? hwC : hdC
+            float _zPH = not _isH ? lastPH : z.tf == "M" ? hmPH : z.tf == "W" ? hwPH : hdPH
+            float _zPL = not _isH ? lastPL : z.tf == "M" ? hmPL : z.tf == "W" ? hwPL : hdPL
+            if barstate.isconfirmed and not z.tested and _hOk
                 // #27: refresh the label with the age-decayed score each confirmed bar. Done
                 // before the tested/violation checks below, so a zone about to be deleted just
                 // wastes one harmless set_text; a surviving zone shows its current recency read.
@@ -2519,20 +2545,20 @@ f_zoneMaintain() =>
                 // "Touched" (z.wasInZone tracks this bar-to-bar) = a wick pierced the proximal
                 // line OR the candle closed within the zone — but did NOT close beyond the
                 // distal (that is a violation, handled by checkMitigation below).
-                bool touchedNow = z.isDemand ? (low <= z.proximal and close >= z.distal) : (high >= z.proximal and close <= z.distal)
+                bool touchedNow = z.isDemand ? (_zl <= z.proximal and _zc >= z.distal) : (_zh >= z.proximal and _zc <= z.distal)
                 // "Moved out" = this candle is back on the entry side of the proximal.
-                bool movedOut   = z.isDemand ? (low > z.proximal) : (high < z.proximal)
+                bool movedOut   = z.isDemand ? (_zl > z.proximal) : (_zh < z.proximal)
                 // Reaction = a PRIOR candle touched/closed-within, and THIS candle moved back
                 // out past the proximal (Jay's definition of a reaction from the zone).
-                if z.wasInZone and movedOut and bar_index > z.originBar + 1
+                if z.wasInZone and movedOut and (_isH or bar_index > z.originBar + 1)
                     z.reacted   := true
                     z.reactRef  := z.proximal
                     // Rule-3 strong S/R = nearest HTF pivot high ABOVE the zone (demand) /
                     // pivot low BELOW (supply). If the last HTF pivot is not on the correct
                     // side, rule 3 stays inert and rules 1 & 2 carry the tested check.
-                    z.strongLvl := z.isDemand ? ((not na(lastPH) and lastPH > z.proximal) ? lastPH : na) : ((not na(lastPL) and lastPL < z.proximal) ? lastPL : na)
-                    float _zEmaRef = z.tf == "M" ? ema20M_tf : z.tf == "W" ? ema20W_tf : dailyEMA20
-                    z.emaPre    := z.isDemand ? (not na(_zEmaRef) and close < _zEmaRef) : (not na(_zEmaRef) and close > _zEmaRef)
+                    z.strongLvl := z.isDemand ? ((not na(_zPH) and _zPH > z.proximal) ? _zPH : na) : ((not na(_zPL) and _zPL < z.proximal) ? _zPL : na)
+                    float _zEmaRef = z.tf == "M" ? ema20M_tf : z.tf == "W" ? ema20W_tf : z.tf == "D" ? hdE : dailyEMA20
+                    z.emaPre    := z.isDemand ? (not na(_zEmaRef) and _zc < _zEmaRef) : (not na(_zEmaRef) and _zc > _zEmaRef)
                 z.wasInZone := touchedNow
                 // TESTED = reacted AND confirmed by ANY of the 3 rules → the zone has done its
                 // job, so it is REMOVED from the chart entirely (no greyed tested state — Jay's
@@ -2547,9 +2573,9 @@ f_zoneMaintain() =>
                     // The zone's OWN timeframe's ATR — a Monthly zone is judged in monthly
                     // ATR even when it is drawn on a 75m chart. Native "C" zones use the
                     // chart's ATR, which IS their own timeframe by definition.
-                    float _zAtr = z.tf == "M" ? atrM_tf : z.tf == "W" ? atrW_tf : z.tf == "D" ? atrD_tf : chart_atr
+                    float _zAtr = z.tf == "M" ? atrM_tf : z.tf == "W" ? atrW_tf : z.tf == "D" ? hdA : chart_atr
                     float _travelNeed = testedTravelMode == "ATR" ? testedTravelATR * nz(_zAtr, chart_atr) : testedTravelMult * zW
-                    bool c_travel = z.isDemand ? (high >= z.reactRef + _travelNeed) : (low <= z.reactRef - _travelNeed)
+                    bool c_travel = z.isDemand ? (_zh >= z.reactRef + _travelNeed) : (_zl <= z.reactRef - _travelNeed)
                     // RULES 2 & 3 — a close across the DAILY EMA20 / a daily-or-weekly pivot.
                     // Both are DAILY references, so they are same-TF only for a DAILY zone.
                     // #25/#40/#42 FIX: they used to apply to WEEKLY and MONTHLY zones too, which
@@ -2562,11 +2588,11 @@ f_zoneMaintain() =>
                     // the EMA/level cross.
                     // Rules 2 & 3 now run on EVERY timeframe. `tested_tf_match` is retained
                     // as the escape hatch to the Daily-only behaviour, no longer the default.
-                    float _emaRef  = z.tf == "M" ? ema20M_tf : z.tf == "W" ? ema20W_tf : dailyEMA20
+                    float _emaRef  = _zEmaRef
                     bool _zIsDaily = z.tf == "D" or (z.tf == "C" and timeframe.isdaily)
                     bool _emaLvlOk = (not tested_tf_match) or _zIsDaily
-                    bool c_ema    = _emaLvlOk and (z.isDemand ? (z.emaPre and not na(_emaRef) and close > _emaRef) : (z.emaPre and not na(_emaRef) and close < _emaRef))
-                    bool c_level  = _emaLvlOk and (z.isDemand ? (not na(z.strongLvl) and close > z.strongLvl) : (not na(z.strongLvl) and close < z.strongLvl))
+                    bool c_ema    = _emaLvlOk and (z.isDemand ? (z.emaPre and not na(_emaRef) and _zc > _emaRef) : (z.emaPre and not na(_emaRef) and _zc < _emaRef))
+                    bool c_level  = _emaLvlOk and (z.isDemand ? (not na(z.strongLvl) and _zc > z.strongLvl) : (not na(z.strongLvl) and _zc < z.strongLvl))
                     _testedOut := c_travel or c_ema or c_level
                     // v3.2 DIAG: WHICH of the three retired it? The cumulative d/f/m/L funnel
                     // proves a zone was created-then-removed but is silent on WHY, which left
@@ -2656,7 +2682,7 @@ f_zoneMaintain() =>
                         z.deleteDrawings()
                         array.remove(activeZones, i)
                         continue
-                isMitigated = z.checkMitigation(close, low, high, mitBasis)
+                isMitigated = z.checkMitigation(_zc, _zl, _zh, mitBasis)
                 if isMitigated
                     if z.tf == "C"
                         _rmVioF := _rmVioF + 1
