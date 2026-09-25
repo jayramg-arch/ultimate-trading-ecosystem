@@ -1678,6 +1678,8 @@ def _gm_apply_location_rule(_s, vp_at=False):
         _s["loc_pattern"] = bool(_s.get("ize_at_support") or _s.get("tf_zone_at"))
     _s["loc_zone"] = _s["loc_pattern"] or _s["loc_pivot"]
     _s["loc_reacting"] = bool(_s.get("ize_reacting") or _s.get("tf_reacting"))
+    # The timeframe of the pattern zone that PASSED (trigger TF first, then D/W/M).
+    _s["loc_pattern_tf"] = _s.get("tf_pattern_tf") or _s.get("ize_pattern_tf")
     _s["loc_soft"] = bool(_s.get("ize_near_sr") or _s.get("ize_near_avwap")
                           or vp_at or _s.get("tf_near_sr"))
     if GM_LOC_STRICT:

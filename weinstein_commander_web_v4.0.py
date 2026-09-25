@@ -3078,6 +3078,7 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
                                 [_izI] + list(_s.get("sl_zones_htf") or []), _idf, trigger_tf)
                         _s["tf_zone_at"] = bool(_izI.get("at_support"))
                         _s["tf_zone_pattern"] = bool(_izI.get("at_support_pattern"))
+                        _s["tf_pattern_tf"] = trigger_tf if _izI.get("at_support_pattern") else None
                         _s["tf_zone_pivot"] = bool(_izI.get("at_support_pivot"))
                         _s["tf_reacting"] = bool(_izI.get("at_support_reacting"))
                         _tfa = _izI.get("approach_pct")
@@ -3791,6 +3792,10 @@ def gm_load_symbol(symbol: str) -> dict:
                     _sup["ize_at_support_pattern"] = bool(
                         _izD.get("at_support_pattern") or _izW.get("at_support_pattern")
                         or _izM.get("at_support_pattern"))
+                    # WHICH timeframe's pattern zone passed (25-Sep-2026): the board used to
+                    # print next_zone_tf - the NEXT zone below - so a Daily-zone hit read "75m".
+                    _sup["ize_pattern_tf"] = next((_t for _t, _z in (("D", _izD), ("W", _izW), ("M", _izM))
+                                                   if _z and _z.get("at_support_pattern")), None)
                     _sup["ize_at_support_pivot"] = bool(
                         _izD.get("at_support_pivot") or _izW.get("at_support_pivot")
                         or _izM.get("at_support_pivot"))

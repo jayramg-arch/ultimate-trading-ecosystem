@@ -1644,8 +1644,11 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         # INSIDE vs REACTING are different trades: inside is price still in the zone,
         # reacting is the test done and the turn underway. Jay trades the second one,
         # so the board has to distinguish them rather than collapse both to "AT".
+        # The TF of the zone that PASSED, not the next zone below (25-Sep-2026: a Daily
+        # zone hit printed "75m" because this read next_zone_tf).
+        _ptf = _sup.get("loc_pattern_tf") or ""
         _locWhat = ("REACTING off pattern" if _react
-                    else "AT pattern") + (f" {_ztf}" if _ztf else "")
+                    else "AT pattern") + (f" {_ptf}" if _ptf else "")
     elif _sup.get("loc_pivot") and _sup.get("at_support"):
         _locWhat = "REACTING off pivot" if _react else "AT pivot+conf"
     elif _sup.get("loc_pivot"):
