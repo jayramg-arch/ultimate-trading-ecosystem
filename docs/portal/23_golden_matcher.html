@@ -575,8 +575,21 @@ footer a{color:var(--acc)}
 
 <section id="armed">
   <div class="note">
+    <span class="tag">25 Sep — RRG is computed; risk % is a house rule</span>
+    <p><b>The RRG column is the computed quadrant</b> — JdK RS-Ratio / RS-Momentum (strike_cal, the
+    RRG Studio maths) on confirmed weekly bars against the Nifty 500. The hand-typed RRG flag is
+    retired: it had not been edited since 17 August and contradicted the computed quadrant on 17 of
+    the 34 names that carried one, and Risk Shield's trade-type ladder was reading it. The column is
+    no longer editable; <code>gm_rrg_flags.json</code> stays on disk, unread.</p>
+    <p><b>Risk % and Add risk % are read-outs now, not inputs.</b> They show the house rule from
+    <code>house_policy.py</code> (stock 0.5% · ETF 0.75% · add 1%), the same rule the Capital Queue,
+    the AI-LAB sizers and Risk Shield's heat card use. Capital and Max ₹/trade stay settings;
+    Max ₹/trade 0 means the house ₹1,00,000 cap, never uncapped.</p>
+  </div>
+
+  <div class="note">
     <span class="tag">25 Sep — 💰 Capital Queue, above the grid</span>
-    <p>One queue for the next rupee: today's ADD-rated holdings and every live board name (5/5 GO or Buy Trigger Live, all three tabs) on <b>one scale</b>. Ranked by the Reviewer's context ladder — tier A = Stage 2 + leadership + a zone, B = Stage 2 + one of leadership / a level, C = the rest — then a concentration penalty (weight already in the name, sector above 20% after the order, correlation above 0.6 to any holding), then the board's Overall. Stage 3/4 and anything the order gate's sector cap would refuse are listed as blocked. Sized at the house risk and the ₹1,00,000 per-trade cap, then walked down against the capital your EXITs free (then the REDUCE ½ / TRIM ⅓ share, then new cash). <b>Organising tool, not a measured edge:</b> adds and new entries measured indistinguishable in R (PREREG_add_premise, 25 Sep), so the choice is made on risk — an add concentrates, a new name diversifies. It builds on demand (a button inside the expander) so the bar-close refresh stays fast, and it is the same engine as Risk Shield → 💰 Capital Queue.</p>
+    <p>One queue for the next rupee: today's ADD-rated holdings and every live board name (5/5 GO or Buy Trigger Live, all three tabs) on <b>one scale</b>. Ranked by the Reviewer's context ladder — tier A = Stage 2 + leadership + a zone, B = Stage 2 + one of leadership / a level, C = the rest — then a concentration penalty (weight already in the name, sector above 20% after the order, correlation above 0.6 to any holding), then the board's Overall. Stage 3/4 and anything the order gate's sector cap would refuse are listed as blocked. Sized at the house risk and the ₹1,00,000 per-trade cap (<code>house_policy.py</code>), then walked down against your <b>Dhan cash</b>. EXIT / REDUCE / TRIM proceeds count only when you tick <em>Count EXIT / REDUCE / TRIM proceeds as available</em> — off by default since 25 Sep, because in a recovery tape you are holding, not exiting, and a queue that spends exit proceeds spends money that does not exist. The ADD/TRIM/EXIT classes are the live ladder when Risk Shield has computed them this session, else the 16:30 snapshot; the Book metric says which. <b>Organising tool, not a measured edge:</b> adds and new entries measured indistinguishable in R (PREREG_add_premise, 25 Sep), so the choice is made on risk — an add concentrates, a new name diversifies. It builds on demand (a button inside the expander) so the bar-close refresh stays fast, and it is the same engine as Risk Shield → 💰 Capital Queue.</p>
   </div>
 
   <h2><span class="n">06</span>The Armed Register — the board's memory</h2>

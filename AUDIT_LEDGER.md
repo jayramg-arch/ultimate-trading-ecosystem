@@ -768,3 +768,62 @@ pyramid ADD rung, rebuilt point-in-time on 191 POS trades (live Chandelier), fir
 Add legs vs new entries: IS −0.40R vs −0.35R, OOS +0.22R vs +0.14R; difference CI [−0.12, +0.15];
 39 OOS adds < 40 → THIN. No change to the rung. Reading: adds and new entries are
 indistinguishable in expectation, so a capped book must choose between them on concentration risk.
+
+## 25 September 2026 — Web Commander integration audit
+
+Question (Jay): how tightly are the sub-modules integrated, and where do they disagree?
+Every finding below was read in the code at file:line, not from notes.
+
+**AUD-INT-01 — five sizers, four risk rates — FIXED.** GM sizer 0.5%, Capital Queue 0.5%,
+AI-LAB sniper 1% with a 20% cap, AI-Trade Proposer a flat ₹5,000, Risk Shield heat 0.25%
+(session-only, "execution freeze"). NEW `house_policy.py` holds stock 0.5 / ETF 0.75 / add
+1.0, the declared sizing capital, the ₹1,00,000 per-trade cap (gm_settings `max_alloc` 0 now
+means the cap, never uncapped), book caps and the bear rule. Every surface imports it;
+`tests/test_house_policy.py` guards the retired numbers.
+
+**AUD-INT-02 — invented capital — FIXED.** `total_cap` fell back to ₹50,00,000 when Dhan
+was down and portfolio history recorded it as that day's equity. Now: live equity, else the
+declared capital, else 0; history records live readings only.
+
+**AUD-INT-03 — manual RRG flag feeding decisions — FIXED.** The board's RRG column was a
+hand-typed flag last edited 17 Aug; 17 of 34 flagged names contradicted the computed
+quadrant, and Risk Shield's trade-type rung 4 read it. RRG is now the computed strike_cal
+quadrant everywhere (`gm_trigger_board.rrg_live`). Writers, `s4_rrg_lists` and the dead
+Strike-RRG paste block removed; `gm_rrg_flags.json` left on disk, unread.
+
+**AUD-INT-04 — fifth stop engine — FIXED.** COMMAND E-02 trailed from the highest HIGH since
+entry with an ADR multiple; now `risk_common.chandelier_exit`, the rule every other surface uses.
+
+**AUD-INT-05 — one bear rule — FIXED.** Four copies of "score ≤ 5"; `exit_signal_engine`
+read `score or 10`, so a score of 0 (deepest bear) was not bear. `house_policy.is_bear`.
+
+**AUD-INT-06 — earnings, two sources — FIXED.** Risk Shield called yfinance per symbol; the
+pyramid ladder reads the nightly cache. Both read the cache now.
+
+**AUD-INT-07 — Exact manual-SL mode ignored by the trailer — FIXED.** The mode lived in the
+browser session; `gtt_auto_shield` always applied Floor. Persisted to gm_settings.
+
+**AUD-INT-08 — Capital Queue on stale classes and fictional money — FIXED.** It read the 16:30
+ladder classes beside a live Pyramid tab, and spent EXIT proceeds Jay is not taking in a
+recovery tape. Live classes when available; funded from Dhan cash unless `queue_count_exits`.
+
+**AUD-INT-09 — Friday weekly repaint — FIXED.** Both weekly engines counted the forming week
+as confirmed during Friday's session. Live only; replay unchanged.
+
+**AUD-INT-10 — Futures OI states disagree between v67 and S4 — FIXED (pending compile).**
+Same OI, different price leg (futures vs cash): 7.6% of stock-days disagree, 14.4% on roll
+days. And both read near-month OI only: with ≤ 5 days to expiry it fell on 100% of days,
+while near+next total ROSE on 43% of them. v67.4.25 sums near+next and exports the futures
+leg; S4 v10.11 binds it (`v67: Futures price chg %`).
+
+**AUD-INT-11 — matcher OI labels swapped — OPEN (Jay's call).** `brute_force_match_pro.py:166`
+scores price-down/OI-down (long unwinding) +0.5 and price-up/OI-down (short covering) −0.5,
+with the labels swapped in the comments. Changes Conviction ranking — not changed without Jay.
+
+**AUD-INT-12 — initial stop, three rules — OPEN (Jay's call).** GM/S4: structural ladder capped
+at 2.5×/4.0× ATR; AI-Trade Proposer: ADR-bucket multiple; AI-LAB sniper: 2× ATR default.
+
+Corrections to the audit as first reported: the header "Nifty 500" cell was a 200-DMA fact,
+not a second regime (relabelled); the Strike-RRG paste block had been hidden since 25 Aug;
+two computed RRG paths "disagreeing" was a worktree without Dhan credentials reading an
+August cache — on live data 8/8 agree.
