@@ -1411,7 +1411,7 @@ tl_on  = input.bool(true, "Enable manual trendlines", group=grpTL, tooltip="Mast
 // ── AUTO trendlines (Path A, 24-Jul): fit + adjust WITHOUT typing coordinates. Reuses
 // the geometry engine's f_bestLine (no 10th from-scratch fitter — the 9 failed rewrites
 // were all attempts at a GLOBAL auto-fit; this fits a sensible line and lets you nudge it).
-tl_auto      = input.bool(false, "Auto-detect trendlines — code commented out 25-Sep (no effect)", group=grpTL, tooltip="OFF (24-Jul, Jay's call): auto-detection is parked — draw trendlines by hand instead. ON revives the envelope fit (support = the boundary no pivot low pierces; resistance the mirror) and feeds it to the picker/plan/confluence. Kept for later; the manual path below is the live one.")
+tl_auto      = input.bool(false, "Auto-detect trendlines (envelope fit) — OFF by default", group=grpTL, tooltip="OFF (24-Jul, Jay's call): auto-detection is parked — draw trendlines by hand instead. ON revives the envelope fit (support = the boundary no pivot low pierces; resistance the mirror) and feeds it to the picker/plan/confluence. Kept for later; the manual path below is the live one.")
 tl_thread    = input.float(0.5, "Auto: touch/pierce tolerance (× ATR)", group=grpTL, minval=0.1, maxval=3.0, step=0.05, tooltip="Two roles: how close a pivot must sit to count as a TOUCH, and how far a pivot may poke THROUGH the line before it's disqualified (a support line no low may close below). Larger = looser (more touches, tolerates small pierces); smaller = stricter.")
 tl_pool      = input.int(16, "Auto: pivots pool (how far back a line can anchor)", group=grpTL, minval=4, maxval=40, tooltip="How many recent pivots the envelope fit searches. A trendline anchors on the OLDEST pivot in this pool that the line still respects — so a bigger pool lets the line reach a major swing low/high further back (your long rising channel). Too big and it may reach stale structure; too small and it can't span the trend. Cost grows with the pool.")
 tls_anch_off = input.int(0, "Auto Support: re-anchor (skip N recent lows)", group=grpTL, minval=0, maxval=5, tooltip="Adjust WITHOUT coordinates: drop the N most-recent pivot LOWS before fitting, so the line re-anchors on older structure. 0 = use all recent lows (the default auto pick). Bump to 1-2 if the freshest low skews the line you actually want.")
@@ -1774,15 +1774,12 @@ bool _etfPrmBad = _isEtf and not na(_etfPrm) and math.abs(_etfPrm) > etf_prem_ma
 // Daily EMA20 for native 125m/75m zones). Rule-3 swing high = the zone's own-TF pivot (5),
 // the same source zone_engine uses on the board. These replace the four forming-bar W/M
 // ATR/EMA calls, which fed only this lifecycle and the creation-time confluence boost.
-f_htfClosed() =>
-    [_ph, _pl] = core.htfPivots(5)
-    [time[1], high[1], low[1], close[1], ta.ema(close, 20)[1], ta.atr(14)[1], _ph[1], _pl[1]]
-[hdT, hdH, hdL, hdC, hdE, hdA, hdPH, hdPL] = request.security(syminfo.tickerid, "D", f_htfClosed(), lookahead=barmerge.lookahead_on)
-[hwT, hwH, hwL, hwC, ema20W_tf, atrW_tf, hwPH, hwPL] = request.security(syminfo.tickerid, "W", f_htfClosed(), lookahead=barmerge.lookahead_on)
-[hmT, hmH, hmL, hmC, ema20M_tf, atrM_tf, hmPH, hmPL] = request.security(syminfo.tickerid, "M", f_htfClosed(), lookahead=barmerge.lookahead_on)
-bool hdNew = ta.change(hdT) != 0
-bool hwNew = ta.change(hwT) != 0
-bool hmNew = ta.change(hmT) != 0
+// The bar/judge logic lives in S4Core (core.htfBar / core.zoneJudge) for the token ceiling.
+hBarD = request.security(syminfo.tickerid, "D", core.htfBar(), lookahead=barmerge.lookahead_on)
+hBarW = request.security(syminfo.tickerid, "W", core.htfBar(), lookahead=barmerge.lookahead_on)
+hBarM = request.security(syminfo.tickerid, "M", core.htfBar(), lookahead=barmerge.lookahead_on)
+float atrW_tf   = na(hBarW) ? na : hBarW.a
+float atrM_tf   = na(hBarM) ? na : hBarM.a
 // v10.1 — tested-rules 2 & 3 reference (Jay, 26-Aug-2026): a WEEKLY or MONTHLY zone is
 // judged against the CHART's own EMA20 (weekly EMA20 for a weekly zone), while DAILY,
 // 125m and 75m zones are judged against the DAILY EMA20. The rules themselves apply on
@@ -2497,6 +2494,8 @@ int _MS_DAY = 86400000
 // The five _rm* diagnostic counters were globals written with := , which a function
 // cannot do; they now live as var state INSIDE and come back as a tuple, so the
 // running totals behave exactly as before.
+// Native "C" zones are judged on the chart's own bar (daily EMA20, chart ATR, strong pivot).
+hBarC = core.HBar.new(time, high, low, close, dailyEMA20, chart_atr, lastPH, lastPL)
 f_zoneMaintain() =>
     var int _rmAgeF = 0
     var int _rmTrvF = 0
@@ -2526,88 +2525,33 @@ f_zoneMaintain() =>
             // the engine too: nothing permanent happens on an unconfirmed bar.
             // #41: a zone already greyed as tested is FROZEN — skip all reaction / tested /
             // violation reprocessing so it stays put for visual verification.
-            // Own-TF gate: a D/W/M zone is judged only when a bar of ITS timeframe has just
-            // closed, and only on bars that closed after the zone arrived (originBar holds the
-            // arrival time for HTF zones), so the leg-out bar can never count as the 1st test.
-            bool _isH = z.tf == "D" or z.tf == "W" or z.tf == "M"
-            int  _hT  = z.tf == "M" ? hmT : z.tf == "W" ? hwT : hdT
-            bool _hOk = not _isH or ((z.tf == "M" ? hmNew : z.tf == "W" ? hwNew : hdNew) and not na(_hT) and _hT > z.originBar)
-            float _zh = not _isH ? high : z.tf == "M" ? hmH : z.tf == "W" ? hwH : hdH
-            float _zl = not _isH ? low : z.tf == "M" ? hmL : z.tf == "W" ? hwL : hdL
-            float _zc = not _isH ? close : z.tf == "M" ? hmC : z.tf == "W" ? hwC : hdC
-            float _zPH = not _isH ? lastPH : z.tf == "M" ? hmPH : z.tf == "W" ? hwPH : hdPH
-            float _zPL = not _isH ? lastPL : z.tf == "M" ? hmPL : z.tf == "W" ? hwPL : hdPL
-            if barstate.isconfirmed and not z.tested and _hOk
+            // Own-TF gate (25-Sep-2026): a D/W/M zone is judged on ITS timeframe's last CLOSED
+            // bar, and only once that bar closed after the zone arrived (originBar holds the
+            // arrival time for HTF zones), so the leg-out bar can never be the 1st test.
+            core.HBar _b = z.tf == "M" ? hBarM : z.tf == "W" ? hBarW : z.tf == "D" ? hBarD : hBarC
+            if barstate.isconfirmed and not z.tested and not na(_b) and (z.tf == "C" or _b.t > z.originBar)
                 // #27: refresh the label with the age-decayed score each confirmed bar. Done
                 // before the tested/violation checks below, so a zone about to be deleted just
                 // wastes one harmless set_text; a surviving zone shows its current recency read.
                 if recencyDecay and showZonesIZE and d_zones and showLabels and not na(z.drawing)
                     box.set_text(z.drawing, core.buildLabel(z.tf, z.isDemand, z.pattern, f_recencyScore(z.strength, z.tf, z.originTime), z.nBase, z.confBonus, z.isControlling, z.hasFVG))
-                float zW = math.abs(z.proximal - z.distal)
-                // "Touched" (z.wasInZone tracks this bar-to-bar) = a wick pierced the proximal
-                // line OR the candle closed within the zone — but did NOT close beyond the
-                // distal (that is a violation, handled by checkMitigation below).
-                bool touchedNow = z.isDemand ? (_zl <= z.proximal and _zc >= z.distal) : (_zh >= z.proximal and _zc <= z.distal)
-                // "Moved out" = this candle is back on the entry side of the proximal.
-                bool movedOut   = z.isDemand ? (_zl > z.proximal) : (_zh < z.proximal)
-                // Reaction = a PRIOR candle touched/closed-within, and THIS candle moved back
-                // out past the proximal (Jay's definition of a reaction from the zone).
-                if z.wasInZone and movedOut and (_isH or bar_index > z.originBar + 1)
-                    z.reacted   := true
-                    z.reactRef  := z.proximal
-                    // Rule-3 strong S/R = nearest HTF pivot high ABOVE the zone (demand) /
-                    // pivot low BELOW (supply). If the last HTF pivot is not on the correct
-                    // side, rule 3 stays inert and rules 1 & 2 carry the tested check.
-                    z.strongLvl := z.isDemand ? ((not na(_zPH) and _zPH > z.proximal) ? _zPH : na) : ((not na(_zPL) and _zPL < z.proximal) ? _zPL : na)
-                    float _zEmaRef = z.tf == "M" ? ema20M_tf : z.tf == "W" ? ema20W_tf : z.tf == "D" ? hdE : dailyEMA20
-                    z.emaPre    := z.isDemand ? (not na(_zEmaRef) and _zc < _zEmaRef) : (not na(_zEmaRef) and _zc > _zEmaRef)
-                z.wasInZone := touchedNow
-                // TESTED = reacted AND confirmed by ANY of the 3 rules → the zone has done its
-                // job, so it is REMOVED from the chart entirely (no greyed tested state — Jay's
-                // declutter rule). A fresh, un-reacted zone is the only tradeable one.
-                bool _testedOut = false
-                if z.reacted
-                    // RULE 1 — travel. v3.2: measured in ATR by default, not zone-widths.
-                    // Zone-width scaling is INVERTED: it made the travel needed proportional
-                    // to the zone's own size, so a 3pt zone died on a 6pt move while a 30pt
-                    // zone survived it. The narrower (more precise) the zone, the faster it
-                    // was retired — exactly backwards. ATR is the scale price actually moves in.
-                    // The zone's OWN timeframe's ATR — a Monthly zone is judged in monthly
-                    // ATR even when it is drawn on a 75m chart. Native "C" zones use the
-                    // chart's ATR, which IS their own timeframe by definition.
-                    float _zAtr = z.tf == "M" ? atrM_tf : z.tf == "W" ? atrW_tf : z.tf == "D" ? hdA : chart_atr
-                    float _travelNeed = testedTravelMode == "ATR" ? testedTravelATR * nz(_zAtr, chart_atr) : testedTravelMult * zW
-                    bool c_travel = z.isDemand ? (_zh >= z.reactRef + _travelNeed) : (_zl <= z.reactRef - _travelNeed)
-                    // RULES 2 & 3 — a close across the DAILY EMA20 / a daily-or-weekly pivot.
-                    // Both are DAILY references, so they are same-TF only for a DAILY zone.
-                    // #25/#40/#42 FIX: they used to apply to WEEKLY and MONTHLY zones too, which
-                    // retired them on a DAILY EMA20 cross — far too fast (CoalIndia: 3 of 37
-                    // weekly zones survived; Caplipoint 3 of 19). A weekly base is not consumed
-                    // because price crossed the daily EMA20 — the same category error the v3.2
-                    // note called out for 75m zones, just one tier up. W/M zones are now judged
-                    // by TRAVEL (in their OWN TF's ATR, rule 1 above) and VIOLATION only, exactly
-                    // like native intraday zones. Only DAILY (and native-daily) zones consult
-                    // the EMA/level cross.
-                    // Rules 2 & 3 now run on EVERY timeframe. `tested_tf_match` is retained
-                    // as the escape hatch to the Daily-only behaviour, no longer the default.
-                    float _emaRef  = z.tf == "M" ? ema20M_tf : z.tf == "W" ? ema20W_tf : z.tf == "D" ? hdE : dailyEMA20
-                    bool _zIsDaily = z.tf == "D" or (z.tf == "C" and timeframe.isdaily)
-                    bool _emaLvlOk = (not tested_tf_match) or _zIsDaily
-                    bool c_ema    = _emaLvlOk and (z.isDemand ? (z.emaPre and not na(_emaRef) and _zc > _emaRef) : (z.emaPre and not na(_emaRef) and _zc < _emaRef))
-                    bool c_level  = _emaLvlOk and (z.isDemand ? (not na(z.strongLvl) and _zc > z.strongLvl) : (not na(z.strongLvl) and _zc < z.strongLvl))
-                    _testedOut := c_travel or c_ema or c_level
-                    // v3.2 DIAG: WHICH of the three retired it? The cumulative d/f/m/L funnel
-                    // proves a zone was created-then-removed but is silent on WHY, which left
-                    // the last diagnosis as guesswork between three OR'd rules. Attribute it.
-                    // (Counted per rule that was TRUE, so overlaps show — they are not
-                    //  mutually exclusive and the sum can exceed the removal count.)
-                    if _testedOut and z.tf == "C"
-                        if c_travel
-                            _rmTrvF := _rmTrvF + 1
-                        if c_ema
-                            _rmEmaF := _rmEmaF + 1
-                        if c_level
-                            _rmLvlF := _rmLvlF + 1
+                // Touch, reaction and the three tested rules run in core.zoneJudge on the zone's
+                // OWN-timeframe bar _b: travel = 2x own-TF ATR (or zone widths), EMA20 = Monthly
+                // for M / Weekly for W / Daily for D, 125m and 75m, level = own-TF swing high.
+                [c_travel, c_ema, c_level] = core.zoneJudge(z, _b, z.tf != "C" or bar_index > z.originBar + 1, testedTravelMode == "ATR", testedTravelATR, testedTravelMult, chart_atr, (not tested_tf_match) or z.tf == "D" or (z.tf == "C" and timeframe.isdaily))
+                bool _testedOut = c_travel or c_ema or c_level
+                // v3.2 DIAG: WHICH of the three retired it? The cumulative d/f/m/L funnel
+                // proves a zone was created-then-removed but is silent on WHY, which left
+                // the last diagnosis as guesswork between three OR'd rules. Attribute it.
+                // (Counted per rule that was TRUE, so overlaps show — they are not
+                //  mutually exclusive and the sum can exceed the removal count.)
+                if _testedOut and z.tf == "C"
+                    if c_travel
+                        _rmTrvF := _rmTrvF + 1
+                    if c_ema
+                        _rmEmaF := _rmEmaF + 1
+                    if c_level
+                        _rmLvlF := _rmLvlF + 1
                 if _testedOut
                     // ── SPENT DEMAND: VISIBLE, NOT TRADEABLE (6-Aug-2026, Jay) ──────────
                     // "A one time tested supply zone can still act as a resistance, while a
@@ -2684,7 +2628,7 @@ f_zoneMaintain() =>
                         z.deleteDrawings()
                         array.remove(activeZones, i)
                         continue
-                isMitigated = z.checkMitigation(_zc, _zl, _zh, mitBasis)
+                isMitigated = z.checkMitigation(_b.c, _b.l, _b.h, mitBasis)
                 if isMitigated
                     if z.tf == "C"
                         _rmVioF := _rmVioF + 1
@@ -3310,23 +3254,22 @@ f_fold2994() =>
 // Dedicated, LARGER pivot pool for the auto-trendlines (the geometry read stays at 6 —
 // a channel/wedge only needs the last few; a trendline may span many higher-lows). Same
 // pivots (_gph/_gpl), bigger cap so the envelope fit can reach a major swing anchor.
-// [AUTO-TRENDLINES commented 25-Sep-2026, token ceiling; tl_auto is OFF by default since 24-Jul. Restore = uncomment the '// ' lines here, at the tlhy pools and at the TL drawing.]
-// var array<float> tlhy = array.new<float>()
-// var array<int>   tlhx = array.new<int>()
-// var array<float> tlly = array.new<float>()
-// var array<int>   tllx = array.new<int>()
-// if not na(_gph)
-//     array.push(tlhy, _gph)
-//     array.push(tlhx, bar_index - geo_pv)
-//     if array.size(tlhy) > tl_pool
-//         array.shift(tlhy)
-//         array.shift(tlhx)
-// if not na(_gpl)
-//     array.push(tlly, _gpl)
-//     array.push(tllx, bar_index - geo_pv)
-//     if array.size(tlly) > tl_pool
-//         array.shift(tlly)
-//         array.shift(tllx)
+var array<float> tlhy = array.new<float>()
+var array<int>   tlhx = array.new<int>()
+var array<float> tlly = array.new<float>()
+var array<int>   tllx = array.new<int>()
+if not na(_gph)
+    array.push(tlhy, _gph)
+    array.push(tlhx, bar_index - geo_pv)
+    if array.size(tlhy) > tl_pool
+        array.shift(tlhy)
+        array.shift(tlhx)
+if not na(_gpl)
+    array.push(tlly, _gpl)
+    array.push(tllx, bar_index - geo_pv)
+    if array.size(tlly) > tl_pool
+        array.shift(tlly)
+        array.shift(tllx)
 // v7.2 TOKEN: the GEOMETRY CLASSIFIER (9 shape labels + its drawing) was REMOVED here
 // to fund the auto-mode fix. It lives on in "S/R + Trendline Lab", where it can be
 // tuned properly -- its real defect was geo_flat (0.3 x ATR) being too tight, which
@@ -3354,20 +3297,19 @@ float _tlrAY = na
 // Gated to the last bar: the envelope fit is O(pool^3); only the last bar's values feed
 // the picker/panel/plan/drawing that are actually read, so running it once (not every
 // bar) is exact for what's consumed and keeps the script fast on a big pool.
-// [AUTO-TRENDLINES commented 25-Sep-2026, token ceiling; tl_auto is OFF by default since 24-Jul. Restore = uncomment the '// ' lines here, at the tlhy pools and at the TL drawing.]
-// if tl_auto and d_tl and barstate.islast
-//     [_sLive, _sX, _sY, _sNow] = core.autoTL(tlly, tllx, true,  tls_anch_off, tl_thread * chart_atr, tls_nudge * chart_atr, geo_maxage)
-//     [_rLive, _rX, _rY, _rNow] = core.autoTL(tlhy, tlhx, false, tlr_anch_off, tl_thread * chart_atr, tlr_nudge * chart_atr, geo_maxage)
-//     tls_live := _sLive
-//     tls_now  := _sNow
-//     tlr_live := _rLive
-//     tlr_now  := _rNow
-//     tls_tfTag := _chartTag
-//     tlr_tfTag := _chartTag
-//     _tlsAX := _sX
-//     _tlsAY := _sY
-//     _tlrAX := _rX
-//     _tlrAY := _rY
+if tl_auto and d_tl and barstate.islast
+    [_sLive, _sX, _sY, _sNow] = core.autoTL(tlly, tllx, true,  tls_anch_off, tl_thread * chart_atr, tls_nudge * chart_atr, geo_maxage)
+    [_rLive, _rX, _rY, _rNow] = core.autoTL(tlhy, tlhx, false, tlr_anch_off, tl_thread * chart_atr, tlr_nudge * chart_atr, geo_maxage)
+    tls_live := _sLive
+    tls_now  := _sNow
+    tlr_live := _rLive
+    tlr_now  := _rNow
+    tls_tfTag := _chartTag
+    tlr_tfTag := _chartTag
+    _tlsAX := _sX
+    _tlsAY := _sY
+    _tlrAX := _rX
+    _tlrAY := _rY
 
 
 // ==========================================================================
@@ -4685,17 +4627,17 @@ if barstate.islast
     line.delete(lnTlR)
     label.delete(lbTlS)
     label.delete(lbTlR)
-//     if tls_live
-//         int _wS = tls_tfTag == "M" ? 3 : tls_tfTag == "W" ? 2 : 1
-//         if tl_auto and not na(_tlsAX)   // AUTO: bar-index anchors (fit projects to this bar)
-//             lnTlS := line.new(_tlsAX, _tlsAY, bar_index, tls_now, xloc=xloc.bar_index, color=C_OK, width=_wS)
-//             lbTlS := label.new(bar_index, tls_now, _chartTag + "  │  TL support (auto)  " + str.tostring(tls_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_OK82, textcolor=C_OK, size=size.small)
+    if tls_live
+        int _wS = tls_tfTag == "M" ? 3 : tls_tfTag == "W" ? 2 : 1
+        if tl_auto and not na(_tlsAX)   // AUTO: bar-index anchors (fit projects to this bar)
+            lnTlS := line.new(_tlsAX, _tlsAY, bar_index, tls_now, xloc=xloc.bar_index, color=C_OK, width=_wS)
+            lbTlS := label.new(bar_index, tls_now, _chartTag + "  │  TL support (auto)  " + str.tostring(tls_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_OK82, textcolor=C_OK, size=size.small)
         // MANUAL branch commented 3-Sep-2026 (token budget) — anchors are commented above.
-//     if tlr_live
-//         int _wR = tlr_tfTag == "M" ? 3 : tlr_tfTag == "W" ? 2 : 1
-//         if tl_auto and not na(_tlrAX)
-//             lnTlR := line.new(_tlrAX, _tlrAY, bar_index, tlr_now, xloc=xloc.bar_index, color=C_NO, width=_wR)
-//             lbTlR := label.new(bar_index, tlr_now, _chartTag + "  │  TL resistance (auto)  " + str.tostring(tlr_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_NO82, textcolor=C_NO, size=size.small)
+    if tlr_live
+        int _wR = tlr_tfTag == "M" ? 3 : tlr_tfTag == "W" ? 2 : 1
+        if tl_auto and not na(_tlrAX)
+            lnTlR := line.new(_tlrAX, _tlrAY, bar_index, tlr_now, xloc=xloc.bar_index, color=C_NO, width=_wR)
+            lbTlR := label.new(bar_index, tlr_now, _chartTag + "  │  TL resistance (auto)  " + str.tostring(tlr_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_NO82, textcolor=C_NO, size=size.small)
         // MANUAL branch commented 3-Sep-2026 (token budget) — anchors are commented above.
 
     // --- PATTERNS: the detected flag, and your manual box. Deletes unconditional.

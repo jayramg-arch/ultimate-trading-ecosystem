@@ -1448,6 +1448,51 @@ export htfPivots(simple int leftRight) =>
         lpl := pl
     [lph, lpl]
 
+// ---------------------------------------------------------------------------
+// OWN-TIMEFRAME ZONE LIFECYCLE (25-Sep-2026, Jay): "a weekly zone is tested when price
+// tests it in the WEEKLY timeframe; a 75m touch-and-react is not a test of it."
+// HBar = one timeframe's last CLOSED bar. htfBar() is evaluated inside
+// request.security(..., lookahead_on): expr[1] + lookahead_on is the non-repainting
+// last-closed-bar idiom. ema/atr/pivots are that timeframe's own (pivot length 5, the
+// source zone_engine uses on the board).
+export type HBar
+    int   t
+    float h
+    float l
+    float c
+    float e
+    float a
+    float ph
+    float pl
+
+export htfBar() =>
+    [_ph, _pl] = htfPivots(5)
+    HBar.new(time[1], high[1], low[1], close[1], ta.ema(close, 20)[1], ta.atr(14)[1], _ph[1], _pl[1])
+
+// zoneJudge -- touch, reaction and the three tested rules for ONE zone against ONE bar
+// of the zone's own timeframe. Mutates z (wasInZone / reacted / reactRef / strongLvl /
+// emaPre) exactly as S4's loop did; returns which tested rules fired [travel, ema, level].
+// Idempotent when S4 re-judges the same closed bar on later chart bars: a bar cannot both
+// touch and move out, so a repeat never manufactures a second reaction.
+export zoneJudge(Zone z, HBar b, bool armed, bool travelAtr, float travelK, float travelW, float atrFb, bool emaLvlOk) =>
+    bool touchedNow = z.isDemand ? (b.l <= z.proximal and b.c >= z.distal) : (b.h >= z.proximal and b.c <= z.distal)
+    bool movedOut   = z.isDemand ? (b.l > z.proximal) : (b.h < z.proximal)
+    if z.wasInZone and movedOut and armed
+        z.reacted   := true
+        z.reactRef  := z.proximal
+        z.strongLvl := z.isDemand ? ((not na(b.ph) and b.ph > z.proximal) ? b.ph : na) : ((not na(b.pl) and b.pl < z.proximal) ? b.pl : na)
+        z.emaPre    := z.isDemand ? (not na(b.e) and b.c < b.e) : (not na(b.e) and b.c > b.e)
+    z.wasInZone := touchedNow
+    bool cT = false
+    bool cE = false
+    bool cL = false
+    if z.reacted
+        float need = travelAtr ? travelK * nz(b.a, atrFb) : travelW * math.abs(z.proximal - z.distal)
+        cT := z.isDemand ? (b.h >= z.reactRef + need) : (b.l <= z.reactRef - need)
+        cE := emaLvlOk and z.emaPre and not na(b.e) and (z.isDemand ? b.c > b.e : b.c < b.e)
+        cL := emaLvlOk and not na(z.strongLvl) and (z.isDemand ? b.c > z.strongLvl : b.c < z.strongLvl)
+    [cT, cE, cL]
+
 // ── tfGates ──────────────────────────────────────────────────────────────────
 // Which higher timeframes are ABOVE this chart (so their zones may be shown) and
 // which are at-or-above it (so their S/R levels may be shown). The asymmetry is
