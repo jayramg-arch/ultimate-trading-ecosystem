@@ -567,8 +567,19 @@ def get_batch_ltps(symbols_tuple):
 
 @st.cache_data(ttl=86400, show_spinner=False)
 def get_earnings_date_cached(sym):
+    """Next earnings date. The nightly cache (earnings_calendar, auto-pilot Phase 8a)
+    first - the same source the pyramid ladder reads since 22-Sep - so Risk Shield and the
+    ladder cannot disagree; the live yfinance call is only the cold-cache fallback.
+    None = UNKNOWN, never "no earnings soon"."""
     import yfinance as yf
     from datetime import date
+    try:
+        import earnings_calendar as _ec
+        _nx = _ec.next_earnings(sym)
+        if _nx:
+            return pd.to_datetime(_nx).date()
+    except Exception as e:
+        logger.warning(f"earnings cache read {sym}: {e}")
     try:
         cal = yf.Ticker(f"{sym}.NS").calendar
         if isinstance(cal, dict) and 'Earnings Date' in cal and cal['Earnings Date']:
@@ -2607,7 +2618,15 @@ def _cq_build_now():
             _cash = float(balance)
     except Exception:
         _cash = None
-    return _cq.build(cash=_cash, count_exits=bool(_gm_settings().get("queue_count_exits", False)))
+    _cls = None
+    try:
+        _pc = st.session_state.get("pyramid_classifications")
+        if _pc is not None and not _pc.empty and "classification" in _pc.columns:
+            _cls = dict(zip(_pc["symbol"].astype(str).str.upper(), _pc["classification"]))
+    except Exception as e:
+        _gm_logger.warning(f"capital queue: live ladder classes unavailable, using 16:30 snapshot: {e}")
+    return _cq.build(cash=_cash, count_exits=bool(_gm_settings().get("queue_count_exits", False)),
+                     classes=_cls)
 
 
 def _cq_exit_toggle(key):
@@ -3569,8 +3588,10 @@ def _gm_sl_basis(zs_list, df, tf):
          "close": None}
     try:
         b["in_dist"], b["near_dist"] = _gm_zone_rungs(zs_list)
-    except Exception:
-        pass
+    except Exception as e:
+        # Loud (25-Sep-2026): a silent miss here drops the zone rungs from the stop
+        # ladder and the SL falls to swing-low/ATR with nothing saying why.
+        _gm_logger.warning(f"stop ladder ({tf}): zone rungs unavailable, SL falls back: {e}")
     try:
         if df is not None and len(df) >= 15:
             h, l, c = df["High"], df["Low"], df["Close"]
@@ -3578,8 +3599,8 @@ def _gm_sl_basis(zs_list, df, tf):
             b["atr"] = float(tr.ewm(alpha=1 / 14, adjust=False).mean().iloc[-1])
             b["swing_lo10"] = float(l.iloc[-10:].min())
             b["close"] = float(c.iloc[-1])
-    except Exception:
-        pass
+    except Exception as e:
+        _gm_logger.warning(f"stop ladder ({tf}): ATR / swing-low unavailable: {e}")
     return b
 
 
@@ -8417,38 +8438,49 @@ elif page == 'COMMAND':
         # ── E-02: TRAILING STOP ENGINE ──────────────────────────────────────
         st.markdown("---")
         section("E-02 · Trailing Stop Engine")
-        st.caption("Tracks ATR-based trailing stops vs highest-price-since-entry. SL > Entry = Locked Profit state.")
-
+        st.caption("The SAME Chandelier the Risk Shield, the pyramid ladder and the GTT trailer use "
+                   "(risk_common: swing 14-bar / positional 22-bar highest CLOSE − Wilder ATR × the "
+                   "catalyst multiplier, +0.5 in a bear regime). SL > Entry = Locked Profit state.")
+        # 25-Sep-2026: this was a fifth stop engine - highest HIGH since entry minus an
+        # ADR-bucket multiplier - so one position showed two different suggested stops.
         df_active_cmd = df_active_global
         if not df_active_cmd.empty:
             trail_rows = []
             syms_cmd   = tuple(df_active_cmd['Symbol'].unique().tolist())
             live_prices_cmd = get_batch_ltps(syms_cmd)
-
+            _bear_cmd = bool(_HP.regime().get("bear"))
+            import data_provider as dp
             for _, row in df_active_cmd.iterrows():
                 sym       = row['Symbol']
                 bp        = float(row.get('BuyPrice', 0) or 0)
                 qty       = float(row.get('Quantity', 0) or 0)
                 curr_sl   = float(row.get('StopLoss', 0) or 0)
-                entry_dt  = row.get('EntryDate', '')
                 ltp       = live_prices_cmd.get(sym) or live_prices_cmd.get(clean_symbol(sym)) or bp
-                atr_val   = get_atr(sym)
-                atr_mult  = get_adaptive_atr_multiplier(sym)
-
-                # Fetch high since entry for ATR-based trail
-                high_since = ltp
-                if entry_dt:
-                    try:
-                        start_d = pd.to_datetime(entry_dt).date()
-                        import data_provider as dp
-                        hist = dp.fetch_ohlcv(sym, start_date=str(start_d), interval="1d", auto_adjust=True, use_cache=True)
-                        if hist is not None and not hist.empty:
-                            h_col = hist['High']
-                            high_since = float(h_col.max())
-                    except Exception as e:
-                        logger.warning(f"Trail high fetch {sym}: {e}")
-
-                atr_trail_sl = high_since - (atr_mult * atr_val) if atr_val > 0 else curr_sl
+                atr_val   = 0.0
+                atr_trail_sl, _mult_cmd, _src_cmd = None, None, None
+                try:
+                    hist = dp.fetch_ohlcv(sym, period="2y", interval="1d", auto_adjust=True, use_cache=True)
+                    if hist is not None and len(hist) > 30:
+                        _swing_cmd = _rc.resolve_trade_type(
+                            timeframe=row.get('Timeframe') or None, setup=row.get('Setup') or None,
+                            entry=bp or None, stop=curr_sl or None)[0]
+                        _a200 = (len(hist) < 200) or float(hist['Close'].iloc[-1]) > float(hist['Close'].rolling(200).mean().iloc[-1])
+                        _cm = row.get('Custom CE Mult')
+                        _cm = float(_cm) if (_cm is not None and str(_cm).strip() not in ("", "nan", "None")) else None
+                        atr_trail_sl, _mult_cmd, _src_cmd = _rc.chandelier_exit(
+                            hist['High'], hist['Low'], hist['Close'], setup=str(row.get('Setup') or ""),
+                            bear=_bear_cmd, custom_mult=_cm, above200=_a200, swing=_swing_cmd)
+                        _tr = pd.concat([hist['High'] - hist['Low'], (hist['High'] - hist['Close'].shift()).abs(),
+                                         (hist['Low'] - hist['Close'].shift()).abs()], axis=1).max(axis=1)
+                        atr_val = float(_tr.ewm(alpha=1 / 14, adjust=False).mean().iloc[-1])
+                        _msl = row.get('Manual SL Override')
+                        if _msl is not None and str(_msl).strip() not in ("", "nan", "None") and float(_msl) > 0 \
+                                and atr_trail_sl is not None:
+                            atr_trail_sl = max(atr_trail_sl, float(_msl))    # Floor semantics, as the trailer
+                except Exception as e:
+                    logger.warning(f"E-02 Chandelier {sym}: {e}")
+                if atr_trail_sl is None:
+                    atr_trail_sl = curr_sl
                 suggested_sl = max(atr_trail_sl, curr_sl)   # never trail backwards
 
                 # Status — breach is always against Current SL (actual active stop),
@@ -8470,9 +8502,9 @@ elif page == 'COMMAND':
                     'Symbol':       sym,
                     'Entry':        round(bp, 2),
                     'LTP':          round(ltp, 2),
-                    'High Since Entry': round(high_since, 2),
                     'Current SL':   round(curr_sl, 2),
-                    'ATR Trail SL': round(atr_trail_sl, 2),
+                    'Chandelier':   round(atr_trail_sl, 2),
+                    'Mult':         (f"{_mult_cmd:g}× {_src_cmd}" if _mult_cmd else "—"),
                     'Suggested SL': round(suggested_sl, 2),
                     'ATR':          round(atr_val, 2),
                     'Status':       status
@@ -17434,8 +17466,9 @@ elif page == 'RISK SHIELD':
                             f"₹{format_inr_int(_cap_base)} capital) — "
                             f"<b style='color:{_hcol}'>{'WITHIN BUDGET ✅' if _heat_ok else 'OVER BUDGET 🚨'}</b>"
                             f"{_chip}</div>", unsafe_allow_html=True)
-                except Exception:
-                    pass
+                except Exception as _e_heat:
+                    # A missing heat card reads as "nothing to worry about"; say it failed.
+                    st.warning(f"🔥 Portfolio Heat could not be computed: {type(_e_heat).__name__}: {_e_heat}")
 
                 # --- Fetch technicals for AI review and Risk Profile ---
                 hist_data = st.session_state.get("cached_hist_data_v4", {})
@@ -17632,7 +17665,8 @@ elif page == 'RISK SHIELD':
                                         # or 'Exact' (use the manual value verbatim, both directions).
                                         _manual_sl = journal_overrides.get(_s, {}).get("manual_sl_override") if _s in journal_overrides else None
                                         if _manual_sl and _manual_sl > 0:
-                                            if st.session_state.get("rs_sl_override_mode", "Floor") == "Exact":
+                                            if st.session_state.get("rs_sl_override_mode",
+                                                                    _gm_settings().get("sl_override_mode", "Floor")) == "Exact":
                                                 _chandelier_exit = _manual_sl
                                             else:
                                                 _chandelier_exit = max(_chandelier_exit, _manual_sl)
@@ -17908,8 +17942,10 @@ elif page == 'RISK SHIELD':
                                                               f"({_pair.get('Risk', '')}) — effectively one position"})
                                 else:
                                     _sc_alerts.append({"type": "CORR", "sym": "PAIR", "msg": str(_pair)[:90]})
-                        except Exception:
-                            pass
+                        except Exception as _e_corr:
+                            _sc_alerts.append({"type": "CORR", "sym": "—",
+                                               "msg": f"Correlation check FAILED ({type(_e_corr).__name__}) — "
+                                                      f"no shadow pairs is UNKNOWN, not clear"})
                         _sc_cache = {"ts": _t5.time(), "alerts": _sc_alerts}
                         st.session_state["rs_sector_corr"] = _sc_cache
                     alerts.extend(_sc_cache.get("alerts", []))
@@ -19572,9 +19608,14 @@ elif page == 'RISK SHIELD':
                     # A7: manual-SL override semantics (applies to all manual overrides)
                     _rs_c1, _rs_c2 = st.columns(2)
                     with _rs_c1:
+                        if "rs_sl_override_mode" not in st.session_state:
+                            st.session_state["rs_sl_override_mode"] = _gm_settings().get("sl_override_mode", "Floor")
                         st.radio("Manual SL mode", ["Floor", "Exact"], horizontal=True, key="rs_sl_override_mode",
+                                 on_change=lambda: _gm_settings_save(
+                                     sl_override_mode=st.session_state.get("rs_sl_override_mode", "Floor")),
                                  help="Floor (default): the Chandelier can only be TIGHTENED to your manual SL, never loosened. "
-                                      "Exact: your manual SL is used verbatim, even if it sits below the computed Chandelier.")
+                                      "Exact: your manual SL is used verbatim, even if it sits below the computed Chandelier. "
+                                      "Saved to GM settings, so the 15:45 GTT trailer applies the same rule.")
                     with _rs_c2:
                         # B3: the heat budget now follows the house rule (house_policy.py) instead
                         # of a session-only input that defaulted to the retired 0.25%.

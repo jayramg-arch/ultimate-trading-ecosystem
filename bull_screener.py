@@ -641,6 +641,11 @@ def _drop_forming_week(dfw):
             ref = ref.tz_localize(None) if ref.tz is not None else ref
         if last + pd.Timedelta(days=4) > ref:              # its Friday has not arrived
             return dfw.iloc[:-1]
+        # ...or it has, but Friday's session is still trading (live only; 25-Sep-2026).
+        if not _pin:
+            import pa_patterns as _pap
+            if _pap._friday_still_trading(last + pd.Timedelta(days=4)):
+                return dfw.iloc[:-1]
         return dfw
     except Exception:
         return dfw                                          # never break a run over this

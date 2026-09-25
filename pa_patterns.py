@@ -168,9 +168,30 @@ def _confirmed_weekly_ohlcv(df: pd.DataFrame) -> pd.DataFrame:
     guard as `_confirmed_weekly_close`, but for the full OHLCV set."""
     wk = df.resample("W-FRI").agg({"Open": "first", "High": "max", "Low": "min",
                                    "Close": "last", "Volume": "sum"}).dropna()
-    if len(wk) and df.index[-1].normalize() < wk.index[-1].normalize():
+    if len(wk) and (df.index[-1].normalize() < wk.index[-1].normalize()
+                    or _friday_still_trading(wk.index[-1])):
         wk = wk.iloc[:-1]
     return wk
+
+
+def _friday_still_trading(friday) -> bool:
+    """True while the week ending `friday` is still forming LIVE: today IS that Friday
+    (IST) and the 15:30 close has not happened. Replay (a pinned date) never counts as
+    live - a pinned day's bar is a closed bar. 25-Sep-2026: on a Friday session both
+    weekly engines treated the forming week as confirmed (MCX's weekly close read the
+    live 3427.7), so every weekly read repainted for six hours once a week."""
+    try:
+        import data_provider as _dpv
+        if _dpv.get_pinned_date():
+            return False
+        from datetime import datetime, timedelta, timezone
+        now = datetime.now(timezone.utc) + timedelta(hours=5, minutes=30)
+        fri = pd.Timestamp(friday)
+        if fri.tz is not None:
+            fri = fri.tz_localize(None)
+        return fri.normalize().date() == now.date() and (now.hour, now.minute) < (15, 30)
+    except Exception:
+        return False
 
 
 def _confirmed_month_ohlcv(df: pd.DataFrame) -> pd.DataFrame:

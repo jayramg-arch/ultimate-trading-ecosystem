@@ -160,7 +160,8 @@ def _sector_after(book: pd.DataFrame, sym: str, qty: float, px: float):
         return None, np.nan
 
 
-def build(cash: float | None = None, count_exits: bool | None = None) -> dict:
+def build(cash: float | None = None, count_exits: bool | None = None,
+          classes: dict | None = None) -> dict:
     """`cash` = Dhan available balance (None = unknown). `count_exits` = treat EXIT /
     REDUCE / TRIM proceeds as money available now; default from gm_settings
     `queue_count_exits`, False. Jay, 25-Sep-2026: in a deep recovery tape he is holding
@@ -178,6 +179,16 @@ def build(cash: float | None = None, count_exits: bool | None = None) -> dict:
         count_exits = bool(st.get("queue_count_exits", False))
 
     book = load_book()
+    # LIVE ladder classes when the caller has them (Risk Shield computes them on load);
+    # otherwise the 16:30 auto-pilot snapshot in FINAL_Portfolio_Picks.csv. Said on screen,
+    # because the two can disagree intraday and the queue sits beside the live Pyramid tab.
+    class_src = "16:30 snapshot"
+    if classes and not book.empty:
+        live = {str(k).upper(): str(v).upper() for k, v in classes.items() if v}
+        hit = book["Symbol"].isin(live.keys())
+        if hit.any():
+            book.loc[hit, "Pyr_Class"] = book.loc[hit, "Symbol"].map(live)
+            class_src = f"live ({int(hit.sum())}/{len(book)})"
     held = set(book["Symbol"]) if not book.empty else set()
     cls = dict(zip(book["Symbol"], book["Pyr_Class"])) if not book.empty else {}
     cand = load_live_candidates(held)
@@ -302,7 +313,7 @@ def build(cash: float | None = None, count_exits: bool | None = None) -> dict:
     summary = {"exit_now": exit_now, "could_free": could, "n_adds": int((q["Type"] == "ADD").sum()) if not q.empty else 0,
                "n_new": int((q["Type"] != "ADD").sum()) if not q.empty else 0, "book_n": n_open,
                "capital": capital, "risk_new": risk_new, "risk_add": risk_add,
-               "cash": cash, "count_exits": count_exits}
+               "cash": cash, "count_exits": count_exits, "class_src": class_src}
     return {"queue": q, "freed": freed, "summary": summary}
 
 
@@ -342,7 +353,7 @@ def render(st, res=None):
     c2.metric("Exits + reduce/trim " + ("(counted)" if s.get("count_exits") else "(if taken)"),
               inr(s['exit_now'] + s['could_free']))
     c3.metric("Candidates", f"{s['n_adds']} add · {s['n_new']} new")
-    c4.metric("Book", f"{s['book_n']} open")
+    c4.metric("Book", f"{s['book_n']} open", help="Ladder classes: " + str(s.get("class_src", "16:30 snapshot")))
     if q is None or q.empty:
         st.info("Nothing live to fund right now — no ADD-rated holding and no GO / Buy-Trigger-Live name on the boards.")
     else:
