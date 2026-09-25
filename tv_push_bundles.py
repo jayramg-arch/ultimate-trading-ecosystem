@@ -35,7 +35,7 @@ IN2 = "GM: bundle 2 — options OI"         # em-dash, exactly as the input titl
 # PIVOT PARITY (25-Sep-2026). S4's pivot switch and the board's use_pivot_zones were two
 # settings that drifted apart silently (S4 off while the board was on, the same morning).
 # The GM setting is the owner; every push writes S4 to match it, and --check reports it.
-IN3 = "Use Pivot (Structural) zones + levels"
+IN3 = "Use Pivot LEVELS (pivot zones commented out 25-Sep)"   # S4 v10.12 title; pivot ZONES are commented out in S4
 
 
 def gm_pivot_setting() -> bool:
