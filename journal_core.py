@@ -54,7 +54,7 @@ load_dotenv(override=True)
 API_KEY = os.getenv("DHAN_ACCESS_TOKEN")
 _DIR = os.path.dirname(os.path.abspath(__file__))
 CLIENT_ID = os.getenv("DHAN_CLIENT_ID")
-DB_FILE = os.path.join(_DIR, "trade_journal_v6.db")
+DB_FILE = os.environ.get("COMMANDER_JOURNAL_DB") or os.path.join(_DIR, "trade_journal_v6.db")   # env override: render tests use a copy
 DEFAULT_SECTOR = "NSE:CNX500"
 SCREENSHOT_DIR = os.path.join(_DIR, "trade_screenshots")
 

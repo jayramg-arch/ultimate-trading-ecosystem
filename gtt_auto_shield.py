@@ -41,7 +41,7 @@ except Exception as _cm_exc:
 # --- 1. SETUP ---
 load_dotenv()
 _APP_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_FILE = os.path.join(_APP_DIR, "trade_journal_v6.db")
+DB_FILE = os.environ.get("COMMANDER_JOURNAL_DB") or os.path.join(_APP_DIR, "trade_journal_v6.db")   # env override: render tests use a copy
 
 # RS-P1 (14-Jul-2026): rotating log so scheduled runs leave a record a human can
 # read — console prints vanish when this runs headless from the scheduler.
@@ -471,7 +471,8 @@ def run_cover_pass(auto_yes: bool = False, dry_run: bool = True):
     bear = False
     try:
         import market_regime as _mr
-        bear = float((_mr.compute_regime(persist=False) or {}).get("score", 10)) <= 5
+        import house_policy as _hp
+        bear = _hp.is_bear((_mr.compute_regime(persist=False) or {}).get("score"))
     except Exception as e:
         log.warning(f"cover: regime unavailable (bear=False): {e}")
 
@@ -594,12 +595,14 @@ def build_trail_proposals(dhan=None):
         log.info("trail: no live SL legs")
         return [], [], "No live OCO SL legs found - run the shield pass first to place OCOs."
 
+    _sl_mode = _sl_override_mode()
     # Bear regime — same source as Risk Shield/Pyramid (market_regime score ≤ 5).
     bear = False
     try:
         import market_regime as _mr
         _reg = _mr.compute_regime(persist=False) or {}
-        bear = float(_reg.get("score", 10)) <= 5
+        import house_policy as _hp
+        bear = _hp.is_bear(_reg.get("score"))
     except Exception as e:
         log.warning(f"trail: regime unavailable (bear=False): {e}")
 
@@ -620,10 +623,14 @@ def build_trail_proposals(dhan=None):
                 continue
             ch, mult, src, ltp = _r["ce"], _r["mult"], _r["src"], _r["ltp"]
             new_sl = ch
-            # Manual override acts as a FLOOR (never trail below a hand-set stop).
+            # Manual override: FLOOR (default) = never trail below a hand-set stop; EXACT =
+            # the hand-set stop IS the stop and the Chandelier does not move it. The mode is
+            # the one Risk Shield shows (gm_settings `sl_override_mode`, 25-Sep-2026) - it
+            # used to live only in the browser session, so the screen said Exact while this
+            # job applied Floor.
             _msl = j.get("manual_sl")
             if _msl is not None and not pd.isna(_msl) and float(_msl) > 0:
-                new_sl = max(new_sl, float(_msl))
+                new_sl = float(_msl) if _sl_mode == "Exact" else max(new_sl, float(_msl))
             new_sl = round(float(new_sl), 2)
             if new_sl >= ltp:
                 # Stop above price = the position is BELOW its trail → exit signal.
@@ -641,6 +648,17 @@ def build_trail_proposals(dhan=None):
             log.error(f"trail: {sym}: computation failed: {e}")
 
     return proposals, breached, None
+
+
+def _sl_override_mode() -> str:
+    try:
+        import json as _json
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gm_settings.json"),
+                  encoding="utf-8") as f:
+            m = str((_json.load(f) or {}).get("sl_override_mode", "Floor"))
+        return m if m in ("Floor", "Exact") else "Floor"
+    except Exception:
+        return "Floor"
 
 
 def run_trail_pass(auto_yes: bool = False, dry_run: bool = False):

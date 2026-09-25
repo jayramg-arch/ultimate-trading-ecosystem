@@ -28,7 +28,10 @@ _APP = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 
 
 def _grab(name):
-    lines = io.open(_APP, encoding="utf-8").read().split("\n")
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _app_source import app_source
+    lines = app_source().split("\n")   # router + core + pages (25-Sep split)
     start = next(i for i, l in enumerate(lines) if re.match(r"\s*def %s\(" % name, l))
     ind = len(lines[start]) - len(lines[start].lstrip())
     out = [lines[start]]

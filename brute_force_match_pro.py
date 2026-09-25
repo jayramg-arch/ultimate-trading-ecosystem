@@ -166,17 +166,22 @@ def _adjust_conviction_by_nse_metrics(row, score):
     oi_val = _safe_num(row, 'Futures_OI_Chg_Pct', default=None)
     if oi_val is not None:
         pct_chg = _safe_num(row, '%Chg', 'Change %', default=0.0)
-        # If OI rises on a positive breakout day, it's a Long Build-up (Bullish)
+        # The four states, labelled as S4/v67 label them (AUD-INT-11, Jay 25-Sep-2026).
+        # The OI-DOWN pair had the labels SWAPPED: price-down/OI-down (longs leaving) was
+        # called "short covering" and scored +0.5 as bullish. Scores now follow Doc 22's
+        # reading of each state: long build-up is fuel (+); short build-up is supply into
+        # strength (-); short covering is a rally with no new buyers - "do not chase" (-);
+        # long unwinding is weak but not a short signal (0).
         if oi_val > 0.0:
             if pct_chg >= 0.0:
-                score += 0.5  # Long Build-up
+                score += 0.5  # Long build-up: price up, OI up
             else:
-                score -= 0.5  # Short Build-up (rising short interest)
+                score -= 0.5  # Short build-up: price down, OI up
         elif oi_val < 0.0:
             if pct_chg >= 0.0:
-                score -= 0.5  # Long Unwinding (weakness)
+                score -= 0.5  # Short covering: price up, OI down
             else:
-                score += 0.5  # Short Covering (bullish covering)
+                score += 0.0  # Long unwinding: price down, OI down (weak, not a short)
     return score
 
 

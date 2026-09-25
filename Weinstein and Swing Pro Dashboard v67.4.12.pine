@@ -1,5 +1,5 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.24]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.25]", overlay=true, max_bars_back=5000, max_lines_count=500)
 // v67.4.17 (31 Jul 2026): RESTORE INLINE TREND ARROWS (Jay: "place arrow icons properly,
 //   they should appear like Pre-S2 on Weekly structure row"). Reverted badge column split:
 //   restored 4-column compressed panel layout. Re-embedded W & 30WMA arrows into WEEKLY STRUCTURE,
@@ -3010,9 +3010,18 @@ float fut_close_prev = na
 
 [d_oi, d_oi_prev] = request.security(fut_oi_ticker, "D", [close, close[1]], ignore_invalid_symbol=true)
 [d_close, d_close_prev] = request.security(fut_price_ticker, "D", [close, close[1]], ignore_invalid_symbol=true)
+// NEXT-MONTH OI (25-Sep-2026). Near-month OI alone is dominated by ROLLOVER in expiry
+// week: measured on NSE bhavcopy Mar-Sep 2026, with <= 5 days to expiry near-month OI
+// fell on 100% of days, and on 43% of those near+next TOTAL OI rose - the panel said
+// "long unwinding" while positions were being carried forward (TITAN 23-Sep: near
+// -2,32,925, total +74,900). Near + next is the positioning; near alone is the calendar.
+// If the 2! series does not resolve, fall back to near only and SAY so in the state.
+var string fut_oi2_ticker = cleanTicker + "2!_OI"
+[d_oi2, d_oi2_prev] = request.security(fut_oi2_ticker, "D", [close, close[1]], ignore_invalid_symbol=true)
+bool fut_has_next = not na(d_oi2) and not na(d_oi2_prev)
 
-fut_oi := d_oi
-fut_oi_prev := d_oi_prev
+fut_oi := d_oi + (fut_has_next ? d_oi2 : 0.0)
+fut_oi_prev := d_oi_prev + (fut_has_next ? d_oi2_prev : 0.0)
 fut_close := d_close
 fut_close_prev := d_close_prev
 
@@ -3028,17 +3037,17 @@ if not na(fut_oi_chg_pct)
     string _chg_sign = fut_oi_chg_pct > 0.0 ? "+" : ""
     if fut_oi_chg_pct > 0.0
         if fut_close_chg_pct >= 0.0
-            fut_state := "Long Build-up (" + _chg_sign + str.tostring(fut_oi_chg_pct, "#.##") + "%)"
+            fut_state := "Long Build-up (" + _chg_sign + str.tostring(fut_oi_chg_pct, "0.00") + "%" + (fut_has_next ? " near+next)" : " near only)")
             fut_state_color := color.new(#26a69a, 0)
         else
-            fut_state := "Short Build-up (" + _chg_sign + str.tostring(fut_oi_chg_pct, "#.##") + "%)"
+            fut_state := "Short Build-up (" + _chg_sign + str.tostring(fut_oi_chg_pct, "0.00") + "%" + (fut_has_next ? " near+next)" : " near only)")
             fut_state_color := color.new(#ef5350, 0)
     else if fut_oi_chg_pct < 0.0
         if fut_close_chg_pct >= 0.0
-            fut_state := "Short Covering (" + _chg_sign + str.tostring(fut_oi_chg_pct, "#.##") + "%)"
+            fut_state := "Short Covering (" + _chg_sign + str.tostring(fut_oi_chg_pct, "0.00") + "%" + (fut_has_next ? " near+next)" : " near only)")
             fut_state_color := color.new(#26a69a, 0)
         else
-            fut_state := "Long Unwinding (" + _chg_sign + str.tostring(fut_oi_chg_pct, "#.##") + "%)"
+            fut_state := "Long Unwinding (" + _chg_sign + str.tostring(fut_oi_chg_pct, "0.00") + "%" + (fut_has_next ? " near+next)" : " near only)")
             fut_state_color := color.new(#ef5350, 0)
     else
         fut_state := "No Change (0.00%)"
@@ -5862,6 +5871,10 @@ plot(macroStageWeeks,   title="s4_macroWeeks",   display=display.none)
 plot(d_slope50,         title="s4_slope50",      display=display.none)
 plot(fut_oi,            title="s4_oi",           display=display.none)
 plot(fut_oi_prev,       title="s4_oiPrev",       display=display.none)
+// The FUTURES price leg, so S4 names the same OI state as this panel. S4 used to pair
+// this OI with the CASH daily change and disagreed on 7.6% of stock-days (14.4% on roll
+// days) - same OI, opposite-signed price leg, half of them on sub-0.2% moves.
+plot(fut_close_chg_pct, title="s4_futPx",        display=display.none)
 // TRAJECTORY INPUTS FOR S4 (v67.4.19). f_rrg_info needs the TRAILING (v, m) pair to
 // say where the quadrant is heading — "WEAKENING -> LEADING" — and to pick the arrow.
 // Both are computed inside the WEEKLY request.security here, so S4 cannot rebuild them:

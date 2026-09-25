@@ -47,7 +47,7 @@ import risk_common as rc   # shared Chandelier / trail logic (synced with Risk S
 ADD_MAX_EXT_ATR = float(os.getenv("PYRAMID_ADD_MAX_EXT_ATR", "2.0"))
 
 _DIR    = os.path.dirname(os.path.abspath(__file__))
-DB_FILE = os.path.join(_DIR, "trade_journal_v6.db")
+DB_FILE = os.environ.get("COMMANDER_JOURNAL_DB") or os.path.join(_DIR, "trade_journal_v6.db")   # env override: render tests use a copy
 BENCH   = "^CRSLDX"
 ATR_LEN = 14
 
@@ -649,7 +649,8 @@ def get_precomputed_classifications() -> pd.DataFrame:
     try:
         from market_regime import compute_regime as _creg
         _rscore = _creg(persist=False).get("score")
-        _bear = (_rscore is not None and _rscore <= 5)
+        import house_policy as _hp
+        _bear = _hp.is_bear(_rscore)
     except Exception:
         _bear = False
 
@@ -734,7 +735,8 @@ def render_pyramid_trim(df_precomputed: pd.DataFrame = None):
         try:
             from market_regime import compute_regime as _creg
             _rscore = _creg(persist=False).get("score")
-            _bear = (_rscore is not None and _rscore <= 5)
+            import house_policy as _hp
+            _bear = _hp.is_bear(_rscore)
         except Exception:
             _bear = False
 

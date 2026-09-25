@@ -44,7 +44,7 @@ if hasattr(sys.stdout, "encoding") and sys.stdout.encoding and sys.stdout.encodi
 load_dotenv(override=True)
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
-DB_FILE = os.path.join(_DIR, "trade_journal_v6.db")
+DB_FILE = os.environ.get("COMMANDER_JOURNAL_DB") or os.path.join(_DIR, "trade_journal_v6.db")   # env override: render tests use a copy
 
 
 def _is_cash_park(sym):
