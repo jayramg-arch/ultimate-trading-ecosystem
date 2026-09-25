@@ -15079,6 +15079,22 @@ elif page == 'GOLDEN MATCHER':
             except Exception as _e_mix:
                 _gm_logger.debug(f"sector mix strip skipped: {_e_mix}")
 
+        # CAPITAL QUEUE (25-Sep-2026) — the same engine the Risk Shield renders
+        # (capital_queue.py): today's ADD-rated holdings and live names on ONE scale,
+        # funded by EXITs. Built on demand so the board's bar-close refresh stays fast.
+        with st.expander("💰 Capital Queue — where the next rupee goes (adds vs new names)", expanded=False):
+            try:
+                import capital_queue as _cq
+                if st.button("Build / rebuild the queue", key="cq_rebuild_board"):
+                    st.session_state["cq_res"] = _cq.build()
+                if "cq_res" in st.session_state:
+                    _cq.render(st, st.session_state["cq_res"])
+                else:
+                    st.caption("Press the button to rank today's live names and ADD-rated holdings "
+                               "against the capital your EXITs free. Same queue as Risk Shield → 💰 Capital Queue.")
+            except Exception as _cqe:
+                st.error(f"Capital queue failed: {type(_cqe).__name__}: {_cqe}")
+
         _gm_col1, _gm_col2, _gm_col3 = st.columns([2.5, 3.5, 3.0], gap="small")
         # THE place to look when an alert fires days later: the plan you armed with,
         # beside what the board says about the name today. Rendered here (above the
@@ -18022,10 +18038,11 @@ elif page == 'RISK SHIELD':
                     st.error(_cap_prot_msg)
 
                 # --- TABS ---
-                entry_tab0, entry_tab1, entry_tab2, entry_tab3, entry_tab4, entry_tab5 = st.tabs([
+                entry_tab0, entry_tab1, entry_tab2, entry_tab_cq, entry_tab3, entry_tab4, entry_tab5 = st.tabs([
                     "✅ Morning Approval Dashboard",
                     "🎯 Active Exits (OCO)",
                     "⚖️ Pyramid / Trim",
+                    "💰 Capital Queue",
                     "🛒 Pullback Entries (GTT)",
                     "📊 Risk Profile & Analytics",
                     "⚙️ Settings & Overrides"
@@ -19440,6 +19457,21 @@ elif page == 'RISK SHIELD':
                                     st.markdown(card, unsafe_allow_html=True)
 
                 # ── Tab 4: Risk Profile ──
+                with entry_tab_cq:
+                    # CAPITAL QUEUE (25-Sep-2026) — the next rupee: ADD-rated holdings and new
+                    # GO names on one scale, funded by EXITs. capital_queue.py is the single
+                    # engine; the Trigger Board renders the same block.
+                    try:
+                        import capital_queue as _cq
+                        if st.button("🔄 Rebuild queue", key="cq_rebuild_rs"):
+                            st.session_state.pop("cq_res", None)
+                        if "cq_res" not in st.session_state:
+                            with st.spinner("Building the capital queue (board tabs + book + sector cap)..."):
+                                st.session_state["cq_res"] = _cq.build()
+                        _cq.render(st, st.session_state["cq_res"])
+                    except Exception as _cqe:
+                        st.error(f"Capital queue failed: {type(_cqe).__name__}: {_cqe}")
+
                 with entry_tab4:
                     st.markdown('<div class="section-sub-lbl">📊 Risk Exposure & Allocation Analytics</div>', unsafe_allow_html=True)
                     _equity_rp = float(total_portfolio_value or 0.0) + float(balance or 0.0)
