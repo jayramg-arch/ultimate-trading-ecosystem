@@ -861,3 +861,22 @@ ONE fire today (NEULANDLAB 75m 10:30, webhook 200). Both alerts active on
 list at 07:06, firing on yesterday's bar. At 10:30 the board expected 4 GOs (HBLENGINE,
 NEULANDLAB, RADICO, TECHNOE); S4 fired on one. Normal mornings bring 3–6 / 1–3 / 2–5 at
 10:30 / 11:20 / 11:45; today 1 / 0 / 0. Next: bar-replay the three at 10:30 after close.
+
+**Merge gates, 25 Sep 16:05–16:35 (merge 0e2b7042).** Boards before vs after the split, with
+the pivot setting unchanged: every decision column identical on all 63 rows × 3 TFs (only P/E
+moved 0.1 on 2 names — live price between builds). Pages: 0 of 22 regressed; element changes
+exactly the intended ones (AI LAB / GM risk read-outs, Risk Shield heat input gone, queue
+checkbox added). 282 tests pass.
+
+**Pattern zones only — measured on tonight's boards (pivots on → off).** Lost location:
+75m 19 of 63, 125m 23, Daily 10. 5/5 GO: 75m 9 → 4, 125m 5 → 3, Daily 2 → 1. Stops moved on
+26/32/26 rows, mostly WIDER (75m: 21 wider, median +1.25 pts) — the pivot shelf had been the
+stop anchor — so sizes shrink at constant house risk; R:R unchanged (targets are R-multiples).
+Pushed to every S4 tab and verified (`tv_push_bundles --check`: pivots off ×3).
+
+**S4 "broken?" — no (recall check, 25 Sep).** Today's code, run over 29 symbol/TF pairs that
+alerted 22–24 Sep, marks GO on 42 of 59 of those bars; its GO count on the same names by day is
+28 / 19 / 9 / 0 (22–25 Sep). One code, falling counts: the setups thinned, S4 did not break.
+Misses are expected — a recomputed history applies today's bundle, pivot setting and loaded
+bars to every past bar. The check collided with the live receiver at 13:25 (two reviews failed,
+both re-run); tab-driving diagnostics stay out of market hours from now on.
