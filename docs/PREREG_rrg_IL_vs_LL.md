@@ -77,6 +77,18 @@ system trades). Trades with no computable cell are excluded and counted, never g
 Runs **once** (marker file `validation_runs/_rrg_IL_LL_REAL_RUN_DONE.json`). No re-slice, no
 changed window, no changed threshold. Result recorded below.
 
+## Amendment 1 — 25 Sep, after the coverage probe, before any outcome was read
+
+Two data facts found while building the labels: (1) Dhan's `NIFTY 500` series returns nothing
+today, so the benchmark is **`^CRSLDX`** — the same Nifty 500 index, and the benchmark
+`bull_screener` itself uses; (2) Dhan daily history starts **27 Sep 2021**, so the ~21% of
+trades with a GO date before ~Dec 2022 cannot get the ~year of confirmed weekly bars a label
+needs, which would leave coverage under the 90% floor. Per the data hierarchy (yfinance is the
+fallback when Dhan cannot serve), a trade whose Dhan history is too short is labelled from the
+**yfinance 10-year series for that whole symbol** — never spliced onto Dhan, so no adjustment
+seam enters the ratio. The source is recorded per trade and the result is also printed on the
+Dhan-only subset. Nothing else changes.
+
 ## Result
 
 *(Left empty deliberately. To be filled in ONCE, by the run.)*
