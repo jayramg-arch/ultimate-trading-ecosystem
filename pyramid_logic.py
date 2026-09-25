@@ -47,7 +47,7 @@ import risk_common as rc   # shared Chandelier / trail logic (synced with Risk S
 ADD_MAX_EXT_ATR = float(os.getenv("PYRAMID_ADD_MAX_EXT_ATR", "2.0"))
 
 _DIR    = os.path.dirname(os.path.abspath(__file__))
-DB_FILE = os.path.join(_DIR, "trade_journal_v6.db")
+DB_FILE = os.environ.get("COMMANDER_JOURNAL_DB") or os.path.join(_DIR, "trade_journal_v6.db")   # env override: render tests use a copy
 BENCH   = "^CRSLDX"
 ATR_LEN = 14
 

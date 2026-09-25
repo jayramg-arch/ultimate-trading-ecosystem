@@ -129,6 +129,8 @@ for n in body_stmts:
 core_txt = "\n".join(out) + "\n"
 core_txt = core_txt.replace("logger = logging.getLogger(__name__)",
                             'logger = logging.getLogger("__main__")   # the app\'s logger - same name as before the move')
+# in-function loggers too: under the app, __name__ was "__main__", so keep every log label
+core_txt = core_txt.replace("logging.getLogger(__name__)", 'logging.getLogger("__main__")')
 open(CORE, "w", encoding="utf-8", newline="\n").write(core_txt)
 
 # ---- rewrite the app: drop moved statements, one import at the first gap -------------

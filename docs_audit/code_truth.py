@@ -16,7 +16,7 @@ try:
 except Exception:
     pass
 
-ROOT = r"C:\Users\jayra\Documents\GeminiVSCode"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))   # this repo (was hard-coded to the main folder)
 
 
 def read(name):
@@ -65,7 +65,12 @@ for line in s4.split("\n"):
 F["panel_order"] = [f"{k}:{v}" for k, v in sorted(rows.items())]
 
 # ── location gate ─────────────────────────────────────────────────────────────
-web = read("weinstein_commander_web_v4.0.py")
+# The app is a router + commander_core.py + commander_pages/*.py since the 25-Sep split;
+# its constants live wherever the split put them, so read all of it.
+import glob as _glob
+web = "\n".join([read("weinstein_commander_web_v4.0.py"), read("commander_core.py")]
+                + [read(os.path.relpath(p, ROOT)) for p in
+                   sorted(_glob.glob(os.path.join(ROOT, "commander_pages", "*.py")))])
 ze = read("zone_engine.py")
 for k, pat, src in [
     ("GM_LOC_STRICT", r"^GM_LOC_STRICT\s*=\s*(\w+)", web),

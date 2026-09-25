@@ -18,6 +18,16 @@ def _src(name):
         return f.read()
 
 
+def _app_src():
+    """The whole app: the router, the moved helpers and every page file (25-Sep split).
+    Scanning only the router would pass while guarding nothing."""
+    import glob
+    parts = [_src("weinstein_commander_web_v4.0.py"), _src("commander_core.py")]
+    for p in sorted(glob.glob(os.path.join(ROOT, "commander_pages", "*.py"))):
+        parts.append(open(p, encoding="utf-8").read())
+    return "\n".join(parts)
+
+
 def test_risk_rates_are_the_dna():
     assert hp.RISK_NEW_STOCK_PCT == 0.5
     assert hp.RISK_NEW_ETF_PCT == 0.75
@@ -56,7 +66,7 @@ def test_order_gate_defaults_come_from_house_policy():
 
 
 def test_no_surface_hardcodes_a_retired_risk_rule():
-    web = _src("weinstein_commander_web_v4.0.py")
+    web = _app_src()
     assert "size at 0.25% risk" not in web
     assert 'key="sniper_risk_pct"' not in web
     assert "rs_risk_budget_pct" not in web
@@ -67,8 +77,8 @@ def test_no_surface_hardcodes_a_retired_risk_rule():
 
 
 def test_manual_rrg_flag_is_fully_retired():
-    for f in ("weinstein_commander_web_v4.0.py", "gm_trigger_board.py", "capital_queue.py"):
-        s = _src(f)
+    for f, s in (("app", _app_src()), ("gm_trigger_board.py", _src("gm_trigger_board.py")),
+                 ("capital_queue.py", _src("capital_queue.py"))):
         assert "rrg_load(" not in s and "rrg_save(" not in s, f
         assert "s4_rrg_lists(" not in s, f
 

@@ -145,7 +145,10 @@ def _offending_imports(path):
 
 
 def test_no_ui_heavy_import_outside_a_click_handler():
-    bad = _offending_imports(APP)
+    import sys
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    from _app_source import app_files
+    bad = [b for f in app_files() for b in _offending_imports(f)]   # router + core + pages
     assert not bad, (
         "These imports RENDER the imported app into the current page.\n"
         "Import the value you need without executing the module (see journal_db_path()), "

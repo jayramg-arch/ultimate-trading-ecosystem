@@ -21,7 +21,9 @@ import textwrap
 
 _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _APP = os.path.join(_ROOT, "weinstein_commander_web_v4.0.py")
-SRC = io.open(_APP, encoding="utf-8").read()
+import sys; sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _app_source import app_source
+SRC = app_source()   # router + core + pages (25-Sep split)
 
 
 def _grab(name):

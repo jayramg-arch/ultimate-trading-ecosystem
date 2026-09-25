@@ -50,7 +50,7 @@ load_dotenv(override=True)
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 _DIR     = os.path.dirname(os.path.abspath(__file__))
-DB_FILE  = os.path.join(_DIR, "trade_journal_v6.db")
+DB_FILE  = os.environ.get("COMMANDER_JOURNAL_DB") or os.path.join(_DIR, "trade_journal_v6.db")   # env override: render tests use a copy
 OUT_FILE = os.path.join(_DIR, "Exit_Signals.csv")
 
 # ── Config ────────────────────────────────────────────────────────────────────

@@ -42,7 +42,7 @@ if hasattr(sys.stdout, "encoding") and sys.stdout.encoding and sys.stdout.encodi
     except Exception: pass
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
-DB_FILE = os.path.join(_DIR, "trade_journal_v6.db")
+DB_FILE = os.environ.get("COMMANDER_JOURNAL_DB") or os.path.join(_DIR, "trade_journal_v6.db")   # env override: render tests use a copy
 GOLDEN_CSV = os.path.join(_DIR, "MASTER_Golden_Picks.csv")
 
 # New columns (name -> SQLite type). Single source of truth for the migration;

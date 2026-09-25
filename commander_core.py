@@ -54,7 +54,7 @@ CLIENT_ID    = os.getenv("DHAN_CLIENT_ID")
 
 _APP_DIR     = os.path.dirname(os.path.abspath(__file__))  # REC-4: absolute base dir
 
-DB_FILE      = os.path.join(_APP_DIR, "trade_journal_v6.db")  # BUG-H1: absolute path
+DB_FILE      = os.environ.get("COMMANDER_JOURNAL_DB") or os.path.join(_APP_DIR, "trade_journal_v6.db")   # env override: render tests use a copy  # BUG-H1: absolute path
 
 JOURNAL_RENAME_MAP = {
     'symbol':'Symbol','trade_type':'Type','stoploss':'StopLoss','target':'Target',
@@ -113,7 +113,7 @@ def _get_dhan_client(force_refresh=False):
         return cid, tok
     except Exception as e:
         import logging
-        logging.getLogger(__name__).error(f"Dhan auth error: {e}")
+        logging.getLogger("__main__").error(f"Dhan auth error: {e}")
         return None, None
 
 def get_dhanhq_client(force_refresh=False):
@@ -132,7 +132,7 @@ def get_dhanhq_client(force_refresh=False):
             return dhanhq(cid, tok), None
         except Exception as fallback_e:
             import logging
-            logging.getLogger(__name__).error(f"Failed to init dhanhq: {e}")
+            logging.getLogger("__main__").error(f"Failed to init dhanhq: {e}")
             return None, None
 
 def get_dhan_balance():
@@ -177,7 +177,7 @@ def get_dhan_balance():
         # --- Handle early expiry by forcing refresh ---
         if _status in ('failure', 'error') and any(k in str(resp).lower() for k in ["expired", "access token", "unauthorized", "invalid"]):
             import logging
-            logging.getLogger(__name__).info("Dhan token rejected. Forcing refresh...")
+            logging.getLogger("__main__").info("Dhan token rejected. Forcing refresh...")
             dhan, ctx = get_dhanhq_client(force_refresh=True)
             if dhan:
                 resp = dhan.get_fund_limits()
