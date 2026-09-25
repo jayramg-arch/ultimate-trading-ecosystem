@@ -1478,7 +1478,7 @@ zzTrendW = input.source(close, "Zigzag: MTF-2 trend state (Weekly)", group=grpPA
 dashAction  = input.source(close, "v67: Action Signal",   group=grpDash, tooltip="Bind to s4_actionSignal. 0-10.")
 dashQuality = input.source(close, "v67: Asset Quality",   group=grpDash, tooltip="Bind to s4_assetQuality. 0-100.")
 dashRsi     = input.source(close, "v67: Daily RSI",       group=grpDash, tooltip="Bind to s4_rsiDaily.")
-dashRsRatio = input.source(close, "v67: RS-Ratio vs N500", group=grpDash, tooltip="Bind to s4_rsRatio500. RRG x-axis (100 = in line with the index).")
+dashRsRatio = input.source(close, "v67: RS-Ratio vs N500", group=grpDash, tooltip="Bind to s4_rsRatio500. RRG x-axis as RS-Ratio - 100 (0 = in line with the index; S4 adds 100 back when it prints the ratio).")
 // THE CATALYST, from the Unified Ecosystem (4 Sep 2026). S4 has always inferred its
 // playbook from structure — in a demand zone means PULLBACK, otherwise BREAKOUT — so
 // POS-ACCUM was judged by a breakout's standards when accumulation wants the opposite
@@ -1682,7 +1682,12 @@ f_foldMv() =>
     bool _7 = d_ath > 0 and close >= d_ath * 0.75
     // RS vs the index. Unbound v67 makes this UNKNOWN, so it leaves the DENOMINATOR
     // (/7 with a tilde) rather than scoring as a failure.
-    bool _8 = _b and dashRsRatio > 100.0
+    // ZERO-CENTRED (fixed 25-Sep-2026, found by Jay): v67 exports RS-Ratio - 100 (the
+    // legacy `mansfield` convention; S4Core adds the 100 back to print "RS-Ratio 107.0"),
+    // so the old `> 100.0` was never true and this leg read grey on EVERY stock while the
+    // RS row beside it said "Rising (Positive)". Same class as the 50..150 range bug at
+    // ~4860: every other consumer here already treats the value as zero-centred.
+    bool _8 = _b and dashRsRatio > 0.0
     [_b, _1, _2, _3, _4, _5, _6, _7, _8,
      (_1?1:0)+(_2?1:0)+(_3?1:0)+(_4?1:0)+(_5?1:0)+(_6?1:0)+(_7?1:0)+(_b and _8?1:0),
      _b ? 8 : 7]
