@@ -2371,7 +2371,10 @@ export verdictRead(color C_NO, color C_OK, color C_WARN, string _act, bool _atVa
             // _atValue admits a chart-TF demand zone OR a daily/weekly FVG-or-pivot,
             // so this cannot assert a zone. A level is a line, not an area: it gives
             // way with less warning, which is the same grading sLoc applies above.
-            _L3 := (_inRealDZ ? "In a demand zone, Stage-2, not extended, not in supply —\nthe house A+ location." : "On a daily/weekly LEVEL (pivot or gap), Stage-2, not extended, not in supply.\nA line, not an area — it gives way with less warning than a zone, so this is\nthe B+ version of the location, not the A+ one.") + " Buy the pullback; this is NOT a breakout entry." + (_qArrBad ? "\nCaveat: GRIND arrival with Δ− — size down or wait for a sharper turn." : "")
+            // 25-Sep (HBLENGINE): _atValue only rules out the 4xATR extension VETO, so a name at
+            // 3xATR read "EXTENDED" on the headline and "not extended" here. Say which it is.
+            string _xPh = str.length(_extTxt) > 0 ? "STRETCHED from EMA20 (see headline)" : "not extended"
+            _L3 := (_inRealDZ ? "In a demand zone, Stage-2, " + _xPh + ", not in supply —\n" + (str.length(_extTxt) > 0 ? "the A+ location only at the pullback entry, not this bar." : "the house A+ location.") : "On a daily/weekly LEVEL (pivot or gap), Stage-2, " + _xPh + ", not in supply.\nA line, not an area — it gives way with less warning than a zone, so this is\nthe B+ version of the location, not the A+ one.") + " Buy the pullback; this is NOT a breakout entry." + (_qArrBad ? "\nCaveat: GRIND arrival with Δ− — size down or wait for a sharper turn." : "")
             _L5 := _actLine
             _anCol := _qArrBad ? C_WARN : C_OK
         else if _clearToBreak
