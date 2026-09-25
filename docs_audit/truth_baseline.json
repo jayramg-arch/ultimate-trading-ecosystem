@@ -1,10 +1,10 @@
 {
-  "s4_title": "Section 4 Entry Trigger and Price Memory v10.10 (One-Paste + Ranked Panel)",
+  "s4_title": "Section 4 Entry Trigger and Price Memory v10.11 (One-Paste + Ranked Panel)",
   "s4_file": "Section 4 Entry Trigger and Price Memory v10.1 (One-Paste + Ranked Panel).pine",
-  "s4_core_import": "59",
+  "s4_core_import": "60",
   "unified_title": "Weinstein Unified Ecosystem [v3.7]",
   "unified_file": "Weinstein_Unified_Ecosystem_v3.4.pine",
-  "v67_title": "Weinstein & Swing Pro Dashboard [v67.4.24]",
+  "v67_title": "Weinstein & Swing Pro Dashboard [v67.4.25]",
   "v67_file": "Weinstein and Swing Pro Dashboard v67.4.12.pine",
   "panel_rows": "43",
   "panel_order": [
@@ -55,7 +55,7 @@
   "TOUCH_TOL_WIDTH": "0.5",
   "DEMAND_STRONG_SCORE": "75",
   "KEEP_TESTED_DEMAND": "True",
-  "s4_useStructural_default": "true",
+  "s4_useStructural_default": "false",
   "s4_loc_pivot_needs_conf": "true",
   "s4_tested_tf_match": "false",
   "s4_testedTravelMode": "ATR",
@@ -70,7 +70,7 @@
   "sector_map_present": true,
   "sector_symbols": "758",
   "sector_count": "44",
-  "v67_plots": 43,
+  "v67_plots": 44,
   "unified_plots": 31,
   "s4_plots": 19,
   "v67_s4_exports": [
@@ -92,6 +92,7 @@
     "s4_slope50",
     "s4_oi",
     "s4_oiPrev",
+    "s4_futPx",
     "s4_rsValTrail500",
     "s4_rsMomTrail500",
     "s4_pyrClass",
@@ -117,6 +118,7 @@
     "s4_slope50",
     "s4_oi",
     "s4_oiPrev",
+    "s4_futPx",
     "s4_rsRatioSec",
     "s4_rsMomSec",
     "s4_rsValTrailSec",
@@ -132,7 +134,7 @@
     "s4_pyrReason",
     "s4_pyrEntryTime"
   ],
-  "bind_map_total": 33,
+  "bind_map_total": 34,
   "bind_map_zigzag": [
     "mtfTrendState",
     "mtfTrendState2",
