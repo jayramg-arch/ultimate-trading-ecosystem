@@ -756,3 +756,9 @@ IMPROVING→LEADING (Stage 2 + RS qualification already screens out RS-Ratio < 1
 question is unanswerable on the traded set. No change: the RRG confluence point stays at 1.
 Reported only: inside the funnel L→L did not beat the other cells (R +0.24 vs +0.57 IS,
 −0.28 vs +0.19 OOS) — watch it live; any test of it needs data not yet seen.
+
+**AUD-SIM-03 (positional half) — FIXED (25 Sep, pre-registered, run once).** Live positional
+Chandelier (22-bar highest close − 4.5 × Wilder ATR22, BREACHED rule) vs the backtest's
+since-entry trail on POS-BO: −0.05R IS, +0.02R OOS, CI [−0.08, +0.04] → not materially worse,
+so `replay` now trails `POS-*` on the live rule (`POS_TRAIL_WINDOW = 22`). WYC/REV unchanged.
+Backtest and book now trail swing and positional the same way.

@@ -317,6 +317,7 @@ def _realize(tranches: list, exit_at: float, exit_qty: float) -> float:
 
 SWING_TRAIL_MULT = 1.5      # PREREG_swing_trail.md — equals risk_common's swing multiplier
 SWING_TRAIL_WINDOW = 14     # risk_common.trail_window_for(swing=True)
+POS_TRAIL_WINDOW = 22       # risk_common.trail_window_for(swing=False); PREREG_pos_trail.md
 
 
 def _simulate_one_trade(df_d: pd.DataFrame, entry_idx_pos: int, entry_price: float,
@@ -669,13 +670,20 @@ def forward_returns_with_exits(picks_df: pd.DataFrame, as_of: str,
 
         # SWING TRAIL = LIVE (24-Sep-2026, PREREG_swing_trail.md, run once): 14-bar
         # Chandelier at 1.5×ATR, as risk_common trails a swing position. Wider widths
-        # (2.5/3.5/4.5) were measurably worse in IS and OOS. Positional keeps its trail.
-        _swg = str(cat).upper().startswith("SWG")
+        # (2.5/3.5/4.5) were measurably worse in IS and OOS.
+        # POSITIONAL TRAIL = LIVE (25-Sep-2026, PREREG_pos_trail.md, run once): 22-bar
+        # highest close − 4.5 × Wilder ATR(22), prior bar, BREACHED rule — risk_common's
+        # positional Chandelier. Live vs the old since-entry trail on POS-BO: −0.05R IS,
+        # +0.02R OOS, CI [−0.08, +0.04] — not materially worse, so the backtest follows the
+        # book. WYC/REV keep the old trail: that test did not cover them.
+        _cu = str(cat).upper()
+        _swg, _pos = _cu.startswith("SWG"), _cu.startswith("POS")
         res = _simulate_one_trade(df2, entry_pos, entry_price, sl_price,
                                      t1_price, t2_price, t1_qty, t2_qty,
                                      max_bars=fwd, cost_pct=cost_pct,
                                      trail_atr_mult=(SWING_TRAIL_MULT if _swg else 4.5),
-                                     trail_window=(SWING_TRAIL_WINDOW if _swg else None))
+                                     trail_window=(SWING_TRAIL_WINDOW if _swg else
+                                                   POS_TRAIL_WINDOW if _pos else None))
 
         # v3.0 (26-Jul-2026) HORIZON FIX. The benchmark leg must span the trade's
         # ACTUAL hold, not the catalyst's full design window. `res["realized_pct"]`

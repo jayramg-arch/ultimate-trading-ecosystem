@@ -61,4 +61,22 @@ bar. Result recorded below.
 
 ## Result
 
-*(Left empty deliberately. To be filled in ONCE, by the run.)*
+**Run 25 Sep 2026, once** (`validation_runs/_pos_trail_run.log`, trades `_pos_trail_trades.csv`).
+Placebo: no decisive difference, every CI straddled zero. Validity: C reproduces the recorded
+returns (median |err| 0.003pp, 97.4% within 1pp). 191 POS trades.
+
+| POS-BO (IS 83 · OOS 59) | IS mean R | IS median | OOS mean R | OOS median | trail exits |
+|---|---:|---:|---:|---:|---:|
+| C — backtest | −0.328 | −0.530 | +0.067 | −0.417 | 90.5% |
+| **L — live** | −0.377 | −0.598 | +0.090 | −0.418 | 89.1% |
+| L-bear (reported) | −0.371 | −0.609 | +0.082 | −0.418 | 88.4% |
+
+L − C: IS −0.049R, OOS +0.023R, median −0.010R, CI [−0.077, +0.041]. **Verdict: ALIGN** —
+the live trail is not materially worse. POS-ACCUM (22 / 17) is THIN: L − C +0.007R IS,
++0.322R OOS, CI [−0.043, +0.326].
+
+**Done:** `replay` now trails every `POS-*` trade on the live Chandelier
+(`POS_TRAIL_WINDOW = 22`, Wilder ATR, BREACHED rule), verified against this harness to
+≤ 0.005pp on 60 trades. WYC / REV keep the old trail — not covered here. With the swing half
+(24 Sep) this closes the trail part of AUD-SIM-03: the backtest and the book now trail the same
+way. The bear +0.5× widening changed nothing measurable and stays live-only.
