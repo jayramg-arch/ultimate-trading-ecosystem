@@ -1,5 +1,5 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.23]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.24]", overlay=true, max_bars_back=5000, max_lines_count=500)
 // v67.4.17 (31 Jul 2026): RESTORE INLINE TREND ARROWS (Jay: "place arrow icons properly,
 //   they should appear like Pre-S2 on Weekly structure row"). Reverted badge column split:
 //   restored 4-column compressed panel layout. Re-embedded W & 30WMA arrows into WEEKLY STRUCTURE,
@@ -5554,7 +5554,7 @@ plot(showTrade and tradeActive and pyrLeaderG ? pyrAddCeilG : na, "Pyramid: ADD 
 // LABELS (Last Bar Only - v20.0 Style)
 if barstate.islast and showTrade and tradeActive
     // Entry Label
-    label.new(bar_index + 3, finalEntry, "Avg. Entry: " + str.tostring(math.round_to_mintick(finalEntry)), color=color.blue, style=label.style_none, textcolor=color.blue, size=size.small)
+    label.new(bar_index + 3, finalEntry, "Avg. Entry: " + str.tostring(math.round_to_mintick(finalEntry)) + (finalDate > 0 ? " (" + str.format_time(finalDate, "dd MMM yy", "Asia/Kolkata") + ")" : ""), color=color.blue, style=label.style_none, textcolor=color.blue, size=size.small)
     
     // SL & Targets Labels with Distance
     if finalSL > 0
