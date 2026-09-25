@@ -762,3 +762,9 @@ Chandelier (22-bar highest close − 4.5 × Wilder ATR22, BREACHED rule) vs the 
 since-entry trail on POS-BO: −0.05R IS, +0.02R OOS, CI [−0.08, +0.04] → not materially worse,
 so `replay` now trails `POS-*` on the live rule (`POS_TRAIL_WINDOW = 22`). WYC/REV unchanged.
 Backtest and book now trail swing and positional the same way.
+
+**ADD premise — THIN (25 Sep, pre-registered, run once).** `docs/PREREG_add_premise.md`: the
+pyramid ADD rung, rebuilt point-in-time on 191 POS trades (live Chandelier), fired on 95.
+Add legs vs new entries: IS −0.40R vs −0.35R, OOS +0.22R vs +0.14R; difference CI [−0.12, +0.15];
+39 OOS adds < 40 → THIN. No change to the rung. Reading: adds and new entries are
+indistinguishable in expectation, so a capped book must choose between them on concentration risk.

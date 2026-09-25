@@ -80,4 +80,30 @@ changed trigger, no changed bar. Result recorded below.
 
 ## Result
 
-*(Left empty deliberately. To be filled in ONCE, by the run.)*
+**Run 25 Sep 2026, once** (`validation_runs/_add_premise_run.log`, trades
+`_add_premise_trades.csv`). Placebo: noise-level, cannot pass (and it warned adds fire on ~a
+quarter to a half of trades). Validity: the no-add simulation reproduces the positional-trail run
+exactly (191/191, median |err| 0.0000pp). Adds fired on **95 of 191** positional trades (50%),
+median 16 bars in, +6.6% up, held 35 bars.
+
+| | IS n | IS mean R | IS median | OOS n | OOS mean R | OOS median |
+|---|---:|---:|---:|---:|---:|---:|
+| **Add legs** | 50 | −0.396 | −0.698 | 39 | +0.223 | −0.027 |
+| **New entries** (same trades' initial legs) | 105 | −0.352 | −0.609 | 76 | +0.137 | −0.386 |
+
+H1 (adds pay): pooled CI [−0.29, +0.06]. H2 (add − new entry): IS −0.045R, OOS +0.086R,
+median +0.040R, CI [−0.12, +0.15]. **Verdict: THIN on both** — 39 OOS adds against the 40
+required. Per the rule, nothing changes: the ADD rung stays as it is.
+
+**What it says, stated no more strongly than the numbers allow:** an add behaved like a new
+position — both lost about 0.4R in the in-sample window and both made money out-of-sample,
+within 0.1R of each other in each window, with every interval straddling zero. There is no
+evidence that pyramiding a winner beats opening a new name, and none that it is worse. The
+simpler "+1R" trigger (reported only) did worse than the rung (−0.20R mean), so the rung's
+location test appears to earn its keep, though that too is unconfirmed.
+
+**For the capped book this means** the choice between adding and opening a new name cannot be
+made on expected return — the data does not separate them — so it has to be made on RISK: an add
+raises concentration in a name already held, a new name diversifies. That points the ADD queue
+at a single capital queue where adds and new entries compete on one scale and concentration is
+the tie-breaker — a design decision for Jay, not a measured edge.
