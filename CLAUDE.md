@@ -3271,3 +3271,40 @@ edge, every family's median negative. `⚠noedge` stands; recovery = qualificati
 `logs/token_check.log` line at 08:00 · receiver window up before 09:15 · a `⚠tail?`-free
 header on the first S4 read · `auto_pilot_20260921_1630xx.log` from Task Scheduler at 16:30 ·
 BAJFINANCE / CAPLIPOINT / EICHERMOT printed EXIT SIGNAL on Friday's trail (Chandelier ≥ LTP).
+
+---
+
+## 25 Sep 2026 — Integration audit → house_policy · computed RRG · OI fix · the app split
+
+Branch `house-policy` (worktree `../GVS_house_policy`), merged after 15:30. Ledger AUD-INT-01..15.
+
+### Where things live now (READ THIS before editing the web app)
+- **`weinstein_commander_web_v4.0.py` is a 4,309-line ROUTER** (setup, nav, pop-out routes).
+- **Pages:** `commander_pages/<page>.py`, run via `commander_pages.run(slug, globals())` in the
+  router's namespace. Bodies were moved verbatim under `if True:`. Edit pages THERE; restart
+  after an edit (Streamlit's watcher does not see these files).
+- **`commander_core.py`:** the Streamlit-free helpers — `compute_workflow`,
+  `compute_recovery_workflow`, `compute_decision`, `_plan_structural_sl`, `_house_initial_stop`,
+  `_gm_sl_basis`, `_g`, constants (`GM_LOC_STRICT`, `INHERIT_QUALIFICATION`, …). Importable and
+  tested (`tests/test_commander_core.py`).
+- **`house_policy.py`:** the ONE owner of risk % (stock 0.5 · ETF 0.75 · add 1.0), sizing
+  capital (gm_settings, else `CAPITAL_DEFAULT` ₹30,00,000), the ₹1,00,000 per-trade cap
+  (`max_alloc` 0 = the cap, never uncapped), book caps and `is_bear()` (score ≤ 5).
+  `tests/test_house_policy.py` fails if a surface hard-codes a retired number.
+- **Render check:** `python tools/render_pages.py --out a.json` then `--diff a.json b.json`
+  (outside market hours; journal is a copy via `COMMANDER_JOURNAL_DB`).
+
+### Behaviour changes
+- RRG on the board = COMPUTED quadrant; the hand-typed flag (`gm_rrg_flags.json`) is retired.
+- Capital Queue funds from Dhan cash; exit proceeds count only with `queue_count_exits`.
+- One initial stop everywhere (GM/S4 ladder); one trailing stop (risk_common Chandelier, incl.
+  COMMAND E-02); earnings from the nightly cache; Exact/Floor SL mode persisted for the trailer.
+- Matcher OI scoring relabelled (long unwinding was +0.5 as "short covering").
+- Friday in-session forming week no longer counted as confirmed (live only).
+- **Pine (compile pending):** v67.4.25 near+next OI + `s4_futPx`; S4 v10.11 binds it (34 sources)
+  and fixes Minervini "RS > index" (compared a zero-centred ratio with 100).
+
+### Open
+Bar-replay HBLENGINE/RADICO/TECHNOE at the 25-Sep 10:30 75m bar (board said GO, S4 did not;
+alerts 1 vs a normal 3–6) · Jay: confirm v67 shows "near+next" · AUD-INT-14 journal paths ·
+phase-1 context object (shared globals) now that pages are separate files.

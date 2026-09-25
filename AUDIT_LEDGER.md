@@ -834,3 +834,30 @@ Corrections to the audit as first reported: the header "Nifty 500" cell was a 20
 not a second regime (relabelled); the Strike-RRG paste block had been hidden since 25 Aug;
 two computed RRG paths "disagreeing" was a worktree without Dhan credentials reading an
 August cache — on live data 8/8 agree.
+
+**AUD-INT-13 — the shared `_g` getter rebound inside pages — FIXED.** COMMAND's GTT table
+used `_g` as a loop variable and Risk Shield bound the Chandelier gap to `_g`; any later
+`_g(...)` call in that run would have received a dict or a float. Found by the split's trap
+check. Renamed `_gtt_r` / `_ce_g`.
+
+**AUD-INT-14 — 25 modules carry their own journal path — OPEN (noted).** Twelve are relative
+(`"trade_journal_v6.db"`), so they depend on the working directory being the project folder.
+The eight absolute ones and the app now honour `COMMANDER_JOURNAL_DB` (render tests use a
+copy). One owner (`journal_core.DB_FILE`) is the fix; not done in this pass.
+
+**AUD-INT-15 — S4 Minervini "RS > index" grey on every stock — FIXED (pending compile).**
+Compared v67's zero-centred RS-Ratio (RS-Ratio − 100) with 100, so it could never pass while
+the RS row said "Rising (Positive)". Now `> 0.0`. Found by Jay.
+
+**Web Commander split — DONE (25 Sep, Jay approved "finish everything in one go").**
+`docs/PLAN_web_commander_split.md`. Router 19,715 → 4,309 lines; 22 pages in
+`commander_pages/` (moved verbatim, byte-for-byte reassembly proof); 46 Streamlit-free
+functions + 20 constants in `commander_core.py` (AST-selected, trap-checked); render harness
+`tools/render_pages.py`; guards in `tests/test_split_guards.py`.
+
+**Alert volume, 25 Sep — investigated, not a delivery fault.** TradingView's own log shows
+ONE fire today (NEULANDLAB 75m 10:30, webhook 200). Both alerts active on
+`Golden_Matcher_Board-24SEP26`. The 07:15 burst was the 8 shortlisted names added to the
+list at 07:06, firing on yesterday's bar. At 10:30 the board expected 4 GOs (HBLENGINE,
+NEULANDLAB, RADICO, TECHNOE); S4 fired on one. Normal mornings bring 3–6 / 1–3 / 2–5 at
+10:30 / 11:20 / 11:45; today 1 / 0 / 0. Next: bar-replay the three at 10:30 after close.

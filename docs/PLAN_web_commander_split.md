@@ -98,3 +98,29 @@ one `git revert` per page.
    git-ignored — confirm it is fine to copy the journal there.
 3. Scheduling: one page per evening after 15:30 means ~4–6 weeks; say if you want it faster
    (two pages an evening doubles the review load) or paused around results season.
+
+## Outcome — executed 25 Sep 2026, in one pass (Jay: "finish everything in one go")
+
+| phase | done | how it was proven |
+|---|---|---|
+| 0 safety net | `tools/render_pages.py` + journal copy in `tests/fixtures/` | renders every page, diffs exceptions / error boxes / element counts |
+| 1 shared context | **not built as a separate object** — see below | — |
+| 2 pure cores | `commander_core.py`: 46 functions + 20 constants (GM decision core, stop ladder, helpers) | AST selection + trap check; pyflakes 0 undefined names before and after; imports standalone; characterization tests |
+| 3 pages | 22 files in `commander_pages/`, router 19,715 → 4,309 lines | byte-for-byte reassembly proof in `tools/split_pages.py` |
+| 4 guards | `tests/test_split_guards.py`; house-policy guard now scans router + core + pages | 282 tests pass |
+
+**Why phase 1 was not built as planned.** Pages run in the router's namespace
+(`commander_pages.run(slug, globals())`), which is what makes the move provably
+behaviour-identical — a context object would have meant rewriting every global read on 22
+pages, i.e. a logic change riding along with the move. The rules the context object was
+meant to protect already have one owner (`house_policy.py`). The remaining shared globals
+(`balance`, `sys_status`, the journal frames) are the next refactor, now that each page is
+its own file and can be converted and tested one at a time.
+
+**Found on the way:** the shared `_g` getter was rebound inside two pages (fixed); a dead
+duplicate `_range_bar` (removed); 25 modules each carry their own journal path (noted,
+AUD-INT-14).
+
+**Still to do after the merge:** render every page before and after with
+`tools/render_pages.py` (outside market hours), and edit pages in `commander_pages/` from now
+on — Streamlit's watcher does not see those files, so restart after an edit.
