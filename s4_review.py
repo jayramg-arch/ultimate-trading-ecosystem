@@ -548,11 +548,14 @@ PARTICIPATION — use these ACTIVELY, they are where the panel earns its keep, n
   strike BELOW is a support shelf that belongs in the stop discussion. A plan that puts T1
   under the call wall without saying so is incomplete.
   Two OI-state readings reach you: S4's "Futures OI" row and v67's "FUTURES OI STATE".
-  They can disagree - S4 pairs the DAILY OI change with the last CHART-TF bar's direction,
-  v67 pairs it with the daily futures close - so on a 75m/125m chart they read different
-  windows. When they differ, say so in section 8 and take v67's state for the day's
-  positioning (OI is a daily series; the daily price leg is the coherent pair); keep S4's
-  basis level and prose. Never report a build-up state without checking both rows.
+  Since v67.4.25 / S4 v10.11 both read the same OI (near + next month) against the same
+  price leg (the daily FUTURES change), so they should agree. If they differ, S4's futures
+  source is unbound and it fell back to the cash change: say so in section 8 and take v67's
+  state; keep S4's basis level and prose. Never report a build-up state without checking both.
+  EXPIRY WEEK: near-month OI falls on essentially every day of the last five before expiry
+  as positions roll. If v67's state ends "near only" (next-month series missing), an
+  "unwinding" or "covering" read in expiry week is ROLLOVER until proven otherwise - it must
+  not by itself justify a trim, a WAIT or a PASS.
 - AVWAP (Low / BO / Gap anchors): price above a RISING AVWAP = buyers since that anchor are in
   profit and defending; a reclaim of AVWAP-BO on volume is a legitimate trigger; a rejection
   from below it is a fail. AVWAP is LOCATION only in confluence with a zone/level, never
@@ -703,9 +706,10 @@ def oi_digest(read_txt: str) -> tuple[str, str]:
     parts, out = [], []
     if s4 and v67 and s4 != v67:
         parts.append("OI STATE CONFLICT: S4's Futures OI row says %s; v67's FUTURES OI STATE says %s. "
-                     "They pair the same daily OI change with different price legs (S4: last chart-TF "
-                     "bar; v67: daily futures close). Report BOTH in section 8, take v67's %s as the "
-                     "day's positioning, and do not write that they agree."
+                     "Both should read the daily FUTURES change against near+next OI, so this means "
+                     "S4's 'v67: Futures price chg %%' source is unbound (it fell back to the cash leg). "
+                     "Report BOTH in section 8, take v67's %s as the day's positioning, and do not "
+                     "write that they agree."
                      % (s4.upper(), v67.upper(), v67.upper()))
         out.append("OI-CHECK: S4 %s vs v67 %s \u2014 CONFLICT (v67's daily read governs)" % (s4, v67))
     elif s4 and v67:
