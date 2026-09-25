@@ -1411,7 +1411,7 @@ tl_on  = input.bool(true, "Enable manual trendlines", group=grpTL, tooltip="Mast
 // ── AUTO trendlines (Path A, 24-Jul): fit + adjust WITHOUT typing coordinates. Reuses
 // the geometry engine's f_bestLine (no 10th from-scratch fitter — the 9 failed rewrites
 // were all attempts at a GLOBAL auto-fit; this fits a sensible line and lets you nudge it).
-tl_auto      = input.bool(false, "Auto-detect trendlines (envelope fit) — OFF by default", group=grpTL, tooltip="OFF (24-Jul, Jay's call): auto-detection is parked — draw trendlines by hand instead. ON revives the envelope fit (support = the boundary no pivot low pierces; resistance the mirror) and feeds it to the picker/plan/confluence. Kept for later; the manual path below is the live one.")
+tl_auto      = input.bool(false, "Auto-detect trendlines — code commented out 25-Sep (no effect)", group=grpTL, tooltip="OFF (24-Jul, Jay's call): auto-detection is parked — draw trendlines by hand instead. ON revives the envelope fit (support = the boundary no pivot low pierces; resistance the mirror) and feeds it to the picker/plan/confluence. Kept for later; the manual path below is the live one.")
 tl_thread    = input.float(0.5, "Auto: touch/pierce tolerance (× ATR)", group=grpTL, minval=0.1, maxval=3.0, step=0.05, tooltip="Two roles: how close a pivot must sit to count as a TOUCH, and how far a pivot may poke THROUGH the line before it's disqualified (a support line no low may close below). Larger = looser (more touches, tolerates small pierces); smaller = stricter.")
 tl_pool      = input.int(16, "Auto: pivots pool (how far back a line can anchor)", group=grpTL, minval=4, maxval=40, tooltip="How many recent pivots the envelope fit searches. A trendline anchors on the OLDEST pivot in this pool that the line still respects — so a bigger pool lets the line reach a major swing low/high further back (your long rising channel). Too big and it may reach stale structure; too small and it can't span the trend. Cost grows with the pool.")
 tls_anch_off = input.int(0, "Auto Support: re-anchor (skip N recent lows)", group=grpTL, minval=0, maxval=5, tooltip="Adjust WITHOUT coordinates: drop the N most-recent pivot LOWS before fitting, so the line re-anchors on older structure. 0 = use all recent lows (the default auto pick). Bump to 1-2 if the freshest low skews the line you actually want.")
@@ -1436,7 +1436,7 @@ tlr_nudge    = input.float(0.0, "Auto Resistance: nudge (× ATR, + up / − down
 // [TL-EXT commented 4-Sep-2026 for the compiled-token ceiling] tl_ext1_src = input.source(close, "  · External trendline 1", group=grpTL, tooltip="Select the 'S4 Trendline Tool' → 'Trendline Value' plot. Left on 'close' = treated as unused (ignored).")
 // [TL-EXT commented 4-Sep-2026 for the compiled-token ceiling] tl_ext2_src = input.source(close, "  · External trendline 2", group=grpTL, tooltip="A second companion instance (e.g. the other side). Left on 'close' = unused.")
 
-useStructural   = input.bool(false, "Use Pivot (Structural) zones + levels",  group=grpZP, tooltip="PATTERN ZONES ONLY since 25-Sep-2026 (Jay): pivot shelves are not strong enough to drive a trade. The evening bundle push sets this on every S4 tab from the GM setting use_pivot_zones, so S4 and the board cannot disagree.\n\nMaster on/off for EVERY pivot-as-SUPPORT use.\n\nON: pivot (PvH/PvL) zones are drawn and can satisfy LOCATION -- but only with a confirming source (rule A2) -- and the Daily/Weekly pivot support lines are drawn.\n\nOFF: pattern (leg-base-leg) zones only. No pivot zone is created, no pivot satisfies location, and the pivot support lines are hidden. FVG levels are UNAFFECTED (they live under 'FVG / pivot levels').\n\nOFF also removes pivots from OVERHEAD -- Room, T1, T2 and the Pivot S-R lines. Note this LOOSENS R:R: a hidden ceiling is not a cleared one. Other S/R levels are unaffected.\n\nMirror of the GM board setting 'Use pivot (structural) zones'. Measured 26-Aug: no alpha difference vs admitting pivots, ~4x fewer names.")
+useStructural   = input.bool(false, "Use Pivot LEVELS (pivot zones commented out 25-Sep)",  group=grpZP, tooltip="PATTERN ZONES ONLY since 25-Sep-2026 (Jay): pivot shelves are not strong enough to drive a trade. The evening bundle push sets this on every S4 tab from the GM setting use_pivot_zones, so S4 and the board cannot disagree.\n\nMaster on/off for EVERY pivot-as-SUPPORT use.\n\nON: pivot (PvH/PvL) zones are drawn and can satisfy LOCATION -- but only with a confirming source (rule A2) -- and the Daily/Weekly pivot support lines are drawn.\n\nOFF: pattern (leg-base-leg) zones only. No pivot zone is created, no pivot satisfies location, and the pivot support lines are hidden. FVG levels are UNAFFECTED (they live under 'FVG / pivot levels').\n\nOFF also removes pivots from OVERHEAD -- Room, T1, T2 and the Pivot S-R lines. Note this LOOSENS R:R: a hidden ceiling is not a cleared one. Other S/R levels are unaffected.\n\nMirror of the GM board setting 'Use pivot (structural) zones'. Measured 26-Aug: no alpha difference vs admitting pivots, ~4x fewer names.")
 // PIVOT (STRUCTURAL) ZONES — CANONICAL PER-TF LENGTHS (v7.5, 5-Aug-2026).
 // One global 5/3 was applied to the chart TF *and* to the Daily, Weekly and Monthly
 // security calls alike, which is wrong in both directions at once: monthly bars are
@@ -2290,9 +2290,11 @@ if useMonthlyZ and not na(monthlySig) and monthlySig.zoneTime > lastMonthlyTime
 // Indexing on the returned object is per-timeframe INSIDE the security call, so [1] here
 // means "one bar of THAT timeframe", not one chart bar. That distinction is the reason
 // this cannot be done by indexing the security's result from outside.
-f_structSig(simple int pv, simple float mnW, simple float mxW, simple int pd, simple float th) =>
-    _s = core.structZone(pv, pv, pd, th, th, pivotMinMoveATR, mnW, mxW, structMinWMult, shelfReject)
-    struct_closed_confirm ? _s[1] : _s
+// PIVOT-ZONE PIPELINE COMMENTED OUT (25-Sep-2026) for the compiled-token ceiling. Default-off since
+// Jay moved to pattern zones only; it still compiled 4 structZone requests + creation. Restore = uncomment.
+// f_structSig(simple int pv, simple float mnW, simple float mxW, simple int pd, simple float th) =>
+//     _s = core.structZone(pv, pv, pd, th, th, pivotMinMoveATR, mnW, mxW, structMinWMult, shelfReject)
+//     struct_closed_confirm ? _s[1] : _s
 
 // PER-TF PAD + BODY TOLERANCE. These decide how far a pivot shelf reaches into its
 // NEIGHBOURS' bodies, and one global pair could not serve every timeframe: the tolerance
@@ -2304,58 +2306,58 @@ f_structSig(simple int pv, simple float mnW, simple float mxW, simple int pd, si
 // signature; using it here is the "Can't parse pine" error from v7.5. The inferred
 // qualifier is already simple (inputs + timeframe.* built-ins), which is what
 // f_structSig's `simple int pd` / `simple float th` parameters require.
-int   padNative = timeframe.ismonthly ? padZ_M : timeframe.isweekly ? padZ_W : structPadBars
-float thrNative = timeframe.ismonthly ? thrZ_M : timeframe.isweekly ? thrZ_W : structTopThrATR
-structNativeSig  = f_structSig(pivNative, nativeMinW, nativeMaxW, padNative, thrNative)
-structDailySig   = request.security(syminfo.tickerid, "D", f_structSig(piv_d, minZW_D, maxZW_D, structPadBars, structTopThrATR), lookahead=barmerge.lookahead_off)
-structWeeklySig  = request.security(syminfo.tickerid, "W", f_structSig(piv_w, minZW_W, maxZW_W, padZ_W, thrZ_W), lookahead=barmerge.lookahead_off)
-structMonthlySig = request.security(syminfo.tickerid, "M", f_structSig(piv_m, minZW_M, maxZW_M, padZ_M, thrZ_M), lookahead=barmerge.lookahead_off)
-var int lastStrNativeTime  = 0
-var int lastStrDailyTime   = 0
-var int lastStrWeeklyTime  = 0
-var int lastStrMonthlyTime = 0
+// int   padNative = timeframe.ismonthly ? padZ_M : timeframe.isweekly ? padZ_W : structPadBars
+// float thrNative = timeframe.ismonthly ? thrZ_M : timeframe.isweekly ? thrZ_W : structTopThrATR
+// structNativeSig  = f_structSig(pivNative, nativeMinW, nativeMaxW, padNative, thrNative)
+// structDailySig   = request.security(syminfo.tickerid, "D", f_structSig(piv_d, minZW_D, maxZW_D, structPadBars, structTopThrATR), lookahead=barmerge.lookahead_off)
+// structWeeklySig  = request.security(syminfo.tickerid, "W", f_structSig(piv_w, minZW_W, maxZW_W, padZ_W, thrZ_W), lookahead=barmerge.lookahead_off)
+// structMonthlySig = request.security(syminfo.tickerid, "M", f_structSig(piv_m, minZW_M, maxZW_M, padZ_M, thrZ_M), lookahead=barmerge.lookahead_off)
+// var int lastStrNativeTime  = 0
+// var int lastStrDailyTime   = 0
+// var int lastStrWeeklyTime  = 0
+// var int lastStrMonthlyTime = 0
 // Diagnostics: structural zones DETECTED (survived width band + minMove inside
 // f_structZone) vs CREATED (also survived EMA/RS + the same-TF dedup). Cumulative,
 // across every TF. Read alongside structL (live count) on the Zones (MTF) panel row:
 //   structD=0            → the width band or minMove killed them → lower structMinWMult
 //   structD>0, structC=0 → EMA/RS gate or dedup in f_createZone
 //   structC>0, structL=0 → removed by ageing / tested / violation
-var int _dbgStrDetected = 0
-var int _dbgStrCreated  = 0
-if useStructural
+// var int _dbgStrDetected = 0
+// var int _dbgStrCreated  = 0
+// if useStructural
     // NOTE: dedup is SAME-TF only (see f_createZone), so this M→W→D→native ordering has
     // no cross-TF effect — an HTF structural is never deduped against an LTF one. The
     // order only matters for native-vs-native on a Daily+ chart. Cross-TF overlap is
     // KEPT deliberately: that is confluence, and the HTF level must survive.
-    if useMonthlyZ and not na(structMonthlySig) and structMonthlySig.zoneTime > lastStrMonthlyTime
-        lastStrMonthlyTime := structMonthlySig.zoneTime
-        _dbgStrDetected := _dbgStrDetected + 1
-        int _sb = array.size(activeZones)
-        f_createZone(structMonthlySig, "M", false)
-        if array.size(activeZones) > _sb
-            _dbgStrCreated := _dbgStrCreated + 1
-    if useWeeklyZ and not na(structWeeklySig) and structWeeklySig.zoneTime > lastStrWeeklyTime
-        lastStrWeeklyTime := structWeeklySig.zoneTime
-        _dbgStrDetected := _dbgStrDetected + 1
-        int _sb = array.size(activeZones)
-        f_createZone(structWeeklySig, "W", false)
-        if array.size(activeZones) > _sb
-            _dbgStrCreated := _dbgStrCreated + 1
-    if useDailyZ and not na(structDailySig) and structDailySig.zoneTime > lastStrDailyTime
-        lastStrDailyTime := structDailySig.zoneTime
-        _dbgStrDetected := _dbgStrDetected + 1
-        int _sb = array.size(activeZones)
-        f_createZone(structDailySig, "D", false)
-        if array.size(activeZones) > _sb
-            _dbgStrCreated := _dbgStrCreated + 1
+//     if useMonthlyZ and not na(structMonthlySig) and structMonthlySig.zoneTime > lastStrMonthlyTime
+//         lastStrMonthlyTime := structMonthlySig.zoneTime
+//         _dbgStrDetected := _dbgStrDetected + 1
+//         int _sb = array.size(activeZones)
+//         f_createZone(structMonthlySig, "M", false)
+//         if array.size(activeZones) > _sb
+//             _dbgStrCreated := _dbgStrCreated + 1
+//     if useWeeklyZ and not na(structWeeklySig) and structWeeklySig.zoneTime > lastStrWeeklyTime
+//         lastStrWeeklyTime := structWeeklySig.zoneTime
+//         _dbgStrDetected := _dbgStrDetected + 1
+//         int _sb = array.size(activeZones)
+//         f_createZone(structWeeklySig, "W", false)
+//         if array.size(activeZones) > _sb
+//             _dbgStrCreated := _dbgStrCreated + 1
+//     if useDailyZ and not na(structDailySig) and structDailySig.zoneTime > lastStrDailyTime
+//         lastStrDailyTime := structDailySig.zoneTime
+//         _dbgStrDetected := _dbgStrDetected + 1
+//         int _sb = array.size(activeZones)
+//         f_createZone(structDailySig, "D", false)
+//         if array.size(activeZones) > _sb
+//             _dbgStrCreated := _dbgStrCreated + 1
     // Native structural — Daily+ charts only (suppressed intraday).
-    if showChartZones and not timeframe.isintraday and not na(structNativeSig) and structNativeSig.zoneTime > lastStrNativeTime
-        lastStrNativeTime := structNativeSig.zoneTime
-        _dbgStrDetected := _dbgStrDetected + 1
-        int _sb = array.size(activeZones)
-        f_createZone(structNativeSig, "C", true)
-        if array.size(activeZones) > _sb
-            _dbgStrCreated := _dbgStrCreated + 1
+//     if showChartZones and not timeframe.isintraday and not na(structNativeSig) and structNativeSig.zoneTime > lastStrNativeTime
+//         lastStrNativeTime := structNativeSig.zoneTime
+//         _dbgStrDetected := _dbgStrDetected + 1
+//         int _sb = array.size(activeZones)
+//         f_createZone(structNativeSig, "C", true)
+//         if array.size(activeZones) > _sb
+//             _dbgStrCreated := _dbgStrCreated + 1
 
 // ==========================================================================
 // S/R LEVELS — per-TF detection, then MANUAL-over-AUTO resolution
@@ -3308,22 +3310,23 @@ f_fold2994() =>
 // Dedicated, LARGER pivot pool for the auto-trendlines (the geometry read stays at 6 —
 // a channel/wedge only needs the last few; a trendline may span many higher-lows). Same
 // pivots (_gph/_gpl), bigger cap so the envelope fit can reach a major swing anchor.
-var array<float> tlhy = array.new<float>()
-var array<int>   tlhx = array.new<int>()
-var array<float> tlly = array.new<float>()
-var array<int>   tllx = array.new<int>()
-if not na(_gph)
-    array.push(tlhy, _gph)
-    array.push(tlhx, bar_index - geo_pv)
-    if array.size(tlhy) > tl_pool
-        array.shift(tlhy)
-        array.shift(tlhx)
-if not na(_gpl)
-    array.push(tlly, _gpl)
-    array.push(tllx, bar_index - geo_pv)
-    if array.size(tlly) > tl_pool
-        array.shift(tlly)
-        array.shift(tllx)
+// [AUTO-TRENDLINES commented 25-Sep-2026, token ceiling; tl_auto is OFF by default since 24-Jul. Restore = uncomment the '// ' lines here, at the tlhy pools and at the TL drawing.]
+// var array<float> tlhy = array.new<float>()
+// var array<int>   tlhx = array.new<int>()
+// var array<float> tlly = array.new<float>()
+// var array<int>   tllx = array.new<int>()
+// if not na(_gph)
+//     array.push(tlhy, _gph)
+//     array.push(tlhx, bar_index - geo_pv)
+//     if array.size(tlhy) > tl_pool
+//         array.shift(tlhy)
+//         array.shift(tlhx)
+// if not na(_gpl)
+//     array.push(tlly, _gpl)
+//     array.push(tllx, bar_index - geo_pv)
+//     if array.size(tlly) > tl_pool
+//         array.shift(tlly)
+//         array.shift(tllx)
 // v7.2 TOKEN: the GEOMETRY CLASSIFIER (9 shape labels + its drawing) was REMOVED here
 // to fund the auto-mode fix. It lives on in "S/R + Trendline Lab", where it can be
 // tuned properly -- its real defect was geo_flat (0.3 x ATR) being too tight, which
@@ -3351,19 +3354,20 @@ float _tlrAY = na
 // Gated to the last bar: the envelope fit is O(pool^3); only the last bar's values feed
 // the picker/panel/plan/drawing that are actually read, so running it once (not every
 // bar) is exact for what's consumed and keeps the script fast on a big pool.
-if tl_auto and d_tl and barstate.islast
-    [_sLive, _sX, _sY, _sNow] = core.autoTL(tlly, tllx, true,  tls_anch_off, tl_thread * chart_atr, tls_nudge * chart_atr, geo_maxage)
-    [_rLive, _rX, _rY, _rNow] = core.autoTL(tlhy, tlhx, false, tlr_anch_off, tl_thread * chart_atr, tlr_nudge * chart_atr, geo_maxage)
-    tls_live := _sLive
-    tls_now  := _sNow
-    tlr_live := _rLive
-    tlr_now  := _rNow
-    tls_tfTag := _chartTag
-    tlr_tfTag := _chartTag
-    _tlsAX := _sX
-    _tlsAY := _sY
-    _tlrAX := _rX
-    _tlrAY := _rY
+// [AUTO-TRENDLINES commented 25-Sep-2026, token ceiling; tl_auto is OFF by default since 24-Jul. Restore = uncomment the '// ' lines here, at the tlhy pools and at the TL drawing.]
+// if tl_auto and d_tl and barstate.islast
+//     [_sLive, _sX, _sY, _sNow] = core.autoTL(tlly, tllx, true,  tls_anch_off, tl_thread * chart_atr, tls_nudge * chart_atr, geo_maxage)
+//     [_rLive, _rX, _rY, _rNow] = core.autoTL(tlhy, tlhx, false, tlr_anch_off, tl_thread * chart_atr, tlr_nudge * chart_atr, geo_maxage)
+//     tls_live := _sLive
+//     tls_now  := _sNow
+//     tlr_live := _rLive
+//     tlr_now  := _rNow
+//     tls_tfTag := _chartTag
+//     tlr_tfTag := _chartTag
+//     _tlsAX := _sX
+//     _tlsAY := _sY
+//     _tlrAX := _rX
+//     _tlrAY := _rY
 
 
 // ==========================================================================
@@ -4681,17 +4685,17 @@ if barstate.islast
     line.delete(lnTlR)
     label.delete(lbTlS)
     label.delete(lbTlR)
-    if tls_live
-        int _wS = tls_tfTag == "M" ? 3 : tls_tfTag == "W" ? 2 : 1
-        if tl_auto and not na(_tlsAX)   // AUTO: bar-index anchors (fit projects to this bar)
-            lnTlS := line.new(_tlsAX, _tlsAY, bar_index, tls_now, xloc=xloc.bar_index, color=C_OK, width=_wS)
-            lbTlS := label.new(bar_index, tls_now, _chartTag + "  │  TL support (auto)  " + str.tostring(tls_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_OK82, textcolor=C_OK, size=size.small)
+//     if tls_live
+//         int _wS = tls_tfTag == "M" ? 3 : tls_tfTag == "W" ? 2 : 1
+//         if tl_auto and not na(_tlsAX)   // AUTO: bar-index anchors (fit projects to this bar)
+//             lnTlS := line.new(_tlsAX, _tlsAY, bar_index, tls_now, xloc=xloc.bar_index, color=C_OK, width=_wS)
+//             lbTlS := label.new(bar_index, tls_now, _chartTag + "  │  TL support (auto)  " + str.tostring(tls_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_OK82, textcolor=C_OK, size=size.small)
         // MANUAL branch commented 3-Sep-2026 (token budget) — anchors are commented above.
-    if tlr_live
-        int _wR = tlr_tfTag == "M" ? 3 : tlr_tfTag == "W" ? 2 : 1
-        if tl_auto and not na(_tlrAX)
-            lnTlR := line.new(_tlrAX, _tlrAY, bar_index, tlr_now, xloc=xloc.bar_index, color=C_NO, width=_wR)
-            lbTlR := label.new(bar_index, tlr_now, _chartTag + "  │  TL resistance (auto)  " + str.tostring(tlr_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_NO82, textcolor=C_NO, size=size.small)
+//     if tlr_live
+//         int _wR = tlr_tfTag == "M" ? 3 : tlr_tfTag == "W" ? 2 : 1
+//         if tl_auto and not na(_tlrAX)
+//             lnTlR := line.new(_tlrAX, _tlrAY, bar_index, tlr_now, xloc=xloc.bar_index, color=C_NO, width=_wR)
+//             lbTlR := label.new(bar_index, tlr_now, _chartTag + "  │  TL resistance (auto)  " + str.tostring(tlr_now, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=C_NO82, textcolor=C_NO, size=size.small)
         // MANUAL branch commented 3-Sep-2026 (token budget) — anchors are commented above.
 
     // --- PATTERNS: the detected flag, and your manual box. Deletes unconditional.
