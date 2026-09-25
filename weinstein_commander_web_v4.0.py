@@ -604,6 +604,12 @@ _live_cap = balance + total_deployed_g
 _decl_cap = _HP.sizing_capital()[0]
 total_cap = _live_cap if _live_cap > 0 else (_decl_cap if _decl_cap == _decl_cap else 0.0)
 TOTAL_CAP_IS_LIVE = _live_cap > 0
+# Split phase 1 (25-Sep-2026): pages read the shared state through ONE frozen object, so no
+# page can rebind balance / total_cap / the journal frame for the pages after it.
+import commander_context as _cctx
+app_state = _cctx.Ctx(balance=balance, sys_status=sys_status, total_cap=total_cap,
+                      total_cap_is_live=TOTAL_CAP_IS_LIVE, df_active_global=df_active_global,
+                      df_live_holdings=df_live_holdings)
 deployed_pct = round((total_deployed_g / total_cap) * 100, 1) if total_cap > 0 else 0.0
 
 # Check query parameters for pop-out views (open in a new browser window/tab):

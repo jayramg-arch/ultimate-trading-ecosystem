@@ -39,3 +39,39 @@ def test_page_files_keep_the_verbatim_shape():
 
 def test_core_imports_without_a_running_app():
     import commander_core  # noqa: F401  - Streamlit-free by construction
+
+
+def test_pages_read_shared_state_through_app_state():
+    """Split phase 1 (25-Sep): pages read balance / sys_status / total_cap / the journal and
+    holdings frames through the frozen `app_state`, never as bare router globals - a bare
+    name is one assignment away from silently changing the value for every later page."""
+    import io
+    import tokenize
+    import commander_context as cc
+    bad = []
+    for f in sorted(os.listdir(PAGES)):
+        if not f.endswith(".py") or f == "__init__.py":
+            continue
+        src = _read(os.path.join(PAGES, f))
+        toks = [t for t in tokenize.generate_tokens(io.StringIO(src).readline)
+                if t.type not in (tokenize.NL, tokenize.NEWLINE, tokenize.COMMENT,
+                                  tokenize.INDENT, tokenize.DEDENT)]
+        for i, t in enumerate(toks):
+            if t.type == tokenize.NAME and t.string in cc.SHARED_NAMES:
+                prev = toks[i - 1].string if i else ""
+                nxt = toks[i + 1].string if i + 1 < len(toks) else ""
+                if prev != "." and not (nxt == "=" and prev in ("(", ",")):
+                    bad.append(f"{f}:{t.start[0]} {t.string}")
+    assert not bad, "bare shared names (use app_state.<name>): " + ", ".join(bad)
+
+
+def test_app_state_is_frozen():
+    import dataclasses
+    import pandas as pd
+    import commander_context as cc
+    s = cc.Ctx(1.0, "SYSTEM ONLINE", 2.0, True, pd.DataFrame(), pd.DataFrame())
+    try:
+        s.total_cap = 3.0
+    except dataclasses.FrozenInstanceError:
+        return
+    raise AssertionError("app_state must be frozen")

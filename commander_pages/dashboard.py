@@ -8,7 +8,7 @@ if True:
     st.markdown('<div class="page-title">📊 Mission Dashboard</div>', unsafe_allow_html=True)
     st.markdown('<div class="page-desc">Real-Time Market Intelligence // Sector Radar // Risk Audit</div>', unsafe_allow_html=True)
 
-    df_active = df_active_global
+    df_active = app_state.df_active_global
 
     # BUG-12 FIX: batch yfinance fetch instead of per-symbol loop
     live_map = {}
@@ -76,14 +76,14 @@ if True:
     st.markdown("---")
 
     # ── OPEN PORTFOLIO HEALTH VITALS ──
-    if not df_live_holdings.empty:
+    if not app_state.df_live_holdings.empty:
         section("Open Portfolio Health Vitals")
 
         pos_pnls, pos_pnl_pcts, pos_names = [], [], []
         total_unrealized = 0.0
         deployed_cost    = 0.0   # BUG-06: renamed from total_deployed to avoid shadowing
 
-        for _, row in df_live_holdings.iterrows():
+        for _, row in app_state.df_live_holdings.iterrows():
             sym = row.get('CleanSymbol', clean_symbol(row.get('Symbol', '')))
             bp  = float(row.get('BuyPrice', 0) or 0)
             qty = float(row.get('Quantity', 0) or 0)
@@ -113,7 +113,7 @@ if True:
 
         # BUG-05 FIX: Open Return uses deployed capital, not total capital
         open_return_pct     = (total_unrealized / deployed_cost * 100) if deployed_cost > 0 else 0
-        portfolio_return_pct = (total_unrealized / total_cap * 100)    if total_cap > 0 else 0
+        portfolio_return_pct = (total_unrealized / app_state.total_cap * 100)    if app_state.total_cap > 0 else 0
 
         v1, v2, v3, v4 = st.columns(4, gap="small")
         v1.metric("Unrealized P&L",    f"₹{format_inr_int(total_unrealized)}", help="Total unrealized P&L across all open positions.")
@@ -199,7 +199,7 @@ if True:
     df_closed = load_closed_trades_db()
     if df_closed is not None and not df_closed.empty:
         section("Portfolio Analytics — Closed Trade Performance")
-        analytics = compute_portfolio_analytics(df_closed, total_cap)
+        analytics = compute_portfolio_analytics(df_closed, app_state.total_cap)
         if analytics:
             a1,a2,a3,a4,a5,a6 = st.columns(6, gap="small")
             a1.metric("Sharpe Ratio",    str(analytics.get('sharpe','—')),   help="Annualised Sharpe. >1.0 = good, >2.0 = excellent.")
@@ -264,8 +264,8 @@ if True:
                     pc['CumulativePnL'] = pc['PnL'].cumsum()
 
                     # FORM-02 FIX: normalise to starting equity, not current capital
-                    starting_equity = total_cap - pc['CumulativePnL'].iloc[-1]
-                    if starting_equity <= 0: starting_equity = total_cap
+                    starting_equity = app_state.total_cap - pc['CumulativePnL'].iloc[-1]
+                    if starting_equity <= 0: starting_equity = app_state.total_cap
                     pc['Portfolio_%'] = (pc['CumulativePnL'] / starting_equity) * 100
                     pc = pc.rename(columns={'ExitDate': 'Date'})
 

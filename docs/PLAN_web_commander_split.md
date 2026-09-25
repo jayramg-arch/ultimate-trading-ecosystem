@@ -124,3 +124,11 @@ AUD-INT-14).
 **Still to do after the merge:** render every page before and after with
 `tools/render_pages.py` (outside market hours), and edit pages in `commander_pages/` from now
 on — Streamlit's watcher does not see those files, so restart after an edit.
+
+**Phase 1 done (25 Sep, evening).** `commander_context.Ctx`, built once per rerun in the router as
+`app_state` (not `ctx` - the GM and Risk Shield pages use that name, and pages share the router's
+namespace). Frozen, so no page can rebind `balance`, `sys_status`, `total_cap`, `df_active_global`
+or `df_live_holdings` for the pages after it. 30 reads on 7 pages converted by a tokenizer (strings,
+attributes and keyword arguments untouched); `tests/test_split_guards.py` fails on any bare read.
+Render before/after: 0 regressions, 21 pages identical; BREADTH differed only because the "before"
+run timed out loading uncached data (the page reads none of these names).

@@ -154,8 +154,8 @@ if True:
                             horizontal=True, key="mov_src")
 
         # Build symbol list
-        _mov_holding_syms = ([yf_symbol(s) for s in df_live_holdings["CleanSymbol"].tolist() if s]
-                             if not df_live_holdings.empty else [])
+        _mov_holding_syms = ([yf_symbol(s) for s in app_state.df_live_holdings["CleanSymbol"].tolist() if s]
+                             if not app_state.df_live_holdings.empty else [])
         # Note: Infosys ticker is INFY.NS on Yahoo Finance, not INFOSYS.NS
         # (the latter returns 404 — was a typo that silently dropped Infy
         # from the universe and made non-N50 holdings look like leakage).

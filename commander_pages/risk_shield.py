@@ -212,7 +212,7 @@ if True:
     # Only a LIVE reading goes into the equity history; a Dhan outage used to write the
     # invented ₹50L fallback as that day's equity.
     if 'total_cap' in globals() and globals().get("TOTAL_CAP_IS_LIVE", False):
-        _portfolio_history[_today_str] = total_cap
+        _portfolio_history[_today_str] = app_state.total_cap
         _rs_atomic_json_write(PORTFOLIO_FILE, _portfolio_history)
 
     import risk_common as _rc
@@ -447,7 +447,7 @@ if True:
         except Exception:
             _tk_valid = False
 
-        if sys_status == "AUTH EXPIRED" or not _tk_valid:
+        if app_state.sys_status == "AUTH EXPIRED" or not _tk_valid:
             st.error("🔑 Dhan token expired. Paste a fresh access token in the sidebar.")
         else:
             with st.spinner("Fetching active orders from Dhan..."):
@@ -539,8 +539,8 @@ if True:
 
                 # Fetch overrides from global df (from SQLite)
                 journal_overrides = {}
-                if 'df_active_global' in globals() and not df_active_global.empty:
-                    for _, r in df_active_global.iterrows():
+                if 'df_active_global' in globals() and not app_state.df_active_global.empty:
+                    for _, r in app_state.df_active_global.iterrows():
                         sym = r.get("Symbol")
                         if pd.notna(sym):
                             journal_overrides[sym] = {
@@ -2786,7 +2786,7 @@ if True:
 
                 with entry_tab4:
                     st.markdown('<div class="section-sub-lbl">📊 Risk Exposure & Allocation Analytics</div>', unsafe_allow_html=True)
-                    _equity_rp = float(total_portfolio_value or 0.0) + float(balance or 0.0)
+                    _equity_rp = float(total_portfolio_value or 0.0) + float(app_state.balance or 0.0)
                     portfolio_risk_pct = (total_risk / _equity_rp) * 100 if _equity_rp > 0 else 0.0
                     if portfolio_risk_pct <= 1.0:
                         risk_grade = "A+ (Excellent)"
@@ -2808,7 +2808,7 @@ if True:
                         f'<div style="font-size:0.85rem;color:var(--ink-2);margin-top:8px;line-height:1.5;">'
                         f'Total capital at risk from current LTP to Stop Loss is <b style="color:var(--bear);">₹{format_inr_int(total_risk)}</b> '
                         f'on total portfolio equity of <b style="color:#38BDF8;">₹{format_inr_int(_equity_rp)}</b> '
-                        f'(holdings ₹{format_inr_int(total_portfolio_value)} + cash ₹{format_inr_int(balance)}).'
+                        f'(holdings ₹{format_inr_int(total_portfolio_value)} + cash ₹{format_inr_int(app_state.balance)}).'
                         f'</div></div>', unsafe_allow_html=True
                     )
 
@@ -2934,10 +2934,10 @@ if True:
                         st.caption(f"Risk per trade (house rule, `house_policy.py`): {_HP.risk_label()}. "
                                    "The Portfolio Heat card budgets each open position at that rate.")
 
-                    if 'df_active_global' in globals() and not df_active_global.empty:
+                    if 'df_active_global' in globals() and not app_state.df_active_global.empty:
                         # Extract current open positions
                         override_rows = []
-                        for _, r in df_active_global.iterrows():
+                        for _, r in app_state.df_active_global.iterrows():
                             sym = r.get("Symbol")
                             if pd.notna(sym):
                                 override_rows.append({

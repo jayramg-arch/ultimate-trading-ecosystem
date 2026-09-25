@@ -2,11 +2,13 @@
 
 The router computes broker cash, live holdings, the journal frame and the capital figure
 once per rerun, at startup. Pages used to read those as bare module globals, which any page
-could silently rebind for every page after it. They now read one FROZEN object, `ctx`:
+could silently rebind for every page after it. They now read one FROZEN object, `app_state` (not `ctx`: the Golden Matcher and Risk
+Shield pages use that name locally, and pages share the router's namespace):
 
-    ctx.balance  ctx.sys_status  ctx.total_cap  ctx.df_active_global  ctx.df_live_holdings
+    app_state.balance  app_state.sys_status  app_state.total_cap
+    app_state.df_active_global  app_state.df_live_holdings
 
-Frozen means a page cannot reassign a field (`ctx.total_cap = …` raises). The DataFrames
+Frozen means a page cannot reassign a field (`app_state.total_cap = …` raises). The DataFrames
 inside are still mutable objects — a page that edits one in place changes it for later
 pages exactly as before; freezing the container does not change that behaviour.
 
@@ -30,5 +32,5 @@ class Ctx:
     df_live_holdings: pd.DataFrame   # Dhan holdings with LTP / P&L
 
 
-# Names a converted page must read through ctx, never bare (guarded by a test).
+# Names a converted page must read through app_state, never bare (guarded by a test).
 SHARED_NAMES = ("balance", "sys_status", "total_cap", "df_active_global", "df_live_holdings")

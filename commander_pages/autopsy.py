@@ -24,7 +24,7 @@ if True:
         df_closed = df_closed.dropna(subset=['ExitDate'])
 
         with _ap1:
-            analytics = compute_portfolio_analytics(df_closed, total_cap)
+            analytics = compute_portfolio_analytics(df_closed, app_state.total_cap)
             if analytics:
                 section("Closed Trade Summary")
                 o1,o2,o3 = st.columns(3, gap="small")
@@ -290,7 +290,7 @@ if True:
                 if st.button("🤖 Generate + Download AI Review", use_container_width=True, key="ap_ai_dl"):
                     with st.spinner("Generating AI portfolio review…"):
                         try:
-                            _ap_analytics = compute_portfolio_analytics(df_closed, total_cap)
+                            _ap_analytics = compute_portfolio_analytics(df_closed, app_state.total_cap)
                             _ap_review    = generate_portfolio_review(df_closed, _ap_analytics)
                             st.session_state["ap_ai_review"] = _ap_review
                         except Exception as _are:

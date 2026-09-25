@@ -241,7 +241,7 @@ if True:
                     for _c in ["ExitPrice","BuyPrice","Quantity"]:
                         _pr_df[_c] = pd.to_numeric(_pr_df.get(_c,0), errors="coerce").fillna(0)
                     _pr_df["PnL"] = (_pr_df["ExitPrice"] - _pr_df["BuyPrice"]) * _pr_df["Quantity"]
-                    _pr_analytics = compute_portfolio_analytics(_pr_df, total_cap)
+                    _pr_analytics = compute_portfolio_analytics(_pr_df, app_state.total_cap)
                     st.caption(f"{len(_pr_df)} closed trades loaded  |  "
                                f"Win rate {_pr_analytics.get('win_rate',0)}%  |  "
                                f"Profit Factor {_pr_analytics.get('profit_factor',0)}")

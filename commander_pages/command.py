@@ -128,7 +128,7 @@ if True:
                    "catalyst multiplier, +0.5 in a bear regime). SL > Entry = Locked Profit state.")
         # 25-Sep-2026: this was a fifth stop engine - highest HIGH since entry minus an
         # ADR-bucket multiplier - so one position showed two different suggested stops.
-        df_active_cmd = df_active_global
+        df_active_cmd = app_state.df_active_global
         if not df_active_cmd.empty:
             trail_rows = []
             syms_cmd   = tuple(df_active_cmd['Symbol'].unique().tolist())

@@ -20,9 +20,9 @@ if True:
 
         if _src_mode == "🔄 Auto-load from Dhan":
             # Build raw string from df_live_holdings (already fetched at app start)
-            if df_live_holdings is not None and not df_live_holdings.empty:
+            if app_state.df_live_holdings is not None and not app_state.df_live_holdings.empty:
                 _dhan_lines = []
-                for _, _dh_row in df_live_holdings.iterrows():
+                for _, _dh_row in app_state.df_live_holdings.iterrows():
                     _dh_sym = str(_dh_row.get("Symbol", "")).strip()
                     if not _dh_sym:
                         continue
@@ -421,10 +421,10 @@ if True:
         section("Export")
         _px1, _px2 = st.columns(2, gap="small")
         with _px1:
-            if df_live_holdings is not None and not df_live_holdings.empty:
+            if app_state.df_live_holdings is not None and not app_state.df_live_holdings.empty:
                 st.download_button(
                     "📥 Download Holdings (CSV)",
-                    data=df_live_holdings.to_csv(index=False).encode("utf-8"),
+                    data=app_state.df_live_holdings.to_csv(index=False).encode("utf-8"),
                     file_name=f"Holdings_{datetime.now().strftime('%Y%m%d')}.csv",
                     mime="text/csv", use_container_width=True, key="port_dl_csv",
                 )
@@ -442,7 +442,7 @@ if True:
                                     st.session_state["port_holdings_raw"], _port_val)
                                 _px_analytics = _px_ov if isinstance(_px_ov, dict) else {}
                             _px_report = generate_portfolio_review(
-                                df_live_holdings if df_live_holdings is not None else pd.DataFrame(),
+                                app_state.df_live_holdings if app_state.df_live_holdings is not None else pd.DataFrame(),
                                 _px_analytics)
                             st.session_state["port_ai_report"] = _px_report
                         except Exception as _pxe:
