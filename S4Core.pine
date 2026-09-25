@@ -1345,7 +1345,13 @@ export pathResolve(simple bool stage_gate, int stage_n, simple bool use_dd_recov
     string _gmP = str.replace_all(str.replace_all(str.replace_all(str.replace_all(str.upper(gm_pb_list), "NSE:", ""), ";", ","), " ", ""), "\n", ",")
     bool gm_pb = str.length(_gmP) > 0 and str.contains("," + _gmP + ",", "," + str.upper(syminfo.ticker) + ",")
     bool _bel200path = nz(d_bel200, 0.0) > 0.5
-    bool auto_rec = gm_rec or rec_dd or (stage_n == 1 and _bel200path)
+    // THE GM's EXPLICIT PATH WINS (25-Sep-2026, RRKABEL). The drawdown route overrode the
+    // GM's Pullback list: RRKABEL - Stage 2, 18% above a rising 30WMA, on the GM's PB list -
+    // sat 15.2% under its 60-bar HIGH, inside the 15-35% band, so Auto sent it to Recovery,
+    // asked for an RFF score the GM never computes for a Bull name, and would flip path tick
+    // by tick around 15%. The drawdown and stage routes now decide only names the GM has
+    // not classified; a name on the GM's REC list is Recovery, on its PB list is Bull.
+    bool auto_rec = gm_rec or (not gm_pb and (rec_dd or (stage_n == 1 and _bel200path)))
     bool is_rec   = mode == "Recovery" or (mode == "Auto" and auto_rec)
     [stage_skip, gm_rec, gm_pb, is_rec]
 
