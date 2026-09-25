@@ -1456,12 +1456,26 @@ def save_review(symbol: str, tf: str, read_txt: str, review: str, provider: str,
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("# %s · %s · %s\n\n%s\n\n---\n\n## PANEL READ\n\n```\n%s\n```\n"
                  % (sym, tf, ts.strftime("%Y-%m-%d %H:%M IST"), review, read_txt))
+    header = ["ts", "symbol", "tf", "s4_verdict", "ai_ruling", "provider", "file",
+              "my_call", "agreed"] + DERIV_FIELDS
     new = not os.path.exists(LOG_CSV)
+    if not new:
+        # SELF-HEAL THE HEADER (25-Sep-2026). The 16 derivative columns were added to the
+        # rows on 22 Sep but the header was only ever written for a NEW file, so the log
+        # carried a 9-column header over 25-column rows: pandas refused to read it and
+        # s4_take's DictWriter could not rewrite it. If the header is behind, rewrite it
+        # once and pad the older rows; a matching header costs one line read.
+        with open(LOG_CSV, encoding="utf-8", newline="") as fh:
+            rows = list(csv.reader(fh))
+        if rows and rows[0] != header and header[:len(rows[0])] == rows[0]:
+            tmp = LOG_CSV + ".tmp"
+            with open(tmp, "w", encoding="utf-8", newline="") as fh:
+                csv.writer(fh).writerows([header] + [r + [""] * (len(header) - len(r)) for r in rows[1:]])
+            os.replace(tmp, LOG_CSV)
     with open(LOG_CSV, "a", newline="", encoding="utf-8") as fh:
         w = csv.writer(fh)
         if new:
-            w.writerow(["ts", "symbol", "tf", "s4_verdict", "ai_ruling", "provider", "file",
-                        "my_call", "agreed"] + DERIV_FIELDS)
+            w.writerow(header)
         dv = deriv_fields(read_txt)
         w.writerow([ts.strftime("%Y-%m-%d %H:%M"), sym, tf, s4v, _ruling_line(review), provider,
                     os.path.relpath(path, HERE), "", ""] + [dv[k] for k in DERIV_FIELDS])

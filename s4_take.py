@@ -70,7 +70,11 @@ def mark_csv(fn: str, my_call: str, agreed: str) -> bool:
     if not os.path.exists(CSV_PATH):
         return False
     with open(CSV_PATH, encoding="utf-8", newline="") as fh:
-        rows = list(csv.DictReader(fh)); fields = rows[0].keys() if rows else []
+        rd = csv.DictReader(fh)
+        # The file's own header, not the first row's keys: a row longer than the header
+        # arrives with a None key, which DictWriter refuses (the 22-Sep header drift).
+        rows = [{k: v for k, v in r.items() if k is not None} for r in rd]
+        fields = rd.fieldnames or []
     hit = False
     for r in rows:
         if os.path.basename((r.get("file") or "").replace("\\", "/")) == fn:
