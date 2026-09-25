@@ -866,7 +866,7 @@ string S4_VER      = "v11.7"
 // row. Wrapped here it becomes two or three short lines and the table falls back to
 // the width of Confluence/RRG, which is what Jay asked for.
 int PANEL_ROW_WRAP = 96
-string S4_CORE_VER = "56"
+string S4_CORE_VER = "57"
 // S4Core/27 (29-Aug-2026) takes the VP gate as a PARAMETER. A function that indexes its
 // series params must be CALLED on every calculation, or Pine warns that it should be
 // extracted from the scope; so the call sits in global scope and the loop stays behind
@@ -876,7 +876,7 @@ string S4_CORE_VER = "56"
 // fundStr() and bitsRow(), which the two FUNDAMENTALS rows need. Keep S4_CORE_VER above
 // in step with this number -- the panel header prints it, and it had already drifted to
 // 23 while the import was on 24.
-import jayramg/S4Core/56 as core   // bump S4_CORE_VER (line ~860) with this - the panel stamp is hand-kept and Pine cannot read a library version at runtime
+import jayramg/S4Core/57 as core   // bump S4_CORE_VER (line ~860) with this - the panel stamp is hand-kept and Pine cannot read a library version at runtime
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
@@ -6372,7 +6372,7 @@ if show_panel and d_panel and barstate.islast
     [_aVerL, _anColL] = core.verdictRead(
       C_NO, C_OK, C_WARN, _act, _atValue, _band_r, _blk, _blueSky, _cl_r, _degTxt, _extTxt,
       _extV, _off52v, _ovh, _pbLvl, _qArrBad, _qArrGood, _qExt, _qLocWeak, _qRoomBad, _qSupply, 
-      _roomWord, _so_high, _stage2ok, any_pa_v, 999, cf_v, go_v, is_rec_v, momentum_clear, 
+      _roomWord, _so_high, _stage2ok, any_pa_v, go_v, is_rec_v, momentum_clear, 
       pl_entry, pl_rr1, pl_t1, stage_n, stage_skip, support_v, trigAge, trigHi, tt_swing, 
       use_retest, z_inDZ[_so], vol_ok_v, bar_ok_v)
     _aVer  := _aVerL
