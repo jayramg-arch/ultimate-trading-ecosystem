@@ -21,7 +21,8 @@ import sys
 import time
 from collections import Counter
 
-HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+# COMMANDER_ROOT renders another checkout (e.g. the live folder before a merge)
+HERE = os.environ.get("COMMANDER_ROOT") or os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 APP = os.path.join(HERE, "weinstein_commander_web_v4.0.py")
 FIX = os.path.join(HERE, "tests", "fixtures")
 PAGES = ["DASHBOARD", "HUNTER", "WATCHLIST", "COMMAND", "AI LAB", "MACRO", "OPTIONS",
