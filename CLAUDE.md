@@ -3308,3 +3308,25 @@ Branch `house-policy` (worktree `../GVS_house_policy`), merged after 15:30. Ledg
 Bar-replay HBLENGINE/RADICO/TECHNOE at the 25-Sep 10:30 75m bar (board said GO, S4 did not;
 alerts 1 vs a normal 3–6) · Jay: confirm v67 shows "near+next" · AUD-INT-14 journal paths ·
 phase-1 context object (shared globals) now that pages are separate files.
+
+### 25 Sep evening — own-TF zone testing (S4 v10.12 · S4Core/61, compiled, bound, alerts recreated)
+- **Zone "tested" rules follow Jay's doc** (`Zone testing rules.docx`): tested ≠ reacted; a
+  zone is spent only after a reaction AND travel 2× own-TF ATR / EMA20 close-cross / close
+  above the swing high. **HTF zones are judged on their OWN timeframe's closed bar** — a 75m
+  bounce is not a test of a weekly zone. EMA20 = Monthly for M, Weekly for W, Daily for D,
+  125m and 75m. Logic lives in `S4Core.htfBar()` / `S4Core.zoneJudge()`; the board
+  (`zone_engine`) already worked this way. Verified: LAURUSLABS, HBLENGINE now REACTING off
+  DZ on S4, same as the board.
+- **Pivot ZONES are commented out in S4** (token budget). Pivot LEVELS still exist behind
+  `useStructural` (off). Pivot lines and S/R levels are separate families; S/R levels remain
+  location and overhead. **Auto-trendline block stays — Jay will use it soon; do not cut it.**
+  `tv_push_bundles.IN3` follows the renamed input title.
+- **P3 derivatives was already run on 22 Sep** (all four FAIL, H1 backwards) — do not re-run.
+- `journal_path.JOURNAL_DB` is the one journal location (AUD-INT-14, 22 modules).
+- **Parity guard:** `git config core.hooksPath tools/hooks`; a commit touching
+  pa_patterns/strict_trend/stage/STRIKE_CAL needs S4Core/v67 staged or `PARITY-WAIVER:`.
+- Pending library change: S4Core verdict no longer says "not extended" under an EXTENDED
+  headline — needs an S4Core publish + import bump at the next S4 compile.
+- Jay: keep SWG-REV; keep pivot zones commented. Reviewer TAKE rulings (not s4_take) are the
+  sample for scoring the reviewer — build an automatic forward-price scorer.
+- Scheduled: read-only alert-recall check Mon 28 Sep 11:50 IST (`monday-s4-alert-recall-check`).
