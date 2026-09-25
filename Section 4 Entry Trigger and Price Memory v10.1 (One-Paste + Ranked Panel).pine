@@ -853,10 +853,10 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v10.10 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.10", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v10.11 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.11", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.9"
+string S4_VER      = "v11.10"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -1494,6 +1494,7 @@ dashMacWks  = input.source(close, "v67: Macro stage age",  group=grpDash, toolti
 dashSlope50 = input.source(close, "v67: 50-DMA slope",    group=grpDash, tooltip="Bind to s4_slope50. Sign = the 50-DMA direction.")
 dashOi      = input.source(close, "v67: Futures OI",      group=grpDash, tooltip="Bind to s4_oi.")
 dashOiPrev  = input.source(close, "v67: Futures OI prior", group=grpDash, tooltip="Bind to s4_oiPrev. With OI and price direction this gives the four-state read.")
+dashFutPx   = input.source(close, "v67: Futures price chg %", group=grpDash, tooltip="Bind to s4_futPx. The FUTURES daily change v67 pairs with OI, so this panel names the same state as v67's FUTURES OI STATE. Unbound = the cash daily change (the old read).")
 dashRsMomSec = input.source(close, "v67: RS-Momentum vs Sector", group=grpDash, tooltip="Bind to s4_rsMomSec. The second axis of the stock-vs-SECTOR RRG - the sector half of the RRG row is blank without it.\n\nComputed weekly inside v67, in the same request.security that produces the sector RS-Ratio, so it shares a clock with the N500 pair beside it. It was always being calculated there and simply never exported.\n\nUnbound this reads `close`, which is never na - so a dropped binding is caught by the value SHAPE (an RRG coordinate sits near 100) rather than by na(). Every input.source binding in this file is dropped on each recompile, so that is the normal state after a compile, not an edge case.")
 dashRsRatioSec = input.source(close, "v67: RS-Ratio vs Sector", group=grpDash, tooltip="Bind to s4_rsRatioSec. Needed for the sector half of the RS row — a slope alone says direction but not whether RS is above or below the sector.")
 dashRsRatioTrSec = input.source(close, "v67: RS-Ratio trail (sector)", group=grpDash, tooltip="Bind to s4_rsValTrailSec. The sector RRG's trailing x - without it the sector half has no trajectory, so its gradient and BUY-OK/WAIT are degenerate and the row says 'sector trail unbound'.")
@@ -4153,7 +4154,11 @@ f_oiOpt() =>
     [lB, sB, nL, nS, p, mp, ce, pe, atm, pk, ck]
 [oi_longB, oi_shortB, oi_nLong, oi_nShort, opt_pcr, opt_mp, opt_ce, opt_pe, opt_atm, opt_peK, opt_ceK] = f_oiOpt()
 // v10.3: the OI quadrant as a global, on the same DAILY price leg the OI row uses.
-string oi_quad = core.oiQuad(dashOi != close ? dashOi : na, dashOiPrev != close ? dashOiPrev : na, na(d_pxChg) ? close >= close[1] : d_pxChg >= 0)
+// OI PRICE LEG (25-Sep-2026): v67's FUTURES daily change when bound, else the cash daily
+// change. Pairing v67's OI with the cash leg named a different state from v67 on 7.6% of
+// stock-days (14.4% on roll days). An unbound input.source reads `close`, never na.
+bool oiPxUp = (dashFutPx != close and not na(dashFutPx)) ? dashFutPx >= 0 : (na(d_pxChg) ? close >= close[1] : d_pxChg >= 0)
+string oi_quad = core.oiQuad(dashOi != close ? dashOi : na, dashOiPrev != close ? dashOiPrev : na, oiPxUp)
 float _rnStep = close >= 5000 ? 100.0 : close >= 1000 ? 50.0 : close >= 100 ? 10.0 : close >= 10 ? 1.0 : 0.5
 // The level itself, hoisted out of the test so the panel can NAME it (Jay, 1-Aug:
 // "Rnd" alone says a magnet exists but not where it is — and the number is the
@@ -4976,7 +4981,7 @@ f_foldOI(bool okOi, int so) =>
     // PNBHOUSING long unwinding vs short covering, same session). v67 pairs it with
     // the daily futures close; this is the cash close - same sign except on a
     // basis-shift day.
-    bool _pxUp = na(d_pxChg) ? close[so] >= close[so + 1] : d_pxChg >= 0
+    bool _pxUp = oiPxUp
     bool _oiUp = not na(_oiPct) and _oiPct > 0
     string _oiState = na(_oiPct) ? "no F&O" : _pxUp and _oiUp ? "Long build-up" : _pxUp and not _oiUp ? "Short covering" : (not _pxUp) and _oiUp ? "Short build-up" : "Long unwinding"
     [_fHead, _fBasis, _oProse] = core.oiNarrative(_oiPct, _pxUp, _oiUp, oi_basis, oi_built_pct, close[so], opt_pcr, opt_mp, opt_ce, opt_atm, opt_peK, opt_ceK)
@@ -6218,7 +6223,7 @@ if show_panel and d_panel and barstate.islast
              // values do not escape. S4Core derives the state with the same rule
              // oiNarrative uses, so the summary and the OI rows cannot disagree.
              dashOi, dashOiPrev, oi_basis, opt_ceK, pl_t1,
-             na(d_pxChg) ? close[_so] >= close[_so + 1] : d_pxChg >= 0, support_v, of_known)
+             oiPxUp, support_v, of_known)
         // Every cell of the column has to EXIST before it can be merged, so blank the
         // range first, write the text into the top-left cell, then merge. Skipping the
         // blanking pass is the usual reason a vertical merge silently does nothing.

@@ -35,6 +35,7 @@
     "v67: 50-DMA slope":               ["v67", "s4_slope50"],
     "v67: Futures OI":                 ["v67", "s4_oi"],
     "v67: Futures OI prior":           ["v67", "s4_oiPrev"],
+    "v67: Futures price chg %":        ["v67", "s4_futPx"],
     "v67: RS-Ratio vs Sector":         ["v67", "s4_rsRatioSec"],
     // Added 1-Sep-2026 with the stock-vs-SECTOR RRG. The pair was always being
     // computed inside v67's weekly security call and had simply never been plotted,
