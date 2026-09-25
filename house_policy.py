@@ -31,6 +31,11 @@ ETF_RISK_MULT = 1.5                                  # S4 sizes an ETF at 1.5× 
 RISK_NEW_ETF_PCT = RISK_NEW_STOCK_PCT * ETF_RISK_MULT  # 0.75
 RISK_ADD_PCT = 1.0                                   # a pyramid add
 
+# ── Sizing capital (₹) — Jay, 25-Sep-2026: ₹30,00,000. gm_settings `capital` overrides
+#    it (the GM settings panel writes there); this is the house figure when the file is
+#    missing or unreadable, so sizing never depends on a settings file surviving.
+CAPITAL_DEFAULT = 3_000_000.0
+
 # ── Per-trade allocation cap (₹) — S4's `size_max_alloc` default. gm_settings
 #    `max_alloc` overrides it; 0 / missing means "use this", never "uncapped".
 MAX_ALLOC_DEFAULT = 100_000.0
@@ -89,11 +94,12 @@ def sizing_capital() -> tuple[float, str]:
     The declared capital in gm_settings is the sizing base: a deliberate number, stable
     through a drawdown, and the one the GM sizer and Capital Queue already used. Live
     equity (Dhan cash + holdings) is for measuring exposure, not for sizing. When the
-    declaration is missing the answer is NaN with source "unset" — never an invented
-    figure (the old ₹50,00,000 fallback sized real orders off a number nobody chose).
+    settings file has no capital the answer is the HOUSE figure Jay set (CAPITAL_DEFAULT,
+    ₹30,00,000) with source "house default" - a number he chose, unlike the old ₹50,00,000
+    fallback that sized real orders off a number nobody chose.
     """
     v = _num(_settings().get("capital"), 0.0)
-    return (v, "gm_settings") if v > 0 else (float("nan"), "unset")
+    return (v, "gm_settings") if v > 0 else (CAPITAL_DEFAULT, "house default")
 
 
 def max_alloc() -> float:

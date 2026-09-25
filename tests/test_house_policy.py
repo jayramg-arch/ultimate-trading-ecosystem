@@ -40,8 +40,7 @@ def test_sizing_capital_never_invents_a_number(tmp_path, monkeypatch):
     p.write_text(json.dumps({"capital": 0}))
     monkeypatch.setattr(hp, "_GM_SETTINGS", str(p))
     cap, src = hp.sizing_capital()
-    assert cap != cap and src == "unset"          # NaN, not 50,00,000
-    assert hp.size_qty("TITAN", 100, 95)[0] == 0
+    assert cap == 3_000_000 and src == "house default"   # Jay's ₹30L, never ₹50L
     p.write_text(json.dumps({"capital": 3000000, "max_alloc": 0}))
     assert hp.sizing_capital() == (3000000.0, "gm_settings")
     assert hp.max_alloc() == hp.MAX_ALLOC_DEFAULT  # 0 means the house cap, never uncapped

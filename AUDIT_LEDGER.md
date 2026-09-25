@@ -816,12 +816,19 @@ days. And both read near-month OI only: with ≤ 5 days to expiry it fell on 100
 while near+next total ROSE on 43% of them. v67.4.25 sums near+next and exports the futures
 leg; S4 v10.11 binds it (`v67: Futures price chg %`).
 
-**AUD-INT-11 — matcher OI labels swapped — OPEN (Jay's call).** `brute_force_match_pro.py:166`
-scores price-down/OI-down (long unwinding) +0.5 and price-up/OI-down (short covering) −0.5,
-with the labels swapped in the comments. Changes Conviction ranking — not changed without Jay.
+**AUD-INT-11 — matcher OI labels swapped — FIXED (Jay approved 25 Sep).** `brute_force_match_pro.py`
+scored price-down/OI-down (long unwinding) +0.5 as "short covering". Now: long build-up +0.5,
+short build-up −0.5, short covering −0.5 ("do not chase"), long unwinding 0 (weak, not a short).
+Moves Conviction by up to 0.5 on F&O names — rankings shift from the next auto-pilot run.
 
-**AUD-INT-12 — initial stop, three rules — OPEN (Jay's call).** GM/S4: structural ladder capped
-at 2.5×/4.0× ATR; AI-Trade Proposer: ADR-bucket multiple; AI-LAB sniper: 2× ATR default.
+**AUD-INT-12 — initial stop, three rules — FIXED (Jay approved 25 Sep).** The AI-Trade Proposer
+(ADR-bucket multiple, 5% fallback) and the AI-LAB sniper (2× ATR) now use `_house_initial_stop`:
+the GM/S4 ladder (in-zone distal → nearest zone distal → 10-bar swing low, 0.5% buffer, capped
+2.5× / 4.0× ATR) on D/W/M zones built as the GM Daily loader builds them. No stop = no size.
+Verified: TITAN ₹4,748.14 vs S4's panel SL 4748.1.
+
+**Capital (Jay, 25 Sep): ₹30,00,000** — `house_policy.CAPITAL_DEFAULT`, used when gm_settings has
+no capital (the settings value, also ₹30L, wins when present).
 
 Corrections to the audit as first reported: the header "Nifty 500" cell was a 200-DMA fact,
 not a second regime (relabelled); the Strike-RRG paste block had been hidden since 25 Aug;

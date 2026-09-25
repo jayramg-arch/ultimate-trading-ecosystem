@@ -3644,6 +3644,42 @@ def _plan_structural_sl(ctx, entry, atr, ret_src=False):
     return (sl, src) if ret_src else sl
 
 
+def _house_initial_stop(symbol, entry):
+    """The GM/S4 initial stop for a sizer that has no GM context (AUD-INT-12, Jay 25-Sep-2026).
+
+    Same ladder as _plan_structural_sl: in-zone distal -> nearest zone distal below ->
+    10-bar swing low, 0.5% buffer, capped at 2.5xATR (swing) / 4.0xATR (positional), with
+    the zones built exactly as the GM Daily loader builds them (zone_engine on D / W / M).
+    The AI-Trade Proposer used an ADR-bucket multiple and the AI-LAB sniper 2xATR - two
+    more initial-stop rules. Returns (stop, source); (None, why) rather than an invented
+    stop."""
+    try:
+        import data_provider as _dp_hs
+        import zone_engine as _ze_hs
+        import pa_patterns as _pap_hs
+        df = _dp_hs.fetch_ohlcv(symbol, period="5y", interval="1d", use_cache=True, auto_adjust=True)
+        if df is None or len(df) < 60:
+            return None, "not enough daily history"
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        px = float(df["Close"].iloc[-1])
+        zD = _ze_hs.zone_support(df, "D", px)
+        wk = _pap_hs._confirmed_weekly_ohlcv(df)
+        zW = _ze_hs.zone_support(wk, "W", px) if (wk is not None and len(wk) >= 60) else {}
+        mo = _pap_hs._confirmed_month_ohlcv(df)
+        zM = _ze_hs.zone_support(mo, "M", px) if (mo is not None and len(mo) >= 60) else {}
+        basis = _gm_sl_basis((zD, zW, zM), df, "Daily")
+        hi52 = float(df["High"].iloc[-252:].max())
+        s200 = float(df["Close"].rolling(200).mean().iloc[-1]) if len(df) >= 200 else None
+        ctx = {"support": {"sl_basis": basis}, "cmp": px, "sma200": s200,
+               "dist52wh": (px / hi52 - 1.0) * 100.0 if hi52 else None}
+        sl, src = _plan_structural_sl(ctx, float(entry), basis.get("atr"), ret_src=True)
+        return (sl, src) if sl else (None, "no structural or ATR stop below entry")
+    except Exception as e:
+        _gm_logger.warning(f"house initial stop {symbol}: {e}")
+        return None, f"stop computation failed: {type(e).__name__}"
+
+
 # ----------------------------------------------------------------------------------------
 # DECISION WORKFLOW — the sequential path (crucial metrics only)
 # ----------------------------------------------------------------------------------------
@@ -8805,20 +8841,16 @@ elif page == 'AI LAB':
                         prop_sector  = get_sector(prop_sym)   # BUG-15: top-level import
                         rating_res   = get_weinstein_score(symbol=prop_sym, sector=prop_sector,
                                                            ltp=ltp_val, buy_price=prop_entry)
-                        atr_val      = get_atr(prop_sym)
-                        atr_mult     = get_adaptive_atr_multiplier(prop_sym)
-                        suggested_sl = prop_entry - (atr_mult * atr_val) if atr_val > 0 else 0
+                        # The GM/S4 stop ladder (AUD-INT-12), not an ADR multiple, and no
+                        # invented 5% fallback: no stop means no size.
+                        suggested_sl, _sl_src = _house_initial_stop(prop_sym, prop_entry) if prop_entry > 0 else (None, "enter a price")
+                        if not suggested_sl:
+                            st.error(f"No stop: {_sl_src}. Sizing needs a stop below entry.")
+                            suggested_sl = 0.0
+                        else:
+                            st.caption(f"Stop basis: {_sl_src}")
 
-                        # BUG-09 FIX: for a NEW trade proposal, SL must be < entry
-                        # (Trailing SL > entry is only valid for existing trades)
-                        if suggested_sl >= prop_entry and prop_entry > 0:
-                            suggested_sl = prop_entry * 0.95
-                            st.warning("⚠️ ATR-SL would exceed entry — capped at 5% below entry as fallback.")
-                        elif suggested_sl <= 0:
-                            suggested_sl = prop_entry * 0.95
-                            st.warning("⚠️ ATR-SL computed as zero — capped at 5% below entry as fallback.")
-
-                        risk_per_share = prop_entry - suggested_sl
+                        risk_per_share = (prop_entry - suggested_sl) if suggested_sl else 0.0
                         # FORM-03 FIX: risk % is of total_cap, not just available cash
                         qty = int(prop_risk / risk_per_share) if risk_per_share > 0 else 0
                         if prop_entry > 0:
@@ -9135,7 +9167,10 @@ elif page == 'AI LAB':
                     ltp     = info.get("lastPrice", 0.0)
                 if ltp > 0:
                     st.session_state.sniper_entry = round(ltp, 2)
-                    st.session_state.sniper_sl    = round(ltp - (2.0 * atr_val), 2)
+                    # Default stop = the GM/S4 ladder (AUD-INT-12), was ltp - 2xATR.
+                    _sn_sl, _sn_src = _house_initial_stop(sniper_sym_input, ltp)
+                    st.session_state.sniper_sl    = round(_sn_sl, 2) if _sn_sl else 0.0
+                    st.session_state.sniper_sl_src = _sn_src
                 else:
                     st.session_state.sniper_entry = 0.0
                     st.session_state.sniper_sl    = 0.0
@@ -9143,7 +9178,9 @@ elif page == 'AI LAB':
 
         c1, c2, c3 = st.columns([1,1,1], gap="small")
         with c1: sniper_entry = st.number_input("Entry Price ₹", min_value=0.0, step=0.1, key="sniper_entry")
-        with c2: sniper_sl    = st.number_input("Stop Loss ₹",   min_value=0.0, step=0.1, key="sniper_sl")
+        with c2: sniper_sl    = st.number_input("Stop Loss ₹",   min_value=0.0, step=0.1, key="sniper_sl",
+                                                help="Pre-filled from the GM/S4 stop ladder: "
+                                                     + str(st.session_state.get("sniper_sl_src", "—")))
         # House risk, not a slider (25-Sep-2026): this defaulted to 1% on the TOTAL-equity
         # base with a 20% cap, while every other sizer used 0.5% / 0.75% on the declared
         # capital with the ₹ cap. One rule now, from house_policy.
