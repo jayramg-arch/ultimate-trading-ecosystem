@@ -739,3 +739,13 @@ named as negative; confluence n/max described as descriptive, not a grade. S4 �
 panel v11.7. **S4Core publish PENDING** — S4's import stays /56 until Jay reports the version.
 Held by Jay's call: reviewer derivative directives, F&O cheat sheets.
 CLAUDE.md DNA: web app file → v4.0; RS = JdK strike_cal (the `mansfield` fields hold RS-Ratio − 100).
+
+**Correction (25 Sep) — the RRG confluence point was zeroed in error and is restored at 1.**
+AUD-CF-01 listed "RRG +1" among failed factors, and the zeroing cited +0.12pp / +0.00pp.
+That figure was the OLD five-cell whitelist, dragged down by IMPROVING→LEADING (−0.33pp /
+−0.87pp, significantly negative). The term credits only the two surviving cells, and against
+every other cell (`validation_runs/_rrg_diffboot*.log`, 473 symbols): LEADING→LEADING
++0.66pp at 4w CI [+0.35, +0.94] and +0.97pp at 12w CI [+0.31, +1.63]; WEAKENING→LEADING
++0.62 / +1.18pp, same sign, not significant. The panel-row audit tested RS levels (C5/C6),
+not trajectories, so it never covered this term. Default back to 1 in the file (next S4
+compile); set `cf_w_rrg` = 1 on the chart now. Caught by Jay.

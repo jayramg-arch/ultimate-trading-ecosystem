@@ -329,7 +329,7 @@ footer a{color:var(--acc)}
   <div class="tw"><table>
     <thead><tr><th>Date</th><th>Change</th><th>Where on the panel</th></tr></thead>
     <tbody>
-      <tr><td class="m">24 Sep</td><td><b>★strong retired; WCL, RRG and round-number confluence weigh 0</b> (v10.8 / v11.7 on S4Core/57). All three were measured and failed, and the SUMMARY no longer calls the confluence terms "independent facts". The GO markers are one colour.</td><td>Confluence, TRIGGER, VERDICT, SUMMARY</td></tr>
+      <tr><td class="m">24 Sep</td><td><b>★strong retired; WCL and round-number confluence weigh 0</b> (v10.8 / v11.7 on S4Core/57). Both were measured and failed (RRG was zeroed too, in error, and restored at 1 on 25 Sep — its two cells measured positive), and the SUMMARY no longer calls the confluence terms "independent facts". The GO markers are one colour.</td><td>Confluence, TRIGGER, VERDICT, SUMMARY</td></tr>
       <tr><td class="m">24 Sep</td><td><b>Risk default 0.5% — an ETF sizes at 1.5× it, 0.75%</b> (v10.7 / v11.6; was 0.25%). The ETF test is the board bundle, so an ETF not on today's board sizes as a stock — the house rule for a new entry, now the same on S4, the GM sizer and the order gate. The default lands at the next S4 compile; until then the chart input is set by hand. The Golden Matcher now sizes with this panel's Qty-row dynamic risk and computes the same stop ladder, RV and volume profile.</td><td>Qty row</td></tr>
       <tr><td class="m">23 Sep</td><td><b>RRG whitelist is two cells everywhere</b> — LEADING→LEADING and WEAKENING→LEADING, in S4Core, v67 and Python alike (it was five on some surfaces). S4Core/56.</td><td>RS · RRG row, confluence</td></tr>
       <tr><td class="m">22 Sep</td><td><b>OI labels readable and offset</b> — size and offset moved into S4Core's defaults so S4 pays no tokens (it was 14 over the ceiling). v10.6 / panel v11.5.</td><td>Chart labels</td></tr>
@@ -1687,9 +1687,11 @@ R   RRG        chipped, measured, and deliberately off
   EMA20, @AVWAP, Fib, Pinch, RV+, Rnd, D-PA, Arrival, Δ+, WCL, RRG, MTF. <b>Confluence does not
   gate, and it does not grade either:</b> the panel-row audit found the rows correlated and none
   carrying a measurable edge, so read the count as a description of the setup. Since v10.8 (24 Sep)
-  <b>WCL, RRG and Rnd weigh 0</b> — each was tested and failed (Wyckoff as a score: null; the RRG
-  trajectory: +0.12pp at 4 weeks, nothing at 12; round numbers: did not replicate). They still
-  show on the row, unlit, and the inputs remain if you want to turn one back up. <b>★strong is
+  <b>WCL and Rnd weigh 0</b> — each was tested and failed (Wyckoff as a score: null; round
+  numbers: did not replicate). They still show on the row, unlit, and the inputs remain.
+  <b>RRG keeps its point:</b> LEADING→LEADING beat every other cell by +0.66pp at 4 weeks and
+  +0.97pp at 12, both CIs excluding zero; WEAKENING→LEADING points the same way (+0.62 / +1.18pp)
+  without yet reaching significance. It is the best-evidenced factor on the row. <b>★strong is
   retired</b> — a GO is a GO; there is no second tier.</p>
 </section>
 
