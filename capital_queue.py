@@ -160,13 +160,22 @@ def _sector_after(book: pd.DataFrame, sym: str, qty: float, px: float):
         return None, np.nan
 
 
-def build() -> dict:
+def build(cash: float | None = None, count_exits: bool | None = None) -> dict:
+    """`cash` = Dhan available balance (None = unknown). `count_exits` = treat EXIT /
+    REDUCE / TRIM proceeds as money available now; default from gm_settings
+    `queue_count_exits`, False. Jay, 25-Sep-2026: in a deep recovery tape he is holding
+    rather than exiting, so a queue that spends exit proceeds is spending money that
+    does not exist. Off = fund from cash only, exits listed as "if taken"."""
     import pre_trade_gate as ptg
+    import house_policy as hp
     st = _settings()
-    capital = _num(st.get("capital"), 0.0)
-    risk_new = _num(st.get("risk_pct"), 0.5)
-    risk_add = _num(st.get("pyr_risk_pct"), 1.0)
-    max_alloc = _num(st.get("max_alloc"), 0.0)
+    capital = hp.sizing_capital()[0]
+    capital = 0.0 if math.isnan(capital) else capital
+    risk_new = hp.RISK_NEW_STOCK_PCT
+    risk_add = hp.RISK_ADD_PCT
+    max_alloc = hp.max_alloc()
+    if count_exits is None:
+        count_exits = bool(st.get("queue_count_exits", False))
 
     book = load_book()
     held = set(book["Symbol"]) if not book.empty else set()
@@ -227,7 +236,7 @@ def build() -> dict:
         tier = ("A" if (stage_ok and lead and loc == "zone") else
                 "B" if (stage_ok and (lead or loc in ("zone", "level"))) else "C")
         etf = bool(eu and eu.is_etf(sym))
-        rk = risk_add if is_add else (risk_new * (1.5 if etf else 1.0))
+        rk = hp.risk_pct_for(sym, add=is_add)
         qty = math.floor(capital * rk / 100.0 / (entry - sl)) if capital > 0 else 0
         if max_alloc and max_alloc > 0 and entry > 0:
             qty = min(qty, math.floor(max_alloc / entry))
@@ -255,7 +264,7 @@ def build() -> dict:
             "Type": "ADD" if is_add else ("NEW · ETF" if etf else "NEW"),
             "Live": "yes" if r.get("_live", True) else "waiting",
             "Symbol": sym, "Tier": tier, "Tabs": "/".join(r["_tfs"]) or "—",
-            "S4-GO": r.get("S4-GO", ""), "Stage": stage, "RS": rs, "RRG": r.get("RRGeng", ""),
+            "S4-GO": r.get("S4-GO", ""), "Stage": stage, "RS": rs, "RRG": (r.get("RRGeng") if isinstance(r.get("RRGeng"), str) else r.get("RRG", "")),
             "Location": loc, "Sector": sec or r.get("Sector", ""),
             "Sector% after": round(sec_after, 1) if not math.isnan(sec_after) else None,
             "Name wt%": round(name_wt, 1), "Max ρ": round(corr, 2) if not math.isnan(corr) else None,
@@ -270,19 +279,30 @@ def build() -> dict:
         q["_wait"] = q["Live"].ne("yes")
         q = q.sort_values(["_blk", "_wait", "Tier", "_rank"],
                           ascending=[True, True, True, False]).reset_index(drop=True)
-        # funding walk: exits first, then the REDUCE/TRIM share, then new cash
+        # funding walk. count_exits on: exits, then the REDUCE/TRIM share, then cash.
+        # Off (default): cash only — exit proceeds are not money until the exit is taken.
+        cash_v = _num(cash, np.nan)
+        pools = ([("exits", exit_now), ("reduce/trim", could)] if count_exits else [])
+        pools.append(("cash", cash_v if not math.isnan(cash_v) else np.inf))
         cum, fund = 0.0, []
         for amt, blk, live in zip(q["Amount"], q["Blocked"], q["Live"]):
             if blk or live != "yes":
                 fund.append("—")
                 continue
             cum += amt
-            fund.append("exits" if cum <= exit_now else ("exits + reduce/trim" if cum <= exit_now + could else "new cash"))
+            edge, lab = 0.0, "unfunded"
+            for name, size in pools:
+                edge += size
+                if cum <= edge:
+                    lab = name if not (name == "cash" and math.isnan(cash_v)) else "cash (balance unknown)"
+                    break
+            fund.append(lab)
         q["Funded by"] = fund
         q = q.drop(columns=["_rank", "_blk", "_wait"])
     summary = {"exit_now": exit_now, "could_free": could, "n_adds": int((q["Type"] == "ADD").sum()) if not q.empty else 0,
                "n_new": int((q["Type"] != "ADD").sum()) if not q.empty else 0, "book_n": n_open,
-               "capital": capital, "risk_new": risk_new, "risk_add": risk_add}
+               "capital": capital, "risk_new": risk_new, "risk_add": risk_add,
+               "cash": cash, "count_exits": count_exits}
     return {"queue": q, "freed": freed, "summary": summary}
 
 
@@ -300,6 +320,14 @@ def inr(x) -> str:
     return ("-₹" if neg else "₹") + s
 
 
+def _hp_label() -> str:
+    try:
+        import house_policy as hp
+        return hp.risk_label()
+    except Exception:
+        return "house risk"
+
+
 def render(st, res=None):
     """Streamlit block — the same on the Risk Shield and the board."""
     res = res or build()
@@ -310,8 +338,9 @@ def render(st, res=None):
                "board's Overall. Organising tool, not a measured edge: adds and new entries measured "
                "indistinguishable in R (docs/PREREG_add_premise.md), so the choice is made on risk.")
     c1, c2, c3, c4 = st.columns(4)
-    c1.metric("Freed by EXITs", inr(s['exit_now']))
-    c2.metric("Could free (REDUCE ½ · TRIM ⅓)", inr(s['could_free']))
+    c1.metric("Cash available", inr(s.get("cash")) if s.get("cash") is not None else "unknown")
+    c2.metric("Exits + reduce/trim " + ("(counted)" if s.get("count_exits") else "(if taken)"),
+              inr(s['exit_now'] + s['could_free']))
     c3.metric("Candidates", f"{s['n_adds']} add · {s['n_new']} new")
     c4.metric("Book", f"{s['book_n']} open")
     if q is None or q.empty:
@@ -322,7 +351,10 @@ def render(st, res=None):
             qv[c] = qv[c].map(inr) if c == "Amount" else qv[c].map(lambda v: f"₹{v:,.2f}" if v < 1000 else inr(v))
         st.dataframe(qv, hide_index=True, use_container_width=True)
         st.caption("Tier A = " + TIER_NOTE["A"] + " · B = " + TIER_NOTE["B"] + " · C = " + TIER_NOTE["C"]
-                   + ". Qty sizes at the house risk (new 0.5% · ETF 0.75% · add 1%) and the Max ₹/trade cap from the GM settings.")
+                   + ". Qty sizes at the house risk (" + _hp_label() + ") and the Max ₹/trade cap. "
+                   + ("Funding counts EXIT/REDUCE/TRIM proceeds as available." if s.get("count_exits")
+                      else "Funding is CASH ONLY — exit proceeds are not counted until you take the exit "
+                           "(GM settings → queue_count_exits to change)."))
     if f is not None and not f.empty:
         with st.expander("Where the money comes from — EXIT / REDUCE / TRIM holdings"):
             fv = f.copy()

@@ -649,7 +649,8 @@ def get_precomputed_classifications() -> pd.DataFrame:
     try:
         from market_regime import compute_regime as _creg
         _rscore = _creg(persist=False).get("score")
-        _bear = (_rscore is not None and _rscore <= 5)
+        import house_policy as _hp
+        _bear = _hp.is_bear(_rscore)
     except Exception:
         _bear = False
 
@@ -734,7 +735,8 @@ def render_pyramid_trim(df_precomputed: pd.DataFrame = None):
         try:
             from market_regime import compute_regime as _creg
             _rscore = _creg(persist=False).get("score")
-            _bear = (_rscore is not None and _rscore <= 5)
+            import house_policy as _hp
+            _bear = _hp.is_bear(_rscore)
         except Exception:
             _bear = False
 

@@ -164,7 +164,8 @@ def recommend_actions(buy_price: float, stop_loss: float, ltp: float,
                                                           setup=setup or None,
                                                           entry=buy_price, stop=stop_loss,
                                                           atr_pct=(atr / ltp * 100.0) if (atr and ltp) else None)
-                _bear = bool(_regime.get("active")) and (_regime.get("regime_score") or 10) <= 5
+                import house_policy as _hp
+                _bear = bool(_regime.get("active")) and _hp.is_bear(_regime.get("regime_score"))
                 _lvl, _mult, _src = _rc.chandelier_exit(df_d["High"], df_d["Low"], df_d["Close"],
                                                         setup=setup or "", bear=_bear, swing=_is_swing)
                 if _lvl is not None:

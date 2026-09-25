@@ -52,6 +52,7 @@ from ai_grading_engine import get_weinstein_score
 import yfinance as yf
 from pine_generator import generate_pine_code
 import risk_common as _rc
+import house_policy as _HP   # the ONE home of risk %, capital, caps, regime (25-Sep-2026)
 # ── v4.0 Phase-1 imports ─────────────────────────────────────────────────────
 try:
     from rrg_engine import (
@@ -802,7 +803,7 @@ def compute_portfolio_analytics(df_closed, total_cap):
 
         # Sharpe / Sortino (using daily grouped PnL as proxy returns)
         daily = dfc.groupby(dfc['ExitDate'].dt.date)['PnL'].sum()
-        daily_ret = daily / total_cap * 100  # daily return %
+        daily_ret = (daily / total_cap * 100) if total_cap > 0 else daily * float("nan")  # daily return %
         rf_daily  = 6.5 / 252                 # 6.5% India T-bill
         excess    = daily_ret - rf_daily
         sharpe    = float(excess.mean() / excess.std() * np.sqrt(252)) if excess.std() > 0 else 0
@@ -869,7 +870,9 @@ else:
     noise_count_g, noise_syms_g = 0, []
 
 h_color = "var(--bull)" if is_healthy        else "var(--bear)"
-h_text  = "BULLISH" if is_healthy        else "BEARISH (<200DMA)"
+# A FACT, not a regime (25-Sep-2026): the Market Regime cell beside it is the house
+# regime (house_policy / regime_state.json). "BULLISH" here used to read as a second verdict.
+h_text  = "Above 200-DMA" if is_healthy  else "Below 200-DMA"
 w_color = "var(--bear)" if noise_count_g > 0 else "var(--bull)"
 w_text  = f"⚠ {noise_count_g} AT RISK"  if noise_count_g > 0 else "✔ SECURE"
 s_color = "var(--bull)" if sys_status == "SYSTEM ONLINE" else "var(--bear)"
@@ -877,7 +880,12 @@ s_color = "var(--bull)" if sys_status == "SYSTEM ONLINE" else "var(--bear)"
 total_deployed_g = live_dep
 open_pos         = live_pos
 # FORM-03 FIX: total_cap = full portfolio equity (basis for all sizing/risk)
-total_cap    = balance + total_deployed_g if (balance + total_deployed_g) > 0 else 5_000_000
+# No invented fallback (25-Sep-2026): the old ₹50L fallback made every % below look plausible
+# when Dhan was down. Fall back to the DECLARED capital, else 0 (the % cells read 0).
+_live_cap = balance + total_deployed_g
+_decl_cap = _HP.sizing_capital()[0]
+total_cap = _live_cap if _live_cap > 0 else (_decl_cap if _decl_cap == _decl_cap else 0.0)
+TOTAL_CAP_IS_LIVE = _live_cap > 0
 deployed_pct = round((total_deployed_g / total_cap) * 100, 1) if total_cap > 0 else 0.0
 
 # Check query parameters for pop-out views (open in a new browser window/tab):
@@ -2587,6 +2595,32 @@ def _gm_settings_save(**kw):
         _gm_logger.warning(f"gm_settings save failed (capital/risk/TF not persisted): {e}")
 
 
+def _cq_build_now():
+    """Capital Queue build with the two live inputs it cannot fetch itself: the Dhan
+    cash balance (None when the broker is not answering - shown as unknown, never 0)
+    and whether EXIT/REDUCE/TRIM proceeds count as money (gm_settings, default OFF).
+    Jay, 25-Sep-2026: in a deep recovery tape he is holding, not exiting."""
+    import capital_queue as _cq
+    _cash = None
+    try:
+        if sys_status == "SYSTEM ONLINE":
+            _cash = float(balance)
+    except Exception:
+        _cash = None
+    return _cq.build(cash=_cash, count_exits=bool(_gm_settings().get("queue_count_exits", False)))
+
+
+def _cq_exit_toggle(key):
+    """One persisted switch for both queue surfaces (board expander, Risk Shield tab)."""
+    cur = bool(_gm_settings().get("queue_count_exits", False))
+    v = st.checkbox("Count EXIT / REDUCE / TRIM proceeds as available", value=cur, key=key,
+                    help="OFF (default): the queue is funded from Dhan cash only; exit proceeds are "
+                         "shown as 'if taken'. ON: exits first, then the REDUCE/TRIM share, then cash.")
+    if v != cur:
+        _gm_settings_save(queue_count_exits=v)
+        st.session_state.pop("cq_res", None)
+
+
 def _gm_use_pivot_zones() -> bool:
     """Pivot (structural) zones on/off — persisted in gm_settings.json.
 
@@ -3601,13 +3635,6 @@ GM_LOC_STRICT = True
 # A2: a PIVOT shelf alone is not location; it needs one more source. Mirrors
 # S4's `loc_pivot_needs_confluence`. Set ZONE_USE_STRUCTURAL=0 for pattern-only.
 GM_PIVOT_NEEDS_CONFLUENCE = True
-# Show the three per-quadrant Strike-RRG paste blocks under the Trigger Board.
-# OFF (Jay, 25-Aug-2026): they existed so each quadrant could be pasted into S4 by
-# hand, and the one-paste bundle now carries RRGL/RRGI/RRGW, so the blocks are three
-# code boxes of screen for a paste nobody needs to make any more. The lists are still
-# COMPUTED (s4_rrg_lists) and still reach the chart through the bundle -- this hides
-# the UI, it does not disconnect the feature.
-SHOW_RRG_PASTE_BLOCKS = False
 
 
 def _gm_bff_gate(ctx):
@@ -3765,7 +3792,7 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
     if entry and sl_pct is not None:
         sl = entry * (1 - sl_pct / 100); t1 = entry * (1 + t1_pct / 100) if t1_pct else None
         rr = (t1_pct / sl_pct) if (t1_pct and sl_pct) else None
-        plan = (f"Set SL {inr(sl)} (-{sl_pct:.1f}%), size at 0.25% risk, place order + GTT. "
+        plan = (f"Set SL {inr(sl)} (-{sl_pct:.1f}%), size at {_HP.risk_label()} risk, place order + GTT. "
                 f"Target T1 {inr(t1)} ({fnum(rr,1)}R).")
     else:
         sl = t1 = None
@@ -3803,7 +3830,7 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
             rr = (t1 - entry) / (entry - sl)
         plan = (f"Buy-STOP above the trigger bar · SL {inr(sl)} ({_ssl_src}, −{sl_pct:.1f}%)"
                 + (f" · T1 {inr(t1)} ({fnum(rr,1)}R)" if (t1 and rr) else "")
-                + " · size at 0.25% risk.")
+                + f" · size at {_HP.risk_label()} risk.")
     elif entry and sl is not None and _atr and _atr > 0 and (entry - sl) > 3.0 * _atr:
         sl = entry - 2.5 * _atr                    # cap even the screener/EMA20 SL if it's too far
         sl_pct = (entry - sl) / entry * 100.0
@@ -3811,7 +3838,7 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
             rr = (t1 - entry) / (entry - sl)
         plan = (f"Buy-STOP above the trigger bar · SL {inr(sl)} (ATR-capped, −{sl_pct:.1f}%)"
                 + (f" · T1 {inr(t1)} ({fnum(rr,1)}R)" if (t1 and rr) else "")
-                + " · size at 0.25% risk.")
+                + f" · size at {_HP.risk_label()} risk.")
 
     # ── Step-4 "room" rule: R:R (the real reward-room off the disciplined stop) +
     # EMA20 extension/direction. EMA20 (daily) = support above / resistance below.
@@ -4231,7 +4258,7 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
 
     if entry and sl:
         plan = (f"Set SL {inr(sl)}" + (f" (-{sl_pct:.1f}%)" if sl_pct is not None else "") +
-                f", size at 0.25% risk, place order + GTT. "
+                f", size at {_HP.risk_label()} risk, place order + GTT. "
                 f"Target T1 {inr(t1)}" + (f" ({fnum(rr,1)}R)" if rr is not None else "") +
                 (f", T2 {inr(t2)}" if t2 else "") + ".")
     else:
@@ -8726,7 +8753,12 @@ elif page == 'AI LAB':
         p1, p2, p3 = st.columns([2,1,1], gap="small")
         with p1: prop_sym   = st.text_input("Ticker Symbol", key="prop_sym", placeholder="e.g. RELIANCE").upper()
         with p2: prop_entry = st.number_input("Entry Price", min_value=0.0, step=0.1, key="prop_entry")
-        with p3: prop_risk  = st.number_input("Risk ₹", value=5000, step=500, key="prop_risk")
+        # House risk in rupees (25-Sep-2026) - was a flat ₹5,000 (~0.17% of ₹30L), a fifth
+        # sizing rule. Now declared capital x house_policy.risk_pct_for(symbol).
+        _pp_cap = _HP.sizing_capital()[0]
+        prop_risk = (_pp_cap * _HP.risk_pct_for(prop_sym or "") / 100.0) if _pp_cap == _pp_cap else 0.0
+        with p3: st.metric("Risk ₹", format_inr_int(prop_risk) if prop_risk else "capital unset",
+                           help=f"House rule {_HP.risk_label()} of the declared capital (GM settings).")
 
         if st.button("🛫  Run Analysis\nScore and size a new trade before execution.\n→  Analyse Now", type="primary", use_container_width=True, key="btn_analysis"):
             if not prop_sym:
@@ -8757,6 +8789,8 @@ elif page == 'AI LAB':
                         risk_per_share = prop_entry - suggested_sl
                         # FORM-03 FIX: risk % is of total_cap, not just available cash
                         qty = int(prop_risk / risk_per_share) if risk_per_share > 0 else 0
+                        if prop_entry > 0:
+                            qty = min(qty, int(_HP.max_alloc() // prop_entry))   # per-trade ₹ cap
 
                         r1, r2, r3, r4 = st.columns(4)
                         r1.metric("Weinstein Grade", rating_res.get('rating', 'N/A'))
@@ -9078,21 +9112,31 @@ elif page == 'AI LAB':
         c1, c2, c3 = st.columns([1,1,1], gap="small")
         with c1: sniper_entry = st.number_input("Entry Price ₹", min_value=0.0, step=0.1, key="sniper_entry")
         with c2: sniper_sl    = st.number_input("Stop Loss ₹",   min_value=0.0, step=0.1, key="sniper_sl")
-        with c3: risk_pct     = st.slider("Max Risk %", min_value=0.25, max_value=2.0, value=1.0, step=0.25, key="sniper_risk_pct")
+        # House risk, not a slider (25-Sep-2026): this defaulted to 1% on the TOTAL-equity
+        # base with a 20% cap, while every other sizer used 0.5% / 0.75% on the declared
+        # capital with the ₹ cap. One rule now, from house_policy.
+        risk_pct = _HP.risk_pct_for(sniper_sym_input or "")
+        _sn_cap, _sn_src = _HP.sizing_capital()
+        with c3: st.metric("House risk", f"{risk_pct:g}%",
+                           help=f"house_policy.py — {_HP.risk_label()}. Capital: "
+                                f"{('₹' + format_inr_int(_sn_cap)) if _sn_cap == _sn_cap else 'NOT SET'} ({_sn_src}).")
 
         if sniper_sym_input and sniper_entry > 0 and sniper_sl > 0 and sniper_entry > sniper_sl:
             risk_per_share = sniper_entry - sniper_sl
             risk_pct_of_entry = (risk_per_share / sniper_entry) * 100
-            # FORM-03 + BUG-04 FIX: use total_cap (full portfolio equity) for all sizing
-            max_risk_rupees  = total_cap * (risk_pct / 100.0)
+            # Sizing base = the declared capital (house_policy.sizing_capital); the cap is the
+            # per-trade ₹ cap. No capital declared → no quantity, never an invented base.
+            _sn_base = _sn_cap if _sn_cap == _sn_cap else 0.0
+            if not _sn_base:
+                st.error("Set Capital in the Golden Matcher settings — sizing refuses to invent a capital base.")
+            max_risk_rupees  = _sn_base * (risk_pct / 100.0)
             sniper_qty       = math.floor(max_risk_rupees / risk_per_share) if risk_per_share > 0 else 0
 
-            # BUG-04 FIX: 20% cap on total_cap (not just available cash)
-            max_cap_allowed = total_cap * 0.20
+            max_cap_allowed = _HP.max_alloc()
             capped_reason   = ""
             if sniper_qty * sniper_entry > max_cap_allowed:
                 sniper_qty    = math.floor(max_cap_allowed / sniper_entry)
-                capped_reason = f"Capped at 20% of Total Capital: ₹{format_inr_int(max_cap_allowed)}"
+                capped_reason = f"Capped at the per-trade limit ₹{format_inr_int(max_cap_allowed)}"
 
             trade_value = sniper_qty * sniper_entry
             target_2r   = sniper_entry + (risk_per_share * 2)
@@ -14296,56 +14340,7 @@ elif page == 'GOLDEN MATCHER':
                         st.caption("↩️ **S4 Pullback list · 0 names** — no pullback-only names in "
                                    "the current union. Clear S4's input; S4 falls back to inferring "
                                    "the setup from the pattern mix.")
-                    # RRG paste blocks hidden 25-Aug-2026 -- see SHOW_RRG_PASTE_BLOCKS. The lists
-                    # still reach S4 through the one-paste bundle above; only the UI is gone.
-                    if SHOW_RRG_PASTE_BLOCKS:
-                        # ── S4 "GM RRG" lists (10-Aug-2026) — the MANUAL Strike.Money read.
-                        # Third handoff on the same pattern. S4 computes its own quadrant from
-                        # v67's RS-Ratio/RS-Momentum; Jay reads his off Strike.Money on the WEEKLY
-                        # chart and types it into the board, and that is the one he trades. When
-                        # they disagree the manual read wins, so it has to reach the chart.
-                        # WEEKLY cadence — unlike the two lists above, this does NOT need
-                        # re-pasting after every auto-pilot run, only after a weekend RRG update.
-                        try:
-                            _s4rrg = _gtb.s4_rrg_lists(_uni) or {}
-                        except Exception as e:
-                            _s4rrg = {}
-                            _gm_logger.warning(f"s4_rrg_lists failed: {e}")
-                        _rrg_n = sum(len([x for x in v.split(",") if x]) for v in _s4rrg.values())
-                        if _rrg_n:
-                            _age_txt = ""
-                            try:
-                                _rp = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                                   "gm_rrg_flags.json")
-                                import time as _time_mod
-                                _ad = (_time_mod.time() - os.path.getmtime(_rp)) / 86400.0
-                                # An RRG read is a WEEKLY act, so >10 days is a real staleness
-                                # signal, not pedantry — a month-old quadrant is a different market.
-                                _age_txt = (f" · flags **{_ad:.0f}d old**"
-                                            + (" ⚠ update over the weekend" if _ad > 10 else ""))
-                            except Exception:
-                                pass
-                            _lagn = len([x for x in (_s4rrg.get("Lagging") or "").split(",") if x])
-                            st.caption(f"🧭 **Strike RRG · {_rrg_n} names**{_age_txt} — paste each into "
-                                       f"S4's matching *Strike RRG* input. **Lagging is not pasted**: an "
-                                       f"RRG has four quadrants, so S4 infers it by elimination from the "
-                                       f"three below"
-                                       + (f" ({_lagn} name{'s' if _lagn != 1 else ''} you flagged Lagging "
-                                          f"will resolve that way automatically)" if _lagn else "")
-                                       + ". This is **additive** — S4's own computed quadrant keeps its "
-                                         "own row directly above.")
-                            for _q in ("Leading", "Improving", "Weakening"):
-                                _v = _s4rrg.get(_q, "")
-                                if _v:
-                                    st.caption(f"*Strike RRG: {_q}* · {len([x for x in _v.split(',') if x])}")
-                                    st.code(_v, language=None)
-                                else:
-                                    # An EMPTY list still has to be cleared in S4, or last week's
-                                    # names keep resolving. Say so rather than rendering nothing.
-                                    st.caption(f"*Strike RRG: {_q}* · 0 — clear this input in S4.")
-                        else:
-                            st.caption("🧭 **S4 RRG lists · 0 names** — no manual RRG flags match the "
-                                       "current union. Set them on the board's RRG column first.")
+                    # (Manual Strike-RRG paste block deleted 25-Sep-2026 - RRG is computed.)
 
                     # ── S4 BFF / RFF SCORE lists (25-Aug-2026) — the FOURTH handoff, and the
                     # one S4 cannot approximate at all. RFF needs six fundamental fields plus
@@ -14572,29 +14567,6 @@ elif page == 'GOLDEN MATCHER':
             # the SHARED header above — visible in every mode. This path only draws
             # the editable table for the filtered view.)
 
-            # Apply pending edits from session_state before rendering to prevent vanishing
-            _editor_state = st.session_state.get("gm_board_editor")
-            if _editor_state and _editor_state.get("edited_rows"):
-                _rrg = _gtb.rrg_load()
-                # Same SHARED filter as the editor below → edited-row indices align.
-                _view_temp = _board_apply_filters(_bdf)
-                _changed_top = False
-                for _idx_str, _edit_dict in _editor_state["edited_rows"].items():
-                    try:
-                        _idx = int(_idx_str)
-                        if 0 <= _idx < len(_view_temp):
-                            _sym = _view_temp.iloc[_idx]["Symbol"]
-                            if "RRG" in _edit_dict:
-                                _new_val = _edit_dict["RRG"]
-                                if _rrg.get(_sym, "—") != _new_val:
-                                    _rrg[_sym] = _new_val
-                                    _changed_top = True
-                    except Exception as e:
-                        _gm_logger.warning(f"board: pending RRG edit apply failed: {e}")
-                if _changed_top:
-                    _gtb.rrg_save(_rrg)
-
-            _rrg = _gtb.rrg_load()
             _view = _board_apply_filters(_bdf)      # SHARED filter (see header block)
             _edited = st.data_editor(
                 # use_container_width=False (3-Aug): with it TRUE, Streamlit stretches or
@@ -14617,9 +14589,12 @@ elif page == 'GOLDEN MATCHER':
                         help="Top-Conviction badge — the name is in FINAL_WATCHLIST.csv, i.e. the "
                              "top-25 by Combined_Score across all bull+recovery picks (the Golden "
                              "Matcher shortlist). A quality flag layered on top of the archetype."),
-                    "RRG": st.column_config.SelectboxColumn(
-                        "RRG Flag", options=_gtb.RRG_QUADRANTS, width=135,
-                        help="Set from Strike.Money — persists per symbol."),
+                    "RRG": st.column_config.TextColumn(
+                        "RRG", width=110,
+                        help="COMPUTED quadrant — JdK RS-Ratio/Momentum (strike_cal, the RRG Studio "
+                             "maths) on confirmed weekly bars vs Nifty 500. The hand-typed RRG flag "
+                             "was retired 25-Sep-2026: it had gone 39 days stale and contradicted "
+                             "this on half the flagged names."),
                     "Overall": st.column_config.ProgressColumn(
                         "Overall", min_value=0, max_value=100, format="%.0f", width=105,
                         help="0-100 opportunity score — Leadership(Alpha+Minervini)/Fundamentals(Conviction/"
@@ -14645,15 +14620,9 @@ elif page == 'GOLDEN MATCHER':
                         "VP Position", width=135,
                         help="Volume Profile Position: ✓ ABOVE VAH, ✓ IN VA (upper), ✗ IN VA (lower), ✗ BELOW VAL."),
                 },
-                disabled=[c for c in _view.columns if c != "RRG"],
+                disabled=[c for c in _view.columns if c != "Arm"],
             )
             _changed = False
-            for _, _row in _edited.iterrows():
-                _s = _row["Symbol"]; _v = _row["RRG"]
-                if _rrg.get(_s, "—") != _v:
-                    _rrg[_s] = _v; _changed = True
-            if _changed:
-                _gtb.rrg_save(_rrg)
             # Arm ticks — SAME shared write-back the streaming grid uses.
             if _gm_apply_arm_edits(_edited):
                 _changed = True
@@ -14939,9 +14908,12 @@ elif page == 'GOLDEN MATCHER':
             """RRG overlay + the 4 session_state filters + sort — the ONE filter
             definition the static editor, the streaming grid AND the CSV download
             all share, so they can never disagree."""
-            _rrgf = _gtb.rrg_load()
             v = bdf.copy()
-            v["RRG"] = v["Symbol"].map(lambda s: _rrgf.get(s, "—"))
+            # RRG = the COMPUTED quadrant (25-Sep-2026). A cache built before then
+            # carries it as "RRGeng" beside a stale manual "RRG"; fold it across.
+            if "RRGeng" in v.columns:
+                v["RRG"] = v["RRGeng"].fillna("—")
+                v = v.drop(columns=["RRGeng"])
             for _key, _col in (("gm_bf_cat", "Category"), ("gm_bf_rrg", "RRG"),
                                ("gm_bf_tier", "Tier"), ("gm_bf_path", "Path")):
                 _sel = st.session_state.get(_key) or []
@@ -15085,13 +15057,14 @@ elif page == 'GOLDEN MATCHER':
         with st.expander("💰 Capital Queue — where the next rupee goes (adds vs new names)", expanded=False):
             try:
                 import capital_queue as _cq
+                _cq_exit_toggle("cq_exits_board")
                 if st.button("Build / rebuild the queue", key="cq_rebuild_board"):
-                    st.session_state["cq_res"] = _cq.build()
+                    st.session_state["cq_res"] = _cq_build_now()
                 if "cq_res" in st.session_state:
                     _cq.render(st, st.session_state["cq_res"])
                 else:
                     st.caption("Press the button to rank today's live names and ADD-rated holdings "
-                               "against the capital your EXITs free. Same queue as Risk Shield → 💰 Capital Queue.")
+                               "against your available cash. Same queue as Risk Shield → 💰 Capital Queue.")
             except Exception as _cqe:
                 st.error(f"Capital queue failed: {type(_cqe).__name__}: {_cqe}")
 
@@ -15227,7 +15200,6 @@ elif page == 'GOLDEN MATCHER':
                         return
                     # SHARED filter — identical to the static editor + CSV download,
                     # and now user-adjustable via the header multiselects in this mode.
-                    _rrg = _gtb.rrg_load()
                     _v = _board_apply_filters(_bdf)
                     # (2) FAST live-price overlay every 3s from the streaming feed
                     def _ltp(s):
@@ -15315,12 +15287,10 @@ elif page == 'GOLDEN MATCHER':
                             "if(v.indexOf('3/4')>=0)return{'color':'var(--warn)','fontWeight':'600'};"
                             "if(v.indexOf('2/4')>=0)return{'color':'#ff9800'};"
                             "return{'color':'#787b86'};}"))
-                    _gb.configure_column("RRG", editable=True, cellEditor="agSelectCellEditor",
-                                         cellEditorParams={"values": _gtb.RRG_QUADRANTS})
                     if "Arm" in _v.columns:
                         # Boolean + editable renders AG-Grid's native checkbox, and the
-                        # VALUE_CHANGED update mode already round-trips edits (that is how
-                        # RRG persists), so no extra plumbing is needed.
+                        # VALUE_CHANGED update mode already round-trips edits, so no extra
+                        # plumbing is needed.
                         _gb.configure_column("Arm", editable=True, pinned="left", width=52,
                                              cellRenderer="agCheckboxCellRenderer",
                                              cellEditor="agCheckboxCellEditor")
@@ -15356,17 +15326,6 @@ elif page == 'GOLDEN MATCHER':
                                    height=(880 if is_max_board else 560), theme="streamlit",
                                    allow_unsafe_jscode=True, reload_data=False,
                                    update_mode=GridUpdateMode.VALUE_CHANGED, key="gm_aggrid")
-                    # persist RRG edits made in the grid
-                    try:
-                        _ch = False
-                        for _, _rr in _resp["data"].iterrows():
-                            _s = _rr["Symbol"]; _vv = _rr.get("RRG", "—")
-                            if _rrg.get(_s, "—") != _vv:
-                                _rrg[_s] = _vv; _ch = True
-                        if _ch:
-                            _gtb.rrg_save(_rrg)
-                    except Exception as e:
-                        _gm_logger.warning(f"stream grid: RRG edit persist failed: {e}")
                     # Arm ticks — SAME shared write-back the data_editor path uses.
                     try:
                         if _gm_apply_arm_edits(_resp["data"]):
@@ -15411,17 +15370,15 @@ elif page == 'GOLDEN MATCHER':
                                           value=float(_gmset.get("capital", 0.0)),
                                           format="%.0f", key="gm_capital",
                                           help="Trading capital used for position sizing.")
+        # Risk % is a HOUSE RULE, not a setting (house_policy.py, 25-Sep-2026) - shown, not
+        # edited, so this panel can no longer drift from the queue, the sniper or Risk Shield.
+        _gm_riskpct = _HP.RISK_NEW_STOCK_PCT
+        _gm_pyrrisk = _HP.RISK_ADD_PCT
         with _szc2:
-            _gm_riskpct = st.number_input("Risk %", min_value=0.05, max_value=2.0, step=0.05,
-                                          value=float(_gmset.get("risk_pct", 0.5)),   # house new-entry risk (Jay, 24-Sep-2026) — same as S4 size_risk
-                                          key="gm_riskpct",
-                                          help="Stock base risk for a new entry (house rule 0.5%). An ETF sizes "
-                                               "at 1.5x this (0.75%), the same factor S4 applies.")
+            st.metric("Risk %", f"{_gm_riskpct:g}", help=f"House rule: {_HP.risk_label()}. "
+                      "An ETF sizes at 1.5x the stock base, the same factor S4 applies. Change it in house_policy.py.")
         with _szc3:
-            _gm_pyrrisk = st.number_input("Add risk %", min_value=0.05, max_value=3.0, step=0.05,
-                                          value=float(_gmset.get("pyr_risk_pct", 1.0)),
-                                          key="gm_pyrriskpct",
-                                          help="Risk unit for a PYRAMID add.")
+            st.metric("Add risk %", f"{_gm_pyrrisk:g}", help="House rule for a PYRAMID add (house_policy.py).")
         with _szc5:
             # MAX ALLOCATION (5-Aug-2026, Jay: "I'm limiting my amount per trade to 1 lakh").
             # Mirrors S4's size_max_alloc so the two surfaces cannot disagree about size —
@@ -15434,7 +15391,8 @@ elif page == 'GOLDEN MATCHER':
                                            value=float(_gmset.get("max_alloc", 0.0)),
                                            format="%.0f", key="gm_maxalloc",
                                            help="Hard rupee ceiling on one position: Qty = min(risk-based qty, "
-                                                "this ÷ entry). 0 = no cap. Set it to the same value as S4's "
+                                                "this ÷ entry). 0 = the house default ₹1,00,000 (S4's), never "
+                                                "uncapped. Set it to the same value as S4's "
                                                 "'Max allocation per trade (₹)' or the two surfaces will size "
                                                 "differently.")
         with _szc4:
@@ -15447,19 +15405,16 @@ elif page == 'GOLDEN MATCHER':
                 key="gm_trig_tf",
                 help="Shared with the Trigger Board.")
         _lv_now = st.session_state.get("gm_board_live")
-        if (_gm_capital != _gmset.get("capital")) or (_gm_riskpct != _gmset.get("risk_pct")) \
+        if (_gm_capital != _gmset.get("capital")) \
                 or (_gm_trig_tf != _gmset.get("trigger_tf")) \
-                or (_gm_pyrrisk != _gmset.get("pyr_risk_pct")) \
                 or (_gm_maxalloc != _gmset.get("max_alloc")) \
                 or (_lv_now and _lv_now != _gmset.get("board_live")):
             if TF_LOCK:
                 _gm_settings_save(board_live=_lv_now, capital=_gm_capital,
-                                  risk_pct=_gm_riskpct, pyr_risk_pct=_gm_pyrrisk,
                                   max_alloc=_gm_maxalloc)
             else:
-                _gm_settings_save(board_live=_lv_now, capital=_gm_capital, risk_pct=_gm_riskpct,
-                                  trigger_tf=_gm_trig_tf, pyr_risk_pct=_gm_pyrrisk,
-                                  max_alloc=_gm_maxalloc)
+                _gm_settings_save(board_live=_lv_now, capital=_gm_capital,
+                                  trigger_tf=_gm_trig_tf, max_alloc=_gm_maxalloc)
 
         if not symbol:
             st.info("Enter an NSE symbol in the sidebar.")
@@ -15906,7 +15861,7 @@ elif page == 'GOLDEN MATCHER':
                         _is_etf = _etfu.is_etf(symbol)
                     except Exception as _ez:
                         _gm_logger.warning(f"{symbol}: ETF lookup failed, sizing as a stock: {_ez}")
-                    _base_pct = float(_gm_riskpct) * (1.5 if _is_etf else 1.0)
+                    _base_pct = _HP.risk_pct_for(symbol)   # house rule, ETF x1.5 included
                     _dyn = None
                     try:
                         import s4_sizing as _s4z
@@ -15992,7 +15947,7 @@ elif page == 'GOLDEN MATCHER':
                         ("alert", f"2 · Set the TradingView alert at the zone proximal {inr(_z_prox)}"),
                         ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
                         ("stop",  _step4),
-                        ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
+                        ("size",  f"5 · Set SL below the zone distal · size at {_HP.risk_label()} risk"),
                         ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
                     ]
                 else:
@@ -16002,7 +15957,7 @@ elif page == 'GOLDEN MATCHER':
                         ("alert", "2 · Set a TradingView alert at the zone proximal"),
                         ("close", "3 · Wait for a 75/125m bar to CLOSE in your direction at the zone"),
                         ("stop",  _step4),
-                        ("size",  "5 · Set SL below the zone distal · size at 0.25% risk"),
+                        ("size",  f"5 · Set SL below the zone distal · size at {_HP.risk_label()} risk"),
                         ("gtt",   "6 · Place the order + GTT the same evening · log the trade"),
                     ]
                 _key = f"chk_{symbol}"
@@ -16910,7 +16865,9 @@ elif page == 'RISK SHIELD':
         except Exception:
             pass
     _today_str = datetime.date.today().isoformat()
-    if 'total_cap' in globals():
+    # Only a LIVE reading goes into the equity history; a Dhan outage used to write the
+    # invented ₹50L fallback as that day's equity.
+    if 'total_cap' in globals() and globals().get("TOTAL_CAP_IS_LIVE", False):
         _portfolio_history[_today_str] = total_cap
         _rs_atomic_json_write(PORTFOLIO_FILE, _portfolio_history)
 
@@ -17270,7 +17227,7 @@ elif page == 'RISK SHIELD':
                     _rs_reg = _rs_creg(persist=False)
                     _rs_score9 = _rs_reg.get("score")
                     if _rs_score9 is not None:
-                        _rs_regime_bear = _rs_score9 <= 5
+                        _rs_regime_bear = _HP.is_bear(_rs_score9)
                         _rs_regime_chip = f"{_rs_reg.get('verdict','?')} ({_rs_score9}/10)"
                 except Exception:
                     pass
@@ -17450,18 +17407,22 @@ elif page == 'RISK SHIELD':
                     st.caption(f"⚠️ {len(_no_ltp_rows)} position(s) excluded from Capital-at-Risk "
                                f"(no live LTP): {', '.join(sorted(_no_ltp_rows))}")
 
-                # B3: PORTFOLIO HEAT vs the capital risk budget (risk% x capital x open positions).
+                # B3: PORTFOLIO HEAT vs the capital risk budget. Budget = the house risk each
+                # open position was allowed to take (stock 0.5% · ETF 0.75%, house_policy) x the
+                # SIZING capital - the same base the sizers use. It was a session-only 0.25%
+                # ("execution freeze") x live equity until 25-Sep-2026, so the card measured
+                # heat against a rule nothing else in the book followed.
                 try:
-                    _rb_pct = float(st.session_state.get("rs_risk_budget_pct", 0.25))
-                    _cash_b = 0.0
-                    try:
-                        _cash_b = float(get_dhan_balance() or 0.0)
-                    except Exception:
-                        pass
-                    _cap_base = float(total_deployed_g or 0.0) + _cash_b
-                    _n_open_h = active_exits_count + len(unprotected_holdings)
-                    _heat_budget = _cap_base * (_rb_pct / 100.0) * max(_n_open_h, 1)
-                    if _cap_base > 0:
+                    _cap_base, _cap_src = _HP.sizing_capital()
+                    _heat_syms = list(sell_gtts_by_symbol.keys()) + [u["symbol"] for u in unprotected_holdings]
+                    _n_open_h = len(_heat_syms)
+                    _rb_sum = sum(_HP.risk_pct_for(_x) for _x in _heat_syms)
+                    _rb_pct = (_rb_sum / _n_open_h) if _n_open_h else _HP.RISK_NEW_STOCK_PCT
+                    _heat_budget = (_cap_base * _rb_sum / 100.0) if _cap_base == _cap_base else 0.0
+                    if _cap_base != _cap_base:
+                        st.caption("🔥 Portfolio Heat: sizing capital is not set (GM settings → Capital), "
+                                   "so there is no budget to measure against.")
+                    elif _cap_base > 0:
                         _heat_ok = total_risk <= _heat_budget
                         _hcol = "var(--bull)" if _heat_ok else "var(--bear)"
                         _chip = (f" · 🌡️ Regime: <b>{_rs_regime_chip}</b>" if _rs_regime_chip else "")
@@ -17469,7 +17430,7 @@ elif page == 'RISK SHIELD':
                             f"<div style='background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border:1.5px solid {_hcol};border-radius:10px;padding:12px 16px;"
                             f"margin:4px 0 16px;font-size:0.9rem;color: var(--ink-2);box-shadow:0 4px 16px rgba(0,0,0,0.2);'>"
                             f"🔥 <b>Portfolio Heat:</b> ₹{format_inr_int(total_risk)} open risk vs budget "
-                            f"₹{format_inr_int(_heat_budget)} ({_rb_pct}% × {_n_open_h} positions × "
+                            f"₹{format_inr_int(_heat_budget)} (house risk, avg {_rb_pct:.2f}% × {_n_open_h} positions × "
                             f"₹{format_inr_int(_cap_base)} capital) — "
                             f"<b style='color:{_hcol}'>{'WITHIN BUDGET ✅' if _heat_ok else 'OVER BUDGET 🚨'}</b>"
                             f"{_chip}</div>", unsafe_allow_html=True)
@@ -17625,14 +17586,16 @@ elif page == 'RISK SHIELD':
                                     # will hide a code problem indefinitely.
                                     _tt_sw = _tt_lab = _tt_fam = _tt_why = None
                                     try:
-                                        _q_manual = None
+                                        # RRG for rung 4 = the COMPUTED quadrant (25-Sep-2026); the
+                                        # hand-typed flag it used to read had gone 39 days stale.
+                                        _q_rrg = None
                                         try:
                                             import gm_trigger_board as _gtb_tt
-                                            _q_manual = (_gtb_tt.rrg_load() or {}).get(str(_s).upper())
-                                        except Exception:
-                                            pass
+                                            _q_rrg = _gtb_tt.rrg_live(df_sym).get("quadrant")
+                                        except Exception as _e_rrg:
+                                            _gm_logger.warning(f"{_s}: RRG compute failed (rung 4 runs without it): {_e_rrg}")
                                         _tt_sw, _tt_lab, _tt_why, _tt_fam = _rc.classify_trade_type_v22(
-                                            df_sym, rrg=_q_manual)
+                                            df_sym, rrg=_q_rrg)
                                     except Exception as _e_tt:
                                         _gm_logger.warning(f"{_s}: trade-type classify failed: {_e_tt}")
                                     _struct_s = _tt_sw
@@ -19463,11 +19426,12 @@ elif page == 'RISK SHIELD':
                     # engine; the Trigger Board renders the same block.
                     try:
                         import capital_queue as _cq
+                        _cq_exit_toggle("cq_exits_rs")
                         if st.button("🔄 Rebuild queue", key="cq_rebuild_rs"):
                             st.session_state.pop("cq_res", None)
                         if "cq_res" not in st.session_state:
                             with st.spinner("Building the capital queue (board tabs + book + sector cap)..."):
-                                st.session_state["cq_res"] = _cq.build()
+                                st.session_state["cq_res"] = _cq_build_now()
                         _cq.render(st, st.session_state["cq_res"])
                     except Exception as _cqe:
                         st.error(f"Capital queue failed: {type(_cqe).__name__}: {_cqe}")
@@ -19612,11 +19576,10 @@ elif page == 'RISK SHIELD':
                                  help="Floor (default): the Chandelier can only be TIGHTENED to your manual SL, never loosened. "
                                       "Exact: your manual SL is used verbatim, even if it sits below the computed Chandelier.")
                     with _rs_c2:
-                        # B3: capital risk budget per trade (0.25% = execution freeze; 1.0% = standard)
-                        st.number_input("Risk budget % per trade", min_value=0.05, max_value=2.0, step=0.05,
-                                        key="rs_risk_budget_pct", value=st.session_state.get("rs_risk_budget_pct", 0.25),
-                                        help="Drives the Portfolio Heat card: budget = capital × this % × open positions. "
-                                             "0.25% during the execution freeze; 1.0% is the standard rule.")
+                        # B3: the heat budget now follows the house rule (house_policy.py) instead
+                        # of a session-only input that defaulted to the retired 0.25%.
+                        st.caption(f"Risk per trade (house rule, `house_policy.py`): {_HP.risk_label()}. "
+                                   "The Portfolio Heat card budgets each open position at that rate.")
 
                     if 'df_active_global' in globals() and not df_active_global.empty:
                         # Extract current open positions

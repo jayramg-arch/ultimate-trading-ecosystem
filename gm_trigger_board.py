@@ -38,12 +38,12 @@ _ROOT = os.path.dirname(os.path.abspath(__file__))
 from io_utils import atomic_write_text  # noqa: E402,F401
 
 
-_RRG_PATH = os.path.join(_ROOT, "gm_rrg_flags.json")
+# gm_rrg_flags.json (the hand-typed RRG flag) retired 25-Sep-2026 - RRG is computed.
+# The file stays on disk untouched; nothing reads or writes it.
 _BOARD_CACHE = os.path.join(_ROOT, "gm_board_cache.csv")     # persisted board (survives restarts)
 _BOARD_META = os.path.join(_ROOT, "gm_board_cache.json")     # stamps sidecar
 
 # RRG quadrants — the dropdown options (manually set from RRG Studio; was Strike.Money until 13-Sep-2026). "—" = unset.
-RRG_QUADRANTS = ["—", "Leading", "Improving", "Weakening", "Lagging"]
 
 # P1 (12 Jul 2026) — PER-STRATEGY sources so every name inherits its SETUP ARCHETYPE
 # (the watchlist qualified it; the board only times it). A name in >1 list carries
@@ -290,11 +290,15 @@ def load_pyramid_adds() -> dict:
         LAST_UNION_ISSUES.append(f"{PORTFOLIO_PICKS}: missing Pyr_Class — stale format")
         return out
 
-    cap = _to_num(_gm_setting("capital", 0.0)) or 0.0
-    rpc = _to_num(_gm_setting("pyr_risk_pct", 1.0)) or 1.0
+    # House rule (house_policy.py, 25-Sep-2026): sizing capital, add risk and the ₹ cap
+    # come from ONE place. max_alloc 0 used to mean "uncapped" here and ₹1,00,000 on S4.
+    import house_policy as _hp
+    cap = _hp.sizing_capital()[0]
+    cap = 0.0 if cap != cap else cap
+    rpc = _hp.RISK_ADD_PCT
     # Hard rupee ceiling per position (S4 size_max_alloc parity). An ADD is still money
     # going into one name, so the same ceiling applies.
-    mxa = _to_num(_gm_setting("max_alloc", 0.0)) or 0.0
+    mxa = _hp.max_alloc()
     adds = df[df["Pyr_Class"].astype(str).str.upper() == "ADD"]
     for _, r in adds.iterrows():
         s = _canon_key(r.get("Symbol"))
@@ -801,26 +805,6 @@ def overall_score_legacy(combined=None, conviction=None, alpha=None, bff=None,
     return round(sum(v * w for v, w in parts) / sum(w for _, w in parts), 1)
 
 
-def rrg_load() -> dict:
-    try:
-        with open(_RRG_PATH, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except FileNotFoundError:
-        return {}
-    except Exception as e:
-        # P1: a corrupt flags file used to read as {} and the next save WIPED all
-        # RRG flags silently. Log it loudly — the flags are hand-curated state.
-        _log.warning(f"rrg_load: {_RRG_PATH} unreadable (flags may be lost on next save): {e}")
-        return {}
-
-
-def rrg_save(d: dict) -> None:
-    try:
-        atomic_write_text(_RRG_PATH, json.dumps(d, indent=2))
-    except Exception as e:
-        _log.warning(f"rrg_save failed (RRG flags not persisted): {e}")
-
-
 def board_cache_paths(tf: str = None):
     """(csv, json) cache paths for a Trigger-TF. PER-TF (30-Jul) because two pop-out
     windows on different TFs shared ONE file: the 125m window displayed the 75m board and
@@ -1163,6 +1147,21 @@ def _bench_weekly_closes(bench: str = "NIFTY 500"):
 
 
 def rrg_tradeable_live(daily_df):
+    """Tradeable verdict only - kept for its callers; see rrg_live()."""
+    return rrg_live(daily_df).get("tradeable")
+
+
+def rrg_live(daily_df) -> dict:
+    """{"quadrant": "LEADING"|..|None, "tradeable": True|False|None} from one compute.
+
+    The quadrant is what the retired manual RRG flag used to supply (Risk Shield's
+    trade-type rung, 25-Sep-2026); the verdict is the original rrg_tradeable_live."""
+    out = {"quadrant": None, "tradeable": None}
+    _rrg_live_impl(daily_df, out)
+    return out
+
+
+def _rrg_live_impl(daily_df, out):
     """Compute the stock's own RRG "BUY OK" from the DAILY frame the board already has.
 
     WHY THIS EXISTS: only FINAL_CATALYST_WATCHLIST.csv carries an RRG_Tradeable column.
@@ -1202,7 +1201,9 @@ def rrg_tradeable_live(daily_df):
         cur = ("LEADING" if rv >= 100 and mv >= 100 else
                "WEAKENING" if rv >= 100 else
                "LAGGING" if mv < 100 else "IMPROVING")
-        return bool(_traj(r, m, cur, 4)[4])
+        out["quadrant"] = cur
+        out["tradeable"] = bool(_traj(r, m, cur, 4)[4])
+        return out["tradeable"]
     except Exception as e:
         _log.warning("RRG gate: live compute failed (%s) - R fails open", e)
         return None
@@ -2031,7 +2032,10 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         "→Zone":         (0.0 if _sup.get("loc_pattern")
                           else (round(float(_zpct), 1) if _zpct is not None else None)),
         "Path":          "Recovery" if path == "recovery" else "Bull",
-        "RRG":        "—",                       # filled from json by the caller
+        # COMPUTED quadrant (strike_cal, confirmed weekly, vs Nifty 500). The hand-typed
+        # flag from gm_rrg_flags.json was retired 25-Sep-2026 (39 days stale, contradicted
+        # the computed quadrant on 17 of 34 flagged names).
+        "RRG":        (rrg_eng.upper() if rrg_eng and rrg_eng not in ("—", "n/a", "nan") else "—"),
         "Step":       wf.get("current"),
         "Conviction": _r1(conv),
         "Combined":   _r1(comb),
@@ -2062,7 +2066,6 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         "T1":         _r1(t1),
         "R:R":        _r1(rr),
         "Room":       room_txt,
-        "RRGeng":     rrg_eng,
         "Tier":       info.get("tier", "Discovery"),
         "Sources":    ", ".join(dict.fromkeys(info.get("sources") or [])),
         "Stale":      ("⚠" if _stale else ""),
@@ -2104,58 +2107,11 @@ def s4_recovery_list(uni: dict | None = None) -> str:
     return ",".join(sorted(set(out)))
 
 
-def s4_rrg_lists(uni: dict | None = None) -> dict:
-    """Your MANUAL RRG reads (RRG Studio; Strike.Money until 13-Sep-2026), for S4's "GM RRG" inputs. (10-Aug-2026)
-
-    Same handoff shape as s4_recovery_list / s4_pullback_list, third axis. The reason it
-    is needed is the same reason those two exist: S4 cannot ask the GM anything, and it
-    cannot derive this from price. S4's own RRG comes from v67's RS-Ratio/RS-Momentum
-    pair — a computed quadrant. Yours is READ OFF STRIKE.MONEY on the weekly chart and
-    typed into the board, and it is the one you actually trade off. Those two can and do
-    disagree, and when they do the manual read wins.
-
-    Returns FOUR lists keyed by quadrant rather than one encoded blob. Two reasons:
-      * S4 parses a plain comma list with str.contains — no split loop, no per-symbol
-        parsing, which matters because S4 sits ~190 compiled tokens under the ceiling.
-      * A quadrant is not a boolean. Collapsing to "leading-ish" would throw away the
-        IMPROVING/WEAKENING distinction, which is the whole point of an RRG.
-
-    Only names present in `gm_rrg_flags.json` appear — an unflagged symbol is absent
-    from every list and S4 falls back to its computed quadrant. Silence is not "Lagging".
-
-    Refresh cadence is WEEKLY (you read RRG off the weekly chart), so unlike the
-    pullback/recovery lists this does NOT need re-pasting after every auto-pilot run.
-    """
-    try:
-        flags = rrg_load() or {}
-    except Exception as e:
-        _log.warning(f"s4_rrg_lists: flags unavailable: {e}")
-        return {}
-    if uni is None:
-        try:
-            uni = load_watchlist_union()
-        except Exception:
-            uni = None
-    # Restrict to the current union when we have one, so the pasted strings stay short
-    # and only carry names S4 could actually be looking at. No union -> emit everything.
-    keys = {_canon_key(s) for s in (uni or {})} if uni else None
-    out = {"Leading": [], "Improving": [], "Weakening": [], "Lagging": []}
-    for sym, q in flags.items():
-        qq = str(q or "").strip().capitalize()
-        if qq not in out:
-            continue
-        s = str(sym).upper().strip()
-        if keys is not None and _canon_key(s) not in keys:
-            continue
-        out[qq].append(s)
-    return {k: ",".join(sorted(set(v))) for k, v in out.items()}
-
-
 def s4_fund_lists(tf: str = None) -> dict:
     """The GM's BFF and RFF SCORES, for S4's two fundamental-score inputs. (25-Aug-2026)
 
     FOURTH handoff on the same pattern as s4_recovery_list / s4_pullback_list /
-    s4_rrg_lists, and it exists for the strongest version of the same reason: S4 cannot
+    the (retired) manual RRG lists, and it exists for the strongest version of the same reason: S4 cannot
     ask the GM anything, and unlike the path or the setup it cannot even approximate
     these from price. RFF needs six fundamental fields plus Tier-B growth history against
     a request.financial() ceiling of five calls per script -- a budget the Capitulation
@@ -2661,8 +2617,8 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
         uni = {}
 
     # RRG dropped from the bundle 25-Aug-2026: Strike RRG is retired in S4, so these
-    # three sections had no consumer. s4_rrg_lists is deliberately NOT removed - the
-    # board's RRG column still writes gm_rrg_flags.json and the reader stays with it.
+    # three sections had no consumer. The manual-flag reader itself was deleted
+    # 25-Sep-2026 when the board's RRG column became the computed quadrant.
     fund = _safe(s4_fund_lists, tf=tf) or {}
     if not isinstance(fund, dict):
         fund = {}

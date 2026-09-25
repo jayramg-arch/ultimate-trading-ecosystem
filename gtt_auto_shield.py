@@ -471,7 +471,8 @@ def run_cover_pass(auto_yes: bool = False, dry_run: bool = True):
     bear = False
     try:
         import market_regime as _mr
-        bear = float((_mr.compute_regime(persist=False) or {}).get("score", 10)) <= 5
+        import house_policy as _hp
+        bear = _hp.is_bear((_mr.compute_regime(persist=False) or {}).get("score"))
     except Exception as e:
         log.warning(f"cover: regime unavailable (bear=False): {e}")
 
@@ -599,7 +600,8 @@ def build_trail_proposals(dhan=None):
     try:
         import market_regime as _mr
         _reg = _mr.compute_regime(persist=False) or {}
-        bear = float(_reg.get("score", 10)) <= 5
+        import house_policy as _hp
+        bear = _hp.is_bear(_reg.get("score"))
     except Exception as e:
         log.warning(f"trail: regime unavailable (bear=False): {e}")
 
