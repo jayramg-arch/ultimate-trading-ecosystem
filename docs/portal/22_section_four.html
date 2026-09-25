@@ -323,12 +323,13 @@ footer a{color:var(--acc)}
 
 <section id="since">
   <h2><span class="n">02b</span>What changed since 1 September</h2>
-  <p>The panel is <b>S4 v11.10 on S4Core v59</b> (file title v10.11). Five things moved on 8–9 September, one
+  <p>The panel is <b>S4 v11.10 on S4Core v60</b> (file title v10.11). Five things moved on 8–9 September, one
   measurement changed how a row should be read, the 12–15 September batch put the derivatives into
   the ladders, and the 20 September audit batch closed three parity drifts and latched the stop.</p>
   <div class="tw"><table>
     <thead><tr><th>Date</th><th>Change</th><th>Where on the panel</th></tr></thead>
     <tbody>
+      <tr><td class="m">25 Sep</td><td><b>SUMMARY no longer says the sector "agrees" when it is Stage 3</b> (S4Core/60). A Stage-3 sector passes (only Stage 4 shrinks the size), but LEADERSHIP calls it topping two lines up; the take-it line now reads "the sector - topping, not declining - does not stand in the way"</td><td>SUMMARY · DIRECTION</td></tr>
       <tr><td class="m">25 Sep</td><td><b>Pattern zones only</b> — <em>Use Pivot (Structural) zones + levels</em> now defaults OFF, and the evening bundle push sets it on every S4 tab from the GM setting <code>use_pivot_zones</code> (off). Location is a leg-base-leg demand zone or a Daily/Weekly FVG; pivot zones, pivot lines and the A2 "pivot + one more source" route are out, as support and as overhead. Of 165 alerts since 18 Sep, 21% rested on pivot structure alone</td><td>Location (L) · Zones · Room</td></tr>
       <tr><td class="m">25 Sep</td><td><b>Futures OI: one price leg, near + next month</b> (v10.11 / v11.10 with v67.4.25). The row pairs OI with v67's <em>futures</em> daily change (new binding <em>v67: Futures price chg %</em> → <code>s4_futPx</code>) instead of the cash change, and the OI is near + next month, so expiry-week rollover no longer reads as unwinding. Re-run BIND after the compile — one more source to bind</td><td>Row 9 · SUMMARY participation</td></tr>
       <tr><td class="m">25 Sep</td><td><b>SUMMARY's DIRECTION reads the way the Reviewer weighs</b> (S4Core/59). It used the Zigzag trend alone, so a Stage-2 name with a sideways swing structure (RRKABEL) read "counter-trend" while the Reviewer weighs the stage first. Now, in the Reviewer's order: Stage 3/4 is NO TRADE · in supply or a hairline stop is a plan problem · a stage against the path is counter-trend · AVWAP/EMA-only location is a chase · a sector in Stage 4 or no leadership (neither RS nor a positive RRG trajectory) is "take it smaller, or wait" · otherwise take-it. The GM's own lists now also decide the Bull/Recovery path first (S4Core/58).</td><td>SUMMARY column</td></tr>
@@ -1186,7 +1187,7 @@ R   RRG        chipped, measured, and deliberately off
   <h2><span class="n">15</span>Band I — Macro &amp; context, every row</h2>
   <p>Whether the name deserves your attention today. Almost entirely <b>weekly</b> information,
   because the framework underneath is Weinstein stage analysis and a stage is a weekly fact.
-  Row 0 is the header — <code>S4 v11.10 │ core/59 │ 10511ch·15/15</code>. Check it after every
+  Row 0 is the header — <code>S4 v11.10 │ core/60 │ 10511ch·15/15</code>. Check it after every
   recompile: a version mismatch means the library did not publish; a section count under 14 means
   the paste was short.</p>
 
@@ -1941,6 +1942,6 @@ R   RRG        chipped, measured, and deliberately off
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/22 · Section 4 — Entry Trigger &amp; Price Memory · S4 v11.10 / S4Core v59 · revised against the code 25 Sep 2026</span>
+  <span>docs/22 · Section 4 — Entry Trigger &amp; Price Memory · S4 v11.10 / S4Core v60 · revised against the code 25 Sep 2026</span>
   <span>Companions — <a href="30_section_five.html">30 Section Five</a> · <a href="23_golden_matcher.html">23 Golden Matcher</a> · <a href="24_pre_trade_gate.html">24 Pre-Trade Gate</a></span>
 </div></footer>
