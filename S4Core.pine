@@ -2178,8 +2178,8 @@ export oiText(float basis, float builtPct, int nPrints, float px, float strikeSt
 export verdictRead(color C_NO, color C_OK, color C_WARN, string _act, bool _atValue, float _band_r, 
   string _blk, bool _blueSky, float _cl_r, string _degTxt, string _extTxt, float _extV, float _off52v, 
   float _ovh, float _pbLvl, bool _qArrBad, bool _qArrGood, bool _qExt, bool _qLocWeak, bool _qRoomBad, 
-  bool _qSupply, string _roomWord, float _so_high, bool _stage2ok, bool any_pa_v, int cf_strong, 
-  int cf_v, bool go_v, bool is_rec_v, bool momentum_clear, float pl_entry, float pl_rr1, float pl_t1, 
+  bool _qSupply, string _roomWord, float _so_high, bool _stage2ok, bool any_pa_v,
+  bool go_v, bool is_rec_v, bool momentum_clear, float pl_entry, float pl_rr1, float pl_t1, 
   int stage_n, bool stage_skip, bool support_v, int trigAge, float trigHi, bool tt_swing, 
   // A14: the no-PA branch claimed "clean volume/bar" without consulting either gate.
   // SONACOMS printed it with RV 0.35 and a grey V; INDIANB printed it with the bar
