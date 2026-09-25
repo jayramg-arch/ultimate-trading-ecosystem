@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 24 Sep · 24 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 25 Sep · 25 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,17 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">25 Sep<br>own-TF zones</td>
+        <td><b>Zones are tested on their own timeframe; pattern zones only.</b> S4 v10.12 on
+        S4Core/61 judges a Daily, Weekly or Monthly zone only on that timeframe's closed bar, so a
+        75m bounce is no longer a test of a weekly zone — S4 and the board now agree (LAURUSLABS,
+        HBLENGINE). Pivot zones are commented out in S4; pivot levels, S/R levels and the
+        auto-trendline block are unchanged. One journal path for every module
+        (<code>journal_path.py</code>), and a commit check that stops a Python signal change
+        landing without its Pine side.</td>
+        <td class="af">22 · 23</td>
+      </tr>
       <tr>
         <td class="dt">24 Sep<br>evidence</td>
         <td><b>Two pre-registered tests, run once.</b> Recovery RFF on point-in-time fundamentals:
