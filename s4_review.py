@@ -1368,8 +1368,8 @@ def zone_audit(read_txt: str, review: str) -> str:
                 flags.append("the review calls %.2f-%.2f FRESH; the panel lists it as \"%s\""
                              % (b["lo"], b["hi"], b["lbl"][:70]))
             if b["pivot"]:
-                flags.append("%.2f-%.2f is a PIVOT shelf, not a pattern zone - under rule A2 it "
-                             "does not stand alone as location" % (b["lo"], b["hi"]))
+                flags.append("%.2f-%.2f is a PIVOT shelf, not a pattern zone - since 25-Sep-2026 "
+                             "pivots are not location at all (pattern zones only)" % (b["lo"], b["hi"]))
     if not flags:
         return ""
     # what the strong zones actually were, so the correction is useful rather than a scold

@@ -565,7 +565,8 @@ def _gm_use_pivot_zones() -> bool:
     between admitting pivots and refusing them -- only ~4x fewer trades. So this is a
     preference switch, not a fix; off = pattern zones only, on both surfaces.
     """
-    return bool(_gm_settings().get("use_pivot_zones", True))
+    # Default OFF since 25-Sep-2026 (Jay): pattern zones only.
+    return bool(_gm_settings().get("use_pivot_zones", False))
 
 def _gm_sync_pivot_setting() -> None:
     """Push the persisted setting into zone_engine. Called on every GM render because

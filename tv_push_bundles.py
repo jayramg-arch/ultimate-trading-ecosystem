@@ -32,6 +32,18 @@ BUNDLE_FILE = os.path.join(HERE, "gm_bundles", "latest.txt")
 
 IN1 = "GM: ONE-PASTE bundle (all lists)"
 IN2 = "GM: bundle 2 — options OI"         # em-dash, exactly as the input title
+# PIVOT PARITY (25-Sep-2026). S4's pivot switch and the board's use_pivot_zones were two
+# settings that drifted apart silently (S4 off while the board was on, the same morning).
+# The GM setting is the owner; every push writes S4 to match it, and --check reports it.
+IN3 = "Use Pivot (Structural) zones + levels"
+
+
+def gm_pivot_setting() -> bool:
+    try:
+        with open(os.path.join(HERE, "gm_settings.json"), encoding="utf-8") as f:
+            return bool((json.load(f) or {}).get("use_pivot_zones", False))
+    except Exception:
+        return False
 
 # Study lookup as tv_bind_s4_sources.js does it; values are injected as JSON literals.
 JS = r"""
@@ -89,7 +101,7 @@ def main() -> int:
         if not os.path.exists(a.file):
             print(f"bundle file missing: {a.file} - run the Evening run first", file=sys.stderr); return 2
         b1, b2 = read_bundles(a.file)
-        want = {IN1: b1, IN2: b2}
+        want = {IN1: b1, IN2: b2, IN3: gm_pivot_setting()}
         print(f"bundle 1: {len(b1)} chars ({b1.count('|') + (1 if b1 else 0)} sections) · bundle 2: {len(b2)} chars")
         if not b1:
             print("bundle 1 is EMPTY - refusing to blank every S4 tab; check gm_bundles/latest.txt", file=sys.stderr); return 2
@@ -97,7 +109,8 @@ def main() -> int:
     tgts = _chart_targets_all()
     if not tgts:
         return 2
-    js = JS % {"want": json.dumps(want, ensure_ascii=False), "titles": json.dumps([IN1, IN2], ensure_ascii=False)}
+    js = JS % {"want": json.dumps(want, ensure_ascii=False), "titles": json.dumps([IN1, IN2, IN3], ensure_ascii=False)}
+    piv_want = str(gm_pivot_setting()).lower()
     rc, n = 0, 0
     for t in tgts:
         cid = t["url"].split("/chart/")[1].strip("/")
@@ -114,12 +127,14 @@ def main() -> int:
                 print(f"chart {cid}: ERROR {msg[:120]}", file=sys.stderr); rc |= 1
             continue
         n += 1
-        g1, g2 = d.get(IN1, ""), d.get(IN2, "")
+        g1, g2, g3 = d.get(IN1, ""), d.get(IN2, ""), str(d.get(IN3, "")).lower()
+        piv = f"pivots {'ON' if g3 == 'true' else 'off'}" + ("" if g3 == piv_want else f" (GM setting: {piv_want}) MISMATCH")
         if a.check:
-            print(f"chart {cid}: bundle 1 {len(g1)} chars · bundle 2 {len(g2)} chars")
+            print(f"chart {cid}: bundle 1 {len(g1)} chars · bundle 2 {len(g2)} chars · {piv}")
+            rc |= 0 if g3 == piv_want else 1
             continue
-        ok = (g1 == want[IN1]) and (g2 == want[IN2])
-        print(f"chart {cid}: {'ok' if ok else 'MISMATCH'} - bundle 1 {len(g1)} chars · bundle 2 {len(g2)} chars")
+        ok = (g1 == want[IN1]) and (g2 == want[IN2]) and (g3 == piv_want)
+        print(f"chart {cid}: {'ok' if ok else 'MISMATCH'} - bundle 1 {len(g1)} chars · bundle 2 {len(g2)} chars · {piv}")
         rc |= 0 if ok else 1
     if n == 0:
         print("no chart tab carries S4 - nothing pushed", file=sys.stderr); return 1
