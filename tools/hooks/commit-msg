@@ -1,0 +1,4 @@
+#!/bin/sh
+# Installed by: git config core.hooksPath tools/hooks
+# Blocks a commit that changes parity-critical Python without its Pine side (see parity_guard.py).
+exec python "$(git rev-parse --show-toplevel)/tools/hooks/parity_guard.py" "$1"
