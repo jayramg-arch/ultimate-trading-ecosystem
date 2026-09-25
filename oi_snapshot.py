@@ -31,6 +31,7 @@ import argparse, datetime as dt, os, sys, warnings
 warnings.filterwarnings("ignore")
 
 import pandas as pd
+import journal_path as _jp  # AUD-INT-14: one owner of the journal location
 
 OUT = os.path.join("data", "oi_snapshots.csv")
 COLS = ["date", "symbol", "spot", "expiry", "pcr", "max_pain",
@@ -66,7 +67,7 @@ def universe(kind: str) -> list:
             names |= set(pd.read_csv(p)["Symbol"].dropna().astype(str))
     try:                                    # open holdings matter even off the board
         import sqlite3
-        c = sqlite3.connect("trade_journal_v6.db")
+        c = sqlite3.connect(_jp.JOURNAL_DB)
         names |= {r[0] for r in c.execute(
             "SELECT symbol FROM journal WHERE UPPER(status)='OPEN'")}
     except Exception as e:

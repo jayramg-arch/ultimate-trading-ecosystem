@@ -8,7 +8,8 @@ if sys.stdout.encoding.lower() != 'utf-8':
     sys.stdout.reconfigure(encoding='utf-8')
 
 PINE_PATH = "Weinstein and Swing Pro Dashboard v67.4.12.pine"
-DB_PATH = "trade_journal_v6.db"
+import journal_path as _jp  # AUD-INT-14: one owner of the journal location
+DB_PATH = _jp.JOURNAL_DB
 DEFAULT_SECTOR = "NSE:CNX500"
 
 def normalize_ticker(t):

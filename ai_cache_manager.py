@@ -4,7 +4,8 @@ import time
 import hashlib
 import sqlite3
 
-DB_FILE = "trade_journal_v6.db"
+import journal_path as _jp  # AUD-INT-14: one owner of the journal location
+DB_FILE = _jp.JOURNAL_DB
 
 def _get_cache_from_db(cache_key):
     try:

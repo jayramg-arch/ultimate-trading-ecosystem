@@ -35,7 +35,8 @@ load_dotenv(override=True)
 
 CLIENT_ID    = os.getenv("DHAN_CLIENT_ID")
 ACCESS_TOKEN = os.getenv("DHAN_ACCESS_TOKEN")
-DB_FILE      = "trade_journal_v6.db"
+import journal_path as _jp  # AUD-INT-14: one owner of the journal location
+DB_FILE      = _jp.JOURNAL_DB
 
 JOURNAL_RENAME_MAP = {
     'symbol':'Symbol','trade_type':'Type','stoploss':'StopLoss','target':'Target',

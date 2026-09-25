@@ -8,7 +8,8 @@ from ai_cache_manager import get_cached_response, set_cached_response
 # Load Env
 load_dotenv(override=True)
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-DB_FILE = "trade_journal_v6.db"
+import journal_path as _jp  # AUD-INT-14: one owner of the journal location
+DB_FILE = _jp.JOURNAL_DB
 
 from ai_provider_manager import ask_llm
 

@@ -54,7 +54,8 @@ from datetime import datetime, timedelta
 from typing import Optional
 import sqlite3
 
-DB_FILE = "trade_journal_v6.db"
+import journal_path as _jp  # AUD-INT-14: one owner of the journal location
+DB_FILE = _jp.JOURNAL_DB
 
 import threading
 import numpy as np

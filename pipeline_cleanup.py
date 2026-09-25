@@ -27,6 +27,7 @@ import sqlite3
 import logging
 import datetime
 import subprocess
+import journal_path as _jp  # AUD-INT-14: one owner of the journal location
 
 _DIR = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
@@ -165,7 +166,7 @@ def postflight_backup(verbose: bool = True) -> bool:
     """Takes a backup of the trade journal database to a dated backup file."""
     import shutil
     import datetime
-    db_file = os.path.join(_DIR, "trade_journal_v6.db")
+    db_file = _jp.JOURNAL_DB
     if not os.path.exists(db_file):
         if verbose:
             print("[backup] database file not found, skipping backup")

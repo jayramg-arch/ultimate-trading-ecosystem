@@ -6,6 +6,7 @@ from tkinter import messagebox
 import sqlite3
 
 import datetime
+import journal_path as _jp  # AUD-INT-14: one owner of the journal location
 
 # ==========================================
 # CONFIGURATION
@@ -196,7 +197,7 @@ def generate_tradingview_files(silent=False):
 
     # Generate Portfolio Watchlist from Journal DB
     try:
-        db_path = os.path.join(_WL_SCRIPT_DIR, "trade_journal_v6.db")  # BUG-L5: absolute
+        db_path = _jp.JOURNAL_DB  # BUG-L5: absolute
         if os.path.exists(db_path):
             conn = sqlite3.connect(db_path)
             cursor = conn.cursor()

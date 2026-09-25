@@ -30,6 +30,7 @@ import json
 import os
 import sys
 import warnings
+import journal_path as _jp  # AUD-INT-14: one owner of the journal location
 
 warnings.filterwarnings("ignore")
 
@@ -136,7 +137,7 @@ def note(sym: str) -> str:
 def open_positions() -> list[str]:
     import sqlite3
     try:
-        c = sqlite3.connect(os.path.join(HERE, "trade_journal_v6.db"))
+        c = sqlite3.connect(_jp.JOURNAL_DB)
         return sorted({r[0] for r in c.execute(
             "SELECT DISTINCT symbol FROM journal WHERE UPPER(status)='OPEN'") if r[0]})
     except Exception as e:

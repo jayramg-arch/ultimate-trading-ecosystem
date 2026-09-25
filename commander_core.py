@@ -54,7 +54,8 @@ CLIENT_ID    = os.getenv("DHAN_CLIENT_ID")
 
 _APP_DIR     = os.path.dirname(os.path.abspath(__file__))  # REC-4: absolute base dir
 
-DB_FILE      = os.environ.get("COMMANDER_JOURNAL_DB") or os.path.join(_APP_DIR, "trade_journal_v6.db")   # env override: render tests use a copy  # BUG-H1: absolute path
+import journal_path as _jp  # AUD-INT-14: one owner of the journal location
+DB_FILE      = _jp.JOURNAL_DB   # env override: render tests use a copy  # BUG-H1: absolute path
 
 JOURNAL_RENAME_MAP = {
     'symbol':'Symbol','trade_type':'Type','stoploss':'StopLoss','target':'Target',

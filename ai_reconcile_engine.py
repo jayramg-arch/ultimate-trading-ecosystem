@@ -14,7 +14,8 @@ from email import message_from_file
 load_dotenv(override=True)
 API_KEY = os.getenv("DHAN_ACCESS_TOKEN")
 CLIENT_ID = os.getenv("DHAN_CLIENT_ID")
-DB_FILE = "trade_journal_v6.db"
+import journal_path as _jp  # AUD-INT-14: one owner of the journal location
+DB_FILE = _jp.JOURNAL_DB
 
 def normalize_symbol(symbol):
     """Strips standard noise (Ltd, Limited, NSE, BSE, etc.) for robust matching."""

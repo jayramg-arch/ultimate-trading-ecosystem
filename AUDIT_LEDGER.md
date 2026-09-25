@@ -840,7 +840,7 @@ used `_g` as a loop variable and Risk Shield bound the Chandelier gap to `_g`; a
 `_g(...)` call in that run would have received a dict or a float. Found by the split's trap
 check. Renamed `_gtt_r` / `_ce_g`.
 
-**AUD-INT-14 — 25 modules carry their own journal path — OPEN (noted).** Twelve are relative
+**AUD-INT-14 — 25 modules carry their own journal path — FIXED 25-Sep (`journal_path.JOURNAL_DB`, 22 live modules; one-off scratch/migration scripts left as they are).** Twelve are relative
 (`"trade_journal_v6.db"`), so they depend on the working directory being the project folder.
 The eight absolute ones and the app now honour `COMMANDER_JOURNAL_DB` (render tests use a
 copy). One owner (`journal_core.DB_FILE`) is the fix; not done in this pass.

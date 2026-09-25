@@ -53,6 +53,7 @@ import yfinance as yf
 from pine_generator import generate_pine_code
 import risk_common as _rc
 import house_policy as _HP   # the ONE home of risk %, capital, caps, regime (25-Sep-2026)
+import journal_path as _jp  # AUD-INT-14: one owner of the journal location
 # ── v4.0 Phase-1 imports ─────────────────────────────────────────────────────
 try:
     from rrg_engine import (
@@ -215,7 +216,7 @@ def journal_db_path():
                         return os.path.join(os.path.dirname(_p), _s.value)
     except Exception:
         pass
-    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "trade_journal_v6.db")
+    return _jp.JOURNAL_DB
 
 
 from commander_core import (  # moved verbatim 25-Sep-2026 - see commander_core.py

@@ -24,7 +24,8 @@ from ai_journaler_helper import generate_tactical_analysis
 load_dotenv()
 CLIENT_ID = os.getenv("DHAN_CLIENT_ID")
 ACCESS_TOKEN = os.getenv("DHAN_ACCESS_TOKEN")
-DB_FILE = "trade_journal_v6.db"
+import journal_path as _jp  # AUD-INT-14: one owner of the journal location
+DB_FILE = _jp.JOURNAL_DB
 
 RISK_PER_TRADE_PERCENT = 0.01  # 1% Risk
 MAX_CAPITAL_USAGE = 0.20       # Max 20% per stock
