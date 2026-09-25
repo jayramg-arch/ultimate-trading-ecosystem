@@ -2588,7 +2588,7 @@ f_zoneMaintain() =>
                     // the EMA/level cross.
                     // Rules 2 & 3 now run on EVERY timeframe. `tested_tf_match` is retained
                     // as the escape hatch to the Daily-only behaviour, no longer the default.
-                    float _emaRef  = _zEmaRef
+                    float _emaRef  = z.tf == "M" ? ema20M_tf : z.tf == "W" ? ema20W_tf : z.tf == "D" ? hdE : dailyEMA20
                     bool _zIsDaily = z.tf == "D" or (z.tf == "C" and timeframe.isdaily)
                     bool _emaLvlOk = (not tested_tf_match) or _zIsDaily
                     bool c_ema    = _emaLvlOk and (z.isDemand ? (z.emaPre and not na(_emaRef) and _zc > _emaRef) : (z.emaPre and not na(_emaRef) and _zc < _emaRef))
