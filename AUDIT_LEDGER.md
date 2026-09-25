@@ -749,3 +749,10 @@ every other cell (`validation_runs/_rrg_diffboot*.log`, 473 symbols): LEADING→
 +0.62 / +1.18pp, same sign, not significant. The panel-row audit tested RS levels (C5/C6),
 not trajectories, so it never covered this term. Default back to 1 in the file (next S4
 compile); set `cf_w_rrg` = 1 on the chart now. Caught by Jay.
+
+**RRG I→L vs L→L inside the funnel — THIN (25 Sep, pre-registered, run once).**
+`docs/PREREG_rrg_IL_vs_LL.md`, run 20260909_190451: only 8 of 461 Stage-2 GO trades were
+IMPROVING→LEADING (Stage 2 + RS qualification already screens out RS-Ratio < 100), so the
+question is unanswerable on the traded set. No change: the RRG confluence point stays at 1.
+Reported only: inside the funnel L→L did not beat the other cells (R +0.24 vs +0.57 IS,
+−0.28 vs +0.19 OOS) — watch it live; any test of it needs data not yet seen.

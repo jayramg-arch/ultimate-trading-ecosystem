@@ -91,4 +91,29 @@ Dhan-only subset. Nothing else changes.
 
 ## Result
 
-*(Left empty deliberately. To be filled in ONCE, by the run.)*
+**Run 25 Sep 2026, once** (`validation_runs/_rrg_IL_LL_run.log`, labels in
+`_rrg_IL_LL_labels.csv`). Coverage 505 / 513 (98.4%; 410 Dhan, 95 yfinance, 8 unlabellable);
+461 Stage-2. Label check 20/20 against `bull_screener._rrg_trajectory`. Placebo: THIN, as it
+must be.
+
+| cell (Stage-2, GO-timed) | n IS | n OOS | R IS | R OOS | median R | stop-out | T1 hit |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| LEADING → LEADING | 97 | 60 | +0.242 | −0.280 | −1.024 | 57.9% | 33.5% |
+| WEAKENING → LEADING | 16 | 5 | +0.431 | −1.040 | −1.021 | 57.1% | 42.9% |
+| IMPROVING → LEADING | 4 | 4 | +1.857 | +0.729 | +0.980 | 25.0% | 75.0% |
+| all other cells | 142 | 122 | +0.566 | +0.189 | −1.022 | | |
+
+L→L minus I→L: IS −1.62R, OOS −1.01R, CI [−3.10, +0.21] — **Verdict: THIN** (4 + 4 I→L
+trades against the 40 per window required). The Dhan-only subset is also THIN.
+
+**What it says:** the question cannot be answered on the trades this system takes, because the
+funnel almost never contains an I→L name — **8 of 461 Stage-2 GO trades**. Stage 2 plus the
+RS qualification already screens out most names whose RS-Ratio is still below 100, which is
+what I→L requires. The 8 that did get through did well (6 reached T1), but eight trades
+decide nothing. Per the pre-registration, nothing changes: the RRG point stays at 1, crediting
+L→L and W→L as the universe evidence supports.
+
+**Reported only, not a finding:** inside this funnel L→L did **not** out-perform the other cells
+(R +0.24 vs +0.57 in-sample, −0.28 vs +0.19 out). That was not the hypothesis, so it cannot be
+acted on from this run; it is a reason to watch the RRG point on live trades, and a candidate
+for its own pre-registration on data not yet seen.
