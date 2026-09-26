@@ -3166,7 +3166,9 @@ bool _wup  = _wst <= 0.25
 // (an unbound source reads `close`, which fails the -1..1 shape test).
 float _zzWsel = timeframe.isintraday ? zzTrendW : timeframe.isdaily ? zzTrendD : timeframe.isweekly ? zzTrendC : na
 bool  _zzWok  = not na(_zzWsel) and _zzWsel >= -1.0 and _zzWsel <= 1.0
-bool  _rsUp   = _zzWok ? _zzWsel > 0.5 : rsSlope > 0
+// ZIGZAG ONLY (26-Sep-2026, Jay: "let all trends come only from zigzag into S4"): no RS-slope
+// fallback. An unbound Zigzag counts as NOT up - the cautious side - and the W arrow shows a dash.
+bool  _rsUp   = _zzWok and _zzWsel > 0.5
 // Written as an if/else ladder, NOT a wrapped ternary: a continuation line indented by a
 // MULTIPLE OF 4 parses as a new block ("end of line without line continuation"), and
 // re-indenting to 13 spaces only hides it until someone re-aligns the file.
@@ -5985,7 +5987,7 @@ if show_panel and d_panel and barstate.islast
     bool _zzOkD = _tfIntra ? _zzOkM1 : _tfDay ? _zzOkNat : false
     bool _zzOkW = _tfIntra ? _zzOkM2 : _tfDay ? _zzOkM1 : _tfWk ? _zzOkNat : false
     string _dArw = _zzOkD ? f_arw(_zzDv) : ""
-    string _wArw = _zzOkW ? f_arw(_zzWv) : (stage_n == 2 ? "~⬆️" : "~⬇️")
+    string _wArw = _zzOkW ? f_arw(_zzWv) : ""
     // CHART-TF TREND FROM THE ZIGZAG (23-Aug-2026, Jay: "whether it is 1D or 75m or
     // 125m it should take the trend logic from swing zigzag, so that uniformity is
     // maintained"). Was an EMA20 proxy - close above a rising EMA20 - while D and W
@@ -6049,7 +6051,7 @@ if show_panel and d_panel and barstate.islast
     // "D" and "W" always mean Daily and Weekly, so a rung is either correct or absent.
     // Only rungs ABOVE the chart timeframe are printed - on a Daily chart the Zigzag's
     // native state IS the D rung, so showing both would print the same arrow twice.
-    string _trd = "  │  Trend " + tf_suffix + _cArw + (_tfIntra ? "  │  D " + (_zzOkD ? _dArw : "—") : "") + ((_tfIntra or _tfDay) ? "  │  W " + _wArw : "")
+    string _trd = "  │  Trend " + tf_suffix + _cArw + (_tfIntra ? "  │  D " + (_zzOkD ? _dArw : "—") : "") + ((_tfIntra or _tfDay) ? "  │  W " + (_zzOkW ? _wArw : "—") : "")
     // MINERVINI TREND TEMPLATE, appended to Structure basis rather than given its own
     // row: it IS a structure statement, and a new panel row costs several hundred
     // compiled tokens against a file that has repeatedly hit the ceiling. Only the
