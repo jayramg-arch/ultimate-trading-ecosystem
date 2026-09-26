@@ -3337,7 +3337,10 @@ veto", one combined gate, not on the TRIGGER row. S4: `stage_gate` is now that c
 `ctx_reject = stage_skip or (stage_gate and _zzWok and _zzWsel < -0.5)` blocks GO (so no alert) and
 VERDICT/STATUS/SUMMARY print only "REJECTED — first test failed". SIDEWAYS is allowed (Jay's call
 after the measurement: 22 of 61 board names are sideways, bases are sideways). Unbound Zigzag never
-rejects. Board: `bull_screener` row carries `W_Trend` (strict_trend, pivot 5); `s4go_status` returns
-`⛔ W trend down`. Reviewer: a REJECTED verdict is logged as RULING: PASS with provider "rule", no
+rejects. **Board = Stage 3/4 veto ONLY** (Jay, same day, after the Python weekly trend read DOWN on
+sideways HH/LL structures - IKS, CASTROLIND, LODHA); the W_Trend board veto was reverted.
+**Open finding:** S4 binds the Zigzag's RAW `trendState` via `mtfTrendState2`, not the structure-
+derived trend its own panel prints (v6.2 dispTrend guard) - IKS weekly chart SIDEWAYS, S4 W DOWN.
+Fix proposed: export the structure-consistent trend from the Zigzag. Reviewer: a REJECTED verdict is logged as RULING: PASS with provider "rule", no
 model call. Known parity gap: S4's bound Zigzag weekly state and Python's strict_trend can differ
 (HBLENGINE: S4 sideways, Python up) — only a DOWN disagreement changes an outcome.

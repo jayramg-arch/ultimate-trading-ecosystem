@@ -1230,7 +1230,7 @@ def _rrg_ok(v) -> bool:
 
 
 def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
-                stage=None, rrg_tradeable=None, fund_ok=None, w_trend=None) -> str:
+                stage=None, rrg_tradeable=None, fund_ok=None) -> str:
     """The S4 Pine STAGE-2 gate mirrored → a GATES-PASSED CLOSENESS score, so near-
     triggers rank cleanly (a name one gate short of GO is a WATCH candidate, not a
     reject). Shared by BOTH the Trigger Board 'S4-GO' column and the Single Symbol page.
@@ -1276,13 +1276,6 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     _stg = str(stage or "")
     _stg_n = next((int(c) for c in _stg if c.isdigit()), None)
     _stage_blocked = _stg_n is not None and _stg_n >= 3
-    # WEEKLY TREND DOWN = REJECT (26-Sep-2026, Jay: "reject the trade if stage is 3/4
-    # and/or weekly trend is down" - the FIRST test, no further analysis). Mirrors S4's
-    # wtrend_gate. Sideways stays tradeable (a base is sideways). None = unknown -> no veto.
-    try:
-        _wdown = w_trend is not None and float(w_trend) < -0.5
-    except (TypeError, ValueError):
-        _wdown = False
     _rv = ctx.get("relvol")
     _bar = ctx.get("bar_ok")
     g_pa  = bool(sigma_pa and sigma_pa > 0)
@@ -1383,8 +1376,6 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     if _rrg_raw is not None and not _rrg_ok_raw(_rrg_raw):
         _mtag += " · RRG·"          # not tradeable — LEADING->LEADING / WEAKENING->LEADING is what to look for
         _age_tag += " · RRG·"
-    if _wdown and not _stage_blocked:
-        return f"⛔ W trend down · gates {n}/5{_mtag}"
     if not _rrg_ok(rrg_tradeable) and not _stage_blocked:
         return f"⛔ RRG WAIT · gates {n}/5{_mtag}"
     if _stage_blocked:
@@ -1807,8 +1798,7 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
                                     else (wf or {}).get("fund_ok")),
                            rrg_tradeable=(g(rec, "RRG_Tradeable")
                                           if g(rec, "RRG_Tradeable") is not None
-                                          else rrg_tradeable_live((data or {}).get("df"))),
-                           w_trend=g(rec, "W_Trend"))
+                                          else rrg_tradeable_live((data or {}).get("df"))))
         # Record WHY this row previews as "n/a" so the header can name the cause
         # instead of the user staring at a dead column. gm_evaluate leaves
         # intra_reason None when the read SUCCEEDED or was never attempted (Daily

@@ -672,7 +672,7 @@ def compute_weekly_indicators(df: pd.DataFrame, df_bench: pd.DataFrame) -> dict:
                 "mansfield_4w": 0.0, "rrg_quadrant": "n/a",
                 "rrg_trajectory": "n/a", "rrg_next": "n/a",
                 "rrg_score": 0, "rrg_arrow": "•", "rrg_tradeable": False,
-                "w_mom": False, "w_trend": None}
+                "w_mom": False}
     c = df["Close"]
     # DEFAULTS, not an override (10-Aug-2026). This call passed slope_len=6 while the
     # function's own default is 4 — the value the 9-Aug alignment set for S4 parity
@@ -685,13 +685,6 @@ def compute_weekly_indicators(df: pd.DataFrame, df_bench: pd.DataFrame) -> dict:
     stages, stage_wks = compute_weekly_stage_and_wks(df)
     stage = int(stages.iloc[-1]) if not stages.empty else 4
     stage_wks_val = float(stage_wks.iloc[-1]) if not stage_wks.empty else 999.0
-    # WEEKLY TREND (26-Sep-2026, Jay): the first-test REJECT is "Stage 3/4 and/or weekly
-    # trend DOWN". Same engine and pivot length (5) as the stage tie-break above and the
-    # Zigzag's weekly state S4 binds: +1 up, 0 sideways, -1 down. None = not computed.
-    try:
-        w_trend = int(compute_strict_trend(df["High"], df["Low"], piv_left=5, piv_right=5).iloc[-1])
-    except Exception:
-        w_trend = None
 
     # WRSI
     def _rsi(series, n):
@@ -782,7 +775,7 @@ def compute_weekly_indicators(df: pd.DataFrame, df_bench: pd.DataFrame) -> dict:
             "mansfield_4w": mansfield_4w, "rrg_quadrant": rrg,
             "rrg_trajectory": rrg_traj, "rrg_next": rrg_next,
             "rrg_score": rrg_score, "rrg_arrow": rrg_arrow,
-            "rrg_tradeable": rrg_tradeable, "w_mom": w_mom, "w_trend": w_trend}
+            "rrg_tradeable": rrg_tradeable, "w_mom": w_mom}
 
 
 # v1.7 (2026-05-20): Re-calibrated after switch to Strike-matched 1-pass formula.
@@ -1659,7 +1652,6 @@ def screen_symbol(symbol: str, df_bench: pd.DataFrame,
         "RRG_Arrow":         weekly.get("rrg_arrow", "•"),
         "RRG_Score":         weekly.get("rrg_score", 0),
         "RRG_Tradeable":     bool(weekly.get("rrg_tradeable", False)),
-        "W_Trend":           weekly.get("w_trend"),          # +1 up / 0 sideways / -1 down (first-test reject)
         "ML_Prob":           ml_win_prob,
         "Rel_Vol": round(float(ind["rel_vol"].iloc[-1]), 2),
         "RSI": round(float(ind["rsi14"].iloc[-1]), 1),
