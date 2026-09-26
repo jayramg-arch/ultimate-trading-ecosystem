@@ -2313,9 +2313,10 @@ export verdictRead(color C_NO, color C_OK, color C_WARN, string _act, bool _atVa
         // a wrapped ternary indented by a multiple of 4 is the CE10156 trap.
         string _actLine = use_retest ? ("Action: buy-LIMIT " + str.tostring(pl_entry, format.mintick) + (trigAge > 0 ? " on the pullback." : " — but that IS this bar's close, so it fills at MARKET, not a pullback.\n" + (_pbLvl > 0 ? "A true pullback entry sits ~" + str.tostring(_pbLvl, format.mintick) + "." : ""))) : ("Action: buy-STOP above " + str.tostring(nz(trigHi, _so_high), format.mintick) + " (the trigger bar's high). Never buy the touch.")
         if stage_skip
-            _L1 := "NO TRADE — Stage " + str.tostring(stage_n) + (stage_n == 3 ? " (topping: 30WMA falling, price still above)" : " (declining: below a falling 30WMA)")
-            _L2 := "The house rule is Stage 2 advances and Stage 1 turns only.\nA GO here is a valid TRIGGER inside an invalid CONTEXT —\nthe pattern fired, the stage says do not own it."
-            _L3 := "If you take it anyway it is a counter-trend trade: half size at most,\nand manage against the stage, not the target."
+            // FIRST TEST (26-Sep-2026, Jay): "reject the trade if stage is 3/4 and/or weekly
+            // trend is down ... no further analysis". S4 passes stage_skip OR weekly-down here;
+            // a Stage 1/2 name that lands in this branch was rejected by its weekly trend.
+            _L1 := "REJECTED — " + (stage_n >= 3 ? "Stage " + str.tostring(stage_n) + (stage_n == 3 ? " (topping)" : " (declining)") : "weekly trend DOWN") + ". First test failed; no further analysis."
             _anCol := C_NO
         // v7.0 (31-Jul, Jay - NYKAA): this branch was UNCONDITIONAL, so a name forced
         // to Manual=Recovery short-circuited here and printed "TAKE IT - Recovery"
@@ -2447,7 +2448,7 @@ export verdictRead(color C_NO, color C_OK, color C_WARN, string _act, bool _atVa
     // v5.4: the EXTENDED warning rides on the HEADLINE where it cannot be missed — a
     // late entry is a property of the ENTRY, not a reason the trade itself is wrong.
     // The verdict is now exactly four lines: ruling · why · the one caveat · the action.
-    string _aVerOut = _L1 + _degTxt + _extTxt + "\n" + _L2 + (str.length(_L3) > 0 ? "\n" + _L3 : "") + (str.length(_L5) > 0 ? "\n" + _L5 : "")
+    string _aVerOut = stage_skip ? _L1 : _L1 + _degTxt + _extTxt + "\n" + _L2 + (str.length(_L3) > 0 ? "\n" + _L3 : "") + (str.length(_L5) > 0 ? "\n" + _L5 : "")
     [_aVerOut, _anCol]
 
 // ---------------------------------------------------------------------------

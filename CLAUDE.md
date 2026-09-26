@@ -3330,3 +3330,14 @@ phase-1 context object (shared globals) now that pages are separate files.
 - Jay: keep SWG-REV; keep pivot zones commented. Reviewer TAKE rulings (not s4_take) are the
   sample for scoring the reviewer — build an automatic forward-price scorer.
 - Scheduled: read-only alert-recall check Mon 28 Sep 11:50 IST (`monday-s4-alert-recall-check`).
+
+### 26 Sep — FIRST TEST veto (S4 v10.13, pending S4Core/62 publish + import bump)
+Jay: "reject the trade if stage is 3/4 and/or weekly trend is down — no further analysis, straight
+veto", one combined gate, not on the TRIGGER row. S4: `stage_gate` is now that combined switch;
+`ctx_reject = stage_skip or (stage_gate and _zzWok and _zzWsel < -0.5)` blocks GO (so no alert) and
+VERDICT/STATUS/SUMMARY print only "REJECTED — first test failed". SIDEWAYS is allowed (Jay's call
+after the measurement: 22 of 61 board names are sideways, bases are sideways). Unbound Zigzag never
+rejects. Board: `bull_screener` row carries `W_Trend` (strict_trend, pivot 5); `s4go_status` returns
+`⛔ W trend down`. Reviewer: a REJECTED verdict is logged as RULING: PASS with provider "rule", no
+model call. Known parity gap: S4's bound Zigzag weekly state and Python's strict_trend can differ
+(HBLENGINE: S4 sideways, Python up) — only a DOWN disagreement changes an outcome.

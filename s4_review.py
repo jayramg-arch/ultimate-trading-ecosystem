@@ -1527,6 +1527,7 @@ def phase1_read(symbol: str | None, tf: str | None, bars_n: int) -> str:
 
 
 def review_one(symbol: str | None, tf: str | None, args) -> int:
+    global LAST_RESULT
     st = switch_chart(symbol, tf)
     d = read_panels(args.bars)
     read_txt = phase1_read(symbol, tf, args.bars) + render_read(d)
@@ -1537,6 +1538,22 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
     if not any(_is_s4(n) for n in names):
         print("S4 is not on this chart (tables found: %s). Add it and re-run." % names, file=sys.stderr)
         return 1
+    # FIRST TEST (26-Sep-2026, Jay): "reject the trade if stage is 3/4 and/or weekly trend
+    # is down - no further analysis, straight veto". S4 v10.13 prints the rejection on the
+    # VERDICT row; when it does, no model is called and nothing else is weighed. The row
+    # is still saved and logged, so the reviewer log shows the veto rather than a gap.
+    _rej = re.search(r"VERDICT\s*\|\s*[^\n]*?(REJECTED[^\n]*)", read_txt)
+    if _rej:
+        review = ("RULING: PASS — %s\n\nHouse rule: Stage 3/4 and/or weekly trend DOWN is a straight "
+                  "veto. No further analysis." % _rej.group(1).strip())
+        tf_lbl = d["res"]
+        path = save_review(d["symbol"], tf_lbl, read_txt, review, "rule", s4_verdict_line(d))
+        head = "%s · %s · first-test veto" % (d["symbol"], tf_lbl)
+        print("\n" + head + "\n" + "-" * len(head) + "\n" + review + "\n\nsaved " + os.path.relpath(path, HERE))
+        if args.telegram:
+            telegram(head + "\n\n" + review)
+        LAST_RESULT = {"rc": 0, "review": review, "path": path, "head": head, "symbol": d["symbol"], "tf": tf_lbl}
+        return 0
     pos_txt = position_context(d["symbol"])
     review, prov = deliberate(build_prompt(read_txt, pos_txt), args.provider)
     rc_txt = r_check(review)
@@ -1558,7 +1575,6 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
     print("\n" + head + "\n" + "-" * len(head) + "\n" + review + "\n\nsaved " + os.path.relpath(path, HERE))
     if args.telegram:
         telegram(head + "\n\n" + review)
-    global LAST_RESULT
     LAST_RESULT = {"rc": 0, "review": review, "path": path, "head": head, "symbol": d["symbol"], "tf": tf_lbl}
     return 0
 

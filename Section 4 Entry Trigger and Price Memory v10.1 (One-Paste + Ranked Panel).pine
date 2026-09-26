@@ -853,10 +853,10 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v10.12 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.12", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.11"
+string S4_VER      = "v11.12"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -968,7 +968,7 @@ pb_aware  = input.bool(true, "Pullback-aware gates (volume + bar quality)", grou
 pb_rv_floor = input.float(0.5, "  · Pullback volume floor (RV)", group=grpPA, minval=0.0, maxval=2.0, step=0.1, tooltip="The RV floor that applies in a pullback context. 0.5 = half of average — quiet, which is what a healthy pullback looks like. It is a FLOOR, not a cap: a reversal bar arriving on heavy volume is the best case and must not be vetoed either. Set equal to the main floor to disable the relaxation while keeping the bar-quality change.")
 rv_floor  = input.float(1.0, "Volume floor (RV) for a valid trigger", minval=0.0, step=0.25, group=grpPA,
      tooltip="A trigger only counts as GO if relative volume >= this. 1.0 = average day. A real breakout usually has RV > 1.25. Lower it (e.g. 0.8) if you find it too strict; raise it to demand stronger participation.")
-stage_gate = input.bool(true, "Stage 3/4 = NO TRADE (overrides mode)", group=grpPA, tooltip="Weinstein: only Stage 2 advances and Stage 1 turns are tradeable. With this ON a Stage-3 (30WMA falling, price above) or Stage-4 (below and falling) name resolves to NO TRADE and the verdict says so — even if you set the mode manually, because the stage is a fact, not a preference. OFF restores the old two-path behaviour.")
+stage_gate = input.bool(true, "FIRST TEST: Stage 3/4 or weekly trend DOWN = REJECT", group=grpPA, tooltip="26-Sep-2026 (Jay): ONE combined gate and the FIRST test - Stage 3/4 and/or a DOWN weekly trend rejects the trade outright: no GO, no alert, a one-line verdict, no further analysis. Weekly trend = the Swing Zigzag weekly state bound for the Stage tie-break; SIDEWAYS is allowed (a base is sideways) and an unbound Zigzag never rejects. Not shown on the TRIGGER row.\n\nWeinstein: only Stage 2 advances and Stage 1 turns are tradeable. With this ON a Stage-3 (30WMA falling, price above) or Stage-4 (below and falling) name resolves to NO TRADE and the verdict says so — even if you set the mode manually, because the stage is a fact, not a preference. OFF restores the old two-path behaviour.")
 gm_bundle = input.string("", "GM: ONE-PASTE bundle (all lists)", group=grpPA, tooltip="THE ONE FIELD TO PASTE (25-Aug-2026). The Golden Matcher emits a single line under the Trigger Board carrying every handoff at once; paste it here after each board rebuild and the five inputs below are all fed from it.\n\nWhy it exists: five separate pastes is not a convenience problem but a correctness one. A missed paste does not blank the field, it leaves the PREVIOUS list in place -- so S4 goes on applying last week's answer to this week's board, silently. One field is one thing to forget instead of five.\n\nFORMAT (the GM builds it for you):\n  REC=..|PB=..|BFF=..|RFF=..|RANK=..\n\nLEAVE IT BLANK to keep using the individual inputs below -- they are not retired, and anything you type into one of them wins over the bundle for that field. That is the deliberate escape hatch: override one list by hand without having to rebuild the whole line.")
 gm_bundle2 = input.string("", "GM: bundle 2 — options OI", group=grpPA, tooltip="THE SECOND PASTE. input.string caps at roughly 4,096 characters and the main bundle is already about 9,200, so the option-chain data gets its own field rather than displacing anything in the first one.\n\nCarries one packed section, OPT, with six numbers per F&O symbol:\n  SYM:pcr/maxpain/totalCE/totalPE/atmShift/peStrike/ceStrike\n\nPacked rather than split into six sections because the repeated SYMBOL NAME is the dominant cost against the character cap - packing is the difference between six fields fitting and not. Only F&O names appear; cash-only names are simply absent and their row reads \"no options\".\n\nA MISSING FIELD IS NEVER ZERO. Max pain and the two writer strikes are DRAWN as price levels, and a max pain of 0 is a line below every stop that looks exactly like a real one. The Golden Matcher emits an empty field, not a zero, when NSE does not answer.")
 gm_pb_list = input.string("", "Auto: GM Pullback list (paste from the Golden Matcher)", group=grpPA, tooltip="v7.4 — THE PLAYBOOK SPLIT.\n\nA momentum breakout and a structural pullback are opposite trades: one buys strength expanding out of a base on heavy volume with a strong close, the other buys weakness retracing INTO support on volume dry-up with a bar that only has to hold the zone. A single gate cannot be neutral between them — the setup-blind version encoded a breakout's signature and called it quality, so every GO reaching the chart was extended by construction.\n\nS4 has no archetype, so it infers the setup from the pattern mix. That inference has a hole: a reversal bar off a demand zone that CLOSES STRONG fires the Strong-Close pattern, which counts as expansion — so the textbook pullback entry disqualified itself from pullback treatment and was judged on a breakout's volume floor.\n\nThe Golden Matcher does not have to guess. A name off the Pullback screen (or a pyramid ADD, which requires pullback location) was QUALIFIED as a pullback. Paste its comma-separated Pullback list here and those symbols take the pullback gates directly.\n\nWhat this does NOT relax: the demand-zone requirement. A listed name still has to be AT a zone — that is the discipline of the setup and the only thing keeping the lower volume floor honest.\n\nAnything not listed falls back to the pattern inference. Leave blank to disable. Separators, spaces and NSE: prefixes tolerated; matching is case-insensitive.")
@@ -3202,6 +3202,9 @@ else
 // which want `simple` — a function return is always `series`.
 // f_fold2949 MOVED to S4Core.pathResolve (pure; reads became parameters).
 [stage_skip, gm_rec, gm_pb, is_rec] = core.pathResolve(stage_gate, stage_n, use_dd_recovery, dd60, rec_dd_min, rec_dd_max, _gmRec, _gmPb, d_bel200, mode)
+// FIRST TEST (26-Sep): Stage 3/4 and/or weekly trend DOWN rejects the trade outright -
+// no GO, no alert, a one-line verdict. _zzWsel/_zzWok are the Stage tie-break's weekly read.
+bool ctx_reject = stage_skip or (stage_gate and _zzWok and _zzWsel < -0.5)
 
 // ── Gate 6 · FUNDAMENTALS (F) ── the GM's verdict applied to GO. Resolved HERE because
 // this is the first line at which the path is known: the Bull book is judged on BFF and
@@ -3920,7 +3923,7 @@ f_fold3649() =>
     // trigger belongs on the ETF by agreement, and index volume is constituent
     // turnover rather than participation in the vehicle being bought, so a GO here
     // would be confirmed by the wrong crowd.
-    bool go       = any_pa and support_pass and vol_ok and bar_ok and rrg_ok and ema_ok and fund_ok and not _isIdxC
+    bool go       = any_pa and support_pass and vol_ok and bar_ok and rrg_ok and ema_ok and fund_ok and not _isIdxC and not ctx_reject
     [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go, ema_ok, locSrc, vol_dead, _isIdxC, _prSym, _iSup, _iRes]
 [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go, ema_ok, locSrc, vol_dead, isIdxChart, pairSym, idxSup, idxRes] = f_fold3649()
 
@@ -6138,6 +6141,7 @@ if show_panel and d_panel and barstate.islast
     // (trigAge == 0) the limit sits AT that bar's close — there is no pullback to wait for,
     // it fills at market. Same false-comfort the _retestLive guard had. Say which it is.
     string _verdict = isIdxChart ? ("PHASE 1 — structure only. These levels are INDEX levels, not order prices; the plan is made on NSE:" + pairSym)
+      : ctx_reject ? "REJECTED — first test failed (Stage 3/4 or weekly trend DOWN). No further analysis."
       : go_v ? ("GO" + (fund_raw[_so] ? "" : "  ⚠ " + fundNote[_so]) + (use_retest ? (trigAge > 0 ? " — arm buy-limit @ trigger close on the pullback" : " — buy-limit @ this bar's close (fills at MARKET)") : " — arm buy-stop > bar high")) : not any_pa_v ? "NO PA PATTERN" : not support_v ? "NO LOCATION" : not vol_ok_v ? (vol_dead[_so] ? "NO VOLUME DATA — phase-1 index chart, trigger on the ETF" : "NO VOLUME") : not ema_ok[_so] ? "BELOW EMA20" : not rrg_ok ? "RRG — rotation is outside the whitelist" : not fund_ok[_so] ? ("FUNDAMENTALS — " + fundNote[_so]) : "WEAK/RED BAR — no entry"
     // DE-DUPLICATED (Jay, 10-Aug). STATUS used to re-print `P· L· V· B· ⏱ · conf n/23 ·
     // RV x/y · Bull Σ+n` — and every one of those already has its OWN row two inches
@@ -6209,8 +6213,8 @@ if show_panel and d_panel and barstate.islast
             table.cell(pnl, _sc, _r, "", bgcolor=f_softBg(C_INFO))
         table.cell(pnl, _sc, 0,
              "SUMMARY\n\n" + core.wrapText(f_sumHdr(str.replace_all(
-                  core.qualityRead(_isEtf, _fundHave, fund_raw[_so], fund_ok[_so])
-                  + "\n" + _sumRaw, "\n", "\n\n")), summary_wrap),
+                  (ctx_reject ? "REJECTED — first test failed (Stage 3/4 or weekly trend DOWN, see VERDICT). No further analysis." : core.qualityRead(_isEtf, _fundHave, fund_raw[_so], fund_ok[_so])
+                  + "\n" + _sumRaw), "\n", "\n\n")), summary_wrap),
              text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(C_INFO),
              text_halign=text.align_left, text_valign=text.align_top)
         table.merge_cells(pnl, _sc, 0, _sc, PANEL_LAST)
@@ -6355,7 +6359,7 @@ if show_panel and d_panel and barstate.islast
       C_NO, C_OK, C_WARN, _act, _atValue, _band_r, _blk, _blueSky, _cl_r, _degTxt, _extTxt,
       _extV, _off52v, _ovh, _pbLvl, _qArrBad, _qArrGood, _qExt, _qLocWeak, _qRoomBad, _qSupply, 
       _roomWord, _so_high, _stage2ok, any_pa_v, go_v, is_rec_v, momentum_clear, 
-      pl_entry, pl_rr1, pl_t1, stage_n, stage_skip, support_v, trigAge, trigHi, tt_swing, 
+      pl_entry, pl_rr1, pl_t1, stage_n, ctx_reject, support_v, trigAge, trigHi, tt_swing, 
       use_retest, z_inDZ[_so], vol_ok_v, bar_ok_v)
     _aVer  := _aVerL
     _anCol := _anColL
