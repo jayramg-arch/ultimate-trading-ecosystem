@@ -856,7 +856,7 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.15"
+string S4_VER      = "v11.16"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -6356,10 +6356,13 @@ if show_panel and d_panel and barstate.islast
     if str.length(_hTxt) > 0 and ctx_reject
         _aVer := _hTxt + "\nFIRST TEST fails for NEW size — " + (stage_n >= 3 ? "Stage " + str.tostring(stage_n) + (stage_n == 3 ? " (topping)" : " (declining)") : "weekly trend DOWN") + ". No entry and no alert; this read is position management -\njudge a trim, a tighter stop or patience from the SUMMARY and the rows above."
         _anCol := C_WARN
+    else if str.length(_hTxt) > 0 and _hCut
+        // TVSMOTOR (29-Sep): the held note said "do not add" and the next line said
+        // "TAKE IT". On a position the ladder is cutting, the entry read is reference only.
+        _aVer := _hTxt + "\nFor reference only - the ENTRY read on this bar, not an instruction on a held name:\n" + str.replace_all(_aVer, "TAKE IT", "(entry read) TAKE IT")
+        _anCol := C_WARN
     else if str.length(_hTxt) > 0
         _aVer := _hTxt + "\n" + _aVer
-        if _hCut
-            _anCol := C_WARN
     // ETF PREMIUM VETO. Prepended to whatever the ladder concluded, and it OUTRANKS
     // that conclusion -- the chart can be flawless and the trade still wrong.
     //
