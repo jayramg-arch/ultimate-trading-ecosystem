@@ -88,6 +88,10 @@ STAR_SOURCE = "FINAL_WATCHLIST.csv"
 # adds. It is a BULL archetype so the still-valid break-down guard (Stage 3/4 or below
 # 30WMA -> INVALIDATED) applies, which matters more for a position you already own.
 PYRAMID_ARCHETYPE = "Pyramid"
+# HELD (29-Sep-2026) - every open position, whatever its ladder rung. A display/source
+# tag only: NOT a buy archetype, so it is in neither BULL_ nor RECOVERY_ARCHETYPES and
+# qualifies nothing. See load_watchlist_union.
+HELD_ARCHETYPE = "Held"
 # ARMED (31-Jul-2026) — a name you set a TV alert on. The board is a snapshot rebuilt
 # from watchlists that churn nightly, so an alert firing three days later landed on a
 # name with no row, no levels and no thesis. The register (gm_armed.py) keeps it, and
@@ -605,6 +609,22 @@ def load_watchlist_union() -> dict:
         e["sides"].add("bull")
         e["tier"] = "Rigorous"
         e["pyr"] = pyr
+
+    # EVERY HOLDING (29-Sep-2026, Jay: "my primary focus is the portfolio - add all the
+    # portfolio stocks/ETFs to the GM board every day, so the bundle data is there for
+    # portfolio analysis"). Until now only ADD-rated holdings became rows, so a held name
+    # off every scan had no bundle data on S4 (TVSMOTOR: no options, no base rate).
+    # "Held" is deliberately NOT in BULL/RECOVERY_ARCHETYPES: owning a name is not a
+    # buy qualification, so it inherits nothing - the board re-qualifies it on its own
+    # chart (a Stage-3 holding reads Stage 3), and the Pos column carries the ladder rung.
+    for s in load_held_book():
+        e = uni.setdefault(s, {"sources": [], "archetypes": [], "tier": "Discovery",
+                               "sides": set(), "conviction": None, "combined": None,
+                               "star": False})
+        if "Portfolio" not in e["sources"]:
+            e["sources"].append("Portfolio")
+        if HELD_ARCHETYPE not in e["archetypes"]:
+            e["archetypes"].append(HELD_ARCHETYPE)
 
     # ARMED names — the register is the 11th source and the ONLY one that can keep a
     # name on the board after every watchlist has dropped it. That is the point: the
