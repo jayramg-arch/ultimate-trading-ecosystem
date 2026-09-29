@@ -2469,18 +2469,25 @@ def s4_bundle_options(symbols=None, tf: str = None) -> str:
         _fno = set()
 
     out = []
-    for sym in dict.fromkeys(_canon_key(x) for x in symbols):
-        if not sym:
-            continue
+    _failed = []
+    _queue = [s for s in dict.fromkeys(_canon_key(x) for x in symbols) if s]
+    _pass = 0
+    while _queue:
+      for sym in _queue:
         if _fno and sym not in _fno:
             continue                    # cash-only: absent from OPT, so S4 says "no options"
         try:
             d = nse_options.get_option_chain(sym)
         except Exception as e:
-            _log.warning(f"s4_bundle_options: {sym} chain failed: {e}")
-            continue
+            d = {"error": str(e)}
         if not d or d.get("error"):
-            continue                        # not an F&O name, or NSE did not answer
+            # An F&O name that came back empty is NOT "no options" - Dhan sheds load
+            # mid-loop (TVSMOTOR, 29-Sep: empty in the 17:55 build, a full chain alone
+            # at 18:43). Queue it for one second pass after a pause, and LOG it: the
+            # silent `continue` here is why the panel said "cash-only" with no trace.
+            if _fno:
+                _failed.append(sym)
+            continue
 
         chain = d.get("chain_df")
         spot = d.get("spot")
@@ -2508,6 +2515,16 @@ def s4_bundle_options(symbols=None, tf: str = None) -> str:
         if not any(fields):
             continue                        # nothing usable - do not emit a row of blanks
         out.append(f"{sym}:" + "/".join(fields))
+      _pass += 1
+      if _failed and _pass == 1:
+          _log.warning(f"s4_bundle_options: no chain on pass 1 for {_failed} - retrying after 10s")
+          import time as _time
+          _time.sleep(10)
+          _queue, _failed = _failed, []
+      else:
+          if _failed:
+              _log.warning(f"s4_bundle_options: still no chain for {_failed} - panel will read 'no options'")
+          _queue = []
 
     # 22-Sep: bundle 2 needs the same TradingView spellings as bundle 1 (NAM-INDIA is an
     # F&O name whose chart is NSE:NAM_INDIA, so its Options OI row read "cash-only").

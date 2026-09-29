@@ -395,6 +395,21 @@ def _fetch_via_dhan(symbol: str, expiry_index: int) -> dict:
     if not expiries:
         raise ValueError(f"{sym} has no listed expiries (not an F&O name)")
 
+    # EXPIRED SERIES (29-Sep-2026): on expiry day the list still starts with TODAY's
+    # series, so an evening build read max pain and the writer walls of contracts that
+    # had just stopped trading - every name on the 29 Sep bundle carried the dead
+    # September series. A series is live until 15:30 IST on its expiry date; after that
+    # (or on any later date) it is skipped, so expiry_index 0 means the nearest LIVE one.
+    try:
+        from datetime import datetime as _dt, timedelta as _td, timezone as _tz
+        _now = _dt.now(_tz(_td(hours=5, minutes=30)))
+        _today = _now.strftime("%Y-%m-%d")
+        _closed = (_now.hour, _now.minute) >= (15, 30)
+        _live = [e for e in expiries if e[:10] > _today or (e[:10] == _today and not _closed)]
+        if _live:
+            expiries = _live
+    except Exception:
+        pass
     target = expiries[min(expiry_index, len(expiries) - 1)]
     # ONE RETRY, with a wider gap. Measured on a 23-name board walk: 21 succeeded and
     # TVSMOTOR and BAJFINANCE came back empty - both of which returned a full chain when
