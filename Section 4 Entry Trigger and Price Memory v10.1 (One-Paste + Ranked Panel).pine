@@ -5190,7 +5190,7 @@ if show_panel and d_panel and barstate.islast
         bool   _arF = arr_fav[_so]
         string _arrTxt = (_arS == "—") ? "— (not at a zone)" : (_arS == "FAST" ? "🟢 " : _arS == "GRIND" ? "🔴 " : "⚪ ") + _arS + (na(arr_vel[_so]) ? "" : " " + str.tostring(arr_vel[_so], "0.00") + " ATR/bar")
         color  _arrCol = (_arS == "—") ? color.gray : _arF ? C_GO : (_arS == "GRIND") ? C_WARN : color.new(#9598a1,0)
-        string _dTxt = not of_known ? "  ·  Δ n/a (no footprint for this bar)" : "  ·  Δ" + (of_delta >= 0 ? "+" : "") + str.tostring(of_delta, format.volume) + (of_delta > 0 ? " buyers" : of_delta < 0 ? " sellers" : "")
+        string _dTxt = not _fpBound ? "  ·  Δ not bound here - read the footprint delta on S5" : not of_known ? "  ·  Δ n/a (no footprint for this bar)" : "  ·  Δ" + (of_delta >= 0 ? "+" : "") + str.tostring(of_delta, format.volume) + (of_delta > 0 ? " buyers" : of_delta < 0 ? " sellers" : "")
         f_row(29, "Arrival · Δ", _arrTxt + _dTxt, _arrCol)
 
     // --- Room for Trade (#5 merged, #9): distance to the nearest OPPOSING overhead —
