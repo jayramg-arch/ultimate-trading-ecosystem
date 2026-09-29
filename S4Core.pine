@@ -2001,7 +2001,7 @@ export summaryRead(int stage, float stgWks, float trW, float trD, bool tfUp,
     string sStage = stage <= 1 ? "  This is a Stage-1 BASE rather than an advance: the pay-off comes from a breakout that has not happened yet, so a long here is early BY DESIGN - size it for the wait and judge it on the base holding, not on momentum." : stage >= 3 ? "  Stage 3 or 4 - distribution or decline. Nothing else on this panel outranks that, and a long is fighting the primary structure whatever the trigger says." : ""
     string sAge = stgWks > 0 and stgWks <= 4 ? "  The Stage-2 leg is only weeks old - early, which is where the move is, but the structure has not proved itself yet." : stgWks >= 30 and stgWks < 500 ? "  This Stage-2 leg is long in the tooth; late-stage advances give back fast, so demand more from the entry than you would early on." : ""
     // 2. LEADERSHIP
-    string sLead = rsUp and rsSecUp and rrgTr ? "LEADERSHIP · Outperforming both the index and its own sector with rotation still pointed the right way. This is the profile that keeps working when the tape wobbles - the strongest single argument in favour of the name." : rsUp and rrgTr ? "LEADERSHIP · Beating the index with rotation intact, but not clearly leading its sector - the strength is stock-specific rather than a group move, so there is no peer group to carry it if the tape turns." : rsUp ? "LEADERSHIP · Above the index, but the rotation has rolled over: relative strength is being GIVEN BACK, not built. That is the state where a name looks fine on price and quietly stops leading, so treat the outperformance as history, not forecast." : "LEADERSHIP · Not leading. Buying a laggard asks the setup to do all the work, because relative strength will not help you and this is what gets sold first on any market weakness."
+    string sLead = rsUp and rsSecUp and rrgTr ? "LEADERSHIP · Outperforming both the index and its own sector with rotation still pointed the right way. This is the profile that keeps working when the tape wobbles - the strongest single argument in favour of the name." : rsUp and rrgTr ? "LEADERSHIP · Beating the index with rotation intact, but not clearly leading its sector - the strength is stock-specific rather than a group move, so there is no peer group to carry it if the tape turns." : rsUp ? "LEADERSHIP · Above the index and relative strength is still rising, but its MOMENTUM is fading - the lead is growing more slowly (RRG heading off the buy path). Nothing has been given back yet; watch for the RS line itself to turn, which is when the outperformance stops being forecast." : "LEADERSHIP · Not leading. Buying a laggard asks the setup to do all the work, because relative strength will not help you and this is what gets sold first on any market weakness."
     string sSec = secStg >= 3.5 ? "  Its sector is in Stage 4 decline - long a name inside a group being distributed, which is the most common way a good-looking chart fails." : secStg >= 2.5 ? "  Its sector is Stage 3 and topping, so there is no group tailwind; the name must carry itself." : ""
     // 3. LOCATION
     // BOTH can be true - overlapping zones on different timeframes. MOCAPITAL printed
@@ -2865,6 +2865,75 @@ export optRead(string section, simple string sym) =>
      packField(packed, 3), packField(packed, 4), packField(packed, 5), packField(packed, 6)]
 
 
+// ---- sweepState ---------------------------------------------------------------
+// Liquidity sweep on the chart TF: price trades through the last confirmed swing low
+// (high) and closes back inside it - stops run, then rejected. Pivots use `len` bars
+// each side, the same length as the SMC break-of-structure pivots. Returns whether the
+// LAST sweep was bullish, and how many bars ago it happened (9999 = none yet).
+// Restored 29-Sep-2026 for WCL setup S3 (removed 29-Jul for S4's token budget).
+export sweepState(simple int len) =>
+    float ph = ta.pivothigh(high, len, len)
+    float pl = ta.pivotlow(low, len, len)
+    var float prevPh = na
+    var float prevPl = na
+    if not na(ph)
+        prevPh := ph
+    if not na(pl)
+        prevPl := pl
+    bool bullSw = not na(prevPl) and low < prevPl and close > prevPl
+    bool bearSw = not na(prevPh) and high > prevPh and close < prevPh
+    var int lastBar = na
+    var bool lastBull = false
+    if bullSw
+        lastBar := bar_index
+        lastBull := true
+    if bearSw
+        lastBar := bar_index
+        lastBull := false
+    [lastBull, na(lastBar) ? 9999 : bar_index - lastBar]
+
+// ---- wclSetup -----------------------------------------------------------------
+// The WCL setup ladder, S1-S8, highest priority first (the first match wins).
+//   S2 Spring/LPS reversal     Wyckoff Spring/LPS <=15 bars, structure up, at/above value, context >= +4   pri 5
+//   S3 Sweep + CHoCH reversal  bullish sweep <=10 bars, then a bullish CHoCH <=10 bars, value not collapsed pri 4
+//   S1 OB retest + VP support  value support, Wyckoff bias ACCUMULATION, context >= +2                     pri 3
+//   S5 Stage-2 continuation    last break bullish <=20 bars, not a CHoCH, above VAH, <=1 CHoCH in 20      pri 2
+//   S6 SOS momentum push       Wyckoff SOS <=10 bars, at/above value, structure up                        pri 2
+//   S7 Distribution breakdown  Wyckoff distribution <=15 bars, structure down, context <= -3 (bearish)   pri 3
+//   S8 Choppy range            3+ CHoCH in the last 20 bars                                               pri 1
+// S4 of the Context Layers indicator (VAL bounce + bull FVG stack) is NOT carried: S4
+// does not count FVGs by side. Bar counts arrive as "bars since" with 9999 for never.
+export wclSetup(bool on, int wykBase, int wykAgo, bool trendUp, int vpScore, int total,
+     bool wykAccum, bool lastBull, bool lastChoch, int smcAgo, float vah, float px,
+     int choch20, bool sweepBull, int sweepAgo) =>
+    string sStr = "● NONE"
+    int    pri  = 0
+    bool   bear = false
+    if on
+        if wykBase == 3 and wykAgo <= 15 and trendUp and vpScore >= 1 and total >= 4
+            sStr := "🟢 S2 — Spring/LPS Reversal"
+            pri  := 5
+        else if sweepBull and sweepAgo <= 10 and lastChoch and lastBull and smcAgo <= 10 and vpScore > -3
+            sStr := "🟢 S3 — Sweep+CHoCH Reversal"
+            pri  := 4
+        else if vpScore >= 1 and wykAccum and total >= 2
+            sStr := "🟢 S1 — OB Retest + VP Support"
+            pri  := 3
+        else if lastBull and not lastChoch and smcAgo <= 20 and not na(vah) and px > vah and choch20 <= 1
+            sStr := "🟢 S5 — Stage 2 Continuation > VAH"
+            pri  := 2
+        else if wykBase == 4 and wykAgo <= 10 and vpScore >= 1 and trendUp
+            sStr := "🟢 S6 — SOS Momentum Push"
+            pri  := 2
+        else if wykBase <= -3 and wykAgo <= 15 and not trendUp and total <= -3
+            sStr := "✗ S7 — Distribution Breakdown"
+            pri  := 3
+            bear := true
+        else if choch20 >= 3
+            sStr := "● S8 — Choppy Range"
+            pri  := 1
+    [sStr, pri, bear]
+
 // ---- oiLevels ----------------------------------------------------------------
 // Draw the OI-derived support/resistance rays. One call, five lines.
 //
@@ -3117,7 +3186,7 @@ export oiNarrative(float oiPct, bool pxUp, bool oiUp, float basis, float builtPc
     bool noOpt = na(pcr) and na(maxPain) and na(totCe)
     string oBias = na(pcr) ? "" : (pcr > 1.3 ? "\nPUT-HEAVY — writers defending the downside; mildly bullish." : pcr < 0.7 ? "\nCALL-HEAVY — writers selling upside, so rallies get capped." : "\nBALANCED — positioning gives no strong bias.")
     string oRange = (na(peK) and na(ceK)) ? "" : " Range " + (na(peK) ? "?" : str.tostring(peK, format.mintick)) + " support → " + (na(ceK) ? "?" : str.tostring(ceK, format.mintick)) + " resistance."
-    string oPain = (na(maxPain) or na(px) or px <= 0) ? "" : "\nMax pain " + str.tostring(maxPain, format.mintick) + " pulls " + (maxPain >= px ? "UP" : "DOWN") + " into expiry" + (na(atmShift) ? "." : atmShift > 0 ? "; writers ADDING → slow drift, not a clean breakout." : "; writers PULLING → a sharp move is likelier.")
+    string oPain = (na(maxPain) or na(px) or px <= 0) ? "" : "\nMax pain " + str.tostring(maxPain, format.mintick) + " pulls " + (maxPain >= px ? "UP" : "DOWN") + " into expiry" + (na(atmShift) ? "." : atmShift > 0 ? "; ATM put writing outpaced calls → support being built under price." : "; ATM call writing outpaced puts (or puts unwound) → a cap forming overhead.")
     // THREE returns now: the caller puts fRead on line 1 and fBasis on its own line.
     [fRead, fBasis, noOpt ? "" : oBias + oRange + oPain]
 

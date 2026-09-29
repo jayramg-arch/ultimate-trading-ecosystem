@@ -856,7 +856,7 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.12"
+string S4_VER      = "v11.13"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -3073,6 +3073,9 @@ f_fold2809() =>
 // "combos work better" is an edge claim and combo_backtest.py is where it gets tested,
 // against a SIGMA-MATCHED control so it cannot just rediscover "more patterns fired".
 f_paCombos(bool rec) =>
+    // Combos use a RAW engulf (29-Sep-2026): the Σ battery's strict engulf is ~96x rarer
+    // and had silenced BEAR TRAP / CAPITULATION FLOOR. Display only - no gate reads these.
+    _eng = close[1] < open[1] and close > open and open <= close[1] and close >= open[1]
     _vcp = ta.barssince(kVCP)
     _bc  = ta.barssince(kBC)
     _swp = ta.barssince(kSPR or kLIQ)
@@ -3082,8 +3085,8 @@ f_paCombos(bool rec) =>
     [_vcp, _bc, _swp, _clx, _sprR, _b2,
      not rec and _vcp <= 10 and (kNR7 or kIN3 or kIBNR7),
      not rec and _bc  <= 3  and (kPP or kGAP),
-     not rec and _swp <= 3  and kENG,
-     rec and _clx <= 10 and _sprR <= 3 and kENG,
+     not rec and _swp <= 3  and _eng,
+     rec and _clx <= 10 and _sprR <= 3 and _eng,
      rec and _clx <= 40 and _b2  <= 5  and kVDU]
 // Mode resolution — aligned to the Golden Matcher's STRUCTURAL Bull-vs-Recovery
 // split (v2.3). GM puts Bull/accumulation ABOVE the 200-DMA and a beaten-down
@@ -3287,8 +3290,7 @@ if not na(_gpl)
 // It lives in "S/R + Trendline Lab", where the geometry tuning is actually happening.
 // In S4 it was only a FALLBACK label on the Pattern|Shape row — shown when no PA
 // pattern fired — and fed nothing: not the GO gate, not location, not confluence,
-// not the verdict. The stub keeps that row rendering.
-string geom = "—"
+// not the verdict. 29-Sep-2026: the Shape field itself left the row - geometry is S5's job.
 
 // ── AUTO TRENDLINES (tl_auto): fit a support line (pivot lows) + resistance line (pivot
 // highs) from the geometry pivots, then OVERRIDE tls_*/tlr_* so every consumer below —
@@ -3557,33 +3559,10 @@ int _smc_score = en_wcl ? (smc_trend_up ? 2 : -2) + (smc_last_choch and not na(s
 int stage_score = nz(d_bel30, 1.0) < 0.5 and nz(d_bel200, 1.0) < 0.5 ? 3 : nz(d_bel200, 1.0) < 0.5 ? 1 : -2
 int _total_base = wyk_score_comp + _vp_score + _smc_score + stage_score
 
-string _setup_str  = "● NONE"
-int    _setup_pri  = 0
-
-// v5.0-fix: the ladder tested Wyckoff/SMC state by re-parsing the DISPLAY strings
-// (str.contains "Spring" / "CHoCH ▲" / "SOW"). Those are the same tiers already held
-// numerically — wyk_score_base is 4=SOS, 3=Spring/LPS, 2=SC, 1=PS/ST, -2=BC/PSY,
-// -3=LPSY/UT, -4=SOW — so the tests below are exact equivalents, cheaper, and can
-// no longer break when a label is reworded.
-bool _setup_bear = false
-if en_wcl and en_wcl_stp
-    _wyk_fresh_15  = not na(wyk_last_bar) and (bar_index - wyk_last_bar) <= 15
-    if wyk_score_base == 3 and _wyk_fresh_15 and smc_trend_up and _vp_score >= 1 and _total_base >= 4
-        _setup_str := "🟢 S2 — Spring/LPS Reversal"
-        _setup_pri := 5
-    else if _vp_score >= 1 and wyk_bias == "ACCUMULATION" and _total_base >= 2
-        _setup_str := "🟢 S1 — OB Retest + VP Support"
-        _setup_pri := 3
-    else if smc_last_was_bull and not smc_last_choch and not na(smc_last_bar) and (bar_index - smc_last_bar) <= 20 and not na(vp_vah) and close > vp_vah and choch_count_20 <= 1
-        _setup_str := "🟢 S5 — Stage 2 Continuation > VAH"
-        _setup_pri := 2
-    else if wyk_score_base <= -3 and _wyk_fresh_15 and not smc_trend_up and _total_base <= -3
-        _setup_str := "✗ S7 — Distribution Breakdown"
-        _setup_pri := 3
-        _setup_bear := true
-    else if choch_count_20 >= 3
-        _setup_str := "● S8 — Choppy Range"
-        _setup_pri := 1
+// WCL setup ladder S1-S8 lives in S4Core.wclSetup (29-Sep-2026: S3 Sweep+CHoCH and S6
+// SOS Momentum Push restored, removed 29-Jul for tokens). Same conditions, same order.
+[_swBull, _swAgo] = core.sweepState(smc_liq_len)
+[_setup_str, _setup_pri, _setup_bear] = core.wclSetup(en_wcl and en_wcl_stp, wyk_score_base, wyk_age, smc_trend_up, _vp_score, _total_base, wyk_bias == "ACCUMULATION", smc_last_was_bull, smc_last_choch, na(smc_last_bar) ? 9999 : bar_index - smc_last_bar, vp_vah, close, choch_count_20, _swBull, _swAgo)
 
 int _setup_bonus = _setup_pri >= 4 ? 2 : _setup_pri == 3 ? (_setup_bear ? -2 : 1) : _setup_pri == 1 ? -1 : 0
 int _total_final = _total_base + _setup_bonus
@@ -4336,7 +4315,7 @@ f_fold3954() =>
     string role_txt = roleMism_v ? "  ⚠role" : ""
     string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : not ema_ok[_so] ? "below EMA20" : not fund_ok[_so] ? "fundamentals" : "weak/red bar") + "   " + (any_pa_v?"🟢":"⚪") + "P " + (support_v?"🟢":"⚪") + "L " + (vol_dead[_so] ? "?" : vol_ok_v ? "🟢" : "⚪") + "V " + (bar_ok_v?"🟢":"⚪") + "B " + (not _gOkTrail[_so] ? "?" : _rrgTr[_so] ? "🟢" : "⚪") + "Q " + fundChip[_so] + "F" + "  " + (timing_v ? "🟢" : "⚪") + "⏱" + pb_txt + path_txt + cf_txt + role_txt
     color trig_col = go_v ? C_GO : C_WARN
-    color rv_col = chart_rv_v >= 1.25 ? C_OK : chart_rv_v >= 1.0 ? C_WARN : C_NO
+    color rv_col = chart_rv_v >= 1.25 ? C_OK : vol_ok_v ? (pb_ctx_v ? C_OK : C_WARN) : C_NO
     [trigAge, trig_txt, trig_col, rv_col]
 [trigAge, trig_txt, trig_col, rv_col] = f_fold3954()
 
@@ -4812,7 +4791,7 @@ f_rankRow(string[] nm, int[] st, int[] wt) =>
     for i = 0 to n - 1
         int j = array.get(idx, i)
         int _s = array.get(st, j)
-        o := o + (_s > 0 ? "🟢" : _s < 0 ? "▫" : "⚪") + array.get(nm, j) + (array.get(wt, j) > 1 ? str.tostring(array.get(wt, j)) : "") + "  "
+        o := o + (_s > 0 ? "🟢" : _s < 0 ? "▫" : "⚪") + array.get(nm, j) + (array.get(wt, j) == 1 ? "" : array.get(wt, j) == 0 ? "·0" : str.tostring(array.get(wt, j))) + "  "
     o
 f_sumHdr(string t) =>
     string o = str.replace_all(t, "QUALITY · ", "QUALITY\n")
@@ -5139,16 +5118,15 @@ if show_panel and d_panel and barstate.islast
     // Pattern = a DRAWN flag (box on the chart). Geometry = an inferred SHAPE from the
     // last 4 pivots — a context read, NOT a drawn pattern — so it is prefixed "~shape"
     // to stop it reading as something you should see on the chart.
-    string _geoTxt = geom[_so] == "—" ? "—" : "~shape: " + geom[_so]
-    string _patTxt = not d_pat ? "off" : ((str.length(pats[_so]) > 0 ? pats[_so] : "no flag") + "   |   " + _geoTxt)
+    string _patTxt = not d_pat ? "off" : (str.length(pats[_so]) > 0 ? pats[_so] : "no flag")
     // PA COMBO joins this row (1-Sep). Both answer "what fired here" - the combo is a
     // NAMED sequence of the same patterns this row already reports, with the context age
     // Sigma cannot show. Built here rather than 650 lines below, where it used to live:
     // every flag it reads is a global from f_paCombos, so nothing moves but the text.
     string _cbTxt = cbSPRING[_so] ? "COILED SPRING  │  VCP " + str.tostring(_agVCP[_so]) + "b -> coil now" : cbIGNITE[_so] ? "INSTITUTIONAL IGNITION  │  BC " + str.tostring(_agBC[_so]) + "b -> " + (kPP[_so] ? "PP" : "GAP") + " now" : cbTRAP[_so] ? "BEAR TRAP  │  sweep " + str.tostring(_agSPR[_so]) + "b -> engulf now" : cbFLOOR[_so] ? "CAPITULATION FLOOR  │  climax " + str.tostring(_agCLX[_so]) + "b + spring " + str.tostring(_agSPRr[_so]) + "b -> engulf now" : cbSHIFT[_so] ? "STRUCTURE SHIFT  │  climax " + str.tostring(_agCLX[_so]) + "b + higher-low " + str.tostring(_ag2B[_so]) + "b -> dry-up now" : ""
-    f_row(25, "Pattern | Shape | Combo",
+    f_row(25, "Pattern | Combo",
          _patTxt + (str.length(_cbTxt) > 0 ? "   │   ★ " + _cbTxt : ""),
-         str.length(_cbTxt) > 0 ? C_GO : not d_pat ? color.gray : str.length(pats[_so]) > 0 ? C_OK : geom[_so] != "—" ? C_INFO : color.gray)
+         str.length(_cbTxt) > 0 ? C_GO : not d_pat ? color.gray : str.length(pats[_so]) > 0 ? C_OK : color.gray)
 
     // Location (L) — verbose, own row (24-Jul, Jay's PLVB sequence). The TRIGGER row's
     // "L✓/·" is a bare checkmark; this spells out WHICH of the exact sources the
@@ -5198,8 +5176,8 @@ if show_panel and d_panel and barstate.islast
     // input, so a static order would be right at the defaults and silently wrong the
     // moment one is changed.
     string[] _cfNm = array.from("AVWAP", "Intra", "⚡FVG", "Ctrl", "S/R", "TL", "Flag", "EMA20", "@AVWAP" + (near_avwap[_so] ? "-" + nearest_sup_lbl[_so] : ""), "Fib", "Pinch", "RV+", "Rnd" + (near_round[_so] ? " " + str.tostring(rn_lvl[_so], format.mintick) : ""), "D-PA", "Arrival", "WCL", "RRG", "MTF" + (_so_dzTfN >= 2 ? "×" + str.tostring(_so_dzTfN) : ""))
-    int[] _cfSt = array.from(ev_ok[_so] ? 1 : 0, show_intraday ? (intra_ok[_so] ? 1 : 0) : -1, z_inDZ_fvg[_so] ? 1 : 0, z_inDZ_ctrl[_so] ? 1 : 0, near_sr[_so] ? 1 : 0, tl_extra[_so] ? 1 : 0, bullFlag[_so] ? 1 : 0, near_ema[_so] ? 1 : 0, near_avwap[_so] ? 1 : 0, near_fib[_so] ? 1 : 0, pinched[_so] ? 1 : 0, chart_rv[_so] >= cf_rv_strong ? 1 : 0, near_round[_so] ? 1 : 0, daily_pa_agrees[_so] ? 1 : 0, show_arrival ? (arr_fav[_so] ? 1 : 0) : -1, en_wcl ? ((_total_final >= 4 or wyk_bias == "ACCUMULATION") ? 1 : 0) : -1, _gOkTrail ? (_rrgTr ? 1 : 0) : -1, _so_dzTfN >= 2 ? 1 : 0)
-    int[] _cfWt = array.from(cf_w_avwap, cf_w_intra, cf_w_fvg, cf_w_ctrl, cf_w_sr, cf_w_tl, cf_w_flag, cf_w_ema, cf_w_avwl, cf_w_fib, cf_w_pinch, cf_w_rv, cf_w_round, cf_w_dailypa, cf_w_arrival, cf_w_wcl, cf_w_rrg, cf_w_mtf * math.max(_so_dzTfN, 1))
+    int[] _cfSt = array.from(ev_ok[_so] ? 1 : 0, show_intraday ? (intra_ok[_so] ? 1 : 0) : -1, z_inDZ_fvg[_so] ? 1 : 0, z_inDZ_ctrl[_so] ? 1 : 0, near_sr[_so] ? 1 : 0, tl_extra[_so] ? 1 : 0, bullFlag[_so] ? 1 : 0, near_ema[_so] ? 1 : 0, near_avwap[_so] ? 1 : 0, near_fib[_so] ? 1 : 0, pinched[_so] ? 1 : 0, chart_rv[_so] >= cf_rv_strong ? 1 : 0, near_round[_so] ? 1 : 0, daily_pa_agrees[_so] ? 1 : 0, show_arrival ? (arr_fav[_so] ? 1 : 0) : -1, en_wcl ? ((_total_final >= 4 or wyk_bias == "ACCUMULATION") ? 1 : 0) : -1, _gOkTrail ? (_rrgTr ? 1 : 0) : -1, d_zones and _htfNest[_so] > 0 ? 1 : 0)
+    int[] _cfWt = array.from(cf_w_avwap, cf_w_intra, cf_w_fvg, cf_w_ctrl, cf_w_sr, cf_w_tl, cf_w_flag, cf_w_ema, cf_w_avwl, cf_w_fib, cf_w_pinch, cf_w_rv, cf_w_round, cf_w_dailypa, cf_w_arrival, cf_w_wcl, cf_w_rrg, cf_w_mtf * math.max(_htfNest[_so], 1))
     string cfb = f_rankRow(_cfNm, _cfSt, _cfWt)
     f_row(31, "Confluence " + (show_cf ? str.tostring(cf_v) + "/" + str.tostring(cf_max) : ""), not show_cf ? "off" : cfb + f_vCF(cf_v, cf_max), not show_cf ? color.gray : cf_v > 0 ? C_OK : color.gray)
 
@@ -5522,7 +5500,7 @@ if show_panel and d_panel and barstate.islast
     f_row(30, "Volume (V) · RV " + timeframe.period,
          vol_dead[_so]
            ? "?  NO VOLUME DATA on this symbol — an index that publishes none. This is a STAGE-1 analysis chart: read structure, stage, RS and location here, then take the trigger on the ETF where price and volume come from the same instrument."
-           : (vol_ok_v ? "🟢" : "⚪") + str.tostring(chart_rv_v, "0.00") + (chart_rv_v >= 1.25 ? "  strong" : chart_rv_v >= 1.0 ? "  ok" : "  thin"),
+           : (vol_ok_v ? "🟢" : "⚪") + str.tostring(chart_rv_v, "0.00") + (chart_rv_v >= 1.25 ? "  strong" : chart_rv_v >= 1.0 ? "  ok" : vol_ok_v ? "  ok · pullback floor" : "  thin"),
          vol_dead[_so] ? C_MUTE : rv_col)
 
     // Bar (B) — verbose, own row (24-Jul, Jay's PLVB sequence). Placed at row 25 (not
