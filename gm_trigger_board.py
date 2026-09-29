@@ -2423,6 +2423,21 @@ def s4_bundle_options(symbols=None, tf: str = None) -> str:
                 if x not in seen:
                     seen.add(x)
                     symbols.append(x)
+        # HOLDINGS TOO (29-Sep-2026): only ADD-rated holdings become board rows, so a
+        # held F&O name (TVSMOTOR) showed Futures OI - bound live from v67 - but "no
+        # options" on the same panel. The fundamentals bundle already adds off-board
+        # holdings (s4_fund_lists); options now do the same, from the same file.
+        try:
+            import csv as _csv
+            if os.path.exists("FINAL_Portfolio_Picks.csv"):
+                with open("FINAL_Portfolio_Picks.csv", encoding="utf-8") as _fh:
+                    for _r in _csv.DictReader(_fh):
+                        _k = _canon_key(_r.get("Symbol"))
+                        if _k and _k not in seen:
+                            seen.add(_k)
+                            symbols.append(_k)
+        except Exception as e:
+            _log.warning(f"s4_bundle_options: holdings skipped: {e}")
         if not symbols:
             _log.warning("s4_bundle_options: no board cache on any timeframe - "
                          "rebuild a board before building the options bundle")
