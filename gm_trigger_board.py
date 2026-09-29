@@ -1229,8 +1229,17 @@ def _rrg_ok(v) -> bool:
     return _rrg_ok_raw(v)
 
 
+def _hp_is_etf(sym) -> bool:
+    """house_policy.is_etf, guarded - the F-tag display must never break a row."""
+    try:
+        import house_policy
+        return bool(house_policy.is_etf(sym))
+    except Exception:
+        return False
+
+
 def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
-                stage=None, rrg_tradeable=None, fund_ok=None) -> str:
+                stage=None, rrg_tradeable=None, fund_ok=None, is_etf=False) -> str:
     """The S4 Pine STAGE-2 gate mirrored → a GATES-PASSED CLOSENESS score, so near-
     triggers rank cleanly (a name one gate short of GO is a WATCH candidate, not a
     reject). Shared by BOTH the Trigger Board 'S4-GO' column and the Single Symbol page.
@@ -1398,11 +1407,14 @@ def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
         # Tag PULLBACK 4/4s explicitly. This is the setup Jay is hunting and the one the
         # relaxed gate exists to surface, so it must be identifiable at a glance among the
         # breakout GOs — not silently mixed in with them.
-        _pbt = (" · PB" if _pb else "") + (" · F?" if fund_ok is None else "") + _mtag
+        # F tag (29-Sep-2026): an ETF has no company fundamentals, so its F is "n/a" by
+        # design - never "F?", which is reserved for a stock whose fetch failed.
+        _fq = " · F n/a" if is_etf else (" · F?" if fund_ok is None else "")
+        _pbt = (" · PB" if _pb else "") + _fq + _mtag
         return f"5/5 GO{_pbt}" if not _pa_age else f"5/5 · PA {_pa_age}b{_pbt}"
     _miss = ("no PA" if not g_pa else "no loc" if not g_loc
              else "no vol" if not g_vol else "weak bar" if not g_bar else "no funda")
-    _fq = " · F?" if fund_ok is None else ""
+    _fq = " · F n/a" if is_etf else (" · F?" if fund_ok is None else "")
     return f"{n}/5 · {_miss}{_fq}{_age_tag}"
 
 
@@ -1793,6 +1805,7 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     try:
         s4go = s4go_status(sigma_pa, ctx, ev.get("intra_ok"), path,
                            archetypes=info.get("archetypes"),
+                           is_etf=_hp_is_etf(sym),
                            stage=g(rec, "Stage", default=""),
                            fund_ok=(False if (wf or {}).get("fund_block")
                                     else (wf or {}).get("fund_ok")),
