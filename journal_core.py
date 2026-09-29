@@ -290,7 +290,15 @@ def upsert_trade(entry):
     }
     
     clean_entry = {db_map[k]: v for k, v in entry.items() if k in db_map}
-    
+
+    # entry_date guard (29-Sep-2026): 4 OPEN rows had lost their entry date, which
+    # blanks the v67 slot date and the time-stops. An empty/NaN entry_date is dropped
+    # so an UPDATE can never overwrite a real date with nothing; an OPEN INSERT with
+    # no date gets today's (IST) date below.
+    _ed = clean_entry.get('entry_date')
+    if 'entry_date' in clean_entry and (_ed is None or str(_ed).strip() in ('', 'nan', 'NaT', 'None')):
+        clean_entry.pop('entry_date')
+
     # Logic: If ID exists, update. If Symbol exists with OPEN status, update. Else Insert.
     target_id = clean_entry.get('id')
     
@@ -300,8 +308,13 @@ def upsert_trade(entry):
         row = c.fetchone()
         if row: target_id = row[0]
 
+    if not target_id and 'entry_date' not in clean_entry \
+            and str(clean_entry.get('status', 'OPEN') or 'OPEN').upper() == 'OPEN':
+        from datetime import datetime, timedelta, timezone
+        clean_entry['entry_date'] = datetime.now(timezone(timedelta(hours=5, minutes=30))).strftime('%Y-%m-%d')
+
     keys = [k for k in clean_entry.keys() if k != 'id']
-    
+
     new_id = None
     if target_id:
         # UPDATE
