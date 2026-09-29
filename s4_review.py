@@ -25,7 +25,7 @@ TradingView MCP's data_get_pine_tables on CGPOWER/125)
 REQUIRES
     TradingView Desktop launched with --remote-debugging-port=9222
     (LAUNCH_TRADINGVIEW_CDP.bat), the chart open with S4 (and ideally S5) VISIBLE.
-    GEMINI_API_KEY in .env — default model gemini-3.1-flash-lite (Jay's pick, 11-Sep; the tier the rest of the
+    GEMINI_API_KEY in .env — default model gemini-3.5-flash-lite (Jay, 29-Sep; was 3.1-flash-lite from 11-Sep; the tier the rest of the
     app uses). --provider claude is opt-in only (S4_REVIEW_ANTHROPIC_KEY, claude-opus-5).
     Override with S4_REVIEW_GEMINI_MODEL / S4_REVIEW_MODEL. Never reads ANTHROPIC_MODEL/BASE_URL.
 
@@ -85,7 +85,7 @@ DEFAULT_MODEL = os.getenv("S4_REVIEW_MODEL", "claude-opus-5")
 CLAUDE_BASE = (os.getenv("S4_REVIEW_BASE_URL") or "https://api.anthropic.com").rstrip("/")
 # Same tier ai_provider_manager.ask_llm already pays for. Jay's call (11-Sep): cost first;
 # Claude stays opt-in via --provider claude and is never in the auto path.
-GEMINI_MODEL = os.getenv("S4_REVIEW_GEMINI_MODEL", "gemini-3.1-flash-lite")
+GEMINI_MODEL = os.getenv("S4_REVIEW_GEMINI_MODEL", "gemini-3.5-flash-lite")
 
 
 # ---------------------------------------------------------------------------------------
