@@ -769,3 +769,16 @@ To change any of the above, edit the Pine source directly and re-publish as a pr
 ---
 
 *Last updated: 2026-05-17. v1.2 is the canonical Context Layers reference. v1.1 guide preserved for historical analysis using the older thresholds (STRONG BULL ≥ 8).*
+
+
+---
+
+## Section Four's copy of the setup ladder (29 Sep 2026)
+
+S4 runs S2, S3, S1, S7, S5, S6, S8 via `S4Core.wclSetup` (S3 and S6 restored 29 Sep; S4 VAL Bounce not
+carried — S4 does not count FVGs by side). Differences from this indicator: S2 base >= 4 (not 6, S4's base
+has no order-block term); S1 has no order-block location clause and base >= 2; S7 has no bear-block/profile
+clause; S5 drops the explicit Stage-2 test (S4's first-test veto already removes Stage 3/4). S3, S6, S8
+identical. The label adjusts the WCL score only; it never gates GO, and the WCL confluence weight is 0.
+
+**Correction:** S7 fires only when the current priority is below 3, so it overrides S4/S5/S6 but NOT S1.

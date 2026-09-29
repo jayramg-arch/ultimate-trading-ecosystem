@@ -2897,9 +2897,10 @@ export sweepState(simple int len) =>
 //   S2 Spring/LPS reversal     Wyckoff Spring/LPS <=15 bars, structure up, at/above value, context >= +4   pri 5
 //   S3 Sweep + CHoCH reversal  bullish sweep <=10 bars, then a bullish CHoCH <=10 bars, value not collapsed pri 4
 //   S1 OB retest + VP support  value support, Wyckoff bias ACCUMULATION, context >= +2                     pri 3
+//   S7 Distribution breakdown  Wyckoff distribution <=15 bars, structure down, context <= -3 (bearish)   pri 3
 //   S5 Stage-2 continuation    last break bullish <=20 bars, not a CHoCH, above VAH, <=1 CHoCH in 20      pri 2
 //   S6 SOS momentum push       Wyckoff SOS <=10 bars, at/above value, structure up                        pri 2
-//   S7 Distribution breakdown  Wyckoff distribution <=15 bars, structure down, context <= -3 (bearish)   pri 3
+// Order = Context Layers v1.2 precedence: S7 outranks S5/S6 (pri 2) but not S1 (equal 3, S1 first).
 //   S8 Choppy range            3+ CHoCH in the last 20 bars                                               pri 1
 // S4 of the Context Layers indicator (VAL bounce + bull FVG stack) is NOT carried: S4
 // does not count FVGs by side. Bar counts arrive as "bars since" with 9999 for never.
@@ -2919,16 +2920,16 @@ export wclSetup(bool on, int wykBase, int wykAgo, bool trendUp, int vpScore, int
         else if vpScore >= 1 and wykAccum and total >= 2
             sStr := "🟢 S1 — OB Retest + VP Support"
             pri  := 3
+        else if wykBase <= -3 and wykAgo <= 15 and not trendUp and total <= -3
+            sStr := "✗ S7 — Distribution Breakdown"
+            pri  := 3
+            bear := true
         else if lastBull and not lastChoch and smcAgo <= 20 and not na(vah) and px > vah and choch20 <= 1
             sStr := "🟢 S5 — Stage 2 Continuation > VAH"
             pri  := 2
         else if wykBase == 4 and wykAgo <= 10 and vpScore >= 1 and trendUp
             sStr := "🟢 S6 — SOS Momentum Push"
             pri  := 2
-        else if wykBase <= -3 and wykAgo <= 15 and not trendUp and total <= -3
-            sStr := "✗ S7 — Distribution Breakdown"
-            pri  := 3
-            bear := true
         else if choch20 >= 3
             sStr := "● S8 — Choppy Range"
             pri  := 1

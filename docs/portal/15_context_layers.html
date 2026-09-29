@@ -196,6 +196,7 @@ footer a{color:var(--acc)}
     <li><a href="#bull">The bullish five</a></li>
     <li><a href="#bear">The bearish two, and the dead one</a></li>
     <li><a href="#priority">Priority and conflict</a></li>
+    <li><a href="#s4copy">The ladder inside Section Four</a></li>
     <li><a href="#bonus">The bonus, and why each value</a></li>
   </ol>
   <p>Trading it</p>
@@ -395,8 +396,10 @@ Stage    ─┘        │         ├──&gt; FINAL SCORE ──&gt; band ─
   <h2><span class="n">06</span>Priority, and the one genuine conflict</h2>
   <p>At most one setup labels a bar. Priority resolves the rest:</p>
   <pre>S2 (5)  &gt;  S3 (4)  &gt;  S1 (3) = S7 (3)  &gt;  S4 = S5 = S6 (2)  &gt;  S8 (1)  &gt;  none</pre>
-  <p><b>S7 is evaluated independently of the bull setups.</b> It can override anything at priority 3
-  or below — S1, S4, S5, S6 — but it cannot override S2.</p>
+  <p><b>S7 overrides the priority-2 setups only.</b> The indicator checks it after the bull rungs with
+  the test <em>current priority below 3</em>, so it replaces S4, S5 or S6 — but not S1, which also sits
+  at 3 and was checked first, and not S2 or S3. (Corrected 29 Sep 2026; this page previously said S7
+  could override S1. The code never allowed that.)</p>
   <div class="note warn">
     <span class="tag">The S2-versus-S7 case</span>
     <p>A spring has just printed <em>and</em> fresh distribution is visible. S2 wins on priority, so
@@ -405,6 +408,36 @@ Stage    ─┘        │         ├──&gt; FINAL SCORE ──&gt; band ─
     <p><b>Treat that as a flag to read the chart by hand</b>, not as a verdict. It is rare, and it is
     the one case where the priority ladder gives a confident answer to a genuinely ambiguous
     picture.</p>
+  </div>
+</section>
+
+<section id="s4copy">
+  <h2><span class="n">06b</span>The ladder inside Section Four</h2>
+  <p>Section Four carries its own copy of this detector — the <b>WCL · Setup</b> row on its panel. Since
+  29 Sep 2026 that copy lives in the S4Core library (<code>wclSetup</code>, with <code>sweepState</code>
+  for the stop-run) and runs <b>seven of the eight setups</b>, in the same precedence as this indicator:</p>
+  <pre>S2  &gt;  S3  &gt;  S1  &gt;  S7  &gt;  S5  &gt;  S6  &gt;  S8        (S4 is not carried)</pre>
+  <p>S3 and S6 were cut on 29 Jul to buy compile tokens and came back on 29 Sep. Moving the ladder into
+  the library is what made room for them.</p>
+
+  <div class="tw"><table>
+    <thead><tr><th>Setup</th><th>This indicator</th><th>Section Four's copy</th></tr></thead><tbody>
+      <tr><td class="k">S2</td><td>Spring or LPS ≤15 bars · trend up · profile ≥ +1 · base ≥ <b>6</b></td><td>Same, but base ≥ <b>4</b>. Section Four's base has no order-block term, so it runs about two points lower on the same chart; the floor was lowered to match.</td></tr>
+      <tr><td class="k">S3</td><td>Bullish sweep ≤10 bars · bullish CHoCH ≤10 bars · profile &gt; −3</td><td>Identical. The sweep is the chart-TF stop-run: price trades through the last confirmed swing low (10 bars each side) and closes back above it.</td></tr>
+      <tr><td class="k">S1</td><td><b>Inside a bullish order block</b> · profile ≥ +1 or within 5% of POC · accumulation · base ≥ 3</td><td>No order-block condition (Section Four draws demand zones instead, and reads them in its own Location row) · profile ≥ +1 · accumulation · base ≥ 2.</td></tr>
+      <tr><td class="k">S4</td><td>VAL bounce · more bull FVGs than bear · not distribution · base ≥ 2</td><td><b>Not carried.</b> Section Four does not count gaps by side. The VAL itself still counts as location there.</td></tr>
+      <tr><td class="k">S7</td><td>SOW / LPSY / UT ≤15 bars · trend down · in a bear block <b>or</b> profile ≤ −1 · base ≤ −3</td><td>Wyckoff tier ≤ −3 (the same three events) · trend down · base ≤ −3. No block/profile clause — base ≤ −3 already implies a weak profile in practice.</td></tr>
+      <tr><td class="k">S5</td><td>Stage 2 · bullish break (not CHoCH) ≤20 bars · close &gt; VAH · CHoCH count ≤ 1</td><td>Same, without the explicit Stage-2 test — Section Four's first-test veto has already rejected every Stage 3/4 name before this row matters.</td></tr>
+      <tr><td class="k">S6</td><td>SOS ≤10 bars · profile ≥ +1 · trend up</td><td>Identical.</td></tr>
+      <tr><td class="k">S8</td><td>No other setup · CHoCH count ≥ 3</td><td>Identical, and just as unreachable (section 01).</td></tr>
+    </tbody></table></div>
+
+  <div class="note warn">
+    <span class="tag">What the Section Four label does and does not do</span>
+    <p>It moves the WCL score by the same bonus as here (S2/S3 +2, S1 +1, S7 −2, S8 −1, the rest 0).
+    It does <b>not</b> touch the GO gate, and the WCL chip's confluence weight is <b>0</b> — the
+    chip shows <b>·0</b> after its name so a lit chip is not mistaken for points. Wyckoff was measured
+    and rejected both as a veto and as a score input (28 Jul), which is why it stays context only.</p>
   </div>
 </section>
 

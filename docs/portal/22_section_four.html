@@ -323,12 +323,13 @@ footer a{color:var(--acc)}
 
 <section id="since">
   <h2><span class="n">02b</span>What changed since 1 September</h2>
-  <p>The panel is <b>S4 v11.10 on S4Core v60</b> (file title v10.11). Five things moved on 8–9 September, one
+  <p>The panel is <b>S4 v11.13</b> (file title v10.13), waiting on the next S4Core publish. Five things moved on 8–9 September, one
   measurement changed how a row should be read, the 12–15 September batch put the derivatives into
   the ladders, and the 20 September audit batch closed three parity drifts and latched the stop.</p>
   <div class="tw"><table>
     <thead><tr><th>Date</th><th>Change</th><th>Where on the panel</th></tr></thead>
     <tbody>
+      <tr><td class="m">29 Sep</td><td><b>Panel clean-up batch</b> (panel v11.13, needs the next S4Core publish). <b>WCL setups S3 (Sweep + CHoCH) and S6 (SOS push) are back</b>, with the ladder moved into S4Core and ordered exactly as Context Layers (S2 · S3 · S1 · S7 · S5 · S6 · S8). <b>Combos print again</b> — they use a raw engulf. <b>Shape removed</b> from the Pattern row. <b>Volume row graded against the pullback floor</b> when that floor applies. <b>MTF chip lights whenever the higher-timeframe nest scores</b>, and weight-0 chips show <code>·0</code>. Two wordings corrected: LEADERSHIP says the lead is <em>slowing</em> (not "given back") while RS is still rising, and a negative ATM ΔOI now reads "calls added or puts unwound — a cap forming", not "writers pulling". Section 05 now defines all 27 patterns; row 29 documents the arrival bands</td><td>WCL Setup · Pattern | Combo · Volume · Confluence · LEADERSHIP · OI</td></tr>
       <tr><td class="m">26 Sep</td><td><b>First test: Stage 3/4 or weekly trend DOWN = straight veto</b> (v10.13, needs S4Core/62). One combined switch. A rejected name issues <b>no GO and no alert</b>; VERDICT, STATUS and SUMMARY each say only "REJECTED — first test failed", with no further analysis, and the reviewer records a PASS without calling the model. Weekly trend = the Swing Zigzag weekly state; <b>sideways is allowed</b> (a base is sideways), and an unbound Zigzag never rejects. <b>The board vetoes Stage 3/4 only</b> (Jay, 26 Sep): its Python weekly trend can read DOWN where the structure is sideways, so the weekly half lives in S4 alone. <b>Caveat found the same day:</b> S4 binds the Zigzag's RAW weekly state, which can also read DOWN on an HH/LL (sideways) structure — IKS: weekly chart SIDEWAYS, S4 W ⬇️. Not shown on the TRIGGER row</td><td>VERDICT · STATUS · SUMMARY · alerts</td></tr>
       <tr><td class="m">25 Sep · late</td><td><b>Zones are tested on their OWN timeframe</b> (v10.12 on S4Core/61). A Daily, Weekly or Monthly zone is now judged only on that timeframe's last <em>closed</em> bar — touch, reaction, the three tested rules and the violation close. A 75m touch-and-bounce inside the week is no longer a test of the weekly zone. The zone's own leg-out bar never counts as its first test. <b>Pivot zones are commented out in the code</b> (the token budget for this change); pivot <em>levels</em> and the switch that governs them are unchanged, and the auto-trendline block stays. Checked on LAURUSLABS and HBLENGINE: both now read REACTING off DZ, as the board does</td><td>Zones (MTF) · Location (L) · TRIGGER</td></tr>
       <tr><td class="m">25 Sep</td><td><b>SUMMARY no longer says the sector "agrees" when it is Stage 3</b> (S4Core/60). A Stage-3 sector passes (only Stage 4 shrinks the size), but LEADERSHIP calls it topping two lines up; the take-it line now reads "the sector - topping, not declining - does not stand in the way"</td><td>SUMMARY · DIRECTION</td></tr>
@@ -500,7 +501,7 @@ footer a{color:var(--acc)}
       <tr><td class="k">AVWAP L · BO · Gap</td><td>The three anchors: the 52-week low, the last breakout, the last gap</td></tr>
       <tr><td class="k">Pinch</td><td>The anchors converged — a high-conviction zone. <b>Lower percentage is tighter</b></td></tr>
       <tr><td class="k">AVWAP trigger</td><td>A bounce or a reclaim. <b>An optional timing leg</b>, shown with a clock marker on the trigger row</td></tr>
-      <tr><td class="k">Pattern | Shape | Combo</td><td>The pattern flag, and <b>the combo, folded in on 1 September</b> to buy the row the Options read needed. <b>The Shape half now always prints an em-dash:</b> the geometry classifier was removed from S4 to fund the pullback-aware gate and lives in the S/R + Trendline Lab, where the tuning is actually happening. Its old defect — calling rectangles symmetrical triangles — can no longer occur here. <b>The shape now lives in Section Five</b>, rebuilt on TradingView's own pattern criteria</td></tr>
+      <tr><td class="k">Pattern | Combo</td><td>The drawn pattern flag, and <b>the combo</b> (folded in on 1 September). The Shape field was removed on 29 September — it had printed an em-dash since the geometry classifier left S4. <b>Shape lives in Section Five</b>, rebuilt on TradingView's own pattern criteria</td></tr>
       <tr><td class="k">Setup</td><td><b>Which playbook is in force, and does the fired pattern belong to it.</b> Resolved from the board's catalyst bridge when bound, else from structure: a pullback context wants compression or a turn (an ignition fired <em>inside</em> the zone is the role mismatch); a breakout wants an ignition; accumulation wants a coil and dry-up, and an ignition there is a breakout, not accumulation. The trailing text says where the playbook came from — <code>catalyst live this bar</code>, <code>carried 9b</code>, <code>superseded by live pullback context</code>, <code>bridge not bound</code></td></tr>
       <tr><td class="k">PA grid</td><td>Every condition of the active battery, fired or quiet — <b>nothing aggregated away</b>, so you can see <em>which</em> fired rather than only a total</td></tr>
       <tr><td class="k">Bar (B)</td><td><b>The B gate.</b> In a pullback context it becomes <em>held the zone</em> instead of <em>closed strong</em></td></tr>
@@ -600,40 +601,84 @@ R   RRG        chipped, measured, and deliberately off
 
 <section id="patterns">
   <h2><span class="n">05</span>The pattern battery</h2>
-  <p>Seventeen conditions on the bull path, ten on recovery, mode-selected. <b>Patterns are
-  additive bonuses, not a checklist</b> — there is no fixed N-of-N benchmark. A single tier-3 or
-  tier-4, or Σ ≥ 4, is a strong trigger.</p>
+  <p>Seventeen conditions on the bull path, ten on recovery, chosen by the mode (Auto resolves it
+  from structure). <b>Patterns are additive bonuses, not a checklist</b> — there is no fixed N-of-N
+  benchmark. Σ is the sum of the tiers that fired; a single tier-3 or tier-4, or Σ ≥ 4, is a strong
+  trigger. <b>P</b> on the TRIGGER row passes when any pattern in the active battery fired.</p>
+  <p>Definitions below are the code (S4Core <code>dailyPA</code>, byte-identical to the Golden
+  Matcher's <code>pa_patterns.py</code>). "RV" is this bar's volume over its 50-bar average;
+  "20-bar locked resistance" is the highest high of the 20 bars <em>before</em> this one. On a
+  75m or 125m chart the battery runs on that chart's own bars; the EMAs used by the engulf stay
+  <b>daily</b>, and the two weekly patterns are switched off.</p>
+
+  <h3>Bull battery — 17</h3>
   <div class="tw"><table>
-    <thead><tr><th>Pattern</th><th class="t">Tier</th><th>Fires when</th></tr></thead>
+    <thead><tr><th>Pattern</th><th class="t">Tier</th><th>Fires when (exactly)</th><th>What it means · how to read it</th></tr></thead>
     <tbody>
-      <tr><td class="k">Power Play (HTF)</td><td class="t t4">+4</td><td>A doubling inside eight weeks <b>and</b> a tight 15-bar flag <b>and</b> price above the 50-SMA. The rarest and strongest</td></tr>
-      <tr><td class="k">VCP Breakout</td><td class="t t3">+3</td><td>The prior bar <b>contracted</b> — narrowing range and volume dry-up — then today breaks the 10-day high on volume, closing strong</td></tr>
-      <tr><td class="k">Stage-2 Launch</td><td class="t t3">+3</td><td>A <b>true weekly close crossover</b> of the 30-week average on volume, with the Stage-2 proxy holding. Fresh Stage 1 → 2</td></tr>
-      <tr><td class="k">Wyckoff Spring</td><td class="t t3">+3</td><td>Undercuts the prior 50-bar low, then reclaims it closing green on <b>low</b> volume — a supply vacuum</td></tr>
-      <tr><td class="k">Gap-Up Breakout</td><td class="t t3">+3</td><td>Opens above the prior high and closes above locked resistance, green, on volume</td></tr>
-      <tr><td class="k">Pocket Pivot</td><td class="t t2">+2</td><td>Up close above the 50-SMA on volume greater than the largest down-day volume of the last ten</td></tr>
-      <tr><td class="k">IB-NR7 Coil</td><td class="t t2">+2</td><td>An inside bar that is <em>also</em> the narrowest of seven — the compression coil, and the best early trigger</td></tr>
-      <tr><td class="k">Bullish Engulfing</td><td class="t t2">+2</td><td><b>Quality-gated</b>: a true engulf in a downtrend on double volume with a weak prior bar. Not a naked engulf</td></tr>
-      <tr><td class="k">Liq Sweep Reclaim</td><td class="t t2">+2</td><td>Swept below the 50-SMA within five bars but reclaimed it on volume</td></tr>
-      <tr><td class="k">3-Bar Bull Reversal</td><td class="t t2">+2</td><td>Three lower lows, then a close above the highest high of the three — the pullback is over</td></tr>
-      <tr><td class="k">50-SMA Undercut</td><td class="t t2">+2</td><td>Sweeps below the 50-SMA and closes back above it, green, on volume</td></tr>
-      <tr><td class="k">Hammer at 50 / 200</td><td class="t t2">+2</td><td>A hammer inside a tight band of the average, closing above it</td></tr>
-      <tr><td class="k">Breakout Confirmed</td><td class="t t2">+2</td><td>Anti-algo: closes above locked resistance in the top quartile of range, on volume</td></tr>
-      <tr><td class="k">Inside-3 Coil</td><td class="t t2">+2</td><td>Three nested inside bars — a tightening coil</td></tr>
-      <tr><td class="k">Power Play (close)</td><td class="t t2">+2</td><td>A bar closing in the top quartile of its range on above-average volume</td></tr>
-      <tr><td class="k">True NR7</td><td class="t t1">+1</td><td>The narrowest range of the last seven bars</td></tr>
+      <tr><td class="k">Power Play (HTF)</td><td class="t t4">+4</td><td>The low of the last 40 bars has at least <b>doubled</b> (close more than 2× that low), the last 15 bars sit inside a <b>band under 20%</b> high-to-low, and price is above the 50-SMA.</td><td>O'Neil's high tight flag: a stock that doubled in about eight weeks and then refused to give any of it back. The tight flag is the proof — the holders who made 100% are not selling. The rarest pattern on the battery and the strongest; it also means the stop is wide in rupee terms, so size off the flag low, not the move.</td></tr>
+      <tr><td class="k">VCP Breakout</td><td class="t t3">+3</td><td>The <b>prior</b> bar was contracted — 10-bar ATR below 1.5× its own 50-bar average <em>and</em> 5-bar volume-weighted volume below the 50-bar average volume — then <b>this</b> bar closes above the prior 10-bar high on RV &gt; 1.2, closing in the top 40% of its range.</td><td>Minervini's volatility-contraction pivot. The contraction must come first (the sellers are exhausted, range and volume both shrink), then the break on expanding volume. The top-40% close matters: a breakout that closes weak was sold into. Contraction is measured on the bar before, so the breakout bar's own expansion cannot disqualify itself.</td></tr>
+      <tr><td class="k">Stage-2 Launch</td><td class="t t3">+3</td><td>On the <b>weekly</b> chart the last closed week crossed <b>above the 30-week average</b> (it was at or below it the week before), that week's volume was above 1.1× its own 30-week average, and the Stage-2 proxy holds. <b>Suppressed on 75m/125m</b> — it is a weekly event.</td><td>The Weinstein Stage 1 → 2 transition itself: the base ends and the advance begins. It is the most important structural event for a positional entry, and it happens once per base. Because it is weekly, it stays true for the whole week on a daily chart — which is why it is switched off on the intraday battery (it used to add +3 on every 75m bar of the week).</td></tr>
+      <tr><td class="k">Wyckoff Spring</td><td class="t t3">+3</td><td>The low trades <b>below the prior 50-bar low</b>, the close comes back <b>above</b> it, the bar is green, and volume is <b>below</b> the 50-bar average.</td><td>A stop-run below the obvious floor that nobody follows. The low volume is the point: the sellers who should have piled in on a breakdown did not show up. That is supply exhaustion, and the reclaim close says buyers absorbed what little there was. Stop goes below the spring low — if it is taken out again, the spring failed.</td></tr>
+      <tr><td class="k">Gap-Up Breakout</td><td class="t t3">+3</td><td>Opens <b>above the prior bar's high</b> (a true gap), closes above the <b>20-bar locked resistance</b> (the highest high of the 20 bars before this one), closes green, RV &gt; 1.25.</td><td>Institutional demand arriving before the open and holding all day. Clearing the 20-bar resistance on the same bar means the gap was not merely news excitement into overhead supply. The weakest version is the gap that closes near its low — the green-close rule excludes the worst of those.</td></tr>
+      <tr><td class="k">Pocket Pivot</td><td class="t t2">+2</td><td>Up close (above the prior close and above the open) above the 50-SMA, closing in the upper half of the range, on volume <b>greater than the largest down-day volume of the prior ten bars</b>.</td><td>Morales and Kacher's early-entry signal: buying volume that overwhelms every recent selling day, <em>inside</em> the base rather than at the breakout. It lets you enter before the pivot on lower risk. Above the 50-SMA is required — a pocket pivot under a falling average is a bounce, not accumulation.</td></tr>
+      <tr><td class="k">IB-NR7 Coil</td><td class="t t2">+2</td><td>The bar is an <b>inside bar</b> (high below the prior high, low above the prior low) <em>and</em> the <b>narrowest range of the last seven</b>.</td><td>Maximum compression — two independent measures of a quiet bar agreeing. It says nothing about direction; it says a range expansion is near. That makes it the best early trigger when you already know the direction from location and stage: arm a buy-stop above the coil's high, stop below its low, and the risk is tiny.</td></tr>
+      <tr><td class="k">Bullish Engulfing</td><td class="t t2">+2</td><td>A red bar followed by a green bar that opens at or below the red close and closes at or above the red open — <b>and</b> the close is below the daily EMA10, the EMA10 is below the EMA20, RV &gt; 2, and the prior bar's RSI(14) was below 40.</td><td>Deliberately strict: an engulf only in a real short-term downtrend, on double volume, after an oversold bar — i.e. a capitulation turn, not any green bar that covers a red one. It fires rarely (about 1 bar in 1,300 on 75m). The EMAs are the <b>daily</b> anchors even on intraday charts. The PA combos use a looser raw engulf of their own (29 Sep).</td></tr>
+      <tr><td class="k">Liq Sweep Reclaim</td><td class="t t2">+2</td><td>The lowest low of the last five bars is <b>below the 50-SMA</b>, this bar closes <b>above</b> it, and volume is above 1.5× the 50-bar average.</td><td>A shakeout through the most-watched average and a reclaim on real volume. The stops under the 50 were run and immediately bought. Different from the 50-SMA Undercut below: this one allows the dip to have happened up to five bars ago, so it catches a reclaim that took a few sessions.</td></tr>
+      <tr><td class="k">3-Bar Bull Reversal</td><td class="t t2">+2</td><td>Three consecutive <b>lower lows</b> (the last three completed bars), then this bar <b>closes above the highest high</b> of those three.</td><td>The pullback is over in one bar: everything the sellers did over three bars is undone. It is purely structural (no volume test), so it is best read at a location — in a demand zone it is a clean turn; in the middle of nowhere it is noise.</td></tr>
+      <tr><td class="k">50-SMA Undercut</td><td class="t t2">+2</td><td>The bar's low is <b>below the 50-SMA</b>, the close is <b>above</b> it, the bar is green, RV &gt; 1.25 — all on the same bar.</td><td>A one-bar test and reject of the 50-day average: an intraday flush that failed. The volume requirement separates a real defence of the average from a drift through it.</td></tr>
+      <tr><td class="k">Hammer at 50</td><td class="t t2">+2</td><td>A <b>hammer</b> (lower wick more than 2× the body, upper wick smaller than the body, body in the top third of the range) whose low is within <b>1.5% of the 50-SMA</b>, closing above the 50-SMA, RV &gt; 1.</td><td>Rejection shape at the intermediate-trend average. The long lower wick is the sellers' push that failed; the location gives it meaning.</td></tr>
+      <tr><td class="k">Hammer at 200</td><td class="t t2">+2</td><td>The same hammer, with the low within <b>2% of the 200-SMA</b>, closing above the 200-SMA, RV &gt; 1.</td><td>Rejection at the long-term average — the line institutions defend. A higher-stakes version of the Hammer at 50; if it fails, the long-term trend is in question.</td></tr>
+      <tr><td class="k">Breakout Confirmed</td><td class="t t2">+2</td><td>Closes above the <b>20-bar locked resistance</b>, in the <b>top quartile</b> of its range, RV &gt; 1.25.</td><td>The anti-algo breakout filter: algorithms push price through a level intrabar to trigger stops and then let it fall back. A close in the top quarter of the range, on volume, says the break held into the close rather than being faded.</td></tr>
+      <tr><td class="k">Inside-3 Coil</td><td class="t t2">+2</td><td><b>Three nested inside bars</b> — each of the last three bars has a lower high and a higher low than the bar before it.</td><td>A tightening triangle in three bars: the market is agreeing on a price more precisely every bar. Like IB-NR7 it is compression, not direction — a coil to arm a stop above, not a reason to buy.</td></tr>
+      <tr><td class="k">Power Play (close)</td><td class="t t2">+2</td><td>A green bar whose distance from the low to the close is <b>more than 3×</b> the distance from the close to the high (a close in roughly the top quarter), RV &gt; 1.</td><td>A strong close on above-average volume: buyers were still buying at the end of the bar. On its own it is modest evidence; with location it says the demand is real.</td></tr>
+      <tr><td class="k">True NR7</td><td class="t t1">+1</td><td>The bar's range is the <b>narrowest of the last seven</b> (at or below each of the prior six).</td><td>The simplest compression read and the weakest pattern on the battery. It fires often; treat it as context for another pattern, never a trigger by itself.</td></tr>
     </tbody>
   </table></div>
-  <p><b>Recovery battery:</b> ten capitulation-and-accumulation conditions — climax reversal,
-  Wyckoff spring, higher-low retest, base breakout, engulf, hammer at support, three-bar reversal,
-  pocket pivot, volume dry-up, and a 30-week reclaim.</p>
-  <div class="note">
-    <span class="tag">Two things about the grid</span>
-    <p><b>Nothing is aggregated away</b> — every condition shows fired or quiet, so you can see
-    <em>which</em> fired rather than only the total. And the <b>PA Combo</b> line names the
-    <em>sequence</em> that Σ cannot express — but it is <b>narrative only</b>: both testable combos
-    underperformed a Σ-matched control across 464 picks.</p>
-  </div>
+
+  <h3>Recovery battery — 10</h3>
+  <p>Five are recovery-only; five are shared with the bull battery (Spring, Engulf, 3-Bar, Pocket
+  Pivot, and the 30-WMA crossover in its reclaim form). A shared pattern survives a flip between
+  paths, which is why the TRIGGER row tags it <code>⇄both</code>.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Pattern</th><th class="t">Tier</th><th>Fires when (exactly)</th><th>What it means · how to read it</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Climax Reversal (SC + AR)</td><td class="t t3">+3</td><td>Within the last ten bars there was a <b>climax down-bar</b> — red, volume above 2.5× the 50-bar average, range more than 2× ATR(14) — and this bar is green and closes <b>above that climax bar's midpoint</b>.</td><td>Wyckoff's selling climax followed by the automatic rally. Panic volume marks where weak holders finally capitulated; reclaiming half the climax bar says the panic has been absorbed. The climax low is the natural stop, and the start of the trading range.</td></tr>
+      <tr><td class="k">Wyckoff Spring</td><td class="t t3">+3</td><td>Same as the bull battery: undercut of the prior 50-bar low, close back above it, green, on <b>below-average</b> volume.</td><td>In a recovery this is the Phase C test — the final shakeout of the base. Shared with the bull path, so it counts on both (the TRIGGER row tags it ⇄both).</td></tr>
+      <tr><td class="k">Higher-Low / 2B</td><td class="t t3">+3</td><td>The lowest low of the last ten bars is <b>at or above</b> the 30-bar base low that ended ten bars ago (at most 1% under it) and <b>no more than 10% above it</b>, and this bar is green and closes above the prior close.</td><td>A retest of the base low that holds — the double bottom or Victor Sperandeo's 2B. The 10% ceiling keeps it honest: without it the pattern fired on every green day of an uptrend, where the recent low is trivially above an old base.</td></tr>
+      <tr><td class="k">Base Breakout (SOS / JAC)</td><td class="t t3">+3</td><td>Closes above the <b>20-bar base resistance</b>, on a <b>wide bar</b> (range more than 1.3× ATR(14)), RV &gt; 1.5, green.</td><td>Wyckoff's sign of strength — jumping the creek. The range is broken on expansion and volume, i.e. demand has taken control of the whole base. In recovery terms it is the end of Phase D and the move toward markup.</td></tr>
+      <tr><td class="k">30-WMA Reclaim</td><td class="t t3">+3</td><td>The last closed week crossed <b>back above the 30-week average</b>. Weekly event, <b>suppressed on 75m/125m</b>.</td><td>The trend repair: the beaten-down name is back over the Weinstein anchor. Unlike the bull Stage-2 Launch it carries no volume test, because a recovery reclaim often happens on quiet volume.</td></tr>
+      <tr><td class="k">Bullish Engulfing</td><td class="t t2">+2</td><td>Same strict engulf as the bull battery (daily EMA10 &lt; EMA20, close under EMA10, RV &gt; 2, prior RSI &lt; 40).</td><td>The capitulation turn bar. Shared with bull.</td></tr>
+      <tr><td class="k">Hammer at support</td><td class="t t2">+2</td><td>A hammer whose low is within <b>2% of the 200-SMA</b> or within <b>3% of the 30-bar base low</b>, closing green, RV &gt; 1.</td><td>Rejection at the level that defines the recovery — the long-term average or the base floor.</td></tr>
+      <tr><td class="k">3-Bar Reversal</td><td class="t t2">+2</td><td>Same as the bull battery: three lower lows, then a close above their highest high.</td><td>Shared with bull.</td></tr>
+      <tr><td class="k">Pocket Pivot</td><td class="t t2">+2</td><td>Same as the bull battery, including the requirement to be above the 50-SMA.</td><td>In a recovery this fires only once price has regained the 50-SMA, so it is a later-stage confirmation rather than an early one.</td></tr>
+      <tr><td class="k">Volume Dry-Up</td><td class="t t1">+1</td><td>RV <b>below 0.5</b> and a range under <b>0.8× ATR(14)</b>.</td><td>Supply exhausted at the base: nobody is selling any more. It is a condition, not a trigger — the weakest pattern on the recovery battery, and the one the STRUCTURE SHIFT combo waits for.</td></tr>
+    </tbody>
+  </table></div>
+
+  <h3>Reading the battery</h3>
+  <div class="tw"><table>
+    <thead><tr><th>Family</th><th>Patterns</th><th>What it is for</th></tr></thead><tbody>
+      <tr><td class="k">Compression</td><td>NR7 · IB-NR7 · Inside-3 · VCP (its prior bar) · Volume Dry-Up</td><td>Quiet before a move. <b>The right trigger inside a demand zone</b> — arm a buy-stop above the coil. Direction comes from location and stage, never from the coil</td></tr>
+      <tr><td class="k">Ignition</td><td>VCP Breakout · Gap-Up · Breakout Confirmed · Stage-2 Launch · Base Breakout · Power Play</td><td>Expansion out of a base. Belongs at resistance being cleared — an ignition firing <em>inside</em> a demand zone is the role mismatch the Setup row flags (<code>⚠role</code>)</td></tr>
+      <tr><td class="k">Reversal / defence</td><td>Spring · Engulf · 3-Bar · Undercut · Liq Sweep · Hammers · Climax · 2B</td><td>A level held. Only meaningful <b>at</b> the level: a hammer in open space is a candle, not a signal</td></tr>
+      <tr><td class="k">Accumulation</td><td>Pocket Pivot · Power Play (close) · 30-WMA Reclaim</td><td>Buyers present. Confirmation more than trigger</td></tr>
+    </tbody></table></div>
+
+  <h3>The PA combos (Pattern | Combo row)</h3>
+  <p>A combo names a <b>sequence</b> Σ cannot express. They are narrative, not gates — both testable
+  combos underperformed a Σ-matched control across 464 picks. Since 29 Sep the two engulf-based
+  combos use a <b>raw engulf</b> (green body covering the prior red body, no trend, volume or RSI
+  test): the strict battery engulf fires about 96× less often, and had silenced them.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Combo</th><th>Path</th><th>Sequence</th></tr></thead><tbody>
+      <tr><td class="k">COILED SPRING</td><td>Bull</td><td>A VCP breakout within the last 10 bars, and now a coil — NR7, Inside-3 or IB-NR7. The breakout is digesting, not failing</td></tr>
+      <tr><td class="k">INSTITUTIONAL IGNITION</td><td>Bull</td><td>A Breakout Confirmed within 3 bars, and now a Pocket Pivot or a Gap-Up. Follow-through buying after the break</td></tr>
+      <tr><td class="k">BEAR TRAP</td><td>Bull</td><td>A Spring or Liq Sweep within 3 bars, and now an engulf. The stop-run, then the turn</td></tr>
+      <tr><td class="k">CAPITULATION FLOOR</td><td>Recovery</td><td>A climax within 10 bars and a Spring within 3, and now an engulf. Panic, test, turn</td></tr>
+      <tr><td class="k">STRUCTURE SHIFT</td><td>Recovery</td><td>A climax within 40 bars and a Higher-Low within 5, and now a Volume Dry-Up. The base is quietening after the retest held</td></tr>
+    </tbody></table></div>
+  <p class="refnote">Every pattern shows fired or quiet in the grid (rows 27–28) — <b>nothing is
+  aggregated away</b>, so you can see <em>which</em> fired, not only the total.</p>
 </section>
 
 <section id="location">
@@ -1115,7 +1160,6 @@ R   RRG        chipped, measured, and deliberately off
       <tr><td class="k">S4's OI row and v67's OI STATE disagree</td><td>They should not since v10.2 (both on the daily price change). If they still do, the day was flat — cash and futures closed on opposite sides of zero by a tick; the OI change is the information, the label is a coin flip</td></tr>
       <tr><td class="k">Two S4 tabs; only one binds</td><td>Fixed 13 Sep — <code>BIND_S4_SOURCES.bat</code> binds every chart tab that carries S4 and skips the S5 tab, reporting per tab. A tab that is a <em>duplicate</em> of another layout shares its id and cannot be told apart: make it its own layout (Make a copy) first</td></tr>
       <tr><td class="k">The Setup row reads MISMATCH on a recovery name that looks right</td><td>Fixed 8 Sep — the six recovery-only patterns had no role. If it persists, the row says which playbook it wants and what it got; a coil under a BREAKOUT catalyst is a genuine mismatch until the catalyst ages out</td></tr>
-      <tr><td class="k">The Shape half always reads an em-dash</td><td><b>Working as designed since v7.3.</b> The geometry classifier was removed to fund the pullback-aware gate; it lives in the S/R + Trendline Lab. Its old rectangle-as-triangle defect can no longer occur here</td></tr>
     </tbody>
   </table></div>
   <div class="note go">
@@ -1630,10 +1674,9 @@ R   RRG        chipped, measured, and deliberately off
   break flushes all three at once. Note this is a <em>dynamic curve</em>, not a drawn line; the
   static horizontals are Row 13, a different engine.</p>
 
-  <h3>Rows 25–27 · Pattern | Shape | Combo, Setup, and the battery</h3>
-  <p>Row 25 carries the pattern flag and the combo. Its Shape half prints an em-dash: the
-  geometry classifier left S4 for tokens and was rebuilt in Section Five on TradingView's own
-  criteria, where the tuning is happening.</p>
+  <h3>Rows 25–27 · Pattern | Combo, Setup, and the battery</h3>
+  <p>Row 25 carries the pattern flag and the combo (section 05 lists all five). The Shape field
+  is gone (29 Sep); geometry is read in Section Five.</p>
   <p><b>Row 26 is the Setup row</b> (8 Sep): the playbook in force and whether the pattern that
   fired is that playbook's trigger. <code>🟢 PULLBACK — the pattern that fired is this playbook's
   trigger</code> is the read you want; <code>🔴 … wants compression or a turn, not an ignition
@@ -1679,6 +1722,22 @@ R   RRG        chipped, measured, and deliberately off
   the other direction.</p>
 
   <h3>Rows 29–31 · Arrival · Δ, Volume, Confluence</h3>
+  <p><b>Row 29 — how the arrival is measured.</b> Only when price is <b>inside a demand or supply
+  zone</b>. For a demand arrival S4 finds the highest high of the last <b>20 bars</b> (<em>Arrival
+  lookback</em>), measures the drop from it to this bar's low in ATR, and divides by the bars that
+  drop took: <code>velocity = (swing high − low) ÷ ATR ÷ bars</code>. A supply arrival mirrors it
+  from the 20-bar low. Outside a zone the field reads <code>—</code>.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Band</th><th class="r">Velocity (ATR per bar)</th><th>Read</th></tr></thead><tbody>
+      <tr><td class="k">FAST</td><td class="num">≥ 0.50</td><td>An impulsive drop into the zone. Sellers overshot; a sharp rejection is the likely outcome. Earns the Arrival confluence point — at demand only</td></tr>
+      <tr><td class="k">NORMAL</td><td class="num">0.22 – 0.50</td><td>No information either way</td></tr>
+      <tr><td class="k">GRIND</td><td class="num">≤ 0.22</td><td>A slow stair-step into the zone. The level is being absorbed and tends to bleed through. With a negative delta it makes the verdict <b>LOW QUALITY</b></td></tr>
+    </tbody></table></div>
+  <p>Example: a 20-bar high 6 ATR above today's low, reached in 8 bars = 0.75 → FAST. The same
+  6 ATR over 30 bars cannot happen inside a 20-bar window — the swing high would be a closer
+  bar — which is why GRIND usually shows as small drops spread over many bars. The two
+  thresholds are inputs (<em>FAST arrival ≥</em>, <em>GRIND arrival ≤</em>). The
+  <code>⚡para</code> tag on the EMA row uses the same FAST threshold to flag a parabolic run.</p>
   <p><b>Row 29.</b> <code>FAST</code> price arriving into demand tends to produce a sharp
   rejection — sellers overshot. <code>GRIND</code> is absorbing the zone and tends to bleed
   through. <b>Same level, opposite outcomes</b>, and only the approach tells you which. The delta
@@ -1687,7 +1746,10 @@ R   RRG        chipped, measured, and deliberately off
   <code>request.footprint()</code> retains per-bar volume rows and Pine meters memory per chart, so
   it cannot share a chart with S4. Read the true delta there; read the proxy here.</p>
   <p><b>Row 30 is the V gate.</b> RV is this bar’s volume over a baseline: ≥1.25 <code>strong</code>,
-  ≥1.00 <code>ok</code>, below <code>thin</code>. A breakout on thin volume means nobody showed
+  ≥1.00 <code>ok</code>, below <code>thin</code>. In a pullback context the floor in force is the
+  pullback floor (0.5), and since 29 Sep the row is graded against <em>that</em> floor: an RV of
+  0.7 reads <code>ok · pullback floor</code> in green instead of a red <code>thin</code> beside a
+  passing V dot. A breakout on thin volume means nobody showed
   up, and those fail back into the range at a high rate.</p>
   <div class="note no">
     <span class="tag">Two measured facts about RV</span>
@@ -1702,7 +1764,11 @@ R   RRG        chipped, measured, and deliberately off
     tagged <code>·PB</code>.</p>
   </div>
   <p><b>Row 31</b> ranks nineteen supporting factors — AVWAP, Intra, ⚡FVG, Ctrl, S/R, TL, Flag,
-  EMA20, @AVWAP, Fib, Pinch, RV+, Rnd, D-PA, Arrival, Δ+, WCL, RRG, MTF. <b>Confluence does not
+  EMA20, @AVWAP, Fib, Pinch, RV+, Rnd, D-PA, Arrival, Δ+, WCL, RRG, MTF. <b>MTF</b> lights when a
+  higher-timeframe demand zone shelters the one price is in, and shows the points it scores:
+  Monthly 3, Weekly 2, Daily 1 (29 Sep — it used to light only when zones on two or more
+  timeframes overlapped, so it could score while unlit). A chip whose weight is 0 prints
+  <code>·0</code> after its name. <b>Confluence does not
   gate, and it does not grade either:</b> the panel-row audit found the rows correlated and none
   carrying a measurable edge, so read the count as a description of the setup. Since v10.8 (24 Sep)
   <b>WCL and Rnd weigh 0</b> — each was tested and failed (Wyckoff as a score: null; round
