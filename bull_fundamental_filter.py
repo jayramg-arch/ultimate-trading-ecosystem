@@ -135,13 +135,27 @@ def _fetch_screener_bff_row(symbol: str, ttl: int = 86400) -> Optional[dict]:
     cookie = os.getenv("SCREENER_COOKIE", "")
     if cookie:
         headers["Cookie"] = cookie
+    # Through screener_breaker (29-Sep-2026): this was the one screener.in fetch that
+    # dialled directly, outside the burst gate every other fundamentals caller uses.
+    # A board rebuild fires many names in parallel; screener.in refuses bursts, and a
+    # refused BFF page came back None with NO log line - the board then showed "F?"
+    # (SOLARINDS, 29 Sep) while the same page answered fine seconds later. The gate
+    # paces the dial, logs the failure, and does not cache a miss as an answer.
+    html = None
     try:
-        r = requests.get(url, headers=headers, timeout=15)
-        if r.status_code != 200:
-            return None
-    except Exception:
+        import screener_breaker as _brk
+        html = _brk.fetch_html(url, headers, timeout=15, log=logger, tag=f"BFF {clean}")
+    except ImportError:
+        try:
+            r = requests.get(url, headers=headers, timeout=15)
+            html = r.text if r.status_code == 200 else None
+            if html is None:
+                logger.warning("BFF: screener HTTP %s for %s", r.status_code, clean)
+        except Exception as exc:
+            logger.warning("BFF: screener request failed for %s: %s", clean, exc)
+    if not html:
         return None
-    soup = BeautifulSoup(r.text, "html.parser")
+    soup = BeautifulSoup(html, "html.parser")
     out: dict = {}
 
     def _f(txt):
