@@ -856,7 +856,7 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.14"
+string S4_VER      = "v11.15"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -3210,6 +3210,12 @@ else
 // FIRST TEST (26-Sep): Stage 3/4 and/or weekly trend DOWN rejects the trade outright -
 // no GO, no alert, a one-line verdict. _zzWsel/_zzWok are the Stage tie-break's weekly read.
 bool ctx_reject = stage_skip or (stage_gate and _zzWok and _zzWsel < -0.5)
+// HELD (29-Sep-2026, Jay - M&MFIN): the first test is for NEW size. On a name already
+// held it still blocks GO and the alert, but the analysis must stay - a holding needs
+// the read most when it fails the entry test. v67's rung source: 1..5 (+10 swing); an
+// unbound source reads the price, which the <= 20 and != close tests reject.
+float _hRaw = pyrClassSrc
+bool is_held = not na(_hRaw) and _hRaw != close and _hRaw <= 20 and _hRaw == math.round(_hRaw) and math.round(_hRaw) % 10 >= 1 and math.round(_hRaw) % 10 <= 5
 
 // ── Gate 6 · FUNDAMENTALS (F) ── the GM's verdict applied to GO. Resolved HERE because
 // this is the first line at which the path is known: the Bull book is judged on BFF and
@@ -6123,7 +6129,7 @@ if show_panel and d_panel and barstate.islast
     // (trigAge == 0) the limit sits AT that bar's close — there is no pullback to wait for,
     // it fills at market. Same false-comfort the _retestLive guard had. Say which it is.
     string _verdict = isIdxChart ? ("PHASE 1 — structure only. These levels are INDEX levels, not order prices; the plan is made on NSE:" + pairSym)
-      : ctx_reject ? "REJECTED — first test failed (Stage 3/4 or weekly trend DOWN). No further analysis."
+      : ctx_reject ? (is_held ? "HELD — no new size (first test: Stage 3/4 or weekly DOWN). Manage the position: VERDICT, SUMMARY, MY TRADE." : "REJECTED — first test failed (Stage 3/4 or weekly trend DOWN). No further analysis.")
       : go_v ? ("GO" + (fund_raw[_so] ? "" : "  ⚠ " + fundNote[_so]) + (use_retest ? (trigAge > 0 ? " — arm buy-limit @ trigger close on the pullback" : " — buy-limit @ this bar's close (fills at MARKET)") : " — arm buy-stop > bar high")) : not any_pa_v ? "NO PA PATTERN" : not support_v ? "NO LOCATION" : not vol_ok_v ? (vol_dead[_so] ? "NO VOLUME DATA — phase-1 index chart, trigger on the ETF" : "NO VOLUME") : not ema_ok[_so] ? "BELOW EMA20" : not rrg_ok ? "RRG — rotation is outside the whitelist" : not fund_ok[_so] ? ("FUNDAMENTALS — " + fundNote[_so]) : "WEAK/RED BAR — no entry"
     // DE-DUPLICATED (Jay, 10-Aug). STATUS used to re-print `P· L· V· B· ⏱ · conf n/23 ·
     // RV x/y · Bull Σ+n` — and every one of those already has its OWN row two inches
@@ -6195,7 +6201,7 @@ if show_panel and d_panel and barstate.islast
             table.cell(pnl, _sc, _r, "", bgcolor=f_softBg(C_INFO))
         table.cell(pnl, _sc, 0,
              "SUMMARY\n\n" + core.wrapText(f_sumHdr(str.replace_all(
-                  (ctx_reject ? "REJECTED — first test failed (Stage 3/4 or weekly trend DOWN, see VERDICT). No further analysis." : core.qualityRead(_isEtf, _fundHave, fund_raw[_so], fund_ok[_so])
+                  ((ctx_reject and not is_held) ? "REJECTED — first test failed (Stage 3/4 or weekly trend DOWN, see VERDICT). No further analysis." : core.qualityRead(_isEtf, _fundHave, fund_raw[_so], fund_ok[_so])
                   + "\n" + _sumRaw), "\n", "\n\n")), summary_wrap),
              text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(C_INFO),
              text_halign=text.align_left, text_valign=text.align_top)
@@ -6347,7 +6353,10 @@ if show_panel and d_panel and barstate.islast
     _anCol := _anColL
     // HELD (29-Sep-2026, TVSMOTOR): TAKE IT on a name the ladder says to REDUCE.
     [_hTxt, _hCut] = core.heldNote(pyrClassSrc[_so] != close[_so] ? pyrClassSrc[_so] : na)
-    if str.length(_hTxt) > 0 and not ctx_reject
+    if str.length(_hTxt) > 0 and ctx_reject
+        _aVer := _hTxt + "\nFIRST TEST fails for NEW size — " + (stage_n >= 3 ? "Stage " + str.tostring(stage_n) + (stage_n == 3 ? " (topping)" : " (declining)") : "weekly trend DOWN") + ". No entry and no alert; this read is position management -\njudge a trim, a tighter stop or patience from the SUMMARY and the rows above."
+        _anCol := C_WARN
+    else if str.length(_hTxt) > 0
         _aVer := _hTxt + "\n" + _aVer
         if _hCut
             _anCol := C_WARN

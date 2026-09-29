@@ -2085,7 +2085,11 @@ export summaryRead(int stage, float stgWks, float trW, float trD, bool tfUp,
     string sConf = cf >= cfMax / 2 ? "  Confluence is dense - many of the panel's reads line up. They overlap, and the count has no measured edge, so it describes the setup rather than grading it." : "  Confluence is thin: few of the panel's reads line up, so this rests largely on the trigger itself."
     string sPath = isRec ? "  Read this as a RECOVERY entry: qualification is fundamental (RFF), and since Gate 6 that score does reach this chart - see the QUALITY line above. What crosses over is the SCORE only, not the six-check verdict, the growth history or the quality rejection behind it, so the Golden Matcher is still the authority on whether the name belongs on the list at all." : ""
     [sHeld, _hd] = heldNote(heldRaw)
-    string sDirH = (str.length(sHeld) > 0 or _hd) ? "DIRECTION · " + sHeld + "\n" + sDir : sDir
+    // HELD (29-Sep-2026, M&MFIN): on a holding the direction is position management,
+    // not an entry decision - "No trade" / "Nothing to do yet" answer the wrong question.
+    string sMng = stage >= 3 ? "The structure is Stage " + str.tostring(stage) + " - topping or declining - which is where trims and tighter stops belong, not adds. " : wDn ? "The weekly trend is DOWN, so strength is a rally to sell into rather than to add on. " : ""
+    string sDirH = str.length(sHeld) > 0 ? "DIRECTION · " + sHeld + "\nPosition management, not an entry. " + sMng + "Follow the ladder rung in MY TRADE, and use LOCATION, PARTICIPATION and the OI read above to judge whether the next move is a trim, a tighter stop or patience." : sDir
+    sDirH := _hd and str.length(sHeld) == 0 ? sDir : sDirH
     sTrend + sStage + sAge + "\n" + sLead + sSec + "\n" + sLoc + sOff + "\n" + sPart + sFlow + sOf + sOi + "\n" + sGeo + sRoom + sType + sWall + "\n" + sDirH + sConf + sPath
 
 
