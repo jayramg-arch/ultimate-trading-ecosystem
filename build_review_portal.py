@@ -84,7 +84,7 @@ def md_to_html(md: str) -> str:
             if not in_list:
                 out.append("<ul>"); in_list = True
             out.append("<li>%s</li>" % _md_inline(re.sub(r"^\s*(?:[-*•]|\d+\.)\s+", "", line)))
-        elif re.match(r"^(R-CHECK|LEVEL CHECK|LV-AUDIT|OI-CHECK|OPTIONS|INDEX-CHECK)", line) or line.startswith("  "):
+        elif re.match(r"^(R-CHECK|LEVEL CHECK|LV-AUDIT|OI-CHECK|OPTIONS|INDEX-CHECK|HELD-CHECK|ZONE-AUDIT)", line) or line.startswith("  "):
             flush()
             if in_list:
                 out.append("</ul>"); in_list = False
@@ -136,7 +136,7 @@ def load_reviews() -> list[dict]:
         # 22-Sep-2026: the derivative blocks are checks too - a compact (older) row that omits
         # them hides the one part of the review that validates the levels.
         checks = [l for l in body.splitlines()
-                  if re.match(r"^(R-CHECK|LEVEL CHECK|LV-AUDIT|OI-CHECK|INDEX-CHECK)", l)
+                  if re.match(r"^(R-CHECK|LEVEL CHECK|LV-AUDIT|OI-CHECK|INDEX-CHECK|HELD-CHECK|ZONE-AUDIT)", l)
                   or re.match(r"^\s+⚠", l)]
         warn = any("⚠" in l for l in body.splitlines() if l.startswith("  "))
         phase1 = "PHASE-1 · UNDERLYING INDEX of" in panel and "index panels NOT read" not in panel

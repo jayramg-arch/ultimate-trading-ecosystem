@@ -752,6 +752,36 @@ def index_gate(read_txt: str) -> tuple[str, str, bool]:
     return note, "INDEX-CHECK: %s trigger \"%s\" (not GO) → %s WAIT by house rule" % (idx, state, etf), True
 
 
+def held_gate(pos_txt: str) -> tuple[str, str, str]:
+    """A GO on a HELD name is not a new entry (29-Sep-2026, TVSMOTOR: held 22 @ 4394.50,
+    ladder REDUCE, and the model still wrote a positional Buy-Stop plan without a word
+    about the holding). Reads POSITION CONTEXT's PYRAMID line.
+    Returns (note_for_prompt, line_for_output, rung) - rung "" when not held/unknown."""
+    if not pos_txt or not pos_txt.startswith("HELD"):
+        return "", "", ""
+    m = re.search(r"^PYRAMID:\s*([A-Z]+)", pos_txt, re.M)
+    rung = m.group(1) if m else ""
+    if rung in ("EXIT", "TRIM", "REDUCE"):
+        return ("HELD GATE (house rule, not negotiable): Jay ALREADY HOLDS this name and the "
+                "pyramid ladder says %s. This trigger is NOT an entry and NOT an add: the ruling "
+                "cannot be TAKE. Rule PASS for new size, and say in one line what the ladder wants "
+                "done with the position he has (tighten / trim / exit)." % rung,
+                "HELD-CHECK: held · ladder %s → no new size (PASS for an entry)" % rung, rung)
+    if rung == "HOLD":
+        return ("HELD GATE: Jay already holds this name; the ladder says HOLD, not ADD. A trigger "
+                "here is not a new position - the ruling cannot be TAKE. Rule WAIT, and name what "
+                "would make the ladder rate it ADD.",
+                "HELD-CHECK: held · ladder HOLD → not an add until it rates ADD", rung)
+    if rung == "ADD":
+        return ("HELD GATE: Jay already holds this name and the ladder rates it ADD. If you rule "
+                "TAKE, it is a PYRAMID ADD: size at 1% risk off the raised stop (the add-SL in "
+                "POSITION CONTEXT), not a fresh positional entry.",
+                "HELD-CHECK: held · ladder ADD → a TAKE is a pyramid add (1% off the add-SL)", rung)
+    return ("HELD GATE: Jay already holds this name (ladder rung unknown). Say so in the ruling; "
+            "a trigger on a held name is an add, not a new entry.",
+            "HELD-CHECK: held · ladder rung unknown", rung)
+
+
 # ---------------------------------------------------------------------------------------
 # LEVEL CHECK — do the derivatives and the flow agree with the plan's four levels?
 # ---------------------------------------------------------------------------------------
@@ -789,8 +819,11 @@ def _model_levels(review: str) -> dict:
     # vanishes, which is how the block ended up quoting the panel's T1 under a plan
     # that had already capped it.
     _N = r"(\d[\d,]*(?:\.\d+)?)"
-    for key, pat in (("entry", r"ENTRY[^0-9\n]*" + _N),
-                     ("stop",  r"STOP[^0-9\n]*" + _N),
+    for key, pat in (("entry", r"(?:ENTRY|BUY[- ](?:LIMIT|STOP))[^0-9\n]*" + _N),
+                     # (?<![\w-]): "Buy-Stop 4143 · SL 4017" matched Buy-Stop as the
+                     # STOP (TVSMOTOR, 29-Sep) - LEVEL CHECK then judged the entry as the
+                     # stop. A stop is STOP / STOP-LOSS / SL standing alone.
+                     ("stop",  r"(?:(?<![\w-])SL\b|(?<![\w-])STOP(?:[- ]?LOSS)?\b)[^0-9\n]*" + _N),
                      ("t1",    r"\bT1\b[^0-9\n]*" + _N),
                      ("t2",    r"\bT2\b[^0-9\n]*" + _N)):
         mm = re.search(pat, plan, re.I)
@@ -1113,6 +1146,9 @@ def build_prompt(read_txt: str, pos_txt: str) -> str:
     ig, _, _ = index_gate(read_txt)
     if ig:
         note = (ig + "\n" + note) if note else ig
+    hg, _, _ = held_gate(pos_txt)
+    if hg:
+        note = (hg + "\n" + note) if note else hg
     lv, _ = level_check(read_txt)
     if lv:
         note = (note + "\n\n" + lv) if note else lv
@@ -1253,6 +1289,12 @@ def r_check(review: str, min_r: float = 2.0) -> str:
                 if tag == "T1": t1 = v
                 else: t2 = v
                 if mm.group(2): said[tag] = float(mm.group(2))
+    if entry is not None and stop is not None and stop >= entry:
+        # 29-Sep-2026 (TVSMOTOR 15:16): "Limit at 3956.2 · Stop: 3980.0" - a long with its
+        # stop ABOVE the entry - fell into the could-not-parse branch below and, on a PASS
+        # ruling, printed nothing. An impossible plan must be named, whatever the ruling.
+        return ("R-CHECK: ⚠ the PLAN's stop %.2f is at or ABOVE its entry %.2f — not a valid long. "
+                "Treat every level and R in this plan as void." % (stop, entry))
     if entry is None or stop is None or entry <= stop:
         ru = _ruling_line(review).upper()
         if ru.startswith("RULING: PASS") or ru.startswith("RULING: NO TRADE"):
@@ -1564,9 +1606,16 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
         # the model ruled TAKE against the house rule: overrule it in print, loudly
         ig_txt += "\n  ⚠ the model ruled TAKE — OVERRULED: WAIT (index trigger not GO)"
         review = re.sub(r"(RULING:?\**:?\s*\**\s*)TAKE[^\n]*", r"\1WAIT — index trigger not GO (house rule; model had ruled TAKE)", review, count=1)
+    _, hg_txt, hg_rung = held_gate(pos_txt)
+    if hg_rung in ("EXIT", "TRIM", "REDUCE", "HOLD") and re.search(r"RULING:?\**:?\s*\**\s*TAKE", review):
+        _to = "PASS" if hg_rung != "HOLD" else "WAIT"
+        hg_txt += "\n  ⚠ the model ruled TAKE on a held name — OVERRULED: %s (ladder %s)" % (_to, hg_rung)
+        review = re.sub(r"(RULING:?\**:?\s*\**\s*)TAKE[^\n]*",
+                        r"\g<1>%s — already held, ladder %s (house rule; model had ruled TAKE)" % (_to, hg_rung),
+                        review, count=1)
     lva_txt = lv_audit(review)
     za_txt = zone_audit(read_txt, review)
-    for extra in (rc_txt, lv_txt, lva_txt, za_txt, oi_txt, ig_txt):
+    for extra in (rc_txt, lv_txt, lva_txt, za_txt, oi_txt, ig_txt, hg_txt):
         if extra:
             review = review.rstrip() + "\n\n" + extra
     tf_lbl = d["res"]
