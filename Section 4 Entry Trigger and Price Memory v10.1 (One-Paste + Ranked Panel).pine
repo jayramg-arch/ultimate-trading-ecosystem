@@ -5831,7 +5831,7 @@ if show_panel and d_panel and barstate.islast
         // row 3 for the Minervini template, so nothing else renumbers. The two dots are
         // read independently: context can be bullish while structure is not clean.
         f_row(6, "WCL context · structure", (_total_final >= 4 ? "🟢" : "⚪") + _wcl_val_str + "  │  " + (str.contains(_struct_str, "CLEAN") ? "🟢" : "⚪") + _struct_str, _wcl_score_col)
-        f_row(17, "Volume Profile", _vp_pos_str + (not na(vp_poc) ? " (POC " + str.tostring(vp_poc, format.mintick) + ")" : "") + f_vVP(_vp_pos_str), _vp_pos_col)
+        f_row(17, "Volume Profile", _vp_pos_str + (not na(vp_poc) ? " (POC " + str.tostring(vp_poc, format.mintick) + "  VAH " + str.tostring(vp_vah, format.mintick) + "  VAL " + str.tostring(vp_val, format.mintick) + ")" : "") + f_vVP(_vp_pos_str), _vp_pos_col)
 
     // --- PA CONDITIONS: one cell PER TOKEN, mode-aware ---
     // #badge (30-Jul, Jay: "the PA grid too — all ~17 tokens"). Replaces the old single

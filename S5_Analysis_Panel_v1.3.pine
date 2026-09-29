@@ -1872,7 +1872,7 @@ if show_s5p and barstate.islast
 
     // 9. the two things the footprint says that nothing else can
     string _fpDv = not fpKnown ? "-" : fpBearDiv ? "BEARISH - new " + str.tostring(fpDivWin) + "b high on WEAKER flow (absorption into strength)" : fpBullDiv ? "BULLISH - new " + str.tostring(fpDivWin) + "b low on STRONGER flow" : (nz(fpCum, 0.0) > 0 and close > close[fpDivWin]) or (nz(fpCum, 0.0) < 0 and close < close[fpDivWin]) ? "none - price and flow point the same way" : "no divergence AT AN EXTREME - but flow and price are pointing opposite ways; this test only fires on a new " + str.tostring(fpDivWin) + "b high or low"
-    f_s5row(12, "Divergence · VA", _fpDv + (na(fpPoc) ? "" : "   ·   POC " + f_px(fpPoc) + "  VAH " + f_px(fpVah) + "  VAL " + f_px(fpVal)) + ((fpImbBuy == 0 and fpImbSell == 0) ? "" : "   ·   imb " + str.tostring(fpImbBuy) + "B/" + str.tostring(fpImbSell) + "S"), fpBearDiv ? C_NO : fpBullDiv ? C_OK : C_MUTE)
+    f_s5row(12, "Divergence · VA", _fpDv + (na(fpPoc) ? "" : "   ·   this bar's footprint: POC " + f_px(fpPoc) + "  VAH " + f_px(fpVah) + "  VAL " + f_px(fpVal) + " (the profile of record is S4's)") + ((fpImbBuy == 0 and fpImbSell == 0) ? "" : "   ·   imb " + str.tostring(fpImbBuy) + "B/" + str.tostring(fpImbSell) + "S"), fpBearDiv ? C_NO : fpBullDiv ? C_OK : C_MUTE)
 
     // 10. WYCKOFF — named, never gating (see the note on the detection block)
     f_s5sec(13, "  IV · SETUPS           —  Is there a structure here? Named only; nothing here gates.")

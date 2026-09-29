@@ -857,15 +857,19 @@ def _cash_levels(read_txt: str) -> dict:
         except Exception:
             return None
 
-    m = re.search(r"POC\s*([\d,.]+)\s+VAH\s*([\d,.]+)\s+VAL\s*([\d,.]+)", read_txt)
+    # S4 IS THE PROFILE OF RECORD (Jay, 29-Sep-2026). S5's triplet is the value area of
+    # the single read bar's footprint (request.footprint), not a multi-bar profile, so it
+    # is no longer used here. S4 prints POC/VAH/VAL on its Volume Profile row from v11.14;
+    # an older S4 prints POC only.
+    m = re.search(r"Volume Profile[^\n]*?POC\s*([\d,.]+)\s+VAH\s*([\d,.]+)\s+VAL\s*([\d,.]+)", read_txt)
     if m:
         out["poc"], out["vah"], out["val"] = n(m.group(1)), n(m.group(2)), n(m.group(3))
-        out["src"] = "S5 value area"
+        out["src"] = "S4 volume profile (100 bars, chart TF)"
     else:
         m = re.search(r"Volume Profile[^\n]*?POC\s*([\d,.]+)", read_txt)
         if m:
             out["poc"] = n(m.group(1))
-            out["src"] = "S4 volume profile (POC only — no value area on this read)"
+            out["src"] = "S4 volume profile (POC only — recompile S4 for VAH/VAL)"
 
     m = re.search(r"S/R \(nearest\)[^\n]*?\bS\s+([\d,.]+)", read_txt)
     if m:
@@ -894,16 +898,18 @@ def _cash_level_lines(read_txt, entry, stop, t1, t2, risk):
     # only the fallback — S5 computes it on the chart TF, which on a 75m chart put VAH 0.3%
     # above entry (an intraday band, not a ceiling) and cannot be reconstructed for a past
     # date, so a rule built on it could never be measured.
-    c = {}
+    # S4 FIRST (Jay, 29-Sep-2026: "make S4's volume profile the reference"). The 120-day
+    # daily profile - the one PREREG_cash_levels was written around - is now only the
+    # fallback when the panel carries no profile. NOTE: that pre-registered test has not
+    # run; if it is run, re-register it on S4's profile (100 chart-TF bars, 40 rows, 70%).
+    c = _cash_levels(read_txt)
     m_sym = re.search(r"CHART:\s*(?:NSE:)?([A-Z0-9_&\-]+)", read_txt)
-    if m_sym:
+    if not c.get("poc") and m_sym:
         try:
             import volume_profile as _vp
-            c = _vp.structural_levels(m_sym.group(1)) or {}
+            c = {**c, **(_vp.structural_levels(m_sym.group(1)) or {})}
         except Exception:
-            c = {}
-    if not c:
-        c = _cash_levels(read_txt)
+            pass
     if c and m_sym:
         c["_sym"] = m_sym.group(1)
     lines, flags, ceilings = [], [], []

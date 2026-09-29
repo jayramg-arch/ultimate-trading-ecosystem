@@ -80,9 +80,14 @@ PANEL = (
 
 def test_panel_parse_takes_one_coherent_profile():
     """S4's row and S5's row are DIFFERENT profiles (POC 2204.8 vs 2170.0). Mixing them
-    would put the POC above the VAH, which is impossible by construction."""
+    would put the POC above the VAH, which is impossible by construction.
+    29-Sep-2026 (Jay): S4 is the profile of record; S5's triplet is one bar's footprint.
+    An older S4 row carries POC only - it is used alone, never topped up from S5."""
     c = _cash_levels(PANEL)
-    assert c["poc"] == 2170.0 and c["vah"] == 2180.0 and c["val"] == 2160.0
+    assert c["poc"] == 2204.8 and "vah" not in c and "val" not in c
+    new = PANEL.replace("(POC 2204.8)", "(POC 2204.8  VAH 2230.0  VAL 2190.0)")
+    c = _cash_levels(new)
+    assert c["poc"] == 2204.8 and c["vah"] == 2230.0 and c["val"] == 2190.0
     assert c["val"] < c["poc"] < c["vah"]
     assert c["sr_below"] == 2163.1 and c["sr_above"] == 2221.7
     assert c["avwap_bo"] == 2198.9, "BO is the MIDDLE anchor of L·BO·Gap"
