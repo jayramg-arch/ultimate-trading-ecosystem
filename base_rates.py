@@ -206,6 +206,13 @@ def br_section(board_df: pd.DataFrame) -> str:
             continue
         code = code_for(fam, br, reg)
         if code:
+            # PROXY TAG (29-Sep-2026): with no live catalyst the family comes from the
+            # watchlist ARCHETYPE, and a "Pullback" archetype maps to the SWG-PB book even
+            # on a positional structure (TVSMOTOR). No positional-pullback family was ever
+            # measured, so say the number is borrowed rather than let it pass as this
+            # name's own base rate.
+            if str(row.get("Catalyst", "") or "").strip() not in FAMILY_OF_CATALYST:
+                code += "_·_PROXY_(BY_ARCHETYPE)"
             items.append(f"{sym}:{code}")
     return "BR=" + ",".join(sorted(set(items)))
 

@@ -856,7 +856,7 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.13"
+string S4_VER      = "v11.14"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -4104,21 +4104,23 @@ cf := cf + (daily_pa_agrees ? cf_w_dailypa : 0)
 // main-body statements collapse to one destructure - S4 compiles on the statement
 // ceiling and this batch was four over it. Drawing from inside is correct: the fold runs
 // once per bar at main-body scope, which is what oiLevels' own islast guard expects.
-f_oiOpt() =>
+f_oiOpt(bool pxUp) =>
     // Same unbound guard as the pooled basis above - without it the two new RAYS draw
     // confident dashed levels on the chart derived from the price series.
-    [lB, sB, nL, nS] = core.oiBasis2(dashOi != close ? dashOi : na, close, close >= close[1], oi_events)
+    // pxUp = oiPxUp (29-Sep-2026): the long/short split read the 75m bar's direction at
+    // the moment the DAILY OI updated, while the OI row's state used the daily futures leg.
+    [lB, sB, nL, nS] = core.oiBasis2(dashOi != close ? dashOi : na, close, pxUp, oi_events)
     [p, mp, ce, pe, atm, pk, ck] = core.optRead(core.bundleSection(gm_bundle2, "OPT"), syminfo.ticker)
     core.oiLevels(show_oi_lines, lB, sB, nL, nS, mp, pk, ck,
          color.new(#26A69A, 0), color.new(#EF5350, 0), color.new(#FFD54F, 0),
          color.new(#66BB6A, 0), color.new(#EC407A, 0), 2)
     [lB, sB, nL, nS, p, mp, ce, pe, atm, pk, ck]
-[oi_longB, oi_shortB, oi_nLong, oi_nShort, opt_pcr, opt_mp, opt_ce, opt_pe, opt_atm, opt_peK, opt_ceK] = f_oiOpt()
 // v10.3: the OI quadrant as a global, on the same DAILY price leg the OI row uses.
 // OI PRICE LEG (25-Sep-2026): v67's FUTURES daily change when bound, else the cash daily
 // change. Pairing v67's OI with the cash leg named a different state from v67 on 7.6% of
 // stock-days (14.4% on roll days). An unbound input.source reads `close`, never na.
 bool oiPxUp = (dashFutPx != close and not na(dashFutPx)) ? dashFutPx >= 0 : (na(d_pxChg) ? close >= close[1] : d_pxChg >= 0)
+[oi_longB, oi_shortB, oi_nLong, oi_nShort, opt_pcr, opt_mp, opt_ce, opt_pe, opt_atm, opt_peK, opt_ceK] = f_oiOpt(oiPxUp)
 string oi_quad = core.oiQuad(dashOi != close ? dashOi : na, dashOiPrev != close ? dashOiPrev : na, oiPxUp)
 float _rnStep = close >= 5000 ? 100.0 : close >= 1000 ? 50.0 : close >= 100 ? 10.0 : close >= 10 ? 1.0 : 0.5
 // The level itself, hoisted out of the test so the panel can NAME it (Jay, 1-Aug:
@@ -5347,7 +5349,7 @@ if show_panel and d_panel and barstate.islast
     float _pyRaw = pyrClassSrc[_so]
     float _pyC   = na(_pyRaw) ? na : math.round(_pyRaw) % 10
     float _pySw  = na(_pyRaw) ? na : (math.round(_pyRaw) >= 10 ? 1 : 0)
-    bool  _pyOn  = not na(_pyRaw) and _pyRaw == math.round(_pyRaw) and _pyC >= 1 and _pyC <= 5
+    bool  _pyOn  = not na(_pyRaw) and _pyRaw != close[_so] and _pyRaw <= 20 and _pyRaw == math.round(_pyRaw) and _pyC >= 1 and _pyC <= 5
     if _pyOn
         string _pyName = _pyC == 1 ? "EXIT" : _pyC == 2 ? "TRIM" : _pyC == 3 ? "REDUCE" : _pyC == 4 ? "ADD" : "HOLD"
         color  _pyCol  = _pyC == 1 ? C_NO : _pyC == 2 ? C_WARN : _pyC == 3 ? C_INFO : _pyC == 4 ? C_GO : C_OK
@@ -5664,7 +5666,7 @@ if show_panel and d_panel and barstate.islast
     int   _qtyC   = (size_max_alloc > 0 and not na(pl_entry) and pl_entry > 0) ? int(math.floor(size_max_alloc / pl_entry)) : _qtyR
     int   _qtyF   = math.min(_qtyR, _qtyC)
     string _dynTag = not use_dyn_risk ? "" : " (" + str.tostring(_szb, "0.00") + "b ×" + str.tostring(kelly_mult, "0.00") + "K" + (vol_disc < 1.0 ? " ×" + str.tostring(vol_disc, "0.00") + "V" : "") + (not mkt_health ? " bear−" : "") + ")"
-    string _qtyTxt = na(pl_entry) ? "—" : size_cap <= 0 ? "set Capital in Sizing" : ((pl_entry - pl_sl) <= 0 ? "—" : str.tostring(_qtyF) + (_qtyC < _qtyR ? " sh (alloc-capped)" : " sh") + "  │  risk ₹" + str.tostring(_riskAmt, "0") + _dynTag)
+    string _qtyTxt = na(pl_entry) ? "—" : size_cap <= 0 ? "set Capital in Sizing" : ((pl_entry - pl_sl) <= 0 ? "—" : str.tostring(_qtyF) + (_qtyC < _qtyR ? " sh (alloc-capped)" : " sh") + "  │  risk ₹" + str.tostring(_qtyF * (pl_entry - pl_sl), "0") + (_qtyC < _qtyR ? " of ₹" + str.tostring(_riskAmt, "0") + " budget" : "") + _dynTag)
     f_row(39, "Qty @ " + str.tostring(active_risk, "0.00") + "% risk", _qtyTxt, na(pl_entry) or size_cap <= 0 ? color.gray : C_OK)
     // ── IMPORTED FROM v67 (v8.4) ────────────────────────────────────────────────
     // Range checks first: an unwired source carries price, so anything outside a
@@ -6174,7 +6176,7 @@ if show_panel and d_panel and barstate.islast
              // the _rtag line). Feeding it here is the 17-Aug IKS bug on the summary
              // path - TITAN read 5.1xzone as "room is generous / take it" beside a
              // genuine 0.9R. Same na->0.0 fallback, so a missing plan still reads neutral.
-             arr_style == "FAST", of_bull, is_rec_v, nz(pl_rr1, 0.0), cf_v, cf_max,
+             arr_style == "FAST", of_bull, is_rec_v, (na(_ovh) or na(pl_entry) or na(pl_sl) or pl_entry <= pl_sl) ? nz(pl_rr1, 0.0) : (_ovh - pl_entry) / (pl_entry - pl_sl), cf_v, cf_max,
              // pl_sl RAW, not nz(...,0.0): with no plan the zero became a stop at zero,
              // risk became the whole share price, and SUNPHARMA read "the stop is very
              // wide" while the Plan row said "wait for GO". Missing is not zero.
@@ -6184,7 +6186,7 @@ if show_panel and d_panel and barstate.islast
              // values do not escape. S4Core derives the state with the same rule
              // oiNarrative uses, so the summary and the OI rows cannot disagree.
              dashOi, dashOiPrev, oi_basis, opt_ceK, pl_t1,
-             oiPxUp, support_v, of_known)
+             oiPxUp, support_v, of_known, pyrClassSrc[_so] != close[_so] ? pyrClassSrc[_so] : na)
         // Every cell of the column has to EXIST before it can be merged, so blank the
         // range first, write the text into the top-left cell, then merge. Skipping the
         // blanking pass is the usual reason a vertical merge silently does nothing.
@@ -6343,6 +6345,12 @@ if show_panel and d_panel and barstate.islast
       use_retest, z_inDZ[_so], vol_ok_v, bar_ok_v)
     _aVer  := _aVerL
     _anCol := _anColL
+    // HELD (29-Sep-2026, TVSMOTOR): TAKE IT on a name the ladder says to REDUCE.
+    [_hTxt, _hCut] = core.heldNote(pyrClassSrc[_so] != close[_so] ? pyrClassSrc[_so] : na)
+    if str.length(_hTxt) > 0 and not ctx_reject
+        _aVer := _hTxt + "\n" + _aVer
+        if _hCut
+            _anCol := C_WARN
     // ETF PREMIUM VETO. Prepended to whatever the ladder concluded, and it OUTRANKS
     // that conclusion -- the chart can be flawless and the trade still wrong.
     //
