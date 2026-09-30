@@ -281,7 +281,7 @@ footer a{color:var(--acc)}
   not neutral and not a fail.</p>
   <div class="note">
     <span class="tag">The model</span>
-    <p>Default <code>gemini-3.1-flash-lite</code> — the tier the rest of the app uses.
+    <p>Default <code>gemini-3.5-flash-lite</code> since 29 Sep (was 3.1-flash-lite) — the tier the rest of the app uses.
     <code>--provider claude</code> is opt-in (<code>S4_REVIEW_ANTHROPIC_KEY</code>, <code>claude-opus-5</code>).
     Flash-lite is fast and cheap and its <em>judgement</em> has been worth having; its
     <em>arithmetic</em> and its habit of writing “v67 confirms this” against a row that said the
@@ -364,10 +364,8 @@ python s4_review.py --board 125m --live</pre>
   <p>A <code>queued</code> reply, a review on Telegram ninety seconds later, and the chart back
   where it was. A <code>rejected</code> reply is the key; a hang or a 502 is the receiver.</p>
   <h4>The alerts themselves</h4>
-  <p>Two per evening on the new dated watchlist — 75m and 125m — each with the webhook URL in
-  Notifications. <b>Clone keeps the URL.</b> Recreate rather than edit: yesterday's alert points
-  at a watchlist that no longer exists and fails to save, and every S4 recompile deletes all
-  alerts regardless. The full ritual is in Doc 26.</p>
+  <p>Two on the dated GM board watchlist — 75m and 125m — each with the webhook URL in
+  Notifications. <b>Automatic since 30 Sep</b> — auto-pilot <b>Phase 12b</b> points both alerts at the new list with today's bundles, straight after Phase 12 pushes them, <b>around 16:50–17:10 IST</b>. It edits the two existing alerts in place (same alert IDs, nothing deleted), keeps the condition, message, webhook and bindings you set once, and verifies what TradingView saved. <b>Your only job: after an S4 compile</b> — which deletes all alerts — create the 75m and 125m alerts <b>once by hand</b>; the job keeps them fresh from then on. On demand: <code>REFRESH_ALERTS.bat</code> (taskbar: <b>Refresh Alerts</b>; <code>--dry-run</code> previews). Log: <code>logs/tv_gm_alerts.log</code>.</p>
 </section>
 
 <section id="one">
@@ -417,7 +415,9 @@ python s4_review.py TITAN --dump             # the raw panel read, no model call
       <tr><td class="k">R-CHECK</td><td>Re-parses the PLAN's entry and stop, recomputes every R the model labelled, and prints the <b>canon</b> line — <code>canon positional 3R/5R: T1 … · T2 …</code> — flagging a T1 under the floor and a TAKE whose reward bar is not met on its own numbers</td><td>Flash-lite wrote “T1 13.28 (1.5R)” on entry 13.07 / stop 12.60 — 0.45R. <b>Take the R numbers from the canon line, never from the prose.</b> <code>s4_take.py</code> reads the same line</td></tr>
       <tr><td class="k">OI-CHECK · OPTIONS</td><td>Reads S4's Futures OI row and v67's FUTURES OI STATE before the model sees them; on a conflict, injects a non-negotiable pre-read (report both, take v67's) and prints <code>OI-CHECK: … CONFLICT</code>. Lists every options field present and requires each to be named in section 5 and the call wall / max pain above price in section 3</td><td>The model wrote “v67 confirms this” against a row that said the opposite, and skipped options fields it found inconvenient. A flat day still produces a conflict (cash −0.1% vs futures up) — that is the two windows, not a bug</td></tr>
       <tr><td class="k">LEVEL CHECK</td><td><b>Since 21 Sep.</b> Answers the plan's four levels against the derivatives and the flow: T1 beyond the <b>call wall</b> (and the R actually reachable to it), the stop above the <b>put wall</b>, <b>max pain</b> or the <b>futures long basis</b> sitting inside the entry→T1 path, PCR, OI state, and the <b>footprint delta</b> on the read bar. Goes into the prompt <em>before</em> the deliberation using the panel's levels, and is printed after it against the levels the model actually wrote</td><td>The panel printed the walls for months and nothing ever capped a target because of them — a plan could promise 3.0R straight through a strike option writers defend. <b>They grade; they never gate</b></td></tr>
+      <tr><td class="k">LEVEL CHECK · CASH</td><td>On a name with no options (or no OPT paste), the same five questions answered from cash structure: <b>S4's volume profile</b> — POC, VAH, VAL, the profile of record since 29 Sep — then AVWAP-BO as the trapped-cohort level, delivery % and the S/R pair. The 120-day daily profile is only the fallback when the panel carries none. Grades, never gates; unvalidated</td><td>Half the board is cash-only. S5's triplet was dropped as a source: it is one bar's footprint, not a profile</td></tr>
       <tr><td class="k">LV-AUDIT</td><td>Verifies that the model's <b>LEVEL VALIDATION</b> block exists and that each of the four levels carries a number. Shape only — it cannot judge the reasoning</td><td>A required section is worth nothing if its absence goes unnoticed. Same idea as R-CHECK catching a mis-stated R</td></tr>
+      <tr><td class="k">HELD-CHECK</td><td><b>Since 29 Sep.</b> Reads POSITION CONTEXT. On a name you hold: ladder <b>EXIT/TRIM/REDUCE</b> → the ruling cannot be TAKE (a TAKE is overruled to PASS: no new size, and the model says what the ladder wants done); <b>HOLD</b> → a TAKE becomes WAIT; <b>ADD</b> → a TAKE is a pyramid add at 1% off the raised stop. Held names are no longer skipped as REJECTED when they fail the first test — they get a full position-management review</td><td>TVSMOTOR, 29 Sep: held with the ladder at REDUCE, and the model wrote a fresh positional buy-stop plan without a word about the holding</td></tr>
       <tr><td class="k">INDEX-CHECK</td><td>For an ETF, reads the PHASE-1 block's TRIGGER row. Index NO TRADE by stage → ETF NO TRADE. Index not GO → the ruling cannot be TAKE; <b>if the model ruled TAKE anyway, the script overrules it to WAIT</b> and says so on the ruling line</td><td>INDEX ARM = ETF WAIT is a house rule (13 Sep). A rule the model is asked to follow is a suggestion; a rule the script enforces is a rule</td></tr>
     </tbody>
   </table></div>
@@ -538,7 +538,7 @@ python s4_take.py CHOLAFIN --skip "sector Stage 4"            # passed on it —
     <thead><tr><th>Key</th><th>Default</th><th>Meaning</th></tr></thead>
     <tbody>
       <tr><td class="m">GEMINI_API_KEY</td><td class="m">—</td><td>Required for the default provider</td></tr>
-      <tr><td class="m">S4_REVIEW_GEMINI_MODEL</td><td class="m">gemini-3.1-flash-lite</td><td>The model behind <code>--provider auto</code></td></tr>
+      <tr><td class="m">S4_REVIEW_GEMINI_MODEL</td><td class="m">gemini-3.5-flash-lite</td><td>The model behind <code>--provider auto</code></td></tr>
       <tr><td class="m">S4_REVIEW_ANTHROPIC_KEY · S4_REVIEW_MODEL</td><td class="m">— · claude-opus-5</td><td>Opt-in Claude path (<code>--provider claude</code>). Never reads <code>ANTHROPIC_MODEL</code> / <code>BASE_URL</code></td></tr>
       <tr><td class="m">S4_REVIEW_KEY</td><td class="m">(falls back to WEBHOOK_SECRET)</td><td>The key in the alert URL. Private to the tunnel; never commit it</td></tr>
       <tr><td class="m">NGROK_DOMAIN</td><td class="m">—</td><td>The static ngrok domain, so the alert URL never changes across restarts</td></tr>

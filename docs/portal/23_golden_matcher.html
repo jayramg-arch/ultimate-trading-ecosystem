@@ -287,6 +287,15 @@ footer a{color:var(--acc)}
     fast-mode fundamental read was rejecting everything.</li>
     <li>The inherited archetype <em>is</em> the setup, so no live catalyst is required.</li>
   </ul>
+  <div class="note go">
+    <span class="tag">Every holding is on the board — 29 Sep</span>
+    <p>All open positions join the board every day as <b>Held</b> rows (source <em>Portfolio</em>), so
+    every S4 bundle — fundamentals, options, base rate, ranking — covers your book. <b>Held is not a
+    buy archetype</b>: owning a name qualifies nothing, so a held name is judged on its own chart (a
+    Stage-3 holding reads Stage 3) and the Pos column carries the ladder rung. ADD-rated holdings keep
+    their Pyramid row. Because the TradingView board list is written from the same union, <b>S4 GO
+    alerts now ping on holdings too</b> — the reviewer's HELD-CHECK then says what the ladder wants.</p>
+  </div>
   <div class="note">
     <span class="tag">The exception that keeps it honest</span>
     <p>A name qualified <b>only</b> by the broad catalyst scan still needs a live catalyst or a
@@ -306,7 +315,7 @@ footer a{color:var(--acc)}
       <tr><td class="k">Overall</td><td>0–100 opportunity score, independent of category and path</td></tr>
       <tr><td class="k">Room</td><td>Distance to the <b>first obstacle overhead</b>, in R. <b>Blank means unknown, never clear.</b> Since 9 September a Daily/Weekly/Monthly S/R level past its lifespan is dropped from the ceiling (the same clock S4 uses), and since 11 September the number is <b>information, not a gate</b>: measured on 331 GO-timed trades, 77% had under 1R and did not do worse, and the obstacle was broken 63–77% of the time. Use it to place T1 and a partial</td></tr>
       <tr><td class="k">Armed</td><td>The bell checkbox, plus how long it has been armed and at what trigger</td></tr>
-      <tr><td class="k">Pos</td><td>On pyramid rows: what you already hold, and the add's plan</td></tr>
+      <tr><td class="k">Pos</td><td>On pyramid rows: what you already hold, and the add's plan. On every other held name: quantity, average and the ladder rung</td></tr>
       <tr><td class="k">Loc</td><td>Not a tick — <b>it names the state and the kind of evidence</b>.
       <code>AT pattern D</code> · <code>REACTING off pattern D</code> · <code>AT pivot+conf</code> ·
       <code>pivot only ✗</code> · <code>APPROACHING pattern D −0.5%</code> · <code>−2.3% → pattern D</code>.
@@ -397,6 +406,11 @@ footer a{color:var(--acc)}
       <em>held the zone</em> rather than <em>closed strong</em>. Fires only when a contraction
       pattern fired with no expansion pattern <em>and</em> price sits inside a demand zone.
       <b>This is the setup you are hunting</b>; PB 5/5s sort above breakout 5/5s.</p></div></div>
+
+    <div class="gly neu"><div class="sym">· F n/a</div><div class="bd">
+      <p class="nm">An ETF</p>
+      <p>No company fundamentals exist, so the F gate does not apply (since 29 Sep; it used to read
+      <code>F?</code>). A remaining <code>F?</code> therefore means a real fetch failure.</p></div></div>
 
     <div class="gly neu"><div class="sym">· F?</div><div class="bd">
       <p class="nm">Unscored books</p>
@@ -532,11 +546,13 @@ footer a{color:var(--acc)}
   </table></div>
   <div class="note good">
     <span class="tag">What you do in the evening now</span>
-    <p>Open the Golden Matcher window — the sidebar entry opens it in <b>its own window</b> since
-    13 September, so the main window stays on Risk Shield — and copy the two blocks under the build
-    stamp: <b>ONE-PASTE bundle (all timeframes)</b> and <b>Bundle 2 — options OI</b>. Paste them into
-    S4. That is the whole ritual. The per-timeframe bundle and the individual lists are folded into a
-    collapsed <em>hand overrides</em> expander; you will not need them.</p>
+    <p><b>Nothing, on a normal day.</b> Since 21 September the run pushes both bundles into every S4
+    tab over CDP (<code>PUSH_BUNDLES</code> is the by-hand button), and since 30 September Phase 12b
+    points the two S4 GO alerts at the new list with those bundles. Bundle 2 (options) now also covers
+    every <b>holding</b>, skips an <b>expired series</b> after 15:30 on expiry day (the 29-Sep bundle had
+    carried the dead September chains), and gives an F&amp;O name that came back empty a logged second
+    attempt instead of silently reading "no options". The per-timeframe bundle and the individual lists
+    are folded into a collapsed <em>hand overrides</em> expander; you will not need them.</p>
     <p>Bundle 2 survives a restart now — it used to live only in session memory and vanish; it is
     read back from the file with the run's stamp.</p>
   </div>
