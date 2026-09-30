@@ -202,8 +202,12 @@ def _eval(ws_url: str, expression: str):
 
 
 def run(dry: bool = False, list_name: str | None = None) -> int:
+    print("Refreshing the S4 GO alerts (75m + 125m) onto %s%s - takes ~10-30 s, "
+          "the window stays quiet until TradingView answers..." % (
+              list_name or todays_list_name(), " [dry run]" if dry else ""), flush=True)
     targets = _chart_targets_all()
     if not targets:
+        print("ERROR: no TradingView chart tab over CDP - is TradingView running with the debug port?", flush=True)
         return 2
     cfg = {"listName": list_name or todays_list_name(), "titles": [IN1, IN2, IN3],
            "resolutions": RESOLUTIONS, "dry": bool(dry)}
@@ -240,6 +244,8 @@ def run(dry: bool = False, list_name: str | None = None) -> int:
             line += "  (create failed: %s)" % r["create_err"]
         print("  " + line)
         (log.warning if (r.get("err") or r.get("action") == "FAILED") else log.info)(line)
+    print(("DONE - dry run, nothing changed." if dry else "DONE - all alerts refreshed and verified.") if not bad else
+          "DONE WITH PROBLEMS - %d alert(s) not refreshed; see above and logs/tv_gm_alerts.log." % bad, flush=True)
     return 1 if bad else 0
 
 
