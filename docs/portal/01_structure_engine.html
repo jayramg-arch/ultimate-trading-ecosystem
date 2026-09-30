@@ -216,7 +216,7 @@ footer a{color:var(--acc)}
 <section id="version">
   <h2><span class="n">01</span>Which version you are actually running</h2>
   <p>The markdown guide documents <b>v6.2</b>. The file on disk is named v6.3 and its in-file title
-  is <b>v6.4</b>. Two rounds of changes landed after that guide was written, and one of them fixed
+  is <b>v6.5</b> (30 Sep). Three rounds of changes landed after that guide was written, and one of them fixed
   a genuine silent bug.</p>
 
   <div class="note stop">
@@ -238,6 +238,7 @@ footer a{color:var(--acc)}
       <tr><td class="m">v6.3</td><td><b>Hidden machine-readable outputs</b></td><td>Another script can now consume this engine directly instead of a proxy</td></tr>
       <tr><td class="m">v6.3</td><td>New <b>confirmed-bar projection</b> input, default off</td><td>Turn it on for a calm, non-repainting alert path — see section 05</td></tr>
       <tr><td class="m">v6.4</td><td>The higher-timeframe states join the export set</td><td>The reason is worth reading — below</td></tr>
+      <tr><td class="m">v6.5</td><td><b>One trend rule everywhere.</b> The higher-timeframe rows, the confluence row and the hidden exports now use the structure-consistent trend the TREND row has shown since v6.2</td><td>A sideways weekly can no longer be exported as DOWN — see below</td></tr>
     </tbody></table></div>
 
   <div class="note good">
@@ -248,6 +249,19 @@ footer a{color:var(--acc)}
     <p>Exporting the value the other script needs is <b>strictly better than the other script
     re-deriving it</b>. One structure engine on the chart, and nothing left to drift. That is the
     same principle that later collapsed three duplicate stage reads into one.</p>
+  </div>
+
+  <div class="note stop">
+    <span class="tag">v6.5 · the export was the raw state, not the one on the panel</span>
+    <p>Since v6.2 the TREND row derives the trend from the structure pair it prints: <b>UP only on
+    HH + HL, DOWN only on LH + LL, anything else SIDEWAYS</b>. But the higher-timeframe requests and
+    the hidden exports still carried the persisted <code>trendState</code>, which can lag the
+    structure. On IKS (30 Sep) the weekly chart read SIDEWAYS (HH / LL) while the exported weekly
+    state read <b>DOWN</b> — and Section Four's first test rejected the name on it.</p>
+    <p>From v6.5 the MTF rows, the confluence row, <code>mtfTrendState</code>,
+    <code>mtfTrendState2</code> and the <code>trendState</code> export all use the structure rule.
+    Plot titles are unchanged, so Section Four's bindings hold across the compile. Expect a few more
+    names to pass the first test: sideways was never meant to reject, only down.</p>
   </div>
 </section>
 

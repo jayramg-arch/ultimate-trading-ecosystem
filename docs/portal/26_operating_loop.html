@@ -261,7 +261,9 @@ footer em{color:var(--ink-2)}
             both S4 GO alerts (75m, 125m) onto the new dated watchlist with today's bundles, webhook
             intact. <b>Only after an S4 compile</b> (which deletes them) do you create the pair by
             hand, once. Check the Phase 12b line in the auto-pilot log, or run
-            <span class="m">REFRESH_ALERTS</span> after a manual bundle push.</li>
+            <span class="m">REFRESH_ALERTS</span> after a manual bundle push (it prints a start line,
+            is quiet ~10–30 s, then says <span class="m">DONE</span>). A Zigzag compile does not delete the
+            alerts; an S4 compile does.</li>
           <li><b>Check the sector-mix strip.</b> Over the cap means you are about to over-concentrate.</li>
         </ol>
       </div>

@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 30 Sep · 28 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 30 Sep · 29 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,18 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">30 Sep · night<br>one alert day</td>
+        <td><b>Why 30 September produced one alert — and the one real defect it exposed.</b> Not the code:
+        the GO logic did not change on 29 Sep and ngrok received every webhook TradingView sent (one).
+        The board thinned with the market — Bear / Cash since 24 Sep, qualified names 70 → 37 (13 of
+        them ETFs), Hunter / EarlyBird / Catalyst all 0. The defect: S4's first test read the Swing
+        Zigzag's raw weekly state, which can say DOWN on a sideways weekly (IKS). <b>Zigzag v6.5</b>
+        exports the structure-consistent trend its panel shows. The TradingView list is the board plus
+        each ETF's index (55 → 67). <code>REFRESH_ALERTS</code> now reports progress and a
+        <code>DONE</code> line.</td>
+        <td class="af">01 · 22 · 26</td>
+      </tr>
       <tr>
         <td class="dt">30 Sep · late<br>options volume</td>
         <td><b>Options traded volume by strike, and a readable Log.</b> TradingView's new Options
