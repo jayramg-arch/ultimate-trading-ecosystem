@@ -3344,3 +3344,20 @@ derived trend its own panel prints (v6.2 dispTrend guard) - IKS weekly chart SID
 Fix proposed: export the structure-consistent trend from the Zigzag. Reviewer: a REJECTED verdict is logged as RULING: PASS with provider "rule", no
 model call. Known parity gap: S4's bound Zigzag weekly state and Python's strict_trend can differ
 (HBLENGINE: S4 sideways, Python up) — only a DOWN disagreement changes an outcome.
+
+---
+
+## 29–30 Sep 2026 — Portfolio-first panel, reviewer fixes, alerts automated
+
+S4 **v11.16 on S4Core/65** (file title v10.13), compiled, bound, alerts live. S5 compiled (label only).
+
+- **Holdings on the board:** every open position joins the GM union daily as a `Held` row (source Portfolio). `Held` is NOT a buy archetype — held names are re-qualified on their own chart; Pos column carries the ladder rung. ADD holdings keep the Pyramid row. The TV board list is the same union, so S4 GO alerts ping on holdings.
+- **Held names keep their analysis:** first-test failure on a holding still blocks GO/alert, but STATUS = `HELD — no new size`, VERDICT = position management (amber), SUMMARY runs in full; ladder EXIT/TRIM/REDUCE → entry verdict labelled "for reference only". Non-held Stage 3/4 names still read straight REJECTED.
+- **Panel fixes (TVSMOTOR read):** first-obstacle room in SUMMARY, take-it caveats, FVG ≠ "line", swing-sized T1 on positional, actual Qty risk, labelled pooled vs by-side OI basis (L/S split now on the DAILY futures leg `oiPxUp`), base rate tagged PROXY when borrowed from an archetype, WCL S3+S6 restored (library ladder in Context Layers order), combos use a raw engulf, Shape removed from S4.
+- **S4's volume profile is the profile of record** (row prints POC/VAH/VAL). S5's VA triplet is ONE BAR's footprint and is labelled so. Reviewer level check reads S4 first; 120d daily profile only as fallback.
+- **Options bundle:** includes holdings; skips an EXPIRED series after 15:30 on expiry day (the 29-Sep bundle carried dead Sep chains); failed F&O chains get a logged second pass.
+- **Reviewer:** gemini-3.5-flash-lite; HELD-CHECK gate; plan parser no longer reads "Buy-Stop X" as the stop; R-CHECK names a stop ≥ entry as a void plan. Model misreads remain (e.g. short build-up direction) — a prompt can't fix reading errors.
+- **Alerts automated:** `tv_gm_alerts.py` = auto-pilot **Phase 12b** (~16:50–17:10 IST, after Phase 12 pushes bundles). Uses TradingView's OWN alerts client via webpack; `modifyRestartAlert` in place (same ids), client-shaped payload + `ignore_warnings`, verified after save. Manual only after an S4 compile (recompile deletes alerts). `REFRESH_ALERTS.bat` + Desktop "Refresh Alerts.lnk" (`refresh_alerts.ico`). See memory [[tv-alert-automation-recipe]].
+- **Journal:** 4 OPEN rows got entry_date from Dhan (qty reconciled); `upsert_trade` can no longer blank entry_date. TVSMOTOR timeframe → Positional.
+- **BFF** now goes through `screener_breaker` (was the only direct screener.in dial; bursts left names "F?"). ETF rows read `F n/a`; Single Symbol page passes fund_ok like the board.
+- **Open:** an intermittent single test failure seen once in ~12 suite runs, not reproduced; pre-registered cash-levels test must be re-registered on S4's profile if run.
