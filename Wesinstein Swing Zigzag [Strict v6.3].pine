@@ -1,5 +1,5 @@
 //@version=6
-indicator("Weinstein Swing Zigzag [Strict v6.4]", overlay=true, max_lines_count=500, max_labels_count=500)
+indicator("Weinstein Swing Zigzag [Strict v6.5]", overlay=true, max_lines_count=500, max_labels_count=500)
 
 // RE10143 GUARD (9-Sep-2026). ta.lowest/ta.highest are called with a SERIES length
 // (bars since the active pivot), which grows without bound as a leg extends. Pine sizes
@@ -642,10 +642,19 @@ string mtfTF2 = mtfTF == "D" ? "W" : mtfTF == "W" ? "M" : mtfTF == "M" ? "3M" : 
 // itself would show right now (includes the developing HTF bar). Safe here because
 // the panel only renders at barstate.islast (no historical-bar bias).
 _mtfLook = mtfReadMode == "Live (match HTF chart)" ? barmerge.lookahead_on : barmerge.lookahead_off
-int    mtfTrendState  = request.security(syminfo.tickerid, mtfTF, trendState, lookahead=_mtfLook)
+// v6.5 (30-Sep-2026) — STRUCTURE-CONSISTENT trend, computed every bar. The panel's TREND row
+// has used this rule since v6.2 (UP only on HH+HL, DOWN only on LH+LL, anything else
+// SIDEWAYS), but the MTF requests and the exported plots still carried the raw persisted
+// `trendState`, which can be stale against the structure. IKS (30 Sep): weekly chart
+// SIDEWAYS (HH/LL), yet the exported weekly state read DOWN, and S4's first test rejected
+// the name on it. The HTF rows, the confluence row and the exports now use this one rule.
+string _stH = not na(devStructHigh) ? devStructHigh : lastHighClass
+string _stL = not na(devStructLow)  ? devStructLow  : lastLowClass
+int structTrend = (na(_stH) or na(_stL)) ? trendState : (_stH == "HH" and _stL == "HL") ? 1 : (_stH == "LH" and _stL == "LL") ? -1 : 0
+int    mtfTrendState  = request.security(syminfo.tickerid, mtfTF, structTrend, lookahead=_mtfLook)
 // No second HTF (e.g. Monthly chart → mtfTF2==""): reuse mtfTrendState instead of issuing a
 // duplicate request for the same TF (the value is discarded anyway when hasMtf2 is false).
-int    mtfTrendState2 = mtfTF2 == "" ? mtfTrendState : request.security(syminfo.tickerid, mtfTF2, trendState, lookahead=_mtfLook)
+int    mtfTrendState2 = mtfTF2 == "" ? mtfTrendState : request.security(syminfo.tickerid, mtfTF2, structTrend, lookahead=_mtfLook)
 
 // ============================================================
 // --- 4. PROJECTION LINE ---
@@ -1109,7 +1118,7 @@ alertcondition(trendState == -1 and trendState[1] != -1, title="Downtrend Confir
 // Encoding is the panel's own: 1 uptrend · -1 downtrend · 0 sideways.
 plot(mtfTrendState,  title="mtfTrendState",  display=display.none)
 plot(mtfTrendState2, title="mtfTrendState2", display=display.none)
-plot(trendState,     title="trendState",     display=display.none)
+plot(structTrend,    title="trendState",     display=display.none)   // v6.5: structure-consistent (= the TREND row); title kept so S4's binding holds
 plot(confirmedTrend, title="confirmedTrend", display=display.none)
 plot(bosUp ? 1 : 0,  title="bosUp",          display=display.none)
 plot(bosDn ? 1 : 0,  title="bosDn",          display=display.none)
