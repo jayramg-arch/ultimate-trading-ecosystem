@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 30 Sep · 27 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 30 Sep · 28 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,17 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">30 Sep · late<br>options volume</td>
+        <td><b>Options traded volume by strike, and a readable Log.</b> TradingView's new Options
+        Volume Profile was reviewed: daily-and-up only, traded volume not OI, and nothing S4 or the
+        reviewer can read. Its data is already in the NSE bhavcopy, so <code>fno_bhavcopy.py</code>
+        now stores call/put volume, volume PCR and volume walls, and <code>--profile SYMBOL</code>
+        prints the per-strike ladder with OI beside it — for display only, nothing gates on it. The
+        reviewer's stray LaTeX (<code>$\Sigma+6$</code>) is now converted to plain text in the
+        Log and on Telegram.</td>
+        <td class="af">32</td>
+      </tr>
       <tr>
         <td class="dt">30 Sep<br>portfolio + alerts</td>
         <td><b>Your book is on the board, and the alerts run themselves.</b> Every holding joins the GM

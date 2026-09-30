@@ -286,6 +286,12 @@ footer a{color:var(--acc)}
     Flash-lite is fast and cheap and its <em>judgement</em> has been worth having; its
     <em>arithmetic</em> and its habit of writing “v67 confirms this” against a row that said the
     opposite are exactly why section 08 exists.</p>
+    <p><b>Plain text only (30 Sep).</b> Flash-lite sometimes wrote numbers as LaTeX math —
+    <code>$\text{RV } 1.07$</code>, <code>$\Sigma+6$</code> — which printed raw in the Log and on
+    Telegram. The prompt now asks for plain characters, and <code>plain_text.delatex</code>
+    converts anything that slips through (<code>RV 1.07</code>, <code>Σ+6</code>,
+    <code>0.0× ATR</code>) the moment the answer comes back, and again when the Log is built, so
+    older reviews read clean too. It touches only math markup, never a number or a word.</p>
   </div>
 </section>
 
@@ -462,6 +468,16 @@ python s4_review.py TITAN --dump             # the raw panel read, no model call
     reconstruction is identical. <b>Backfilled 27 March → 21 September: 25,210 rows, 219
     names</b>, and a Task Scheduler job appends each evening at 18:45. Every review also records
     its own derivative and flow fields as columns.</p>
+    <p><b>Traded volume by strike (30 Sep, display only).</b> The same file carries each contract's
+    traded volume, so the history now also stores call and put volume, a volume PCR, and a
+    <b>call and put volume wall</b> — the busiest strike above and below spot, the same rule as the
+    OI walls so the two read side by side. Volume counts contracts opened <em>and</em> closed that
+    day; OI is what is still held. A volume wall away from the OI wall usually means positions
+    rolling or unwinding there. <span class="m">python fno_bhavcopy.py --profile SYMBOL --date D</span>
+    prints the per-strike ladder (call × put volume, OI, OI change, walls and max pain marked) —
+    the bhavcopy twin of TradingView's Options Volume Profile, with OI added and available for
+    any past day. Filled from 27 March (earlier rows blank, never zero). <b>Nothing gates on it</b>:
+    the OI walls already failed their pre-registered test, and a volume variant would need its own.</p>
     <p><b>Why that matters more than the rules themselves:</b> six additions to this system have
     been tested and rejected, one of them backwards. These grade and inform; none of them gates.
     Whether a wall-capped T1 actually pays better than the canon T1 is a question for the
