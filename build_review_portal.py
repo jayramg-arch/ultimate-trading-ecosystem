@@ -24,6 +24,8 @@ import sys
 from collections import OrderedDict
 from datetime import datetime
 
+from plain_text import delatex
+
 HERE = os.path.dirname(os.path.abspath(__file__))
 LOG_DIR = os.path.join(HERE, "logs", "ai_reviews")
 CSV_PATH = os.path.join(HERE, "logs", "ai_review_log.csv")
@@ -122,6 +124,7 @@ def load_reviews() -> list[dict]:
         except Exception:
             continue
         body, _, panel = txt.partition("\n## PANEL READ\n")
+        body = delatex(body)        # 30-Sep: older reviews carry the model's inline LaTeX
         body = re.sub(r"^# .*?\n", "", body, count=1).strip()
         body = re.sub(r"\n---\s*$", "", body)
         panel = panel.strip().strip("`").strip()

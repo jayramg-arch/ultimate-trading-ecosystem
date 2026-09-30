@@ -15,6 +15,13 @@ WHAT IT STORES  (data/fno_history.csv, one row per symbol per day)
     pcr, max_pain, call_wall, put_wall, ce_oi, pe_oi     near-expiry option chain
     atm_strike, atm_ce_doi, atm_pe_doi                   writers adding at the money
     expiry, days_to_expiry                               the walls' shelf life
+    ce_vol, pe_vol, pcr_vol, call_vol_wall, put_vol_wall traded VOLUME, near expiry
+                                                         (30-Sep-2026, DISPLAY ONLY)
+VOLUME vs OI: volume counts contracts opened AND closed today; OI is what is still held.
+The volume walls use the OI walls' convention (fattest CE at/above spot, PE at/below) so
+the two read side by side - a volume wall AWAY from the OI wall is positions rolling or
+unwinding there. Nothing gates on the volume fields: the OI walls already failed the
+pre-registered P3 test (22 Sep) and a volume variant would need its own test.
 The FUTURES BASIS (S4's `basis L` / `basis S`) is NOT stored: it is an event-weighted
 mean over the last N daily prints of ΔOI and price, so it is derived from this history
 downstream rather than frozen here at one window length.
@@ -26,6 +33,10 @@ a max pain of 0 would draw a confident line under every stop.
     python fno_bhavcopy.py --backfill 120     the last 120 calendar days, skipping holidays
     python fno_bhavcopy.py --date 2026-09-18  one day
     python fno_bhavcopy.py --report UNOMINDA  what the walls did, last 20 rows
+    python fno_bhavcopy.py --profile UNOMINDA [--date D] [--strikes 10]
+                                              per-strike CE x PE volume and OI, near expiry
+    python fno_bhavcopy.py --rederive         re-derive every day whose raw zip is cached
+                                              (fills new columns on stored days; no download)
 
 Raw zips are cached under data/fno_bhav/ so a re-run costs no download. A missing day
 (holiday, or a file NSE has not published yet) is a skip, never an error.
@@ -49,7 +60,8 @@ URL = "https://nsearchives.nseindia.com/content/fo/BhavCopy_NSE_FO_0_0_0_%s_F_00
 COLS = ["date", "symbol", "expiry", "days_to_expiry", "underlying",
         "fut_oi", "fut_doi", "fut_settle", "fut_close", "fut_oi_next",
         "pcr", "max_pain", "call_wall", "put_wall", "ce_oi", "pe_oi",
-        "atm_strike", "atm_ce_doi", "atm_pe_doi"]
+        "atm_strike", "atm_ce_doi", "atm_pe_doi",
+        "ce_vol", "pe_vol", "pcr_vol", "call_vol_wall", "put_vol_wall"]
 
 
 def _session():
@@ -118,6 +130,17 @@ def derive(df: pd.DataFrame, day: dt.date) -> pd.DataFrame:
             if len(dn):
                 pw = _num(dn.loc[dn["OpnIntrst"].idxmax(), "StrkPric"])
 
+        # traded-volume walls - display only (see the module docstring)
+        ce_vol, pe_vol = float(ce["TtlTradgVol"].sum()), float(pe["TtlTradgVol"].sum())
+        cvw = pvw = None
+        if spot:
+            up = ce[(ce["StrkPric"] >= spot) & (ce["TtlTradgVol"] > 0)]
+            dn = pe[(pe["StrkPric"] <= spot) & (pe["TtlTradgVol"] > 0)]
+            if len(up):
+                cvw = _num(up.loc[up["TtlTradgVol"].idxmax(), "StrkPric"])
+            if len(dn):
+                pvw = _num(dn.loc[dn["TtlTradgVol"].idxmax(), "StrkPric"])
+
         # max pain: the strike where the writers' total payout is smallest
         mp = None
         ks = sorted({float(k) for k in o["StrkPric"].dropna()})
@@ -152,6 +175,9 @@ def derive(df: pd.DataFrame, day: dt.date) -> pd.DataFrame:
             "max_pain": mp, "call_wall": cw, "put_wall": pw,
             "ce_oi": ce_oi or None, "pe_oi": pe_oi or None,
             "atm_strike": atm, "atm_ce_doi": atm_c, "atm_pe_doi": atm_p,
+            "ce_vol": ce_vol or None, "pe_vol": pe_vol or None,
+            "pcr_vol": round(pe_vol / ce_vol, 3) if ce_vol else None,
+            "call_vol_wall": cvw, "put_vol_wall": pvw,
         })
     return pd.DataFrame(rows, columns=COLS)
 
@@ -166,7 +192,9 @@ def store(new: pd.DataFrame) -> int:
     if new is None or new.empty:
         return 0
     old = load()
-    both = pd.concat([old, new], ignore_index=True)[COLS]
+    # an older store lacks the later columns -> they read None (missing, never zero)
+    both = pd.concat([old.reindex(columns=COLS), new.reindex(columns=COLS)],
+                     ignore_index=True)
     both = both.drop_duplicates(subset=["date", "symbol"], keep="last")
     both = both.sort_values(["date", "symbol"])
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
@@ -202,8 +230,53 @@ def report(sym: str, n: int = 20) -> str:
     if d.empty:
         return f"no rows for {sym}"
     keep = ["date", "underlying", "fut_oi", "fut_doi", "pcr", "max_pain",
-            "call_wall", "put_wall", "days_to_expiry"]
-    return d[keep].to_string(index=False)
+            "call_wall", "put_wall", "pcr_vol", "call_vol_wall", "put_vol_wall",
+            "days_to_expiry"]
+    return d.reindex(columns=keep).to_string(index=False)
+
+
+def profile(sym: str, day: dt.date, n: int = 10, sess=None) -> str:
+    """Per-strike near-expiry chain for one name and day: CE x PE traded volume beside OI
+    and its change - the bhavcopy twin of TradingView's Options Volume Profile, with OI
+    added because OI is what is still held. Marks: CVW/PVW volume walls, C-OI/P-OI OI
+    walls, MP max pain, '>' the strike nearest spot. Display only."""
+    df = raw(day, sess)
+    if df is None:
+        return f"no bhavcopy for {day} (holiday, or not published yet)"
+    mine = df[df["TckrSymb"].astype(str).str.upper() == sym.upper()]
+    o = mine[mine["FinInstrmTp"] == "STO"].copy()
+    if o.empty:
+        return f"{sym}: no stock options on {day} (not an F&O name?)"
+    o["XpryDt"] = pd.to_datetime(o["XpryDt"], errors="coerce")
+    near = o["XpryDt"].dropna().min()
+    o = o[o["XpryDt"] == near]
+    spot = _num(o["UndrlygPric"].iloc[0])
+    der = derive(mine, day)
+    r = der.iloc[0].to_dict() if len(der) else {}
+    g = o.pivot_table(index="StrkPric", columns="OptnTp", aggfunc="sum",
+                      values=["TtlTradgVol", "OpnIntrst", "ChngInOpnIntrst"]).fillna(0)
+    ks = list(g.index)
+    if spot and ks:
+        i = min(range(len(ks)), key=lambda j: abs(ks[j] - spot))
+        g = g.iloc[max(0, i - n): i + n + 1]
+
+    def c(f, t):
+        return (g[(f, t)] if (f, t) in g.columns else pd.Series(0, index=g.index)).astype(int)
+
+    out = pd.DataFrame({
+        "CE_vol": c("TtlTradgVol", "CE"), "PE_vol": c("TtlTradgVol", "PE"),
+        "CE_OI": c("OpnIntrst", "CE"), "PE_OI": c("OpnIntrst", "PE"),
+        "CE_dOI": c("ChngInOpnIntrst", "CE"), "PE_dOI": c("ChngInOpnIntrst", "PE"),
+    })
+    near_k = min(out.index, key=lambda k: abs(k - spot)) if spot else None
+    marks = [("call_vol_wall", "CVW"), ("put_vol_wall", "PVW"), ("call_wall", "C-OI"),
+             ("put_wall", "P-OI"), ("max_pain", "MP")]
+    out["mark"] = [" ".join(t for f, t in marks if r.get(f) == k) for k in out.index]
+    out.index = [(">" if k == near_k else " ") + f"{k:g}" for k in out.index]
+    out.index.name = "strike"
+    head = (f"{sym.upper()} {day} - expiry {near.date()} - spot {spot:g} - "
+            f"PCR oi {r.get('pcr')} / vol {r.get('pcr_vol')} - volume in contracts, OI in shares")
+    return head + "\n" + out.iloc[::-1].to_string()
 
 
 def main() -> int:
@@ -212,6 +285,10 @@ def main() -> int:
     ap.add_argument("--from", dest="frm", help="backfill FROM this date forward, YYYY-MM-DD")
     ap.add_argument("--date", help="one day, YYYY-MM-DD")
     ap.add_argument("--report", help="print the last rows for a symbol")
+    ap.add_argument("--profile", help="per-strike CE/PE volume + OI for a symbol (with --date)")
+    ap.add_argument("--strikes", type=int, default=10, help="--profile: strikes each side of spot")
+    ap.add_argument("--rederive", action="store_true",
+                    help="re-derive every day whose raw zip is cached (no download)")
     ap.add_argument("--prune", action="store_true",
                     help="delete each raw zip after its rows are stored (long backfills)")
     a = ap.parse_args()
@@ -219,6 +296,20 @@ def main() -> int:
 
     if a.report:
         print(report(a.report)); return 0
+    if a.profile:
+        d = (dt.date.fromisoformat(a.date) if a.date
+             else dt.date.fromisoformat(str(load()["date"].max())))
+        print(profile(a.profile, d, a.strikes)); return 0
+    if a.rederive:
+        zips = sorted(f for f in os.listdir(CACHE) if f.endswith(".zip")) if os.path.isdir(CACHE) else []
+        frames = []
+        for f in zips:
+            d = dt.datetime.strptime(f[:8], "%Y%m%d").date()
+            df = raw(d)
+            if df is not None:
+                frames.append(derive(df, d))
+        n = store(pd.concat(frames, ignore_index=True)) if frames else 0
+        print(f"re-derived {len(frames)} cached days (net new rows {n})"); return 0
 
     have = set(load()["date"].astype(str)) if os.path.exists(OUT) else set()
     sess = _session()

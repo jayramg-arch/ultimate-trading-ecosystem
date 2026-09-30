@@ -681,6 +681,9 @@ PLAN   (state the TRADE TYPE first, then entry method · stop · T1/T2 with R �
    positional plan. Take levels from the panel, correct them only if you say why. Do not
    label an R you have not computed from entry and stop.)
 FLIPS IF   (one sentence)
+
+Write PLAIN TEXT. No LaTeX and no math markup: no dollar-sign math, no backslash commands.
+Write RV 1.07, Σ+6, 0.0× ATR, +0.8%, ≥ 2R as plain characters.
 """
 
 
@@ -1211,7 +1214,9 @@ def deliberate(prompt: str, provider: str) -> tuple[str, str]:
         try:
             txt = ask_claude(prompt) if p == "claude" else ask_gemini(prompt)
             if txt:
-                return txt, p + (":" + DEFAULT_MODEL if p == "claude" else ":" + GEMINI_MODEL)
+                from plain_text import delatex      # stray inline LaTeX -> plain text
+                txt = delatex(txt)
+                return txt, p +(":" + DEFAULT_MODEL if p == "claude" else ":" + GEMINI_MODEL)
         except Exception as e:
             errs.append("%s: %s" % (p, e))
     raise RuntimeError("no model answered — " + " | ".join(errs))
