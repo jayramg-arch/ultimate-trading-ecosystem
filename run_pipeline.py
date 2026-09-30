@@ -1019,6 +1019,35 @@ def main():
             except Exception as e:
                 logger.warning(f"   reviewer log page not rebuilt: {e}")
 
+    # 12b. S4 GO ALERTS -> today's GM board list (30-Sep-2026, Jay: "I'm forced to recreate
+    # the alerts on 75min and 125min every day"). AFTER Phase 12, because an alert freezes
+    # S4's inputs when it is saved and Phase 12 is what pushes today's bundles into S4.
+    # Modifies the two existing alerts in place (tv_gm_alerts.py); refuses and says so when
+    # there is nothing to clone - the first night after an S4 compile.
+    logger.info("\n[PHASE 12b] S4 GO ALERTS -> TODAY'S GM BOARD LIST...")
+    with run.phase("Phase 12b — S4 GO alerts refresh") as p:
+        if os.getenv("GM_ALERT_REFRESH", "1") == "0":
+            p.status = "SKIP"; p.message = "GM_ALERT_REFRESH=0"
+        else:
+            try:
+                import subprocess as _sp
+                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                           "tv_gm_alerts.py")],
+                             capture_output=True, text=True, timeout=10 * 60)
+                _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
+                for _ln in _lines:
+                    logger.info(f"   ↳ {_ln}")
+                if _r.returncode == 0:
+                    p.message = " | ".join(l for l in _lines if l.startswith(("75m", "125m")))[:160] or "done"
+                else:
+                    p.status = "WARN"
+                    p.message = ((_lines[-1] if _lines else "") or (_r.stderr.strip().splitlines() or [""])[-1])[:160]
+                    logger.warning(f"⚠️  S4 GO alert refresh rc {_r.returncode}: {p.message}")
+            except Exception as e:
+                logger.warning(f"⚠️  S4 GO alert refresh skipped: {e}")
+                p.status = "SKIP"
+                p.message = f"skipped: {e}"[:160]
+
     run.finalize()
 
     logger.info("\n" + "="*60)
