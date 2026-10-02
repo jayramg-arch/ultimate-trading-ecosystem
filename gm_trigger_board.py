@@ -2616,7 +2616,13 @@ def s4_bundle_union(tfs=("Daily", "125m", "75m")) -> str:
                     merged[tag].setdefault(item.split(":", 1)[0], item)
     if not tag_order:
         return ""
-    return _alias_separators("|".join(f"{t}=" + ",".join(sorted(merged[t].values())) for t in tag_order))
+    # MKT is a sentence, not a SYM list: keep it out of the item merge and the alias
+    # pass (both split on ',' / ':' and the alias pass would add an underscored copy),
+    # and append it once, last - it is the same line on every timeframe.
+    mkt = ",".join(merged.pop("MKT", {}).values())
+    tag_order = [t for t in tag_order if t != "MKT"]
+    return (_alias_separators("|".join(f"{t}=" + ",".join(sorted(merged[t].values())) for t in tag_order))
+            + "|MKT=" + mkt)
 
 
 def _alias_separators(bundle: str) -> str:
@@ -2665,7 +2671,7 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
     forget, each one silent. One field is one chance.
 
     FORMAT  pipe-separated TAG=value, single line:
-        REC=..|PB=..|BFF=..|RFF=..|RANK=..|PIO=..|BFFC=..|RFFC=..|PIOC=..|ETFL=..|ETFP=..
+        REC=..|PB=..|BFF=..|RFF=..|RANK=..|PIO=..|BFFC=..|RFFC=..|PIOC=..|ETFL=..|ETFP=..|MKT=..
 
     EVERY tag is emitted even when its list is empty, and that is the point: an
     empty section CLEARS the corresponding input in S4. Omitting the tag would leave
@@ -2739,7 +2745,13 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
     # upstream can produce one today (symbols and SYM:n pairs), but a stray pipe
     # would corrupt EVERY later section rather than just its own, so it is removed
     # here rather than trusted not to appear.
-    return _alias_separators("|".join("%s=%s" % (t, str(v).replace("|", "")) for t, v in parts))
+    out = _alias_separators("|".join("%s=%s" % (t, str(v).replace("|", "")) for t, v in parts))
+    # MKT (2-Oct-2026): the market backdrop line for S4's Section I header - regime +
+    # Nifty 500 breadth + McClellan, from market_context.py (the reviewer's builder).
+    # Appended AFTER aliasing: it is a sentence, and the alias pass would split it on
+    # commas and copy any token holding '-' or '&'. Display only; empty leaves S4's
+    # default text.
+    return out + "|MKT=" + _safe(lambda: __import__("market_context").for_s4())
 
 
 def s4_base_rates(tf: str = None) -> str:

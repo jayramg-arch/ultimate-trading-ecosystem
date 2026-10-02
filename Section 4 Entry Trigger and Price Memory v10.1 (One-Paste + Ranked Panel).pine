@@ -5041,7 +5041,7 @@ if show_panel and d_panel and barstate.islast
     // the split size (core.bundleSection needs a simple-string tag, so no loop over tags).
     int _bTags  = str.length(gm_bundle) == 0 ? 0 : array.size(str.split(gm_bundle, "|"))
     bool   _b2ok   = str.length(gm_bundle2) == 0 or str.pos(gm_bundle2, "OPT=") >= 0
-    string _bNote  = str.length(gm_bundle) == 0 ? "no bundle" : (str.tostring(str.length(gm_bundle)) + "ch·" + str.tostring(_bTags) + "/15" + (_bTags < 15 ? " ⚠tail?" : "") + (_b2ok ? "" : " ⚠b2"))
+    string _bNote  = str.length(gm_bundle) == 0 ? "no bundle" : (str.tostring(str.length(gm_bundle)) + "ch·" + str.tostring(_bTags) + "/16" + (_bTags < 16 ? " ⚠tail?" : "") + (_b2ok ? "" : " ⚠b2"))
     table.cell(pnl, 0, 0, "S4 " + S4_VER + "  │  core/" + S4_CORE_VER + "  │  " + _bNote, text_size=_pSize, text_color=color.white, bgcolor=C_REC, text_halign=text.align_right)
     table.merge_cells(pnl, 1, 0, PA_LAST_COL, 0)
     // Each banner states the QUESTION its block answers. The panel is read under time
@@ -5049,7 +5049,10 @@ if show_panel and d_panel and barstate.islast
     // regime and worthless on location. Naming the question stops the eye treating
     // 32 fields as one undifferentiated list. A string literal is one token however
     // long it is, so the prose is free.
-    f_sec(1,  "  I · MACRO & CONTEXT      —  What is the underlying regime and environment?")
+    // MARKET CONTEXT (2-Oct-2026, Jay): the regime + Nifty 500 breadth + McClellan line the
+    // reviewer gets, carried in the bundle's MKT section (market_context.py). Display only.
+    string _mkt = core.bundleSection(gm_bundle, "MKT")
+    f_sec(1,  "  I · MACRO & CONTEXT      —  " + (str.length(_mkt) > 0 ? "MARKET: " + core.wrapText(_mkt, 110) : "What is the underlying regime and environment?"))
     f_sec(13,  "  II · LOCATION, VALUE & ROOM —  Are we at value, and is there room to trade?")
     f_sec(22, "  III · EXECUTION & TIMING  —  Are the intraday triggers and PA patterns firing?")
     f_sec(32, "  IV · DECISION SYNTHESIS   —  What is the final ruling of the engine?")
