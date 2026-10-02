@@ -856,7 +856,7 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.17"
+string S4_VER      = "v11.18"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -1254,6 +1254,7 @@ swing_atr_max   = input.float(4.0,  "Swing if daily ATR% >",       group=grpTT, 
 swing_off52_max = input.float(30.0, "Swing if % off 52W-high >",   group=grpTT, minval=5.0, maxval=90.0, step=5.0, tooltip="Far off the high (a proxy for 'far from structure', the Risk Shield's dist_from_200>30 rule) → swing.")
 tt_sl_swing     = input.float(2.5,  "Swing: SL fallback/cap (× ATR)",     group=grpTT, minval=1.0, maxval=6.0, step=0.5, tooltip="When there is no structural level below (or to cap an over-wide structural stop): swing uses a tighter ATR stop.")
 tt_sl_pos       = input.float(4.0,  "Positional: SL fallback/cap (× ATR)",group=grpTT, minval=1.5, maxval=8.0, step=0.5, tooltip="Positional trades need room (the validation lesson: tight stops on long holds give back edge). Wider ATR fallback/cap. Risk Allocator POS = 4.0.")
+pos_floor_atrD  = input.float(4.0,  "Positional: SL floor (× DAILY ATR, 0 = off)", group=grpTT, minval=0.0, maxval=8.0, step=0.5, tooltip="2-Oct-2026. The cap above is in CHART-TF ATR, so on 75m/125m it is only ~1.4x a daily ATR. On 166 Reviewer Log triggers those stops stopped out 80% (-0.80R); the same triggers with a 4x ATR(D) stop stopped out 15% (-0.37R). A positional stop is never closer than this many DAILY ATRs; Qty sizes off it, so rupee risk is unchanged. Mirrors commander_core.POS_STOP_FLOOR_ATR_D.")
 tt_t1r_swing    = input.float(2.0,  "Swing: T1 (R)",     group=grpTT, minval=1.0, maxval=10.0, step=0.5)
 tt_t2r_swing    = input.float(4.0,  "Swing: T2 (R)",     group=grpTT, minval=1.0, maxval=15.0, step=0.5)
 tt_t1r_pos      = input.float(3.0,  "Positional: T1 (R)",group=grpTT, minval=1.0, maxval=15.0, step=0.5)
@@ -5630,6 +5631,12 @@ if show_panel and d_panel and barstate.islast
         pl_cap := not na(_atr) and (_cl - pl_sl) > _slMult * _atr
         if pl_cap
             pl_sl := _cl - _slMult * _atr
+        // v11.18 (2-Oct-2026): POSITIONAL FLOOR in DAILY ATR, read on the trigger bar.
+        float _atrDk = atrD_tf[_k]
+        if use_tradetype_plan and not tt_swing and pos_floor_atrD > 0 and not na(_atrDk) and pl_sl > _cl - pos_floor_atrD * _atrDk
+            pl_sl := _cl - pos_floor_atrD * _atrDk
+            pl_cap := false
+            pl_slsrc := str.tostring(pos_floor_atrD, "0.0") + "×ATR(D) floor"
         // Targets = the TRADE-TYPE R-canon (swing 2R/4R · positional 3R/5R; Recovery
         // T2 = the 52W high when nearer). R is against the ACTUAL trade.
         // v10.2 / H10 (11-Sep): the nearest obstacle is NO LONGER the target. On 331

@@ -11,6 +11,15 @@ where would each entry method have filled, and how did it do in R against S4's s
     V_plan     S4's planned entry (limit if below the close, stop if above), within 8 bars
     V_ema20    buy-limit at the daily EMA20 (value), within the 10-session horizon
 
+STOP shadow (added 2-Oct-2026, Jay): the same V_plan fill, scored against two stops so
+the STOP is the only thing that differs - each in R of its own risk:
+    S_plan     S4's planned stop (the panel's ladder)
+    S_4atrD    the lower of S4's stop and entry - 4 x ATR(14, DAILY) as of the GO bar -
+               the positional floor commander_core.POS_STOP_FLOOR_ATR_D now applies.
+On 166 Log triggers (11 Sep - 1 Oct) the S4 stops sat at a median 1.36 x ATR(D) and
+stopped out 80%; this records, on triggers that arrive AFTER the change, whether the
+floor keeps earning its place. Reported per plan type (the floor is positional only).
+
 Scored at 5 and 10 sessions after the GO: R = (price - entry) / (entry - S4 stop), the
 stop checked bar by bar after the fill (a gap through it fills at the open), plus the
 worst (MAE) and best (MFE) excursion in R and whether it filled at all. Same stop for
@@ -37,7 +46,11 @@ LOG = os.path.join(HERE, "logs", "ai_review_log.csv")
 OUT = os.path.join(HERE, "logs", "entry_shadow.csv")
 HORIZONS = (5, 10)                 # sessions after the GO
 WIN = {"V_retest": 8, "V_buystop": 5, "V_plan": 8}
-VARIANTS = ("V_close", "V_retest", "V_buystop", "V_plan", "V_ema20")
+ENTRY_VARIANTS = ("V_close", "V_retest", "V_buystop", "V_plan", "V_ema20")
+STOP_VARIANTS = ("S_plan", "S_4atrD")
+VARIANTS = ENTRY_VARIANTS + STOP_VARIANTS
+STOP_FLOOR_ATR_D = 4.0             # mirrors commander_core.POS_STOP_FLOOR_ATR_D
+STOP_FLOOR_SINCE = "2026-10-03"    # first session the floor applies; rows from here are the test
 
 _cache: dict = {}
 
@@ -80,6 +93,36 @@ def _daily_ema20(sym: str, on: dt.date):
         return float(d["Close"].ewm(span=20, adjust=False).mean().iloc[-1]) if len(d) > 25 else None
     except Exception:
         return None
+
+
+def _daily_atr(sym: str, cut: dt.date):
+    """ATR(14, Wilder) on DAILY bars up to and including `cut` (no look-ahead)."""
+    try:
+        import data_provider as dp
+        d = dp.fetch_ohlcv(sym, period="1y", interval="1d", use_cache=True)
+        if getattr(d.index, "tz", None) is not None:
+            d.index = d.index.tz_localize(None)
+        d = d[d.index.date <= cut]
+        if len(d) < 20:
+            return None
+        h, l, c = d["High"], d["Low"], d["Close"]
+        tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+        return float(tr.ewm(alpha=1 / 14, adjust=False).mean().iloc[-1])
+    except Exception:
+        return None
+
+
+def _plan_type(md_path) -> str:
+    """POSITIONAL / SWING from the review's Plan row; '' when unknown."""
+    try:
+        p = str(md_path or "")
+        p = p if os.path.isabs(p) else os.path.join(HERE, p.replace("\\", os.sep))
+        for line in open(p, encoding="utf-8", errors="replace"):
+            if line.startswith("Plan |"):
+                return "positional" if "POSITIONAL" in line else "swing" if "SWING" in line else ""
+    except OSError:
+        pass
+    return ""
 
 
 def _go_pos(df: pd.DataFrame, tf: str, ts: dt.datetime):
@@ -141,7 +184,7 @@ def score_row(r) -> list[dict]:
     ts = dt.datetime.strptime(str(r["ts"])[:16], "%Y-%m-%d %H:%M")
     entry_plan, stop = float(r["entry"]), float(r["stop"])
     base = {"ts": r["ts"], "symbol": sym, "tf": tf, "ruling": str(r.get("ai_ruling", ""))[:40],
-            "s4_entry": entry_plan, "s4_stop": stop}
+            "s4_entry": entry_plan, "s4_stop": stop, "plan_type": _plan_type(r.get("file"))}
     df = _bars(sym, tf, ts.date())
     if df is None or df.empty:
         return [dict(base, variant=v, status="no bars") for v in VARIANTS]
@@ -165,19 +208,33 @@ def score_row(r) -> list[dict]:
         "V_plan": _fill(df, g + 1, g + 1 + WIN["V_plan"], entry_plan, "limit" if entry_plan <= go_c else "stop"),
         "V_ema20": (_fill(df, g + 1, end10, ema, "limit") if (ema and ema < go_c) else (None, None)),
     }
+    plans["S_plan"] = plans["S_4atrD"] = plans["V_plan"]
+    cut = ts.date() if (ts.hour, ts.minute) >= (15, 30) else ts.date() - dt.timedelta(days=1)
+    atr_d = _daily_atr(sym, cut)
     rows = []
     for v in VARIANTS:
         pos, px = plans[v]
         row = dict(base, variant=v, go_close=go_c, go_high=go_h)
+        v_stop = stop
+        if v == "S_4atrD":
+            if not atr_d or pos is None:
+                row["status"] = "no daily ATR" if pos is not None else "no fill"
+                rows.append(row)
+                continue
+            v_stop = min(stop, px - STOP_FLOOR_ATR_D * atr_d)
+            row["atr_d"] = round(atr_d, 2)
+            row["stop_used"] = round(v_stop, 2)
+        if pos is not None and v in STOP_VARIANTS and atr_d:
+            row["s4_stop_atrD"] = round((px - stop) / atr_d, 2)
         if pos is None:
             row["status"] = "no fill"
             rows.append(row)
             continue
-        if px <= stop:
+        if px <= v_stop:
             row["status"] = "entry at/below stop"
             rows.append(row)
             continue
-        s = _score(df, pos, px, stop, hz_end)
+        s = _score(df, pos, px, v_stop, hz_end)
         if s is None:
             row["status"] = "pending"
         else:
@@ -214,11 +271,29 @@ def summary(df: pd.DataFrame) -> str:
     hk = "R10" if sc["R10"].notna().sum() >= 10 else "R5"
     base = sc[sc["variant"] == "V_close"].set_index(["ts", "symbol", "tf"])[hk]
     L.append("\npaired vs V_close on the same GOs (%s difference):" % hk)
-    for v in VARIANTS[1:]:
+    for v in ENTRY_VARIANTS[1:]:
         s = sc[sc["variant"] == v].set_index(["ts", "symbol", "tf"])[hk]
         j = pd.concat([s, base], axis=1, keys=["v", "c"]).dropna()
         if len(j):
             L.append("  %-10s n=%3d  mean %+.3fR  median %+.3fR" % (v, len(j), (j["v"] - j["c"]).mean(), (j["v"] - j["c"]).median()))
+    # STOP pair: same fill, two stops, each in R of its own risk; split by plan type.
+    if "plan_type" in sc.columns:
+        L.append("\nSTOP pair on the same V_plan fill (%s; each in its own R). 'all' includes the"
+                 "\n  rows the floor was proposed FROM; only 'after' rows test it:" % hk)
+        _after = pd.to_datetime(sc["ts"], errors="coerce") >= pd.Timestamp(STOP_FLOOR_SINCE)
+        for (pt, win) in [(p, w) for w in ("all", "after") for p in ("positional", "swing", "")]:
+            g = sc[(sc["plan_type"].fillna("") == pt) & (_after if win == "after" else True)]
+            pt = "%s/%s" % (pt or "unknown", win)
+            a = g[g["variant"] == "S_plan"].set_index(["ts", "symbol", "tf"])
+            b = g[g["variant"] == "S_4atrD"].set_index(["ts", "symbol", "tf"])
+            j = pd.concat([a[hk], b[hk], a["stopped"], b["stopped"]], axis=1,
+                          keys=["p", "f", "ps", "fs"]).dropna(subset=["p", "f"])
+            if len(j):
+                L.append("  %-17s n=%3d  S4 stop %+.3fR (stopped %3.0f%%)  4xATR(D) %+.3fR (stopped %3.0f%%)"
+                         "  diff mean %+.3fR median %+.3fR" % (
+                             pt, len(j), j["p"].mean(), 100 * j["ps"].astype(bool).mean(),
+                             j["f"].mean(), 100 * j["fs"].astype(bool).mean(),
+                             (j["f"] - j["p"]).mean(), (j["f"] - j["p"]).median()))
     L.append("\nSmall sample, short horizon: this grades the ENTRY, not the whole trade.")
     return "\n".join(L)
 

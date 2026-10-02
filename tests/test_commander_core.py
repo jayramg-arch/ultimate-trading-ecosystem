@@ -20,10 +20,26 @@ def test_g_skips_nan_and_none():
     assert cc._g({}, "x", default="d") == "d"
 
 
-def test_in_zone_distal_with_buffer_positional():
+def test_in_zone_distal_with_buffer_swing():
+    # swing keeps the structural stop (no daily-ATR floor)
+    sl, src = cc._plan_structural_sl(_ctx({"in_dist": 96.0, "atr": 2.0, "close": 100.0}, s200=120.0),
+                                     100.0, 2.0, ret_src=True)
+    assert math.isclose(sl, 96.0 * 0.995)
+    assert src.startswith("zone distal (in-zone)") and "SWING" in src
+
+
+def test_positional_stop_floored_at_4_daily_atr():
+    # 2-Oct-2026: a positional stop is never closer than 4x DAILY ATR
     sl, src = cc._plan_structural_sl(_ctx({"in_dist": 95.0, "atr": 2.0, "close": 100.0}), 100.0, 2.0, ret_src=True)
-    assert math.isclose(sl, 95.0 * 0.995)
-    assert src.startswith("zone distal (in-zone)") and "POSITIONAL" in src
+    assert math.isclose(sl, 92.0) and "ATR(D) floor" in src and "POSITIONAL" in src
+
+
+def test_intraday_basis_uses_daily_atr_for_the_floor():
+    # 75m basis: chart ATR 0.7 caps the structure at 97.2; daily ATR 2.0 floors it at 92
+    ctx = {"support": {"sl_basis": {"in_dist": 80.0, "atr": 0.7, "close": 100.0, "tf": "75m"}},
+           "dist52wh": -5.0, "sma200": 80.0, "cmp": 100.0, "atr": 2.0}
+    sl, src = cc._plan_structural_sl(ctx, 100.0, 0.7, ret_src=True)
+    assert math.isclose(sl, 92.0) and "ATR(D) floor" in src
 
 
 def test_far_structure_is_capped_at_4_atr_positional():

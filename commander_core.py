@@ -835,7 +835,7 @@ SL_MULT_SWING, SL_MULT_POS = 2.5, 4.0   # S4 tt_sl_swing / tt_sl_pos
 
 TT_SWING_ATR_PCT, TT_SWING_OFF52 = 4.0, 30.0   # S4 swing_atr_max / swing_off52_max
 
-TT_SWING_ATR_PCT, TT_SWING_OFF52 = 4.0, 30.0   # S4 swing_atr_max / swing_off52_max
+POS_STOP_FLOOR_ATR_D = 4.0   # positional stop never closer than 4x DAILY ATR (2-Oct-2026; S4 pos_floor_atrD)
 
 def _gm_zone_rungs(zs_list):
     """(in-zone distal, nearest-below distal) across zone_support() results, S4 order."""
@@ -909,6 +909,18 @@ def _plan_structural_sl(ctx, entry, atr, ret_src=False):
         sl = lvl * (1 - SL_BUF_PCT / 100)
         if (entry - sl) > mult * a:
             sl, src = entry - mult * a, f"{src} capped at {mult:.1f}xATR"
+    # POSITIONAL FLOOR (Jay, 2-Oct-2026). The cap above is in CHART-TF ATR, so on a
+    # 75m/125m trigger 4x is only ~1.4x a DAILY ATR. Measured on the Reviewer Log (166
+    # filled triggers, 11 Sep - 1 Oct): S4 plan stops sat at a median 1.36x ATR(D) and
+    # stopped out 80% (-0.80R); the same triggers with a 4x ATR(D) stop stopped out 15%
+    # (-0.37R), matching the validated positional stop (replay 11.8%). So a positional
+    # stop is never closer than POS_STOP_FLOOR_ATR_D daily ATRs; size comes off it, so
+    # rupee risk is unchanged. Swing plans keep their own ladder.
+    _atrD = _g(ctx, "atr") or (a if str(b.get("tf") or "").lower() in ("daily", "d") else None)
+    if (sl is not None and not tt_swing and POS_STOP_FLOOR_ATR_D and _atrD and _atrD > 0
+            and sl > entry - POS_STOP_FLOOR_ATR_D * _atrD):
+        sl = entry - POS_STOP_FLOOR_ATR_D * _atrD
+        src = f"{POS_STOP_FLOOR_ATR_D:.1f}xATR(D) floor (structure was {src})"
     if sl is not None and sl >= entry:
         sl = None
     src = (src + f" · {'SWING' if tt_swing else 'POSITIONAL'} · {b.get('tf') or '?'}") if sl else ""

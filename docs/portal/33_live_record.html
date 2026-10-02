@@ -1,0 +1,174 @@
+<meta charset="utf-8"><title>The Live Record</title><style>body{font:15px/1.55 Georgia,serif;max-width:1100px;margin:24px auto;padding:0 18px;color:#1d1d1f;background:#fbfaf7}h1{font:700 30px Archivo,Arial,sans-serif;margin:0 0 6px}h2{font:600 19px Archivo,Arial,sans-serif;margin:28px 0 8px}table{border-collapse:collapse;width:100%;font:13px 'IBM Plex Mono',monospace}td,th{border-bottom:1px solid #e3e0d8;padding:4px 8px;text-align:left}.pos{color:#1f7a3a}.neg{color:#a33}.c{background:#fff4d6}.note{background:#f1efe8;padding:10px 14px;border-left:3px solid #b08d2c;margin:12px 0}@media (prefers-color-scheme:dark){body{background:#16161a;color:#e8e6e1}td,th{border-color:#333}.note{background:#222}.c{background:#3a3220}}</style>
+<h1>The Live Record</h1>
+<p>The Reviewer Log as the system's backtest. Every distinct trigger (one per symbol, timeframe and trigger bar; S4 alert &gt; board &gt; manual), what S4 showed at that moment, and what S4's plan earned afterwards, in R at R5. Rebuilt nightly by the auto-pilot. Generated 02 Oct 2026 17:28.</p>
+<div class="note"><b>How to use it.</b> A <b>candidate</b> (highlighted) is a bucket with n &ge; 15 whose mean R is at least 0.30R from its tier's, in the same direction in the earlier and later halves of the Log. It is a hypothesis: pre-register it and confirm it on triggers that arrive after it was flagged before any rule changes. Outcomes so far: 43 triggers scored.</div>
+<h2>Candidates</h2>
+<p>None yet — no bucket clears n &ge; 15 with a stable gap. That is the expected state while the Log is young.</p>
+<h2>tier 1 · S4 alert</h2>
+<p><b>stage</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>Stage 2</td><td>42</td><td>-0.70</td><td>-1.00</td><td>71</td><td>0.31</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>weekly_trend</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>up</td><td>32</td><td>-0.76</td><td>-1.00</td><td>75</td><td>0.29</td><td class=neg>-0.06</td></tr>
+<tr><td>sideways</td><td>9</td><td>-0.46</td><td>-1.00</td><td>56</td><td>0.42</td><td class=pos>+0.23</td></tr>
+<tr><td>down</td><td>1</td><td>-1.00</td><td>-1.00</td><td>100</td><td>0.00</td><td class=neg>-0.30</td></tr>
+</table>
+<p><b>daily_trend</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>sideways</td><td>25</td><td>-0.73</td><td>-1.00</td><td>76</td><td>0.28</td><td class=neg>-0.03</td></tr>
+<tr><td>down</td><td>16</td><td>-0.67</td><td>-1.00</td><td>69</td><td>0.36</td><td class=pos>+0.03</td></tr>
+<tr><td>up</td><td>1</td><td>-0.46</td><td>-0.46</td><td>0</td><td>0.37</td><td class=pos>+0.24</td></tr>
+</table>
+<p><b>rrg</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>WEAKENING</td><td>22</td><td>-0.78</td><td>-1.00</td><td>82</td><td>0.28</td><td class=neg>-0.08</td></tr>
+<tr><td>LEADING</td><td>18</td><td>-0.67</td><td>-1.00</td><td>67</td><td>0.36</td><td class=pos>+0.03</td></tr>
+<tr><td>n/a</td><td>2</td><td>-0.05</td><td>-0.05</td><td>0</td><td>0.29</td><td class=pos>+0.65</td></tr>
+</table>
+<p><b>zone_state</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>reacting</td><td>17</td><td>-0.81</td><td>-1.00</td><td>82</td><td>0.17</td><td class=neg>-0.11</td></tr>
+<tr><td>in demand</td><td>13</td><td>-0.36</td><td>-0.44</td><td>46</td><td>0.62</td><td class=pos>+0.34</td></tr>
+<tr><td>between</td><td>11</td><td>-0.90</td><td>-1.00</td><td>82</td><td>0.21</td><td class=neg>-0.20</td></tr>
+<tr><td>in supply</td><td>1</td><td>-1.00</td><td>-1.00</td><td>100</td><td>0.00</td><td class=neg>-0.30</td></tr>
+</table>
+<p><b>location</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>REACTING off pattern</td><td>14</td><td>-0.87</td><td>-1.00</td><td>86</td><td>0.13</td><td class=neg>-0.17</td></tr>
+<tr><td>AT LOCATION</td><td>12</td><td>-0.91</td><td>-1.00</td><td>83</td><td>0.19</td><td class=neg>-0.21</td></tr>
+<tr><td>pivot</td><td>11</td><td>-0.31</td><td>-0.22</td><td>45</td><td>0.51</td><td class=pos>+0.39</td></tr>
+<tr><td>pattern zone</td><td>5</td><td>-0.57</td><td>-1.00</td><td>60</td><td>0.67</td><td class=pos>+0.13</td></tr>
+</table>
+<p><b>ext_atr</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>below EMA20</td><td>19</td><td>-0.64</td><td>-1.00</td><td>68</td><td>0.47</td><td class=pos>+0.06</td></tr>
+<tr><td>0-1 ATR</td><td>18</td><td>-0.81</td><td>-1.00</td><td>83</td><td>0.17</td><td class=neg>-0.12</td></tr>
+<tr><td>1-2 ATR</td><td>4</td><td>-0.53</td><td>-0.54</td><td>50</td><td>0.20</td><td class=pos>+0.17</td></tr>
+<tr><td>2-3 ATR</td><td>1</td><td>-0.46</td><td>-0.46</td><td>0</td><td>0.37</td><td class=pos>+0.24</td></tr>
+</table>
+<p><b>rv</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>1.0-1.5</td><td>19</td><td>-0.74</td><td>-1.00</td><td>74</td><td>0.26</td><td class=neg>-0.04</td></tr>
+<tr><td>1.5-2.5</td><td>10</td><td>-0.55</td><td>-1.00</td><td>60</td><td>0.43</td><td class=pos>+0.15</td></tr>
+<tr><td>0.5-1.0</td><td>9</td><td>-0.69</td><td>-1.00</td><td>78</td><td>0.25</td><td class=pos>+0.01</td></tr>
+<tr><td>2.5+</td><td>4</td><td>-0.87</td><td>-1.00</td><td>75</td><td>0.42</td><td class=neg>-0.17</td></tr>
+</table>
+<p><b>bar</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>OK</td><td>42</td><td>-0.70</td><td>-1.00</td><td>71</td><td>0.31</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>pattern</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>CONSOLIDATION (Tight) (Low Vol</td><td>21</td><td>-0.56</td><td>-1.00</td><td>57</td><td>0.28</td><td class=pos>+0.14</td></tr>
+<tr><td>CONSOLIDATION (Tight)</td><td>9</td><td>-0.85</td><td>-1.00</td><td>89</td><td>0.35</td><td class=neg>-0.15</td></tr>
+<tr><td>BREAKOUT (Unconfirmed) (Low Vo</td><td>3</td><td>-0.84</td><td>-1.00</td><td>67</td><td>0.21</td><td class=neg>-0.14</td></tr>
+<tr><td>FLAT BASE (Tight) (Low Vol)</td><td>3</td><td>-1.00</td><td>-1.00</td><td>100</td><td>0.24</td><td class=neg>-0.30</td></tr>
+<tr><td>POWER PLAY (Strong Close)</td><td>3</td><td>-1.00</td><td>-1.00</td><td>100</td><td>0.20</td><td class=neg>-0.30</td></tr>
+<tr><td>FLAT BASE (Tight)</td><td>1</td><td>+0.60</td><td>+0.60</td><td>0</td><td>1.92</td><td class=pos>+1.30</td></tr>
+<tr><td>★ LIQ SWEEP RECLAIM (Low Vol)</td><td>1</td><td>-1.00</td><td>-1.00</td><td>100</td><td>0.27</td><td class=neg>-0.30</td></tr>
+<tr><td>★ POCKET PIVOT</td><td>1</td><td>-1.00</td><td>-1.00</td><td>100</td><td>0.00</td><td class=neg>-0.30</td></tr>
+</table>
+<p><b>setup</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>pullback</td><td>27</td><td>-0.67</td><td>-1.00</td><td>70</td><td>0.35</td><td class=pos>+0.03</td></tr>
+<tr><td>reversal</td><td>6</td><td>-0.67</td><td>-1.00</td><td>67</td><td>0.26</td><td class=pos>+0.03</td></tr>
+<tr><td>accumulation</td><td>4</td><td>-0.54</td><td>-0.73</td><td>50</td><td>0.36</td><td class=pos>+0.16</td></tr>
+<tr><td>breakout</td><td>4</td><td>-1.00</td><td>-1.00</td><td>100</td><td>0.20</td><td class=neg>-0.30</td></tr>
+<tr><td>recovery</td><td>1</td><td>-1.00</td><td>-1.00</td><td>100</td><td>0.00</td><td class=neg>-0.30</td></tr>
+</table>
+<p><b>trend_grade</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>n/a (pre 2-Oct)</td><td>42</td><td>-0.70</td><td>-1.00</td><td>71</td><td>0.31</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>room</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>&lt;2%</td><td>32</td><td>-0.72</td><td>-1.00</td><td>72</td><td>0.28</td><td class=neg>-0.02</td></tr>
+<tr><td>2-5%</td><td>8</td><td>-0.62</td><td>-1.00</td><td>75</td><td>0.46</td><td class=pos>+0.08</td></tr>
+<tr><td>n/a</td><td>2</td><td>-0.73</td><td>-0.73</td><td>50</td><td>0.30</td><td class=neg>-0.03</td></tr>
+</table>
+<p><b>plan_type</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>positional</td><td>42</td><td>-0.70</td><td>-1.00</td><td>71</td><td>0.31</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>risk_pct</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>n/a</td><td>16</td><td>-0.65</td><td>-1.00</td><td>62</td><td>0.23</td><td class=pos>+0.05</td></tr>
+<tr><td>3.5-6%</td><td>13</td><td>-0.85</td><td>-1.00</td><td>85</td><td>0.22</td><td class=neg>-0.16</td></tr>
+<tr><td>2-3.5%</td><td>7</td><td>-0.40</td><td>-1.00</td><td>57</td><td>0.71</td><td class=pos>+0.30</td></tr>
+<tr><td>1-2%</td><td>5</td><td>-1.00</td><td>-1.00</td><td>100</td><td>0.29</td><td class=neg>-0.30</td></tr>
+<tr><td>6%+</td><td>1</td><td>-0.04</td><td>-0.04</td><td>0</td><td>0.19</td><td class=pos>+0.66</td></tr>
+</table>
+<p><b>oi_state</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>N/A</td><td>22</td><td>-0.60</td><td>-1.00</td><td>64</td><td>0.32</td><td class=pos>+0.10</td></tr>
+<tr><td>Short Covering</td><td>11</td><td>-0.95</td><td>-1.00</td><td>91</td><td>0.17</td><td class=neg>-0.25</td></tr>
+<tr><td>Long Unwinding</td><td>5</td><td>-0.73</td><td>-1.00</td><td>80</td><td>0.62</td><td class=neg>-0.04</td></tr>
+<tr><td>Long Build-up</td><td>2</td><td>-1.00</td><td>-1.00</td><td>100</td><td>0.12</td><td class=neg>-0.30</td></tr>
+<tr><td>Short Build-up</td><td>2</td><td>+0.04</td><td>+0.04</td><td>0</td><td>0.47</td><td class=pos>+0.74</td></tr>
+</table>
+<p><b>regime</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>BEAR</td><td>42</td><td>-0.70</td><td>-1.00</td><td>71</td><td>0.31</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>tf</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>75</td><td>30</td><td>-0.75</td><td>-1.00</td><td>73</td><td>0.30</td><td class=neg>-0.05</td></tr>
+<tr><td>125</td><td>12</td><td>-0.57</td><td>-1.00</td><td>67</td><td>0.36</td><td class=pos>+0.13</td></tr>
+</table>
+<p><b>bar_of_day</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>2</td><td>12</td><td>-0.71</td><td>-1.00</td><td>75</td><td>0.26</td><td class=neg>-0.01</td></tr>
+<tr><td>4</td><td>9</td><td>-0.79</td><td>-1.00</td><td>78</td><td>0.25</td><td class=neg>-0.10</td></tr>
+<tr><td>1</td><td>8</td><td>-0.28</td><td>-0.26</td><td>25</td><td>0.31</td><td class=pos>+0.42</td></tr>
+<tr><td>5</td><td>7</td><td>-1.00</td><td>-1.00</td><td>100</td><td>0.42</td><td class=neg>-0.30</td></tr>
+<tr><td>3</td><td>6</td><td>-0.74</td><td>-1.00</td><td>83</td><td>0.39</td><td class=neg>-0.04</td></tr>
+</table>
+<p><b>ruling</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>TAKE</td><td>21</td><td>-0.61</td><td>-1.00</td><td>67</td><td>0.40</td><td class=pos>+0.09</td></tr>
+<tr><td>WAIT</td><td>19</td><td>-0.81</td><td>-1.00</td><td>79</td><td>0.24</td><td class=neg>-0.11</td></tr>
+<tr><td>PASS</td><td>2</td><td>-0.52</td><td>-0.52</td><td>50</td><td>0.14</td><td class=pos>+0.18</td></tr>
+</table>
+<h2>tier 2 · board</h2>
+<p><b>stage</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>Stage 3</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>weekly_trend</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>sideways</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>daily_trend</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>down</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>rrg</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>IMPROVING</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>zone_state</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>between</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>location</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>AT LOCATION</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>ext_atr</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>below EMA20</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>rv</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>1.0-1.5</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>bar</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>OK</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>pattern</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>★ LIQ SWEEP RECLAIM</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>setup</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>recovery</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>trend_grade</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>n/a (pre 2-Oct)</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>room</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>&lt;2%</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>plan_type</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>swing</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>risk_pct</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>n/a</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>oi_state</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>Short Covering</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>regime</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>BEAR</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>tf</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>75</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>bar_of_day</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>5</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
+<p><b>ruling</b></p><table><tr><th>bucket</th><th>n</th><th>mean R</th><th>median R</th><th>stop%</th><th>MFE</th><th>vs tier</th></tr>
+<tr><td>PASS</td><td>1</td><td>+0.15</td><td>+0.15</td><td>0</td><td>1.13</td><td class=neg>+0.00</td></tr>
+</table>
