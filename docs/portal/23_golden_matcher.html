@@ -568,6 +568,24 @@ footer a{color:var(--acc)}
 
 <section id="cadence">
   <div class="note go">
+    <span class="tag">2 Oct · night — one clock per plan type, and a wider positional stop</span>
+    <p><b>Plan column</b> (after S4-GO): <i>positional</i> or <i>swing</i> — swing when the daily ATR% is above 4,
+    the price is more than 30% off its 52-week high, or it is below the 200-DMA; positional otherwise. The same
+    rule as S4 and the stop ladder (<code>commander_core.plan_type</code>).</p>
+    <p><b>Positional GOs are read on the Daily tab, swing GOs on 75m/125m.</b> A name on the wrong clock keeps
+    its gate read but is prefixed: <code>⏱D · 5/5 GO …</code> on an intraday tab means "positional — wait for
+    the Daily close"; <code>⏱75/125 · …</code> on Daily means "swing — time it intraday". Prefixed rows drop out
+    of the 5/5 filter, the GO count, the evening board reviews and the alert lists. Read <code>⏱D</code> rows
+    as tomorrow's Daily candidates: intraday has turned, the Daily bar has not printed its pattern yet.
+    On 2 Oct this moved the 5/5s from Daily 3 · 125m 7 · 75m 8 to Daily 3 · 125m 2 · 75m 0 — most intraday
+    GOs were positional names on the wrong clock. <code>PLAN_CLOCK = False</code> in
+    <code>gm_trigger_board.py</code> turns it off.</p>
+    <p><b>Stop:</b> a positional plan's stop is never closer than 4 × the daily ATR
+    (<code>POS_STOP_FLOOR_ATR_D</code>); the stop source reads <code>4.0xATR(D) floor (structure was …)</code>.
+    Entry, SL%, R:R and the sizer follow it.</p>
+  </div>
+
+  <div class="note go">
     <span class="tag">2 Oct — location timeframes, trend grade, board fixes</span>
     <p><b>Location: Daily and higher zones only</b> (checkbox beside the pivot switch, default ON): on the
     75m/125m boards a zone drawn on the trigger timeframe no longer passes location or becomes the

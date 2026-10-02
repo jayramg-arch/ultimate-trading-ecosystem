@@ -487,6 +487,20 @@ python s4_review.py TITAN --dump             # the raw panel read, no model call
 
 <section id="log">
   <div class="note go">
+    <span class="tag">2 Oct · night — the Log is the backtest; priority; plan clock</span>
+    <p><b>The Reviewer Log is now the primary evidence for every backtest.</b> <code>review_priority.py</code>
+    picks one row per symbol, timeframe and <b>trigger bar</b>: two reviews of the same closed bar (a 15:30 alert
+    read at 15:35 and the evening board review at 17:10) count once, the higher tier wins — <b>tier 1 S4 alert,
+    tier 2 board, tier 3 manual</b>; reviews of different bars on the same day are different setups and all count.
+    <code>reviewer_scorer.py</code>, <code>entry_shadow.py</code> and <code>log_analytics.py</code> (Doc 33) all
+    report per tier. 331 rows → 290 distinct triggers.</p>
+    <p><b>Board reviews follow the plan clock:</b> Phase 13 and <code>s4_review --board</code> skip a row marked
+    <code>⏱D</code> / <code>⏱75/125</code> — a positional name is reviewed from the Daily board, a swing name from
+    75m/125m. <b>Stops:</b> once S4 v11.18 is compiled, positional plans arrive with a stop at least 4 × the daily
+    ATR, and R-CHECK reads R against that.</p>
+  </div>
+
+  <div class="note go">
     <span class="tag">2 Oct — what started each review, market context, no chart restore</span>
     <p><b>Every row now records its trigger</b> (<code>source</code> in <code>ai_review_log.csv</code>):
     <b>s4-alert</b> (S4's own GO alert), <b>board</b> (every 5/5 GO on the Daily/125m/75m boards,

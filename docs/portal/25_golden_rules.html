@@ -422,7 +422,9 @@ footer em{color:var(--ink-2)}
         <li><b>0.5% risk on a new entry in a stock, 0.75% in an ETF, 1% on a pyramid add</b> (24 Sep; new entries were 0.25%), volatility-adjusted off the 14-day ATR.</li>
         <li><b>Let the trail do the work.</b> Over 203 POS trades: <b>88% exit on the trail</b>, 11.8% at the initial stop, and only <b>8.4% ever reach 3R</b>.</li>
         <li><b>Use the R-canon</b> — swing 2R/4R, positional 3R/5R, nothing under 2R. Half the position carries no target and rides.</li>
-        <li><b>Trail tighten-only, never loosen.</b></li>
+        <li><b>Trail tighten-only, never loosen.</b></li>        <li><b>Positional stops sit at least 4 × the DAILY ATR from entry</b> (2 Oct). Measured on the Reviewer Log, not a backtest: 166 filled trades, S4's stops at a median 1.36 × daily ATR, 80% stopped out at −0.80R; the same trades with a 4 × daily-ATR stop, 15% at −0.37R. Size comes off the wider stop, so the rupee risk does not change.</li>
+        <li><b>Time each trade on its own clock.</b> Positional: qualify on the Weekly, locate and trigger on the <b>Daily close</b>. Swing: trigger on 75m/125m. Intraday timing added nothing to positional trades in any test, and intraday-sized stops were what hurt them. A 75m GO on a positional name only says where to fill once the Daily has confirmed.</li>
+
       </ul>
     </div>
     <div class="blk dont">
@@ -681,6 +683,12 @@ footer em{color:var(--ink-2)}
     positional 125m GO entry −0.09R, buy-stop +0.05R, a 1× ATR stop floor changed nothing — all four
     hypotheses FAILED. The sign flips by family and period, which is what noise looks like. A live
     shadow record (<code>entry_shadow.py</code>) keeps scoring real GOs nightly.</li>
+  </ul>
+
+  <h3>The live record now leads <span class="muted">— Reviewer Log, from 2 Oct</span></h3>
+  <ul>
+    <li><b>Every backtest starts from the Reviewer Log</b> — real triggers, real panels, real order flow. One row per symbol, timeframe and trigger bar; S4 alert &gt; board &gt; manual when the same bar was reviewed twice; reported per tier, never pooled. Historical replays support it; they never decide alone.</li>
+    <li><b>What it said first:</b> 290 distinct triggers in one Bear tape. No panel feature separated winners from losers, and TAKE ≈ WAIT ≈ PASS on outcome — the stop was the leak (above). <code>docs/portal/33_live_record.html</code> tracks it nightly; a bucket becomes a <em>candidate</em> only at n ≥ 15, a 0.30R gap and the same sign in both halves of the Log, and it changes nothing until later rows confirm it.</li>
   </ul>
 
   <h3>Per family, because pooling has lied three times</h3>

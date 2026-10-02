@@ -262,14 +262,22 @@ footer em{color:var(--ink-2)}
             one at a time), labelled <i>board</i> in the Reviewer Log. Keep the S4 Alert Reviewer window
             up in the evening so they queue there; otherwise they run directly. <span class="m">REVIEW.bat</span>
             stays for anything else and is labelled <i>manual</i>.</li>
+          <li><b>Live record (2 Oct).</b> Auto-pilot <span class="m">Phase 12d</span> rebuilds
+            <a href="33_live_record.html">Doc 33</a> — every Reviewer-Log trigger, what S4 showed, and what it
+            earned in R, per priority tier. <span class="m">entry_shadow</span> now also scores each fill
+            against S4's stop and a 4 × daily-ATR stop; only trades from 3 Oct test the floor.</li>
           <li><b>Two new evening jobs (2 Oct).</b> The 16:45 breadth job now also updates the
             McClellan oscillator (it only moved when the Breadth page button was pressed). Auto-pilot
             <span class="m">Phase 12c</span> rescores every reviewed GO's entry methods
             (<span class="m">logs/entry_shadow.csv</span>). Holidays are skipped by the calendar.</li>
+          <li><b>Which tab for which name (2 Oct).</b> Positional names: the <b>Daily</b> tab and the
+            Daily close. Swing names: <b>75m/125m</b>. The board's Plan column says which; a row on the
+            wrong clock shows <span class="m">⏱D</span> or <span class="m">⏱75/125</span> and is not a GO there.</li>
           <li><b>Alerts refresh themselves</b> — auto-pilot Phase 12b, around 16:50–17:10 IST, moves
-            both S4 GO alerts (75m, 125m) onto the new dated watchlist with today's bundles, webhook
-            intact. <b>Only after an S4 compile</b> (which deletes them) do you create the pair by
-            hand, once. Check the Phase 12b line in the auto-pilot log, or run
+            the S4 GO alerts onto the new dated watchlists with today's bundles, webhook intact:
+            <b>75m and 125m on GM_Swing, Daily on GM_Positional</b> (Phase 4.8 splits the board list by
+            plan type; a name whose type cannot be read goes on both). <b>Only after an S4 compile</b>
+            (which deletes them) do you create the three by hand, once. Check the Phase 12b line in the auto-pilot log, or run
             <span class="m">REFRESH_ALERTS</span> after a manual bundle push (it prints a start line,
             is quiet ~10–30 s, then says <span class="m">DONE</span>). A Zigzag compile does not delete the
             alerts; an S4 compile does.</li>

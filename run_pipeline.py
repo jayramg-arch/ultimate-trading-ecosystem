@@ -1091,6 +1091,30 @@ def main():
                 p.status = "SKIP"
                 p.message = f"skipped: {e}"[:160]
 
+    # 12d. LIVE RECORD (2-Oct-2026, Jay: "base our backtests on the reviewer logs"). After the
+    # shadow rescore, log_analytics joins every distinct Log trigger to what S4 showed and what
+    # it earned, per priority tier, and rebuilds docs/portal/33_live_record.html. Read-only.
+    logger.info("\n[PHASE 12d] LIVE RECORD (Reviewer Log features x outcomes)...")
+    with run.phase("Phase 12d — live record") as p:
+        if os.getenv("LIVE_RECORD", "1") == "0":
+            p.status = "SKIP"; p.message = "LIVE_RECORD=0"
+        else:
+            try:
+                import subprocess as _sp
+                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                           "log_analytics.py")],
+                             capture_output=True, text=True, timeout=10 * 60)
+                _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
+                for _ln in _lines:
+                    logger.info(f"   ↳ {_ln}")
+                p.message = (_lines[0] if _lines else "done")[:160]
+                if _r.returncode != 0:
+                    p.status = "WARN"
+            except Exception as e:
+                logger.warning(f"⚠️  live record skipped: {e}")
+                p.status = "SKIP"
+                p.message = f"skipped: {e}"[:160]
+
     # 13. BOARD REVIEWS (2-Oct-2026, Jay): every 5/5 GO on the Daily, 125m and 75m boards just
     # rebuilt by Phase 12 is queued on the AI reviewer, labelled "board" in the Reviewer Log
     # (his evening REVIEW.bat routine, which logged them as "manual"). Queued on the alert
