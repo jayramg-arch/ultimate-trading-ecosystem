@@ -787,6 +787,24 @@ def main():
             if _syms:
                 _pd.DataFrame({"Symbol": _syms}).to_csv("FINAL_GOLDEN_MATCHER.csv", index=False)
                 p.message = f"{len(_syms)} names → FINAL_GOLDEN_MATCHER.csv"
+                # PLAN-CLOCK SPLIT (2-Oct-2026, Jay): positional names are alerted on the
+                # DAILY close, swing names on 75m/125m. Two lists so each S4 GO alert
+                # watches only the names whose plan belongs on its timeframe. Plan type =
+                # commander_core.plan_type_for_symbol (the S4 rule on daily bars). An
+                # UNKNOWN plan type goes on BOTH lists - a name is never dropped from
+                # alerting because its history could not be read.
+                try:
+                    import commander_core as _cc48
+                    _pos, _swg, _unk = [], [], []
+                    for _s48 in _syms:
+                        _pt = _cc48.plan_type_for_symbol(_s48)
+                        (_pos if _pt == "positional" else _swg if _pt == "swing" else _unk).append(_s48)
+                    _pd.DataFrame({"Symbol": sorted(_pos + _unk)}).to_csv("FINAL_GM_POSITIONAL.csv", index=False)
+                    _pd.DataFrame({"Symbol": sorted(_swg + _unk)}).to_csv("FINAL_GM_SWING.csv", index=False)
+                    p.message += (f" · plan split: {len(_pos)} positional (Daily alert), "
+                                  f"{len(_swg)} swing (75m/125m), {len(_unk)} unknown → both")
+                except Exception as _e48:
+                    logger.warning(f"plan-type split failed (alerts keep the full board list): {_e48}")
             else:
                 p.status = "SKIP"; p.message = "no watchlist names to consolidate"
         except Exception as e:

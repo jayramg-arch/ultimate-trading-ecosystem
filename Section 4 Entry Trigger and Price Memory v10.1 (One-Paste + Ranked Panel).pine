@@ -5557,7 +5557,9 @@ if show_panel and d_panel and barstate.islast
     // #12b TRADE TYPE (Risk Shield Active-Exits classifier): VOLATILE (ATR% high), FAR off
     // the 52W high, or BELOW the 200-DMA → SWING clock (tighter stop, nearer targets);
     // else POSITIONAL (wider stop, further targets). S4 also knows Bull vs Recovery.
-    float _atrPct  = (not na(_so_chart_atr) and _so_close > 0) ? _so_chart_atr / _so_close * 100.0 : 0.0
+    // v11.18 (2-Oct-2026): DAILY ATR% (the input says "daily"; it had read the chart's ATR,
+    // so on 75m almost nothing could classify swing). Same rule as commander_core.plan_type.
+    float _atrPct  = (not na(atrD_tf[_so]) and _so_close > 0) ? atrD_tf[_so] / _so_close * 100.0 : 0.0
     float _off52v  = nz(d_off52[_so], 0.0)
     bool  _bel200v = nz(d_bel200[_so], 0.0) > 0.5
     bool  tt_swing = use_tradetype_plan and (_atrPct > swing_atr_max or _off52v > swing_off52_max or _bel200v)

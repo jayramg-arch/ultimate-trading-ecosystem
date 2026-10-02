@@ -830,6 +830,9 @@ if True:
                     "Trend": st.column_config.TextColumn(
                         "Trend", width=260,
                         help="Trend alignment grade (display only): A+ = W Stage 2 · D pullback at value · trigger TF shifted up; B = daily downtrend; C = daily extended; F = Stage 3/4."),
+                    "Plan": st.column_config.TextColumn(
+                        "Plan", width=95,
+                        help="Plan type (daily ATR% > 4, > 30% off the 52W high, or below the 200-DMA = swing). Positional GOs are read on the Daily tab, swing GOs on 75m/125m; a row on the other clock shows ⏱D or ⏱75/125 in S4-GO."),
                     "Archetype": st.column_config.TextColumn(
                         "Archetype", width=250),
                     "Loc": st.column_config.TextColumn(
@@ -1449,7 +1452,7 @@ if True:
                     # after RRG, then everything else.
                     # "Pos" sits beside Archetype: on a Pyramid row it says what is already
                     # held and what the add would be, and is blank on every other row.
-                    _front = ["Symbol", "★", "Overall", "Category", "S4-GO", "Trend", "Archetype",
+                    _front = ["Symbol", "★", "Overall", "Category", "S4-GO", "Plan", "Trend", "Archetype",
                               "Pos", "Loc", "Path", "RRG", "RS", "Stage", "Catalyst", "ΣPA",
                               "BFF", "RFF"]
                     _ordered = ([c for c in _front if c in _v.columns]
@@ -1883,11 +1886,14 @@ if True:
                                        fund_ok=(lambda _w: False if (_w or {}).get("fund_block") else (_w or {}).get("fund_ok"))(
                                            _ev.get("wf_rec") if _s4_path == "recovery" else _ev.get("wf_bull")),
                                        is_etf=__import__("house_policy").is_etf(symbol),
-                                       rrg_tradeable=_g(rec, "RRG_Tradeable"))
+                                       rrg_tradeable=_g(rec, "RRG_Tradeable"),
+                                       board_tf=_trig_tf)
             _s4_col = ("#047857" if _s4go.startswith("5/5") else "#D97706" if (_s4go.startswith("4/5") or _s4go.startswith("2/4")) else "#475569")
             _s4_bg  = ("#D1FAE5" if _s4go.startswith("5/5") else "#FEF3C7" if (_s4go.startswith("4/5") or _s4go.startswith("2/4")) else "#F1F5F9")
             _s4_bdr = ("#6EE7B7" if _s4go.startswith("5/5") else "#FDE68A" if (_s4go.startswith("4/5") or _s4go.startswith("2/4")) else "#CBD5E1")
-            _s4_msg = ("all five gates align — the S4 chart should show GO" if _s4go.startswith("5/5")
+            _s4_msg = ("positional plan — its GO is read on the DAILY close, not this timeframe" if _s4go.startswith("⏱D")
+                       else "swing plan — its GO is read on 75m/125m, not Daily" if _s4go.startswith("⏱75")
+                       else "all five gates align — the S4 chart should show GO" if _s4go.startswith("5/5")
                        else "no intraday trigger-TF read (can't preview)" if _s4go == "n/a"
                        else f"one/two gates from GO ({_s4go.split('· ')[-1]}) — a watch candidate")
             st.markdown(f"<div style='border-left:6px solid {_s4_col};background:linear-gradient(135deg, {_s4_bg} 0%, var(--surface) 100%);border:1.5px solid {_s4_bdr};"

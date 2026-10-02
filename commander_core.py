@@ -875,6 +875,55 @@ def _gm_sl_basis(zs_list, df, tf):
         _gm_logger.warning(f"stop ladder ({tf}): ATR / swing-low unavailable: {e}")
     return b
 
+def plan_type(atr_pct_d, off52, below200) -> str:
+    """'swing' or 'positional' - the ONE trade-type rule (S4 tt_swing, Risk Shield):
+    daily ATR% > TT_SWING_ATR_PCT, or > TT_SWING_OFF52 % off the 52W high, or below the
+    200-DMA -> swing. 2-Oct-2026: the ATR% is the DAILY one on every surface. It had been
+    the chart-TF ATR%, so on a 75m chart (ATR% ~1/3 of daily) almost nothing could read
+    swing. The plan type now also decides which clock times the trade: positional on the
+    Daily close, swing on 75m/125m (board GO split + the two alert lists)."""
+    return "swing" if ((atr_pct_d or 0.0) > TT_SWING_ATR_PCT or (off52 or 0.0) > TT_SWING_OFF52
+                       or bool(below200)) else "positional"
+
+
+def plan_type_ctx(ctx) -> str:
+    """plan_type() from a GM ctx: daily ATR = ctx['atr']; falls back to the stop-ladder
+    basis ATR only when that basis IS daily (never an intraday ATR)."""
+    b = ((_g(ctx, "support", default={}) or {}).get("sl_basis")) or {}
+    cmp_ = _g(ctx, "cmp") or b.get("close")
+    a_d = _g(ctx, "atr") or (b.get("atr") if str(b.get("tf") or "").lower() in ("daily", "d") else None)
+    atr_pct = (a_d / cmp_ * 100.0) if (a_d and cmp_) else 0.0
+    d52 = _g(ctx, "dist52wh")
+    off52 = abs(d52) if (d52 is not None and d52 < 0) else 0.0
+    s200 = _g(ctx, "sma200")
+    return plan_type(atr_pct, off52, bool(s200 and cmp_ and cmp_ < s200))
+
+
+def plan_type_for_symbol(symbol) -> str | None:
+    """plan_type() off cached DAILY bars - for the watchlist split (run_pipeline Phase
+    4.8), where no GM ctx exists yet. None when the history is not there; the caller
+    decides what an unknown means (it is never silently 'positional')."""
+    try:
+        import data_provider as _dp_pt
+        df = _dp_pt.fetch_ohlcv(symbol, period="2y", interval="1d", use_cache=True, auto_adjust=True)
+        if df is None or len(df) < 60:
+            return None
+        if isinstance(df.columns, pd.MultiIndex):
+            df.columns = df.columns.get_level_values(0)
+        h, l, c = df["High"], df["Low"], df["Close"]
+        tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+        atr = float(tr.ewm(alpha=1 / 14, adjust=False).mean().iloc[-1])
+        px = float(c.iloc[-1])
+        hi52 = float(h.iloc[-252:].max())
+        s200 = float(c.rolling(200).mean().iloc[-1]) if len(c) >= 200 else None
+        return plan_type(atr / px * 100.0 if px else 0.0,
+                         (1.0 - px / hi52) * 100.0 if hi52 else 0.0,
+                         bool(s200 and px < s200))
+    except Exception as e:
+        _gm_logger.warning(f"plan type {symbol}: {e}")
+        return None
+
+
 def _plan_structural_sl(ctx, entry, atr, ret_src=False):
     """S4's stop ladder (see the block comment above). Returns a price (or
     (price, source) with ret_src) -- None when there is no entry. `atr` is only the
@@ -885,12 +934,7 @@ def _plan_structural_sl(ctx, entry, atr, ret_src=False):
     b = sup.get("sl_basis") or {}
     a = b.get("atr") or atr
     _cl = b.get("close") or entry
-    atr_pct = (a / _cl * 100.0) if (a and _cl) else 0.0
-    _d52 = _g(ctx, "dist52wh")                       # negative % off the 52W high
-    _off52 = abs(_d52) if (_d52 is not None and _d52 < 0) else 0.0
-    _s200, _cmp = _g(ctx, "sma200"), _g(ctx, "cmp") or _cl
-    _bel200 = bool(_s200 and _cmp and _cmp < _s200)
-    tt_swing = atr_pct > TT_SWING_ATR_PCT or _off52 > TT_SWING_OFF52 or _bel200
+    tt_swing = plan_type_ctx(ctx) == "swing"
     mult = SL_MULT_SWING if tt_swing else SL_MULT_POS
     lvl, src = None, ""
     for key, name in (("in_dist", "zone distal (in-zone)"),

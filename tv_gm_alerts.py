@@ -56,14 +56,20 @@ if not log.handlers:
     log.addHandler(_h)
     log.setLevel(logging.INFO)
 
-RESOLUTIONS = ["75", "125"]
+RESOLUTIONS = ["75", "125", "D"]
 LIST_PREFIX = "Golden_Matcher_Board-"
+# PLAN CLOCK (2-Oct-2026, Jay): each alert watches only the names whose plan type
+# belongs on its timeframe - positional on the Daily close, swing on 75m/125m. The
+# lists are written by run_pipeline Phase 4.8 (FINAL_GM_POSITIONAL / FINAL_GM_SWING)
+# and pushed with the rest. If today's split list is missing the alert falls back to
+# the full board list and SAYS so - it never goes silent.
+PLAN_LISTS = {"75": "GM_Swing-", "125": "GM_Swing-", "D": "GM_Positional-"}
 IST = timezone(timedelta(hours=5, minutes=30))
 
 
-def todays_list_name() -> str:
+def todays_list_name(prefix: str = LIST_PREFIX) -> str:
     """Golden_Matcher_Board-30SEP26 - the name Phase 7 gives today's list."""
-    return LIST_PREFIX + datetime.now(IST).strftime("%d%b%y").upper()
+    return prefix + datetime.now(IST).strftime("%d%b%y").upper()
 
 
 JS = r"""
@@ -92,10 +98,17 @@ JS = r"""
     // today's GM board list
     const wl = await (await fetch("https://www.tradingview.com/api/v1/symbols_list/custom/",
                                   {credentials: "include"})).json();
-    const list = (wl || []).find(l => l.name === cfg.listName);
-    if (!list) return JSON.stringify({err: "watchlist '" + cfg.listName + "' not found - has the auto-pilot pushed today's lists?"});
-    const newSym = "WATCHLIST:" + list.id;
-    out.steps.push("list " + cfg.listName + " = " + newSym + " (" + (list.symbols || []).length + " symbols)");
+    const board = (wl || []).find(l => l.name === cfg.listName);
+    if (!board) return JSON.stringify({err: "watchlist '" + cfg.listName + "' not found - has the auto-pilot pushed today's lists?"});
+    // per-timeframe list: the plan-clock split list, else the full board list (said so)
+    const listFor = (res) => {
+      const want = (cfg.planLists || {})[res];
+      const hit = want && (wl || []).find(l => l.name === want);
+      if (hit) return {list: hit, note: ""};
+      return {list: board, note: want ? " (split list " + want + " MISSING - fell back to the full board)" : ""};
+    };
+    const norm = (r) => { r = String(r); return (r === "1D" || r === "D") ? "D" : r; };
+    out.steps.push("board list " + cfg.listName + " = WATCHLIST:" + board.id + " (" + (board.symbols || []).length + " symbols)");
 
     // S4 on this chart: the three inputs the evening run pushes
     const chart = (window.TradingViewApi || window.tvWidget).activeChart();
@@ -125,8 +138,11 @@ JS = r"""
     const strip = ["alert_id", "create_time", "created", "last_fire_time", "last_fired", "last_error",
                    "last_stop_reason", "active", "kinds", "id"];
     for (const res of cfg.resolutions) {
-      const tpl = tpls.find(a => String(a.resolution) === res);
-      if (!tpl) { out.results.push({res: res, err: "no template on " + res + " - create that one by hand once"}); continue; }
+      const tpl = tpls.find(a => norm(a.resolution) === res);
+      const lf = listFor(res);
+      const list = lf.list;
+      const newSym = "WATCHLIST:" + list.id;
+      if (!tpl) { out.results.push({res: res, err: "no template on " + res + " - create that S4 GO alert by hand once, on the " + list.name + " list"}); continue; }
       const p = JSON.parse(JSON.stringify(tpl));
       // The inputs live in condition AND in the conditions[] mirror - update every copy.
       const sers = [p.condition].concat(p.conditions || []).map(c => (c && c.series || [])[0]).filter(Boolean);
@@ -154,7 +170,7 @@ JS = r"""
       q.symbol = String(q.symbol).replace(/WATCHLIST:\d+/, newSym);
       const syms = (list.symbols || []).filter(x => String(x).indexOf("###") !== 0);
       const after = {sym: newSym, n: syms.length, b1: String(fresh[ids[cfg.titles[0]]] || "").length, b2: String(fresh[ids[cfg.titles[1]]] || "").length};
-      const row = {res: res, id: tpl.alert_id, before: before, after: after};
+      const row = {res: res, id: tpl.alert_id, before: before, after: after, list: list.name + lf.note};
       if (cfg.dry) { row.action = "dry-run"; out.results.push(row); continue; }
 
       // 1) modify in place - nothing is deleted
@@ -202,7 +218,7 @@ def _eval(ws_url: str, expression: str):
 
 
 def run(dry: bool = False, list_name: str | None = None) -> int:
-    print("Refreshing the S4 GO alerts (75m + 125m) onto %s%s - takes ~10-30 s, "
+    print("Refreshing the S4 GO alerts (75m + 125m -> GM_Swing, Daily -> GM_Positional; board %s)%s - takes ~10-30 s, "
           "the window stays quiet until TradingView answers..." % (
               list_name or todays_list_name(), " [dry run]" if dry else ""), flush=True)
     targets = _chart_targets_all()
@@ -210,7 +226,8 @@ def run(dry: bool = False, list_name: str | None = None) -> int:
         print("ERROR: no TradingView chart tab over CDP - is TradingView running with the debug port?", flush=True)
         return 2
     cfg = {"listName": list_name or todays_list_name(), "titles": [IN1, IN2, IN3, IN4], "optional": [IN4],
-           "resolutions": RESOLUTIONS, "dry": bool(dry)}
+           "resolutions": RESOLUTIONS, "dry": bool(dry),
+           "planLists": ({} if list_name else {r: todays_list_name(p) for r, p in PLAN_LISTS.items()})}
     js = JS.replace("__CFG__", json.dumps(cfg))
     last = None
     for t in targets:                           # first tab that carries S4
@@ -235,8 +252,8 @@ def run(dry: bool = False, list_name: str | None = None) -> int:
     for r in res.get("results", []):
         if r.get("err") or r.get("action") == "FAILED" or "NOT VERIFIED" in str(r.get("action")):
             bad += 1
-        line = "%sm: %s" % (r.get("res"), r.get("err") or "%s  %s (%s names) -> %s (%s names)  bundle1 %s -> %s chars  bundle2 %s -> %s" % (
-            r.get("action"), r["before"]["sym"], r["before"]["n"], r["after"]["sym"], r["after"]["n"],
+        line = "%s: %s" % (r.get("res"), r.get("err") or "%s  %s (%s names) -> %s %s (%s names)  bundle1 %s -> %s chars  bundle2 %s -> %s" % (
+            r.get("action"), r["before"]["sym"], r["before"]["n"], r.get("list", ""), r["after"]["sym"], r["after"]["n"],
             r["before"]["b1"], r["after"]["b1"], r["before"]["b2"], r["after"]["b2"]))
         if r.get("modify_err"):
             line += "  (modify refused: %s)" % r["modify_err"]

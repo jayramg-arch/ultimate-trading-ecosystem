@@ -53,6 +53,10 @@ WATCHLIST_MAP = {
     # Consolidated Trigger-Board union (run_pipeline Phase 4.8): the deduped set of
     # all 5 board watchlists — synced as ONE list (Strike auto-splits it at 49).
     "FINAL_GOLDEN_MATCHER.csv":     "Golden_Matcher_Board",
+    # Plan-clock split of the same union (2-Oct-2026): the Daily S4 GO alert watches
+    # GM_Positional, the 75m/125m alerts watch GM_Swing (tv_gm_alerts.py).
+    "FINAL_GM_POSITIONAL.csv":      "GM_Positional",
+    "FINAL_GM_SWING.csv":           "GM_Swing",
     # Portfolio_Stocks.csv is produced by NOTHING - it logged "[SKIP] Not Found"
     # on every run. FINAL_Portfolio_Picks.csv is the live book (pyramid_logic's
     # export, written by run_pipeline Phase 5), which is what this list meant.

@@ -1690,6 +1690,9 @@ def board_symbols(tf: str, live: bool = False) -> list[str]:
         # filter alone reviewed the two recovery names that happened to clear volume and
         # skipped the rest (Jay, 13-Sep).
         m = m | df["Category"].astype(str).str.startswith("Buy Trigger Live")
+        # PLAN CLOCK (2-Oct-2026): a row whose GO belongs on the other clock (⏱D on an
+        # intraday tab, ⏱75/125 on Daily) is not reviewed from this tab.
+        m = m & ~df["S4-GO"].astype(str).str.startswith("⏱")
     import datetime as _dt
     age_h = (time.time() - os.path.getmtime(p)) / 3600
     print("board %s built %s (%.1fh ago)%s" % (tf, _dt.datetime.fromtimestamp(os.path.getmtime(p)).strftime("%d-%b %H:%M"),

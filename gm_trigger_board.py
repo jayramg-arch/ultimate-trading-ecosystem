@@ -1258,8 +1258,58 @@ def _hp_is_etf(sym) -> bool:
         return False
 
 
+PLAN_CLOCK = True    # 2-Oct-2026 (Jay): positional GOs on the Daily close, swing on 75m/125m
+
+
+def plan_clock_tag(ctx, board_tf) -> str:
+    """'' when this board's timeframe is the right clock for the name's plan type, else
+    the prefix that moves its GO to the other clock: '⏱D' (positional on an intraday
+    tab) or '⏱75/125' (swing on the Daily tab). Plan type = commander_core.plan_type_ctx
+    (daily ATR% / off-52W / below-200, the S4 rule). Evidence for the split: intraday
+    timing added nothing for positional in steps A/C, and intraday-ATR stops on
+    positional plans stopped out 80% of Reviewer-Log trades."""
+    if not PLAN_CLOCK or not board_tf:
+        return ""
+    try:
+        import commander_core as _cc_pc
+        pt = _cc_pc.plan_type_ctx(ctx or {})
+    except Exception as e:
+        _log.warning("plan clock: plan type unavailable (%s) - GO left on this tab", e)
+        return ""
+    intraday = str(board_tf) in ("75m", "125m")
+    if pt == "positional" and intraday:
+        return "⏱D"
+    if pt == "swing" and not intraday:
+        return "⏱75/125"
+    return ""
+
+
+def _plan_of(ctx) -> str:
+    """'positional' / 'swing' for the board's Plan column; '' when it cannot be read."""
+    try:
+        import commander_core as _cc_po
+        return _cc_po.plan_type_ctx(ctx) if ctx else ""
+    except Exception:
+        return ""
+
+
 def s4go_status(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
-                stage=None, rrg_tradeable=None, fund_ok=None, is_etf=False) -> str:
+                stage=None, rrg_tradeable=None, fund_ok=None, is_etf=False,
+                board_tf=None) -> str:
+    """See _s4go_core. board_tf (2-Oct-2026): when given, a name timed on the wrong
+    clock for its plan type keeps its gate read but is prefixed (plan_clock_tag), so it
+    no longer starts with 'N/N GO' - the 5/5 filter, the header count, board reviews and
+    the alert lists all drop it on this tab. ⛔ rows are left as they are."""
+    res = _s4go_core(sigma_pa, ctx, intra_ok, path, archetypes, stage, rrg_tradeable, fund_ok, is_etf)
+    if board_tf and not str(res).startswith("⛔") and res != "n/a":
+        tag = plan_clock_tag(ctx, board_tf)
+        if tag:
+            return f"{tag} · {res}"
+    return res
+
+
+def _s4go_core(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
+               stage=None, rrg_tradeable=None, fund_ok=None, is_etf=False) -> str:
     """The S4 Pine STAGE-2 gate mirrored → a GATES-PASSED CLOSENESS score, so near-
     triggers rank cleanly (a name one gate short of GO is a WATCH candidate, not a
     reject). Shared by BOTH the Trigger Board 'S4-GO' column and the Single Symbol page.
@@ -1824,7 +1874,7 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     # so the board previews what the S4 chart will show WITHOUT opening each name on TV.
     try:
         s4go = s4go_status(sigma_pa, ctx, ev.get("intra_ok"), path,
-                           archetypes=info.get("archetypes"),
+                           archetypes=info.get("archetypes"), board_tf=_tf,
                            is_etf=_hp_is_etf(sym),
                            stage=g(rec, "Stage", default=""),
                            fund_ok=(False if (wf or {}).get("fund_block")
@@ -2043,6 +2093,8 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         "Struct Health": _struct_disp,
         "VP Position":   _vp_disp,
         "Archetype":     arche_txt,                 # inherited setup thesis (Hunter=Breakout, …)
+        # Plan type (2-Oct-2026): decides the clock - positional GOs on Daily, swing on 75/125m.
+        "Plan":          _plan_of(ctx),
         # Held position + the add, for Pyramid rows only (blank elsewhere). ONE column
         # rather than four: the board already has 43, and Entry/SL/R:R above carry the
         # ADD's own plan for these rows, so the only genuinely new information is what

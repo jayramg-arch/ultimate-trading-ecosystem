@@ -52,6 +52,9 @@ TARGET_BASES = [
     # Consolidated Trigger-Board union (run_pipeline Phase 4.8) — the single list
     # of every name the Golden Matcher Trigger Board evaluates.
     "Golden_Matcher_Board",
+    # Plan-clock split (2-Oct-2026): Daily alert -> GM_Positional, 75m/125m -> GM_Swing.
+    "GM_Positional",
+    "GM_Swing",
     "XRay_Picks",
     "Bull_Screener",
     "Bull_Screener_Custom",
