@@ -303,6 +303,27 @@ def job_breadth_update() -> None:
     except Exception as exc:
         logger.warning(f"A/D history append failed: {exc}")
 
+    # ── McClellan oscillator + summation from that history (2-Oct-2026) ───
+    # Was only computed when someone pressed the button on the Breadth page, so
+    # mcclellan_state.json sat at 30-Jun for three months. The A/D history above
+    # has been accumulating all along; compute from it every evening (persist=True
+    # advances the summation index) and carry the read into latest_breadth.json.
+    try:
+        from breadth_engine import load_or_bootstrap_ad_history, calculate_mcclellan
+        _ad = load_or_bootstrap_ad_history(min_rows=40)
+        if _ad is not None and len(_ad) >= 10:
+            _mcl = calculate_mcclellan(_ad, persist=True)
+            _bp = REPORT_STORE_DIR / "latest_breadth.json"
+            if _bp.exists() and _mcl:
+                _pl = json.loads(_bp.read_text(encoding="utf-8"))
+                _pl["mcclellan"] = {k: _mcl.get(k) for k in ("oscillator", "summation", "signal", "last_date")}
+                _bp.write_text(json.dumps(_pl, indent=2, default=str), encoding="utf-8")
+            logger.info("McClellan updated: %s", {k: _mcl.get(k) for k in ("oscillator", "summation", "last_date")})
+        else:
+            logger.warning("McClellan skipped: A/D history has %s rows (need 10)", 0 if _ad is None else len(_ad))
+    except Exception as exc:
+        logger.warning(f"McClellan update failed: {exc}")
+
 
 # ── ALERT CHECK JOB ─────────────────────────────────────────────────────────
 

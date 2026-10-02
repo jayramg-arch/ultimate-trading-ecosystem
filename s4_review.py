@@ -1150,6 +1150,41 @@ def level_check(read_txt: str, review: str = "") -> tuple[str, str]:
     return note, block
 
 
+def market_context() -> str:
+    """One-line market backdrop for the review (2-Oct-2026, Jay): the regime verdict plus
+    Nifty 500 breadth from the 16:45 breadth job. Context outranks trigger, and the panel
+    alone cannot show that 36% of the market is above its 200-day. Information only - it
+    sizes expectations and size, it never vetoes. Each source carries its own date so a
+    stale file reads as stale; a missing source is omitted, never filled."""
+    parts = []
+    try:
+        with open(os.path.join(HERE, "regime_state.json"), encoding="utf-8") as f:
+            rg = (json.load(f) or {}).get("last") or {}
+        if rg.get("verdict"):
+            parts.append("regime %s (score %s, %s)" % (rg.get("verdict"), rg.get("score"),
+                                                      str(rg.get("computed_at") or "")[:10]))
+    except Exception:
+        pass
+    try:
+        with open(os.path.join(HERE, "reports", "latest_breadth.json"), encoding="utf-8") as f:
+            bj = json.load(f) or {}
+        b = bj.get("breadth") or {}
+        if b.get("advance_count") is not None:
+            parts.append("Nifty 500 breadth %s: A/D %s/%s · above 50/200-DMA %s%%/%s%% · 52w highs/lows %s/%s · Stage 2 %s%%"
+                         % (bj.get("date"), b.get("advance_count"), b.get("decline_count"),
+                            b.get("above_sma50_pct"), b.get("above_sma200_pct"),
+                            b.get("new_52w_high_count"), b.get("new_52w_low_count"), b.get("stage2_pct")))
+        m = bj.get("mcclellan") or {}
+        if m.get("oscillator") is not None:
+            parts.append("McClellan osc %s / summation %s (%s)" % (m.get("oscillator"), m.get("summation"), m.get("last_date")))
+    except Exception:
+        pass
+    if not parts:
+        return ""
+    return ("MARKET CONTEXT (information, not a gate - it sets expectations and size, never vetoes a setup)\n"
+            + " · ".join(parts))
+
+
 def build_prompt(read_txt: str, pos_txt: str) -> str:
     note, _ = oi_digest(read_txt)
     ig, _, _ = index_gate(read_txt)
@@ -1175,6 +1210,9 @@ def build_prompt(read_txt: str, pos_txt: str) -> str:
             "  call them clean, quiet or neutral. Write §6 from the sections that ARE\n"
             "  present (participation, Wyckoff / sweep / range-edge, diagnostics).")
     pre = ("PRE-READ (computed by the script, not negotiable)\n%s\n\n" % note) if note else ""
+    mc = market_context()
+    if mc:
+        pre += mc + "\n\n"
     return (pre + "POSITION CONTEXT\n%s\n\n%s\n\nDeliberate now. S4's VERDICT and SUMMARY rows above are "
             "one mechanical opinion; weigh them last." % (pos_txt, read_txt))
 
