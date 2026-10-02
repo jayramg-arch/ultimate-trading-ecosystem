@@ -271,7 +271,8 @@ if True:
                 _piv_now = st.checkbox(
                     "Use pivot (structural) zones", value=_gm_use_pivot_zones(),
                     key="gm_use_pivot_zones",
-                    help="ON (default): a pivot shelf can satisfy LOCATION, but only with a "
+                    help="OFF is the default (pattern zones only, Jay 25-Sep / 2-Oct-2026). "
+                         "ON: a pivot shelf can satisfy LOCATION, but only with a "
                          "confirming S/R or AVWAP (rule A2). OFF: pattern (leg-base-leg) zones "
                          "only — pivots are neither drawn nor counted. Measured 26-Aug: no alpha "
                          "difference between the two, but pattern-only fires on ~4x fewer names. "

@@ -561,7 +561,8 @@ def _gm_use_pivot_zones() -> bool:
     """Pivot (structural) zones on/off — persisted in gm_settings.json.
 
     Jay does not rely on pivot shelves and wanted this switchable from settings
-    rather than an env var read once at import. Default TRUE: rule A2 already makes a
+    rather than an env var read once at import. (Was default TRUE; OFF since 25-Sep-2026,
+    reaffirmed 2-Oct-2026 — see the line below.) Rule A2 already makes a
     pivot earn a confirming source, and the 26-Aug A/B found no alpha difference
     between admitting pivots and refusing them -- only ~4x fewer trades. So this is a
     preference switch, not a fix; off = pattern zones only, on both surfaces.
