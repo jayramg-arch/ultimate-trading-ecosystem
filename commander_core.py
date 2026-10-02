@@ -570,6 +570,14 @@ def _gm_use_pivot_zones() -> bool:
     # Default OFF since 25-Sep-2026 (Jay): pattern zones only.
     return bool(_gm_settings().get("use_pivot_zones", False))
 
+def _gm_loc_htf_only() -> bool:
+    """LOCATION = DAILY AND UP (2-Oct-2026, Jay): Weekly is macro, Daily is setup and
+    location, 75/125m is trigger and execution. ON (default): on the 75m/125m boards a
+    zone drawn on the trigger TF no longer passes location or becomes the →Zone answer;
+    it still sets the stop ladder. Pushed into S4's `loc_htf_only` with the bundles, so
+    the board and the chart judge location on the same timeframes."""
+    return bool(_gm_settings().get("loc_htf_only", True))
+
 def _gm_sync_pivot_setting() -> None:
     """Push the persisted setting into zone_engine. Called on every GM render because
     zone_engine holds it as a module global that an import-time env read would

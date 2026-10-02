@@ -856,7 +856,7 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.16"
+string S4_VER      = "v11.17"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -1436,6 +1436,7 @@ tlr_nudge    = input.float(0.0, "Auto Resistance: nudge (× ATR, + up / − down
 // [TL-EXT commented 4-Sep-2026 for the compiled-token ceiling] tl_ext1_src = input.source(close, "  · External trendline 1", group=grpTL, tooltip="Select the 'S4 Trendline Tool' → 'Trendline Value' plot. Left on 'close' = treated as unused (ignored).")
 // [TL-EXT commented 4-Sep-2026 for the compiled-token ceiling] tl_ext2_src = input.source(close, "  · External trendline 2", group=grpTL, tooltip="A second companion instance (e.g. the other side). Left on 'close' = unused.")
 
+loc_htf_only    = input.bool(true, "Location: Daily and higher zones only", group=grpZP, tooltip="ON (default, 2-Oct-2026, Jay): on a 75/125m chart only Daily, Weekly and Monthly demand zones satisfy LOCATION. Zones drawn on the chart's own timeframe still draw and still set the stop. Owned by the GM board setting and pushed nightly.")
 useStructural   = input.bool(false, "Use Pivot LEVELS (pivot zones commented out 25-Sep)",  group=grpZP, tooltip="PATTERN ZONES ONLY since 25-Sep-2026 (Jay): pivot shelves are not strong enough to drive a trade. The evening bundle push sets this on every S4 tab from the GM setting use_pivot_zones, so S4 and the board cannot disagree.\n\nMaster on/off for EVERY pivot-as-SUPPORT use.\n\nON: pivot (PvH/PvL) zones are drawn and can satisfy LOCATION -- but only with a confirming source (rule A2) -- and the Daily/Weekly pivot support lines are drawn.\n\nOFF: pattern (leg-base-leg) zones only. No pivot zone is created, no pivot satisfies location, and the pivot support lines are hidden. FVG levels are UNAFFECTED (they live under 'FVG / pivot levels').\n\nOFF also removes pivots from OVERHEAD -- Room, T1, T2 and the Pivot S-R lines. Note this LOOSENS R:R: a hidden ceiling is not a cleared one. Other S/R levels are unaffected.\n\nMirror of the GM board setting 'Use pivot (structural) zones'. Measured 26-Aug: no alpha difference vs admitting pivots, ~4x fewer names.")
 // PIVOT (STRUCTURAL) ZONES — CANONICAL PER-TF LENGTHS (v7.5, 5-Aug-2026).
 // One global 5/3 was applied to the chart TF *and* to the Daily, Weekly and Monthly
@@ -1567,7 +1568,7 @@ demand_strong_score = input.int(75, "  Strong-zone score (earns a 2nd test)", gr
 zoneMaxDraw = input.int(3, "Draw at most N zones each side of price (0 = all)", group=grpZV, minval=0, maxval=20, tooltip="DISPLAY ONLY - it never changes the location gate, the counts, or a verdict. Every zone stays LIVE and still satisfies z_inDZ; this only decides how many are painted.\n\nWhy it exists: same-direction zones from 125m / D / W / M are all kept on purpose (that is confluence, and the overlap rule only resolves OPPOSING zones on the same timeframe). Measured on USHAMART: 15 boxes, SIX overlapping inside a 40-point band around spot. Every box carries extend.right, so each fills to the right edge forever - six translucent bands over the same prices that do not move when you scroll, because they have no right edge.\n\n3 = the three nearest demand and three nearest supply zones are painted; the rest go fully transparent. Raise it for the full stack, set 0 to disable the declutter.")
 zoneFillTransp  = input.int(88, "Zone fill transparency (0 = solid, 100 = clear)", group=grpZV, minval=60, maxval=98, tooltip="#37: base transparency of the zone BACKGROUND fill. Lower = more opaque / more visible. Per-TF spread is applied on top (Monthly most opaque, chart-native most transparent). Was hard-wired to 93-96 (nearly clear); default 88 makes the fills read without hiding the candles.")
 show_tested_grey= input.bool(false, "Show tested zones in grey (verify all zones drawn)", group=grpZV, tooltip="#41: OFF (default) = a zone is DELETED the moment it is tested (declutter — only fresh, tradeable zones stay on the chart). ON = a tested zone is recoloured GREY, dotted border, and FROZEN in place instead of deleted, so you can confirm EVERY valid zone that ever formed was marked correctly. Grey zones are excluded from the trigger and the live DZ/SZ counts — they are a verification overlay only.")
-retain_spent_supply = input.bool(true, "Count SPENT supply zones in Room for Trade", group=grpZV, tooltip="#room (2-Aug): a supply zone that has been TESTED is retired as a SIGNAL — it can never gate a trigger again — but sellers did transact there, so it is still evidence about how far this trade can travel.\n\nON (default): the zone OBJECT is kept after it is spent, its DRAWING is deleted (no clutter — which is why 'Show tested zones in grey' was not the answer), and the Room-for-Trade row names it separately as 'spent SZ' when one sits closer overhead than the nearest LIVE obstacle. The room NUMBER still measures to the live obstacle: a spent zone is house-doctrine consumed, so it warns, it does not shrink R.\n\nOFF: spent supply zones are deleted outright (pre-2-Aug behaviour).\n\nDemand zones are never retained this way — spent fuel below price says nothing about headroom.")
+retain_spent_supply = input.bool(true, "Keep TESTED supply zones (drawn + in Room for Trade)", group=grpZV, tooltip="#room (2-Aug): a supply zone that has been TESTED is retired as a SIGNAL — it can never gate a trigger again — but sellers did transact there, so it is still evidence about how far this trade can travel.\n\nON (default): the zone stays DRAWN, greyed and dotted with 'tested Nx' (2-Oct-2026, Jay) - 1 test for a normal zone, 2 for a Controlling one - and is removed on the test after that or when price closes through it. Meanwhile the Room-for-Trade row names it separately as 'spent SZ' when one sits closer overhead than the nearest LIVE obstacle. The room NUMBER still measures to the live obstacle: a spent zone is house-doctrine consumed, so it warns, it does not shrink R.\n\nOFF: spent supply zones are deleted outright (pre-2-Aug behaviour).\n\nDemand zones are never retained this way — spent fuel below price says nothing about headroom.")
 recencyDecay    = input.bool(true, "Recency: decay zone score as it ages", group=grpZV, tooltip="#27: two factors measure a zone — AGE (how long until it is aged off the chart) and RECENCY (a fresh zone is a stronger zone). A newly formed zone shows its FULL score; it loses points linearly as it ages toward its timeframe's ageing cap, floored at 0. Reflected in BOTH the on-chart label and the panel's Support Zone quality grade. OFF = static score (pre-#27).")
 recencyMaxDrop  = input.int(20, "Recency: max score drop at full age", group=grpZV, minval=0, maxval=60, tooltip="The full penalty a zone carries once it reaches its timeframe's ageing cap. A zone at HALF its lifespan loses half of this. 20 = a 90-pt fresh zone reads ~80 at half-life and ~70 when nearly aged out — enough to break score ties toward the fresher zone without demoting a genuinely strong old base out of contention.")
 drawInvCandles  = input.bool(false, "Draw Invisible Candles (gap-bridged overlay)", group=grpZV, tooltip="Plots the GAP-BRIDGED candles the zone engine reads: each bar's open re-anchored at the previous close, high/low expanded to cover the gap. A small-bodied gap day is really a big leg candle, and this is how you SEE that.\n\nVIEW ONLY. Zone detection ALWAYS uses these candles whether or not this is ticked — it is the marking methodology, not an option — so the overlay can never disagree with what the engine reads. Turning this off hides the candles, it does not change a single zone.\n\nTo see ONLY these candles, hide the native ones: Chart Settings → Symbol → uncheck Body / Borders / Wick.")
@@ -2529,11 +2530,14 @@ f_zoneMaintain() =>
             // bar, and only once that bar closed after the zone arrived (originBar holds the
             // arrival time for HTF zones), so the leg-out bar can never be the 1st test.
             core.HBar _b = z.tf == "M" ? hBarM : z.tf == "W" ? hBarW : z.tf == "D" ? hBarD : hBarC
-            if barstate.isconfirmed and not z.tested and not na(_b) and (z.tf == "C" or _b.t > z.originBar)
+            // A TESTED SUPPLY zone on its leash is NOT frozen (2-Oct-2026): it must keep being
+            // judged, or its 2nd test (controlling) and the test that exceeds the leash are
+            // never counted and it is never removed - and a break above it never deletes it.
+            if barstate.isconfirmed and (not z.tested or (retain_spent_supply and not z.isDemand and not show_tested_grey)) and not na(_b) and (z.tf == "C" or _b.t > z.originBar)
                 // #27: refresh the label with the age-decayed score each confirmed bar. Done
                 // before the tested/violation checks below, so a zone about to be deleted just
                 // wastes one harmless set_text; a surviving zone shows its current recency read.
-                if recencyDecay and showZonesIZE and d_zones and showLabels and not na(z.drawing)
+                if recencyDecay and showZonesIZE and d_zones and showLabels and not na(z.drawing) and not z.tested
                     box.set_text(z.drawing, core.buildLabel(z.tf, z.isDemand, z.pattern, f_recencyScore(z.strength, z.tf, z.originTime), z.nBase, z.confBonus, z.isControlling, z.hasFVG))
                 // Touch, reaction and the three tested rules run in core.zoneJudge on the zone's
                 // OWN-timeframe bar _b: travel = 2x own-TF ATR (or zone widths), EMA20 = Monthly
@@ -2616,7 +2620,14 @@ f_zoneMaintain() =>
                             array.remove(activeZones, i)
                             continue
                         z.tested := true
-                        z.deleteDrawings()
+                        // VISIBLE WHILE ON THE LEASH (2-Oct-2026, Jay): a 1x-tested normal and a
+                        // 2x-tested controlling supply zone stay DRAWN (greyed, dotted) so the
+                        // resistance can be seen; removed only when the leash above is exceeded.
+                        box.set_bgcolor(z.drawing, color.new(color.gray, 92))
+                        box.set_border_color(z.drawing, color.new(color.gray, 50))
+                        box.set_border_style(z.drawing, line.style_dotted)
+                        box.set_text(z.drawing, z.txtKeep + "  │  tested " + str.tostring(z.touches) + "x")
+                        box.set_text_color(z.drawing, color.new(color.gray, 25))
                         // Re-arm: the reaction state must be EARNED again before another test
                         // can count. Without this the zone satisfies _testedOut on every
                         // subsequent bar and the counter runs away in a few bars.
@@ -2732,31 +2743,34 @@ if _zn > 0
             // Every zone still in activeZones IS fresh: tested/violated/aged zones are
             // deleted outright by the state block above. There is no "tested but still
             // drawn" state, hence no touch counter and no separate fresh flag.
-            z_inDZ := true
-            if _reactD and not inDemand
-                z_inDZ_react := true
-            // WHICH KIND of zone (25-Aug-2026). A leg-base-leg zone marks where an
-            // imbalance actually happened; a pivot shelf marks where price merely
-            // turned once. This file's own header has said so for months ("pivot =
-            // weaker secondary shelf; location/stop confluence, not standalone") and
-            // the gate never acted on it. Measured on the live board, a pivot alone
-            // satisfies 52.6% of names.
-            if zz.pattern == "PvH" or zz.pattern == "PvL"
-                z_inDZ_piv := true
-            else
-                z_inDZ_pat := true
-            if zz.hasFVG
-                z_inDZ_fvg := true
-            if zz.isControlling
-                z_inDZ_ctrl := true
-            if zz.tf == "C"
-                _dzTfC := true
-            else if zz.tf == "D"
-                _dzTfD := true
-            else if zz.tf == "W"
-                _dzTfW := true
-            else if zz.tf == "M"
-                _dzTfM := true
+            // LOCATION = DAILY AND UP (2-Oct-2026, Jay: Weekly = macro, Daily = setup and
+            // location, 75/125m = trigger and execution). On an intraday chart a zone drawn
+            // on the chart's own TF no longer satisfies location; it still feeds the stop
+            // ladder (z_inDZdist below). On a Daily chart the native zone IS daily.
+            if not (loc_htf_only and timeframe.isintraday and zz.tf == "C")
+                z_inDZ := true
+                if _reactD and not inDemand
+                    z_inDZ_react := true
+                // WHICH KIND of zone (25-Aug-2026). A leg-base-leg zone marks where an
+                // imbalance actually happened; a pivot shelf marks where price merely
+                // turned once. Measured on the live board, a pivot alone satisfied 52.6%
+                // of names.
+                if zz.pattern == "PvH" or zz.pattern == "PvL"
+                    z_inDZ_piv := true
+                else
+                    z_inDZ_pat := true
+                if zz.hasFVG
+                    z_inDZ_fvg := true
+                if zz.isControlling
+                    z_inDZ_ctrl := true
+                if zz.tf == "C"
+                    _dzTfC := true
+                else if zz.tf == "D"
+                    _dzTfD := true
+                else if zz.tf == "W"
+                    _dzTfW := true
+                else if zz.tf == "M"
+                    _dzTfM := true
             // #27: the panel grade reads the RECENCY-adjusted score, matching the label.
             int _zzScore = f_recencyScore(zz.strength, zz.tf, zz.originTime)
             if na(_z_inDZstr) or _zzScore > _z_inDZstr

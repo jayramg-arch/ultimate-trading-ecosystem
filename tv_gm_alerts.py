@@ -45,7 +45,7 @@ sys.path.insert(0, HERE)
 import websocket  # noqa: E402
 
 from tv_bind_s4 import _chart_targets_all  # noqa: E402
-from tv_push_bundles import IN1, IN2, IN3  # noqa: E402 - the SAME titles the pusher writes
+from tv_push_bundles import IN1, IN2, IN3, IN4  # noqa: E402 - the SAME titles the pusher writes
 
 LOG = os.path.join(HERE, "logs", "tv_gm_alerts.log")
 os.makedirs(os.path.dirname(LOG), exist_ok=True)
@@ -104,12 +104,12 @@ JS = r"""
     const s4 = chart.getStudyById(st.id);
     const ids = {};
     s4.getInputsInfo().forEach(i => { if (cfg.titles.indexOf(i.name) >= 0) ids[i.name] = i.id; });
-    const missing = cfg.titles.filter(t => !(t in ids));
+    const missing = cfg.titles.filter(t => !(t in ids) && (cfg.optional || []).indexOf(t) < 0);
     if (missing.length) return JSON.stringify({err: "S4 input not found: " + missing.join(" / ")});
     const vals = {};
     s4.getInputValues().forEach(v => { vals[v.id] = v.value; });
     const fresh = {};
-    cfg.titles.forEach(t => { fresh[ids[t]] = vals[ids[t]]; });
+    cfg.titles.forEach(t => { if (t in ids) fresh[ids[t]] = vals[ids[t]]; });
     if (!String(fresh[ids[cfg.titles[0]]] || "").length)
       return JSON.stringify({err: "bundle 1 is EMPTY on the chart - refusing to put an empty bundle into the alerts"});
 
@@ -209,7 +209,7 @@ def run(dry: bool = False, list_name: str | None = None) -> int:
     if not targets:
         print("ERROR: no TradingView chart tab over CDP - is TradingView running with the debug port?", flush=True)
         return 2
-    cfg = {"listName": list_name or todays_list_name(), "titles": [IN1, IN2, IN3],
+    cfg = {"listName": list_name or todays_list_name(), "titles": [IN1, IN2, IN3, IN4], "optional": [IN4],
            "resolutions": RESOLUTIONS, "dry": bool(dry)}
     js = JS.replace("__CFG__", json.dumps(cfg))
     last = None

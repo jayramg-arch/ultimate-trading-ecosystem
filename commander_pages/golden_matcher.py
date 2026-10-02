@@ -287,6 +287,25 @@ if True:
                     st.session_state["gm_force_rebuild"] = True
                     st.rerun()
                 _gm_sync_pivot_setting()
+                # Location timeframes (2-Oct-2026, Jay). Same pattern as the pivot switch:
+                # it changes what LOCATION is, so it clears the loaders and rebuilds.
+                _htf_now = st.checkbox(
+                    "Location: Daily and higher zones only", value=_gm_loc_htf_only(),
+                    key="gm_loc_htf_only",
+                    help="ON (default): Weekly = macro, Daily = setup and location, 75/125m = "
+                         "trigger and execution. On the 75m/125m boards only Daily, Weekly and "
+                         "Monthly demand zones pass LOCATION; a zone drawn on the trigger TF still "
+                         "sets the stop. OFF: trigger-TF zones also pass location (pre-2-Oct). "
+                         "Pushed into S4's 'Location: Daily and higher zones only' with the bundles.")
+                if _htf_now != _gm_loc_htf_only():
+                    _gm_settings_save(loc_htf_only=bool(_htf_now))
+                    for _c in (gm_load_symbol, gm_load_recovery, gm_load_intraday):
+                        try:
+                            _c.clear()
+                        except Exception as e:
+                            _gm_logger.warning(f"location-TF toggle: cache clear failed: {e}")
+                    st.session_state["gm_force_rebuild"] = True
+                    st.rerun()
                 # Entry method — shared, GLOBAL setting (see _render_entry_method_selector).
                 _render_entry_method_selector("gm_entry_method_sel")
                 # 75m/125m "bar-close" modes rebuild the board ONCE per session bar

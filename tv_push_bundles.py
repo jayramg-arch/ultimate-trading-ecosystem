@@ -38,6 +38,21 @@ IN2 = "GM: bundle 2 — options OI"         # em-dash, exactly as the input titl
 IN3 = "Use Pivot LEVELS (pivot zones commented out 25-Sep)"   # S4 v10.12 title; pivot ZONES are commented out in S4
 
 
+# LOCATION TIMEFRAMES (2-Oct-2026). Same ownership as the pivot switch: the GM setting
+# `loc_htf_only` is written into S4 on every push. OPTIONAL: an S4 compiled before v11.17
+# has no such input, and a missing optional input is skipped, never a failed push.
+IN4 = "Location: Daily and higher zones only"
+OPTIONAL = [IN4]
+
+
+def gm_loc_htf_only() -> bool:
+    try:
+        with open(os.path.join(HERE, "gm_settings.json"), encoding="utf-8") as f:
+            return bool((json.load(f) or {}).get("loc_htf_only", True))
+    except Exception:
+        return True
+
+
 def gm_pivot_setting() -> bool:
     try:
         with open(os.path.join(HERE, "gm_settings.json"), encoding="utf-8") as f:
@@ -59,6 +74,8 @@ JS = r"""
     var ids = {};
     var titles = %(titles)s;
     s4.getInputsInfo().forEach(function (inp) { if (titles.indexOf(inp.name) >= 0) ids[inp.name] = inp.id; });
+    var optional = %(optional)s;
+    Object.keys(want).forEach(function (k) { if (!(k in ids) && optional.indexOf(k) >= 0) delete want[k]; });
     var missing = Object.keys(want).filter(function (k) { return !(k in ids); });
     if (missing.length) return JSON.stringify({error: "input not found: " + missing.join(" / ")});
     if (Object.keys(want).length) {
@@ -101,7 +118,7 @@ def main() -> int:
         if not os.path.exists(a.file):
             print(f"bundle file missing: {a.file} - run the Evening run first", file=sys.stderr); return 2
         b1, b2 = read_bundles(a.file)
-        want = {IN1: b1, IN2: b2, IN3: gm_pivot_setting()}
+        want = {IN1: b1, IN2: b2, IN3: gm_pivot_setting(), IN4: gm_loc_htf_only()}
         print(f"bundle 1: {len(b1)} chars ({b1.count('|') + (1 if b1 else 0)} sections) · bundle 2: {len(b2)} chars")
         if not b1:
             print("bundle 1 is EMPTY - refusing to blank every S4 tab; check gm_bundles/latest.txt", file=sys.stderr); return 2
@@ -109,7 +126,10 @@ def main() -> int:
     tgts = _chart_targets_all()
     if not tgts:
         return 2
-    js = JS % {"want": json.dumps(want, ensure_ascii=False), "titles": json.dumps([IN1, IN2, IN3], ensure_ascii=False)}
+    js = JS % {"want": json.dumps(want, ensure_ascii=False),
+               "titles": json.dumps([IN1, IN2, IN3, IN4], ensure_ascii=False),
+               "optional": json.dumps(OPTIONAL, ensure_ascii=False)}
+    loc_want = str(gm_loc_htf_only()).lower()
     piv_want = str(gm_pivot_setting()).lower()
     rc, n = 0, 0
     for t in tgts:
@@ -129,11 +149,16 @@ def main() -> int:
         n += 1
         g1, g2, g3 = d.get(IN1, ""), d.get(IN2, ""), str(d.get(IN3, "")).lower()
         piv = f"pivots {'ON' if g3 == 'true' else 'off'}" + ("" if g3 == piv_want else f" (GM setting: {piv_want}) MISMATCH")
+        g4 = str(d.get(IN4, "")).lower()
+        if not g4:
+            piv += " · location-TF input absent (S4 before v11.17)"
+        else:
+            piv += f" · location {'D+ only' if g4 == 'true' else 'incl. trigger TF'}" + ("" if g4 == loc_want else f" (GM setting: {loc_want}) MISMATCH")
         if a.check:
             print(f"chart {cid}: bundle 1 {len(g1)} chars · bundle 2 {len(g2)} chars · {piv}")
             rc |= 0 if g3 == piv_want else 1
             continue
-        ok = (g1 == want[IN1]) and (g2 == want[IN2]) and (g3 == piv_want)
+        ok = (g1 == want[IN1]) and (g2 == want[IN2]) and (g3 == piv_want) and (not g4 or g4 == loc_want)
         print(f"chart {cid}: {'ok' if ok else 'MISMATCH'} - bundle 1 {len(g1)} chars · bundle 2 {len(g2)} chars · {piv}")
         rc |= 0 if ok else 1
     if n == 0:
