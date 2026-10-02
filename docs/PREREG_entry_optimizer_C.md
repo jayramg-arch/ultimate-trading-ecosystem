@@ -92,5 +92,20 @@ Nothing ships on a hypothesis that did not pass its own bar, even if a neighbour
 
 ## Result
 
-*(written after the single run: `validation_runs/entry_optimizer_C/result.txt`, with the commit
-hash and the date)*
+**Run 2-Oct-2026 14:42, commit `8f2a278b`, 566 qualified names over 16 anchors. All four FAIL.**
+Full output: `validation_runs/entry_optimizer_C/result.txt`.
+
+| # | Cell | Paired diff (GO − qualification close) | Verdict |
+|---|---|---|---|
+| H1 | POS × 125m × I_close, n 181 | mean **−0.09R**, median −0.12R; early −0.13R, late +0.08R; 95% [−0.57, +0.47] | **FAIL** — the step-A positional pattern did not replicate |
+| H1b | POS × 125m × I_buystop, n 150 | mean +0.05R, median −0.07R; 97.5% [−0.48, +0.65] | **FAIL** |
+| H2 | SWG, I_close, 125m n 163 / 75m n 177 | 125m **+0.30R** (both windows positive), 75m +0.03R; medians ≈ 0 | **FAIL — in the opposite direction**: swing names did *better* with a GO entry on 125m, by the mean. Not predicted; a finding to pre-register next time, not a result. |
+| H3 | 1× daily-ATR floor, 125m I_close, n 344 | stop-outs 52% → 53%, mean R +0.57 → +0.50, median unchanged | **FAIL** — the floor rarely binds and changes nothing useful |
+
+**Decision (per the rules above): the Golden Rules line stands.** No change to S4, the board or
+the stop buffer. The live shadow record (step D) continues.
+
+Context, not a result: the holdout's early window (Jul 2023 – May 2024) was a strong tape —
+the qualification-close entry alone made +0.88R mean on positional names — very unlike step A's
+period. Across the two runs, the sign of the GO-entry effect flipped by family and by period,
+which is what noise looks like.
