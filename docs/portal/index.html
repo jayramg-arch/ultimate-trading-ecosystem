@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 2 Oct · 33 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 3 Oct · 34 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,16 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">3 Oct<br>T2 &amp; binding</td>
+        <td><b>Two fixes found reading SCHNEIDER's daily panel.</b> Recovery plans printed T2 (the 52-week
+        high) below T1; the 52-week high now replaces T2 only between T1 and the canon T2 (S4 v11.19, compile
+        pending). And after the compile the S4 Reviewer and Phase-1 tabs had none of their 32 sources bound,
+        though the binder had reported success — it now verifies every tab after a pause, re-binds any that
+        slipped and ends on a per-tab OK/FAIL table. Doc 22 explains why a Recovery read can show BFF 6/6:
+        both scores print, only the path's own one gates.</td>
+        <td class="af">22 · 26</td>
+      </tr>
       <tr>
         <td class="dt">2 Oct · late night<br>alerts &amp; positional</td>
         <td><b>S4 v11.18 live on S4Core/66, two alerts, and the positional side gets its own notice.</b>

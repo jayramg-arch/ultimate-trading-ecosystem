@@ -332,7 +332,9 @@ footer em{color:var(--ink-2)}
           time. If the reviewer window is not up, the alert still reaches your phone &mdash; only
           the review is lost. <span class="m">BIND_S4_SOURCES</span> is <em>not</em> part of the
           morning: bindings live in the layout and survive restarts; run it only after an S4
-          compile.</p>
+          compile, with all five tabs open. It now re-checks every tab after 8 seconds and ends
+          on a per-tab table — every S4 tab must read <b>OK 32/32</b>; a FAIL means click into that
+          tab once so it finishes loading, then run it again.</p>
       </div>
     </div>
 
