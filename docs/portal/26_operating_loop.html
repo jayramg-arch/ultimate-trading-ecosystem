@@ -275,9 +275,12 @@ footer em{color:var(--ink-2)}
             wrong clock shows <span class="m">⏱D</span> or <span class="m">⏱75/125</span> and is not a GO there.</li>
           <li><b>Alerts refresh themselves</b> — auto-pilot Phase 12b, around 16:50–17:10 IST, moves
             the S4 GO alerts onto the new dated watchlists with today's bundles, webhook intact:
-            <b>75m and 125m on GM_Swing, Daily on GM_Positional</b> (Phase 4.8 splits the board list by
-            plan type; a name whose type cannot be read goes on both). <b>Only after an S4 compile</b>
-            (which deletes them) do you create the three by hand, once. Check the Phase 12b line in the auto-pilot log, or run
+            <b>75m and 125m on GM_Swing</b> (Phase 4.8 splits the board list by plan type; a name whose
+            type cannot be read goes on both lists). <b>Positional names have no TradingView alert</b> —
+            the plan allows two watchlist alerts — and need none: their clock is the Daily close, and the
+            16:30 auto-pilot rebuilds the Daily board and Phase 13 reviews every Daily 5/5 GO to Telegram.
+            That Telegram message <em>is</em> the Daily alert. <b>Only after an S4 compile</b>
+            (which deletes them) do you create the two by hand, once, on today's GM_Swing list. Check the Phase 12b line in the auto-pilot log, or run
             <span class="m">REFRESH_ALERTS</span> after a manual bundle push (it prints a start line,
             is quiet ~10–30 s, then says <span class="m">DONE</span>). A Zigzag compile does not delete the
             alerts; an S4 compile does.</li>

@@ -56,7 +56,13 @@ if not log.handlers:
     log.addHandler(_h)
     log.setLevel(logging.INFO)
 
-RESOLUTIONS = ["75", "125", "D"]
+# Two watchlist alerts is the TradingView plan ceiling (Jay, 2-Oct-2026), so the alerts are
+# the SWING clock only. The positional clock is the Daily close, which needs no TradingView
+# alert: the 16:30 auto-pilot rebuilds the Daily board and Phase 13 reviews every Daily 5/5
+# GO and sends it to Telegram - the same message an alert would have produced, an hour
+# after a close that could not be traded until the next session anyway. "D" still works
+# here if a Daily S4 GO alert is ever created (a higher plan): add it back to RESOLUTIONS.
+RESOLUTIONS = ["75", "125"]
 LIST_PREFIX = "Golden_Matcher_Board-"
 # PLAN CLOCK (2-Oct-2026, Jay): each alert watches only the names whose plan type
 # belongs on its timeframe - positional on the Daily close, swing on 75m/125m. The
@@ -218,7 +224,7 @@ def _eval(ws_url: str, expression: str):
 
 
 def run(dry: bool = False, list_name: str | None = None) -> int:
-    print("Refreshing the S4 GO alerts (75m + 125m -> GM_Swing, Daily -> GM_Positional; board %s)%s - takes ~10-30 s, "
+    print("Refreshing the S4 GO alerts (75m + 125m -> GM_Swing; positional names are alerted by the Daily board review; board %s)%s - takes ~10-30 s, "
           "the window stays quiet until TradingView answers..." % (
               list_name or todays_list_name(), " [dry run]" if dry else ""), flush=True)
     targets = _chart_targets_all()
