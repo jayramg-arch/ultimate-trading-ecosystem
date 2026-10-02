@@ -748,7 +748,7 @@ p2_date = input.time(timestamp("2026-04-16"), title="Date", group=grpP1_5, inlin
 
 p3_tick = input.string("NSE:ANANDRATHI", title="Slot 3", group=grpP1_5, inline="p3", display=display.data_window)
 p3_ent  = input.float(1787.7797, title="Entry", group=grpP1_5, inline="p3", display=display.data_window)
-p3_sl   = input.float(1989.5, title="SL", group=grpP1_5, inline="p3", display=display.data_window)
+p3_sl   = input.float(1936.5, title="SL", group=grpP1_5, inline="p3", display=display.data_window)
 p3_tsl  = input.float(0.0, title="Trail SL", group=grpP1_5, inline="p3", display=display.data_window)
 p3_t1   = input.float(2483.5, title="T1", group=grpP1_5, inline="p3t", display=display.data_window)
 p3_t2   = input.float(2483.5, title="T2", group=grpP1_5, inline="p3t", display=display.data_window)
@@ -757,7 +757,7 @@ p3_date = input.time(timestamp("2026-04-29"), title="Date", group=grpP1_5, inlin
 
 p4_tick = input.string("NSE:NESTLEIND", title="Slot 4", group=grpP1_5, inline="p4", display=display.data_window)
 p4_ent  = input.float(1438.3652, title="Entry", group=grpP1_5, inline="p4", display=display.data_window)
-p4_sl   = input.float(1301.5, title="SL", group=grpP1_5, inline="p4", display=display.data_window)
+p4_sl   = input.float(1285.5, title="SL", group=grpP1_5, inline="p4", display=display.data_window)
 p4_tsl  = input.float(0.0, title="Trail SL", group=grpP1_5, inline="p4", display=display.data_window)
 p4_t1   = input.float(1529.5, title="T1", group=grpP1_5, inline="p4t", display=display.data_window)
 p4_t2   = input.float(1620.8, title="T2", group=grpP1_5, inline="p4t", display=display.data_window)
@@ -778,7 +778,7 @@ p5_date = input.time(timestamp("2026-06-02"), title="Date", group=grpP1_5, inlin
 grpP6_10 = "2. Portfolio Slots 6-10"
 p6_tick = input.string("NSE:NETWEB", title="Slot 6", group=grpP6_10, inline="p6", display=display.data_window)
 p6_ent  = input.float(4471.6123, title="Entry", group=grpP6_10, inline="p6", display=display.data_window)
-p6_sl   = input.float(4103.5, title="SL", group=grpP6_10, inline="p6", display=display.data_window)
+p6_sl   = input.float(3988.5, title="SL", group=grpP6_10, inline="p6", display=display.data_window)
 p6_tsl  = input.float(0.0, title="Trail SL", group=grpP6_10, inline="p6", display=display.data_window)
 p6_t1   = input.float(6200.5, title="T1", group=grpP6_10, inline="p6t", display=display.data_window)
 p6_t2   = input.float(6200.5, title="T2", group=grpP6_10, inline="p6t", display=display.data_window)
@@ -810,7 +810,7 @@ p9_tsl  = input.float(0.0, title="Trail SL", group=grpP6_10, inline="p9", displa
 p9_t1   = input.float(1668.5, title="T1", group=grpP6_10, inline="p9t", display=display.data_window)
 p9_t2   = input.float(1944.2, title="T2", group=grpP6_10, inline="p9t", display=display.data_window)
 p9_sec  = input.string("NSE:CNX500", title="Sector", group=grpP6_10, inline="p9s", display=display.data_window)
-p9_date = input.time(0, title="Date", group=grpP6_10, inline="p9d", display=display.data_window)
+p9_date = input.time(timestamp("2026-06-16"), title="Date", group=grpP6_10, inline="p9d", display=display.data_window)
 
 p10_tick = input.string("NSE:APOLLOHOSP", title="Slot 10", group=grpP6_10, inline="p10", display=display.data_window)
 p10_ent  = input.float(8876.228, title="Entry", group=grpP6_10, inline="p10", display=display.data_window)
@@ -819,7 +819,7 @@ p10_tsl  = input.float(0.0, title="Trail SL", group=grpP6_10, inline="p10", disp
 p10_t1   = input.float(9428.5, title="T1", group=grpP6_10, inline="p10t", display=display.data_window)
 p10_t2   = input.float(9982.5, title="T2", group=grpP6_10, inline="p10t", display=display.data_window)
 p10_sec  = input.string("Pharma", title="Sector", group=grpP6_10, inline="p10s", display=display.data_window)
-p10_date = input.time(0, title="Date", group=grpP6_10, inline="p10d", display=display.data_window)
+p10_date = input.time(timestamp("2026-07-16"), title="Date", group=grpP6_10, inline="p10d", display=display.data_window)
 
 
 // --- GROUP 3: SLOTS 11-15 ---
@@ -835,7 +835,7 @@ p11_date = input.time(timestamp("2026-07-18"), title="Date", group=grpP11_15, in
 
 p12_tick = input.string("NSE:CUMMINSIND", title="Slot 12", group=grpP11_15, inline="p12", display=display.data_window)
 p12_ent  = input.float(5456.5, title="Entry", group=grpP11_15, inline="p12", display=display.data_window)
-p12_sl   = input.float(4630.5, title="SL", group=grpP11_15, inline="p12", display=display.data_window)
+p12_sl   = input.float(4495.5, title="SL", group=grpP11_15, inline="p12", display=display.data_window)
 p12_tsl  = input.float(0.0, title="Trail SL", group=grpP11_15, inline="p12", display=display.data_window)
 p12_t1   = input.float(6405.5, title="T1", group=grpP11_15, inline="p12t", display=display.data_window)
 p12_t2   = input.float(7356.5, title="T2", group=grpP11_15, inline="p12t", display=display.data_window)
@@ -849,11 +849,11 @@ p13_tsl  = input.float(0.0, title="Trail SL", group=grpP11_15, inline="p13", dis
 p13_t1   = input.float(3471.5, title="T1", group=grpP11_15, inline="p13t", display=display.data_window)
 p13_t2   = input.float(3471.5, title="T2", group=grpP11_15, inline="p13t", display=display.data_window)
 p13_sec  = input.string("Pharma", title="Sector", group=grpP11_15, inline="p13s", display=display.data_window)
-p13_date = input.time(0, title="Date", group=grpP11_15, inline="p13d", display=display.data_window)
+p13_date = input.time(timestamp("2026-07-30"), title="Date", group=grpP11_15, inline="p13d", display=display.data_window)
 
 p14_tick = input.string("NSE:EICHERMOT", title="Slot 14", group=grpP11_15, inline="p14", display=display.data_window)
 p14_ent  = input.float(8053.1665, title="Entry", group=grpP11_15, inline="p14", display=display.data_window)
-p14_sl   = input.float(7065.5, title="SL", group=grpP11_15, inline="p14", display=display.data_window)
+p14_sl   = input.float(6872.5, title="SL", group=grpP11_15, inline="p14", display=display.data_window)
 p14_tsl  = input.float(0.0, title="Trail SL", group=grpP11_15, inline="p14", display=display.data_window)
 p14_t1   = input.float(9029.5, title="T1", group=grpP11_15, inline="p14t", display=display.data_window)
 p14_t2   = input.float(10000.5, title="T2", group=grpP11_15, inline="p14t", display=display.data_window)
@@ -879,11 +879,11 @@ p16_tsl  = input.float(0.0, title="Trail SL", group=grpP16_20, inline="p16", dis
 p16_t1   = input.float(2313.5, title="T1", group=grpP16_20, inline="p16t", display=display.data_window)
 p16_t2   = input.float(2785.5, title="T2", group=grpP16_20, inline="p16t", display=display.data_window)
 p16_sec  = input.string("Pharma", title="Sector", group=grpP16_20, inline="p16s", display=display.data_window)
-p16_date = input.time(0, title="Date", group=grpP16_20, inline="p16d", display=display.data_window)
+p16_date = input.time(timestamp("2026-08-17"), title="Date", group=grpP16_20, inline="p16d", display=display.data_window)
 
 p17_tick = input.string("NSE:M&MFIN", title="Slot 17", group=grpP16_20, inline="p17", display=display.data_window)
 p17_ent  = input.float(387.3617, title="Entry", group=grpP16_20, inline="p17", display=display.data_window)
-p17_sl   = input.float(325.5, title="SL", group=grpP16_20, inline="p17", display=display.data_window)
+p17_sl   = input.float(308.5, title="SL", group=grpP16_20, inline="p17", display=display.data_window)
 p17_tsl  = input.float(0.0, title="Trail SL", group=grpP16_20, inline="p17", display=display.data_window)
 p17_t1   = input.float(493.5, title="T1", group=grpP16_20, inline="p17t", display=display.data_window)
 p17_t2   = input.float(601.5, title="T2", group=grpP16_20, inline="p17t", display=display.data_window)
@@ -901,7 +901,7 @@ p18_date = input.time(timestamp("2026-08-21"), title="Date", group=grpP16_20, in
 
 p19_tick = input.string("NSE:AUBANK", title="Slot 19", group=grpP16_20, inline="p19", display=display.data_window)
 p19_ent  = input.float(1085.9, title="Entry", group=grpP16_20, inline="p19", display=display.data_window)
-p19_sl   = input.float(957.5, title="SL", group=grpP16_20, inline="p19", display=display.data_window)
+p19_sl   = input.float(926.5, title="SL", group=grpP16_20, inline="p19", display=display.data_window)
 p19_tsl  = input.float(0.0, title="Trail SL", group=grpP16_20, inline="p19", display=display.data_window)
 p19_t1   = input.float(1178.5, title="T1", group=grpP16_20, inline="p19t", display=display.data_window)
 p19_t2   = input.float(1178.5, title="T2", group=grpP16_20, inline="p19t", display=display.data_window)
@@ -922,7 +922,7 @@ p20_date = input.time(timestamp("2026-08-31"), title="Date", group=grpP16_20, in
 grpP21_25 = "5. Portfolio Slots 21-25"
 p21_tick = input.string("NSE:BAJFINANCE", title="Slot 21", group=grpP21_25, inline="p21", display=display.data_window)
 p21_ent  = input.float(1075.6935, title="Entry", group=grpP21_25, inline="p21", display=display.data_window)
-p21_sl   = input.float(952.5, title="SL", group=grpP21_25, inline="p21", display=display.data_window)
+p21_sl   = input.float(917.5, title="SL", group=grpP21_25, inline="p21", display=display.data_window)
 p21_tsl  = input.float(0.0, title="Trail SL", group=grpP21_25, inline="p21", display=display.data_window)
 p21_t1   = input.float(1129.5, title="T1", group=grpP21_25, inline="p21t", display=display.data_window)
 p21_t2   = input.float(1183.5, title="T2", group=grpP21_25, inline="p21t", display=display.data_window)
