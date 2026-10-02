@@ -1003,7 +1003,12 @@ def run_sniper():
     now = datetime.now()
     mkt_open = now.replace(hour=9, minute=15, second=0, microsecond=0)
     mkt_close = now.replace(hour=15, minute=30, second=0, microsecond=0)
-    is_market_open = (mkt_open <= now <= mkt_close) and (now.weekday() < 5)
+    try:                                        # weekends AND NSE holidays
+        import nse_calendar as _nc
+        _td = _nc.is_trading_day(now.date())
+    except Exception:
+        _td = now.weekday() < 5
+    is_market_open = (mkt_open <= now <= mkt_close) and _td
     is_amo = not is_market_open
 
     order_type_str = "MARKET-HOURS (LIMIT)" if is_market_open else "AMO (LIMIT)"

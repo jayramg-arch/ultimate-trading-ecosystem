@@ -284,9 +284,23 @@ def is_market_hours(force_override: bool = False) -> bool:
     # Weekday check: Monday=0, Friday=4, Saturday=5, Sunday=6
     if now.weekday() >= 5:
         return False
+    try:                                        # NSE holiday (nse_calendar, 2-Oct-2026)
+        import nse_calendar as _nc
+        if _nc.is_holiday(now.date()):
+            return False
+    except Exception:
+        pass
         
     now_time = now.time()
     return MARKET_START <= now_time <= MARKET_END
+
+def _is_nse_holiday(t) -> bool:
+    try:
+        import nse_calendar as _nc
+        return _nc.is_holiday(t.date())
+    except Exception:
+        return False
+
 
 def sleep_until_market_open():
     """Calculates sleep time until next market open (Mon-Fri 9:15 AM IST)."""
@@ -300,7 +314,7 @@ def sleep_until_market_open():
         target += timedelta(days=1)
         
     # Skip weekends: if target is Saturday, add 2 days. If Sunday, add 1 day.
-    while target.weekday() >= 5:
+    while target.weekday() >= 5 or _is_nse_holiday(target):
         target += timedelta(days=1)
         
     sleep_seconds = (target - now).total_seconds()

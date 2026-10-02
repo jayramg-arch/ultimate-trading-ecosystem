@@ -1238,6 +1238,12 @@ def is_nse_market_open(now: Optional[datetime] = None) -> bool:
     n = now or _ist_now()
     if n.weekday() >= 5:           # Sat=5, Sun=6
         return False
+    try:                                        # NSE holiday (nse_calendar, 2-Oct-2026)
+        import nse_calendar as _nc
+        if _nc.is_holiday(n.date() if hasattr(n, "date") else n):
+            return False
+    except Exception:
+        pass
     minutes = n.hour * 60 + n.minute
     return 9 * 60 + 15 <= minutes <= 15 * 60 + 30
 

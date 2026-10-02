@@ -480,6 +480,11 @@ def _last_completed_session_date():
     """Date of the most-recently COMPLETED NSE session (IST clock). Today only
     after the 15:30 close; otherwise the previous trading day. Weekend-aware;
     NSE holidays not modelled (errs to the last weekday)."""
+    try:                                        # holidays too (nse_calendar, 2-Oct-2026)
+        import nse_calendar as _nc
+        return _nc.last_completed_session()
+    except Exception:
+        pass
     now = datetime.now()
     d = now.date()
     if d.weekday() < 5 and (now.hour * 60 + now.minute) >= (15 * 60 + 30):

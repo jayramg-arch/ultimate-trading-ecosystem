@@ -979,6 +979,12 @@ def nse_market_open(now: Optional[datetime] = None) -> bool:
     now = now or datetime.now()
     if now.weekday() >= 5:           # Sat/Sun
         return False
+    try:                                        # NSE holiday (nse_calendar, 2-Oct-2026)
+        import nse_calendar as _nc
+        if _nc.is_holiday(now.date() if hasattr(now, "date") else now):
+            return False
+    except Exception:
+        pass
     t = now.time()
     return _dtmod.time(9, 15) <= t <= _dtmod.time(15, 30)
 

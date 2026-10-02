@@ -470,6 +470,12 @@ def _expected_last_session():
     yesterday's bar all evening (false-green, one session behind). Weekends are
     handled; NSE holidays are not modelled (a holiday briefly shows a benign
     amber — it errs loud, never silently stale)."""
+    # 2-Oct-2026: NSE holidays now modelled via nse_calendar (NSE's own holiday master).
+    try:
+        import nse_calendar as _nc
+        return _nc.last_completed_session()
+    except Exception:
+        pass
     now = datetime.now()
     d = now.date()
     market_closed_today = (d.weekday() < 5) and (now.hour * 60 + now.minute) >= (15 * 60 + 30)
@@ -526,8 +532,13 @@ def _gm_last_passed_boundary(tf: str, settle_s: int = 75, now=None):
     rebuild the board once per bar so it always reads a CLOSED 75m bar and can't
     disagree with the live Single Symbol page on a faded forming-bar trigger."""
     now = now or datetime.now()
-    if now.weekday() >= 5:                      # Sat/Sun — no session
-        return None
+    try:                                        # weekend or NSE holiday - no session
+        import nse_calendar as _nc
+        if not _nc.is_trading_day(now.date()):
+            return None
+    except Exception:
+        if now.weekday() >= 5:
+            return None
     # The check-in times already carry Jay's own ~5-minute offset from the bar close;
     # adding the 75s broker-settle on top would push 15:35 to 15:36:15 for no reason.
     if str(tf).startswith("checkin"):

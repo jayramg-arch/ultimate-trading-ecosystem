@@ -318,6 +318,12 @@ def _is_market_hours() -> bool:
         now = _dt.now(ist)
         if now.weekday() >= 5:          # Saturday=5, Sunday=6
             return False
+        try:                                        # NSE holiday (nse_calendar, 2-Oct-2026)
+            import nse_calendar as _nc
+            if _nc.is_holiday(now.date() if hasattr(now, "date") else now):
+                return False
+        except Exception:
+            pass
         mins = now.hour * 60 + now.minute
         return (9 * 60 + 10) <= mins <= (15 * 60 + 35)
     except Exception as exc:

@@ -431,20 +431,14 @@ if True:
                         mkt_open   = now.replace(hour=9,  minute=15, second=0, microsecond=0)
                         mkt_close  = now.replace(hour=15, minute=30, second=0, microsecond=0)
                         # REC-7: Indian market holiday awareness
-                        # NSE public holidays 2026 (update annually or fetch from API)
-                        _NSE_HOLIDAYS_2026 = {
-                            (2026, 1, 26),  # Republic Day
-                            (2026, 3, 25),  # Holi
-                            (2026, 4, 14),  # Dr. Ambedkar Jayanti / Ram Navami
-                            (2026, 4, 17),  # Good Friday
-                            (2026, 5, 1),   # Maharashtra Day
-                            (2026, 8, 15),  # Independence Day
-                            (2026, 10, 2),  # Gandhi Jayanti
-                            (2026, 11, 14), # Diwali Laxmi Pujan (check BSE circular)
-                            (2026, 12, 25), # Christmas
-                        }
-                        _today_tuple = (now.year, now.month, now.day)
-                        _is_holiday  = _today_tuple in _NSE_HOLIDAYS_2026
+                        # 2-Oct-2026: one calendar for the app (nse_calendar, NSE's holiday master). The
+                        # private list that stood here had Holi on 25-Mar (NSE: 3-Mar) and other drift.
+                        _today_tuple = (now.year, now.month, now.day)  # kept for any later reader
+                        try:
+                            import nse_calendar as _nc
+                            _is_holiday = _nc.is_holiday(now.date())
+                        except Exception:
+                            _is_holiday = False
                         is_amo = not (mkt_open <= now <= mkt_close and now.weekday() < 5 and not _is_holiday)
                         if _is_holiday:
                             st.info(f"ℹ️ Today is an NSE market holiday — order will be placed as AMO.")

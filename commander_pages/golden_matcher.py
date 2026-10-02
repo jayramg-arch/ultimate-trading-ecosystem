@@ -190,9 +190,13 @@ if True:
                 _now_dt = datetime.now()
                 _sess_d = _expected_last_session()          # last COMPLETED session (date)
                 _sess_close = datetime(_sess_d.year, _sess_d.month, _sess_d.day, 15, 30)
-                _mkt_open = (_now_dt.weekday() < 5 and
-                             _now_dt.replace(hour=9, minute=15) <= _now_dt
-                             <= _now_dt.replace(hour=15, minute=30))
+                try:                                       # holidays too (nse_calendar)
+                    import nse_calendar as _nc
+                    _mkt_open = _nc.is_session_open(_now_dt)
+                except Exception:
+                    _mkt_open = (_now_dt.weekday() < 5 and
+                                 _now_dt.replace(hour=9, minute=15) <= _now_dt
+                                 <= _now_dt.replace(hour=15, minute=30))
                 _age_min = int((_now_dt - _saved_dt).total_seconds() // 60)
                 if _mkt_open and _age_min >= 15:
                     # During the session, PA fires on the FORMING 75/125m bar and can
