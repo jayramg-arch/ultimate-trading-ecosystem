@@ -423,6 +423,7 @@ footer em{color:var(--ink-2)}
         <li><b>Let the trail do the work.</b> Over 203 POS trades: <b>88% exit on the trail</b>, 11.8% at the initial stop, and only <b>8.4% ever reach 3R</b>.</li>
         <li><b>Use the R-canon</b> — swing 2R/4R, positional 3R/5R, nothing under 2R. Half the position carries no target and rides.</li>
         <li><b>Trail tighten-only, never loosen.</b></li>        <li><b>Positional stops sit at least 4 × the DAILY ATR from entry</b> (2 Oct). Measured on the Reviewer Log, not a backtest: 166 filled trades, S4's stops at a median 1.36 × daily ATR, 80% stopped out at −0.80R; the same trades with a 4 × daily-ATR stop, 15% at −0.37R. Size comes off the wider stop, so the rupee risk does not change.</li>
+        <li><b>Positional: hold on the Daily, exit on the Daily.</b> No positional exit is decided on an intraday bar; the resting stop (4 × daily ATR) is the only intraday exit — the catastrophe stop. Approaching names get a price alert within 1% of their Daily zone; the decision still waits for the close.</li>
         <li><b>Time each trade on its own clock.</b> Positional: qualify on the Weekly, locate and trigger on the <b>Daily close</b>. Swing: trigger on 75m/125m. Intraday timing added nothing to positional trades in any test, and intraday-sized stops were what hurt them. A 75m GO on a positional name only says where to fill once the Daily has confirmed.</li>
 
       </ul>
@@ -683,6 +684,13 @@ footer em{color:var(--ink-2)}
     positional 125m GO entry −0.09R, buy-stop +0.05R, a 1× ATR stop floor changed nothing — all four
     hypotheses FAILED. The sign flips by family and period, which is what noise looks like. A live
     shadow record (<code>entry_shadow.py</code>) keeps scoring real GOs nightly.</li>
+  </ul>
+
+  <h3>A positional-trading note, checked against the evidence <span class="muted">— 2 Oct</span></h3>
+  <ul>
+    <li><b>Kept (already the system):</b> Weekly = regime, Daily = setup and holding, 75m/125m = fill only; no intraday exits; a wide resting catastrophe stop.</li>
+    <li><b>Rejected:</b> a tight 125m stop (2–4%) to buy a larger share count, breakeven at +1.5R of that stop, and a Daily-20-EMA trail. The Log measured the first (80% stopped out at about 1.4 × daily ATR), and every stop study rejected tightening.</li>
+    <li><b>Pre-registered, not run:</b> exit at the Day-2 close when there is no follow-through (<code>docs/PREREG_followthrough_D2.md</code>; runs once at 40 such trades). Lesson from building it: a randomised-label check <em>passed</em> the first version, because in a falling tape any early exit beats holding. The test now asks whether it helps no-follow-through trades <em>more</em> than the rest. Run a placebo through every new test before trusting it.</li>
   </ul>
 
   <h3>The live record now leads <span class="muted">— Reviewer Log, from 2 Oct</span></h3>

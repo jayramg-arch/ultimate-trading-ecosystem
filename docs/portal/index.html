@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 2 Oct · 32 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 2 Oct · 33 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -247,6 +247,19 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
       <tr>
+        <td class="dt">2 Oct · late night<br>alerts &amp; positional</td>
+        <td><b>S4 v11.18 live on S4Core/66, two alerts, and the positional side gets its own notice.</b>
+        TradingView allows two watchlist alerts, so both S4 GO alerts (75m, 125m) watch GM_Swing; positional
+        names are alerted by the Daily-board review and by new <b>zone-approach price alerts</b>, one per
+        positional name 1.5–12% above its Daily+ demand zone, firing within 1% of it (auto-pilot Phase 12b2,
+        replaced nightly). A positional-trading note was reviewed against the evidence: its timeframe roles
+        are already the system; its tight 125m stop and early breakeven are rejected on the Log's own numbers;
+        its Day-2 follow-through exit is <b>pre-registered</b> (runs once at 40 trades). The test was fixed
+        before any data: a randomised check passed the original version, because any early exit wins in a
+        falling tape.</td>
+        <td class="af">22 · 25 · 26</td>
+      </tr>
+      <tr>
         <td class="dt">2 Oct · night<br>live record</td>
         <td><b>The Reviewer Log becomes the backtest, and it found the leak: the stop.</b> Every study now starts
         from the Log, one row per trigger bar, S4 alert &gt; board &gt; manual, per tier (Doc 33, rebuilt nightly).
@@ -254,7 +267,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         stop on the same trades, 15%. <b>Positional stops now floor at 4 × daily ATR</b> (GM live; S4 v11.18 pending)
         and a shadow pair scores both stops on every trade from 3 Oct. <b>One clock per plan type:</b> positional
         GOs on the Daily close, swing on 75m/125m — Plan column, <code>⏱</code> tags, and the alerts split onto
-        GM_Positional (Daily) and GM_Swing (75m/125m).</td>
+        GM_Swing (75m/125m); positional names are alerted by the evening Daily review.</td>
         <td class="af">22 · 23 · 25 · 26 · 32 · 33</td>
       </tr>
       <tr>
