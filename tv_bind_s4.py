@@ -165,7 +165,47 @@ def main() -> int:
         rc |= 0 if ("mismatches: none" in txt and "MISSING PLOT" not in txt) else 1
     if n_s4 == 0:
         print("no chart tab carries S4 - nothing bound", file=sys.stderr); return 2
-    print(f"{n_s4} S4 tab(s) {'checked' if args.check else 'bound'}")
+    if args.check:
+        print(f"{n_s4} S4 tab(s) checked")
+        return rc
+    # VERIFY AFTER A PAUSE, RE-BIND WHAT DID NOT STICK (3-Oct-2026). The JS reads its own
+    # write back at once, so it can report "bound 32/32" on a tab where TradingView then
+    # restores the layout's saved state over it - a tab still loading after a refresh.
+    # 2-Oct: Jay compiled, refreshed every tab and bound; only the visible tab kept its
+    # 32 sources, the S4 Reviewer and Phase-1 tabs read 0/32 an hour later - every review
+    # would have run with no Zigzag trend, RRG or OI. So: wait, re-check every tab, re-bind
+    # the ones that slipped, up to three rounds, and end on a per-tab table.
+    import time
+    final = {}
+    for rnd in range(1, 4):
+        time.sleep(8)
+        slipped = []
+        for tgt in tgts:
+            cid = tgt["url"].split("/chart/")[1].strip("/")
+            try:
+                d = json.loads(_evaluate(tgt["webSocketDebuggerUrl"], CHECK_JS).get("value") or "{}")
+            except Exception:
+                d = {}
+            if d.get("error") or "bound" not in d:
+                continue
+            final[cid] = (d["bound"], d["bound"] + d["unbound"])
+            if d["unbound"]:
+                slipped.append(tgt)
+        if not slipped:
+            break
+        print(f"verify round {rnd}: {len(slipped)} tab(s) lost bindings after the write - re-binding")
+        for tgt in slipped:
+            _evaluate(tgt["webSocketDebuggerUrl"], js)
+    print("\nVERIFIED (8 s after the last write):")
+    bad = 0
+    for cid, (b, n) in sorted(final.items()):
+        ok = b == n
+        bad += 0 if ok else 1
+        print(f"  {'OK  ' if ok else 'FAIL'}  chart {cid}: {b}/{n} bound")
+    if bad:
+        print(f"\n{bad} tab(s) still NOT bound. Open each one once (so it finishes loading) and run again.")
+        rc |= 1
+    print(f"{n_s4} S4 tab(s) bound")
     return rc
 
 

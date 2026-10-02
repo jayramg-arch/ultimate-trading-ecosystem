@@ -856,7 +856,7 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.18"
+string S4_VER      = "v11.19"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -5653,7 +5653,12 @@ if show_panel and d_panel and barstate.islast
         float _h52v = (_off52v > 0 and _off52v < 100) ? _so_close / (1.0 - _off52v / 100.0) : na
         pl_t1 := _rsk > 0 ? pl_entry + _t1R * _rsk : na
         pl_t1_str := not na(_ovh) and not na(pl_t1) and _ovh > pl_entry and _ovh < pl_t1
-        pl_t2 := is_rec_v and not na(_h52v) and _h52v > pl_entry ? _h52v : (_rsk > 0 ? pl_entry + _t2R * _rsk : na)
+        // v11.19 (3-Oct-2026): the 52W high replaces the canon T2 only when it sits BETWEEN T1
+        // and the canon T2 ("when nearer"). It used to replace it whenever it was above the
+        // entry, so SCHNEIDER D printed T2 1640.6 (1.9R) below T1 1845.0 (3.0R).
+        float _t2c = _rsk > 0 ? pl_entry + _t2R * _rsk : na
+        bool _t2h52 = is_rec_v and not na(_h52v) and not na(pl_t1) and not na(_t2c) and _h52v > pl_t1 and _h52v < _t2c
+        pl_t2 := _t2h52 ? _h52v : _t2c
         pl_t2_str := not na(_ovh2) and not na(pl_t2) and _ovh2 > pl_entry and _ovh2 < pl_t2
         pl_rr1 := (_rsk > 0 and not na(pl_t1)) ? (pl_t1 - pl_entry) / _rsk : na
         pl_rr2 := (_rsk > 0 and not na(pl_t2)) ? (pl_t2 - pl_entry) / _rsk : na
@@ -5676,7 +5681,7 @@ if show_panel and d_panel and barstate.islast
         // #width (30-Jul): Plan was one unbroken line — entry-method plus SL/T1/T2 all on
         // one row, easily the widest content in the panel. Split at the natural boundary
         // (method above, numbers below), same convention as the Verdict clause breaks.
-        _plan := core.planRow(tt_lbl, _entryMethodTxt, _ageTag, pl_slsrc, pl_cap, _slMult, _t1R, pl_t1_str, _ovh, _ovhSrc, is_rec_v and not na(_h52v) and _h52v > pl_entry, _t2R, core.oiPlanHint(oi_quad))
+        _plan := core.planRow(tt_lbl, _entryMethodTxt, _ageTag, pl_slsrc, pl_cap, _slMult, _t1R, pl_t1_str, _ovh, _ovhSrc, _t2h52, _t2R, core.oiPlanHint(oi_quad))
     f_row(37, "Plan", na(_plan) ? "wait for GO" : _plan, na(_plan) ? C_MUTE : C_OK)
     // Entry · SL · T1 · T2 — the numbers, on one row, dot-separated. R-multiples ride
     // with T1/T2 so the reward is read where the price is.
