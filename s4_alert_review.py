@@ -35,6 +35,17 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 LOG = os.path.join(HERE, "logs", "s4_alert_review.log")
 DEDUP_MIN = int(os.getenv("S4_ALERT_DEDUP_MIN", "30"))
 RESTORE = os.getenv("S4_ALERT_RESTORE_CHART", "1") != "0"
+
+
+def _restore_wanted(sr) -> bool:
+    """Put the chart back after a review? Not when the reviewer drives its OWN tabs
+    (S4_REVIEW_CHARTS - the S4 Reviewer / S5 Reviewer layouts, 2-Oct-2026, Jay): no
+    one is looking at those, so restoring only costs a chart switch and a settle wait
+    per alert, and was the step that failed and left a chart parked. An explicit
+    S4_ALERT_RESTORE_CHART=1 still forces it; =0 still turns it off everywhere."""
+    if os.getenv("S4_ALERT_RESTORE_CHART") == "1":
+        return True
+    return RESTORE and not getattr(sr, "REVIEW_CHARTS", None)
 # 21-Sep-2026: one retry on a settle timeout. The three failures on 21 Sep were all the
 # first review after a bar close, when TV is still recalculating; a second attempt a
 # minute later is what the queue's later items effectively got, and they all passed.
@@ -176,7 +187,8 @@ def _run(symbol: str, tf: str, source: str) -> None:
     t0 = time.time()
     _status("busy", symbol, tf, t0)
     last = "%s %sm · failed" % (symbol, tf)
-    prev_sym, prev_res = _chart_state() if RESTORE else (None, None)
+    _restore = _restore_wanted(sr)
+    prev_sym, prev_res = _chart_state() if _restore else (None, None)
     err = io.StringIO()
     try:
         # stderr is captured for the duration of the review ONLY so a failure can say
@@ -209,7 +221,7 @@ def _run(symbol: str, tf: str, source: str) -> None:
             build_review_portal.build()          # the Reviewer Log page, always current
         except Exception as e:
             _log("portal rebuild failed: %s" % e)
-        if RESTORE and prev_sym and prev_sym.upper() != ("NSE:" + symbol).upper():
+        if _restore and prev_sym and prev_sym.upper() != ("NSE:" + symbol).upper():
             _status("restoring", symbol, tf, t0, last)
             try:
                 sr.switch_chart(prev_sym.replace("NSE:", ""), prev_res)
