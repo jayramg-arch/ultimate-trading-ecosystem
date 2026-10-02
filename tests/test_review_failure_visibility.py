@@ -45,7 +45,7 @@ def test_the_failure_branch_reports_the_reason(monkeypatch):
     import sys
     import s4_alert_review as ar
 
-    def fake_review(sr, symbol, tf):
+    def fake_review(sr, symbol, tf, source="s4-alert"):
         print("S4 is not on this chart (tables found: []). Add it and re-run.",
               file=sys.stderr)
         return {"rc": 1, "review": "", "path": ""}

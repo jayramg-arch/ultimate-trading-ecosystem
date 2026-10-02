@@ -147,6 +147,11 @@ def load_reviews() -> list[dict]:
             "file": fn, "date": "%s-%s-%s" % (d[:4], d[4:6], d[6:]),
             "time": "%s:%s" % (hm[:2], hm[2:]), "symbol": sym, "tf": tf,
             "ruling": ruling, "rclass": _ruling_class(ruling), "s4": s4,
+            # TRIGGER (2-Oct-2026, Jay): what started the review, and whether S4's own trigger
+            # row read GO when the panel was read. Every review reads the S4/S5 panels; only an
+            # s4-alert row was STARTED by S4. Older rows were backfilled from the receiver log.
+            "source": (r.get("source") or "board/cli").strip() or "board/cli",
+            "s4go": ("TRIGGER | GO" in s4) or s4.startswith("GO"),
             "provider": (r.get("provider") or "").replace("gemini:", ""),
             "my_call": (r.get("my_call") or "").strip(), "agreed": (r.get("agreed") or "").strip(),
             "checks": checks, "warn": warn, "phase1": phase1,
@@ -214,13 +219,16 @@ footer{border-top:1px solid var(--rule);background:var(--surface);font-family:va
 """
 
 JS = """
-const q=document.getElementById('q');const chips=[...document.querySelectorAll('.chip')];let flt='';
+const q=document.getElementById('q');const chips=[...document.querySelectorAll('.chip:not(.src)')];const schips=[...document.querySelectorAll('.chip.src')];let flt='',sflt='';
 function apply(){const s=q.value.trim().toLowerCase();document.querySelectorAll('details.rev').forEach(r=>{
- const hay=r.dataset.hay;const ok=(!s||hay.includes(s))&&(!flt||r.dataset.rc===flt);r.classList.toggle('hid',!ok);});
+ const hay=r.dataset.hay;const okS=!sflt||(sflt==='nogo'?r.dataset.go==='0':r.dataset.src===sflt);
+ const ok=(!s||hay.includes(s))&&(!flt||r.dataset.rc===flt)&&okS;r.classList.toggle('hid',!ok);});
  document.querySelectorAll('details.day').forEach(d=>{const vis=[...d.querySelectorAll('details.rev')].filter(r=>!r.classList.contains('hid')).length;
  d.classList.toggle('hid',vis===0);d.querySelector('.vis').textContent=vis;});}
 q.addEventListener('input',apply);chips.forEach(c=>c.addEventListener('click',()=>{const on=c.classList.contains('on');chips.forEach(x=>x.classList.remove('on'));
  flt=on?'':c.dataset.rc;if(!on)c.classList.add('on');apply();}));
+schips.forEach(c=>c.addEventListener('click',()=>{const on=c.classList.contains('on');schips.forEach(x=>x.classList.remove('on'));
+ sflt=on?'':c.dataset.src;if(!on)c.classList.add('on');apply();}));
 """
 
 
@@ -236,6 +244,8 @@ def render(items: list[dict]) -> str:
     n = len(items)
     tally = {k: sum(1 for i in items if i["rclass"] == k) for k in ("take", "reduced", "wait", "pass", "notrade")}
     scored = sum(1 for i in items if i["my_call"] or i["agreed"])
+    src_n = {k: sum(1 for i in items if i["source"] == k) for k in ("s4-alert", "manual", "board/cli", "board", "cli")}
+    nogo = sum(1 for i in items if not i["s4go"])
     agreed = sum(1 for i in items if i["agreed"].lower() in ("y", "yes", "1", "true"))
     out = ['<meta charset="utf-8"><title>The Reviewer Log</title>',
            '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
@@ -247,12 +257,21 @@ def render(items: list[dict]) -> str:
            '<div class="counts"><div class="count"><b>%d</b><span>Reviews</span></div><div class="count"><b>%d</b><span>Days</span></div>'
            '<div class="count"><b>%d</b><span>Take</span></div><div class="count"><b>%d</b><span>Take · reduced</span></div>'
            '<div class="count"><b>%d</b><span>Wait</span></div><div class="count"><b>%d</b><span>Pass / No trade</span></div>'
-           '<div class="count"><b>%d</b><span>Scored by Jay</span></div>%s</div></div></header>'
+           '<div class="count"><b>%d</b><span>Scored by Jay</span></div>%s'
+           '<div class="count"><b>%d</b><span>From S4 alerts</span></div><div class="count"><b>%d</b><span>Board / CLI / manual</span></div>'
+           '<div class="count"><b>%d</b><span>S4 not GO at read</span></div></div></div></header>'
            % (n, len(days), tally["take"], tally["reduced"], tally["wait"], tally["pass"] + tally["notrade"], scored,
-              ('<div class="count"><b>%d</b><span>Agreed</span></div>' % agreed) if scored else ""),
+              ('<div class="count"><b>%d</b><span>Agreed</span></div>' % agreed) if scored else "",
+              src_n["s4-alert"], n - src_n["s4-alert"], nogo),
            '<div class="wrap"><div class="tools"><input id="q" type="search" placeholder="filter · symbol, ruling, TF, date…">',
            ''.join('<span class="chip" data-rc="%s">%s</span>' % (k, lbl) for k, lbl in
                    (("take", "Take"), ("reduced", "Reduced"), ("wait", "Wait"), ("pass", "Pass"), ("notrade", "No trade"))),
+           '<span class="chip-sep" style="margin-left:14px;font-family:var(--mono);font-size:10.5px;color:var(--muted)">TRIGGER</span>',
+           ''.join('<span class="chip src" data-src="%s" title="%s">%s</span>' % (k, t, lbl) for k, lbl, t in
+                   (("s4-alert", "S4 alert", "Started by S4's own GO alert"),
+                    ("manual", "Manual", "REVIEW.bat - asked for by hand"),
+                    ("board/cli", "Board / CLI", "s4_review run from the command line or over the Python board's GO rows (before 2-Oct the two are not separated)"),
+                    ("nogo", "S4 not GO at read", "S4's own TRIGGER row did not read GO when the panel was read - not validated by S4"))),
            "</div>"]
     for di, (day, revs) in enumerate(days.items()):
         dt = datetime.strptime(day, "%Y-%m-%d")
@@ -264,9 +283,16 @@ def render(items: list[dict]) -> str:
             hay = html.escape(" ".join([it["symbol"], it["tf"], it["ruling"], it["date"], it["s4"], it["my_call"]]).lower(), quote=True)
             mine = ('<span class="pill mine">%s%s</span>' % (html.escape(it["my_call"]), (" · " + ("agreed" if it["agreed"].lower() in ("y", "yes", "1", "true") else "disagreed")) if it["agreed"] else "")) if (it["my_call"] or it["agreed"]) else ""
             p1 = '<span class="pill other" title="ETF: the underlying index was read first (INDEX ARM = ETF WAIT)">ETF · index first</span>' if it["phase1"] else ""
-            out.append('<details class="rev" data-rc="%s" data-hay="%s"><summary><span class="t">%s</span><span class="sym">%s</span><span class="tf">%s</span>'
+            _srcl = {"s4-alert": "S4 alert", "manual": "manual", "board": "board", "cli": "cli"}.get(it["source"], it["source"])
+            _srcp = ('<span class="pill %s" title="what started this review">%s</span>'
+                     % ("take" if it["source"] == "s4-alert" else "other", html.escape(_srcl)))
+            if not it["s4go"]:
+                _srcp += '<span class="pill pass" title="S4 did not read GO when this panel was read">S4 not GO</span>'
+            p1 = _srcp + p1
+            out.append('<details class="rev" data-rc="%s" data-src="%s" data-go="%s" data-hay="%s"><summary><span class="t">%s</span><span class="sym">%s</span><span class="tf">%s</span>'
                        '<span class="rul">%s</span><span style="display:flex;gap:6px;align-items:center"><span class="pill %s">%s</span>%s%s</span></summary>'
-                       % (it["rclass"], hay, it["time"], html.escape(it["symbol"]), html.escape(it["tf"] + ("m" if it["tf"].isdigit() else "")),
+                       % (it["rclass"], html.escape(it["source"] if it["source"] in ("s4-alert", "manual") else "board/cli"),
+                          "1" if it["s4go"] else "0", hay, it["time"], html.escape(it["symbol"]), html.escape(it["tf"] + ("m" if it["tf"].isdigit() else "")),
                           html.escape(it["ruling"]), it["rclass"],
                           {"take": "take", "reduced": "reduced", "wait": "wait", "pass": "pass", "notrade": "no trade", "other": "—"}[it["rclass"]], p1, mine))
             if it["s4"]:

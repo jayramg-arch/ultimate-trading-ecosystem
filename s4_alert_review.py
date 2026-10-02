@@ -158,15 +158,15 @@ def _status(state: str, symbol: str = "", tf: str = "", started: float | None = 
         pass
 
 
-def _review_with_retry(sr, symbol: str, tf: str) -> dict:
+def _review_with_retry(sr, symbol: str, tf: str, source: str = "s4-alert") -> dict:
     try:
-        return sr.review_symbol(symbol, tf)
+        return sr.review_symbol(symbol, tf, source=source)
     except sr.TVError as e:
         if not RETRY_ON_TVERROR or "settle" not in str(e):
             raise
         _log("%s %s settle timeout — retrying once in 20s" % (symbol, tf))
         time.sleep(20)
-        return sr.review_symbol(symbol, tf)
+        return sr.review_symbol(symbol, tf, source=source)
 
 
 def _err_tail(buf: io.StringIO, n: int = 3) -> str:
@@ -182,6 +182,12 @@ def _err_tail(buf: io.StringIO, n: int = 3) -> str:
     return " | ".join(lines[-n:])[:400]
 
 
+def _src_label(source: str) -> str:
+    """Receiver queue source -> the Reviewer Log's trigger label."""
+    s = str(source or "").lower()
+    return "manual" if "manual" in s else ("s4-alert" if ("webhook" in s or "alert" in s) else (s or "s4-alert"))
+
+
 def _run(symbol: str, tf: str, source: str) -> None:
     import s4_review as sr
     t0 = time.time()
@@ -195,7 +201,7 @@ def _run(symbol: str, tf: str, source: str) -> None:
         # why (see _err_tail). _log prints to stdout, so the running commentary is
         # unaffected, and on success the buffer is simply dropped.
         with contextlib.redirect_stderr(err):
-            res = _review_with_retry(sr, symbol, tf)
+            res = _review_with_retry(sr, symbol, tf, _src_label(source))
         rc, review, path = res["rc"], res["review"], res["path"]
         if rc == 0 and review:
             msg = summary(review, symbol, tf)

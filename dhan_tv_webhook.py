@@ -122,7 +122,10 @@ async def handle_s4_review(request: Request):
             print(f"/s4-review: unparseable body: {body[:120]!r}")
             return {"status": "ignored", "message": "not an S4 GO alert"}
         sym, tf = parsed
-        res = s4_alert_review.enqueue(sym, tf, source="tv-webhook")
+        # REVIEW.bat posts "SYM S4 GO TF - manual" to the same endpoint; tag it so the
+        # Reviewer Log can separate S4's own alerts from hand-requested reviews (2-Oct-2026).
+        _src = "manual" if b"- manual" in (body if isinstance(body, bytes) else str(body).encode()) else "tv-webhook"
+        res = s4_alert_review.enqueue(sym, tf, source=_src)
         print(f"/s4-review: {sym} {tf} -> {res}")
         return {"status": "queued" if res["queued"] else "skipped", **res, "symbol": sym, "tf": tf}
     except Exception as e:

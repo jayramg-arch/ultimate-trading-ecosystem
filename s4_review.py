@@ -1518,7 +1518,8 @@ def deriv_fields(read_txt: str) -> dict:
     return d
 
 
-def save_review(symbol: str, tf: str, read_txt: str, review: str, provider: str, s4v: str) -> str:
+def save_review(symbol: str, tf: str, read_txt: str, review: str, provider: str, s4v: str,
+                source: str = "cli") -> str:
     os.makedirs(LOG_DIR, exist_ok=True)
     ts = datetime.now()
     sym = symbol.split(":")[-1]
@@ -1526,8 +1527,11 @@ def save_review(symbol: str, tf: str, read_txt: str, review: str, provider: str,
     with open(path, "w", encoding="utf-8") as fh:
         fh.write("# %s · %s · %s\n\n%s\n\n---\n\n## PANEL READ\n\n```\n%s\n```\n"
                  % (sym, tf, ts.strftime("%Y-%m-%d %H:%M IST"), review, read_txt))
+    # `source` (2-Oct-2026, Jay): what TRIGGERED the review - s4-alert (S4's own GO alert),
+    # manual (REVIEW.bat), board (s4_review --board, the Python board's GO rows) or cli.
+    # Appended LAST so the self-healing header below still pads older rows.
     header = ["ts", "symbol", "tf", "s4_verdict", "ai_ruling", "provider", "file",
-              "my_call", "agreed"] + DERIV_FIELDS
+              "my_call", "agreed"] + DERIV_FIELDS + ["source"]
     new = not os.path.exists(LOG_CSV)
     if not new:
         # SELF-HEAL THE HEADER (25-Sep-2026). The 16 derivative columns were added to the
@@ -1548,7 +1552,7 @@ def save_review(symbol: str, tf: str, read_txt: str, review: str, provider: str,
             w.writerow(header)
         dv = deriv_fields(read_txt)
         w.writerow([ts.strftime("%Y-%m-%d %H:%M"), sym, tf, s4v, _ruling_line(review), provider,
-                    os.path.relpath(path, HERE), "", ""] + [dv[k] for k in DERIV_FIELDS])
+                    os.path.relpath(path, HERE), "", ""] + [dv[k] for k in DERIV_FIELDS] + [source])
     return path
 
 
@@ -1613,7 +1617,8 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
         review = ("RULING: PASS — %s\n\nHouse rule: Stage 3/4 and/or weekly trend DOWN is a straight "
                   "veto. No further analysis." % _rej.group(1).strip())
         tf_lbl = d["res"]
-        path = save_review(d["symbol"], tf_lbl, read_txt, review, "rule", s4_verdict_line(d))
+        path = save_review(d["symbol"], tf_lbl, read_txt, review, "rule", s4_verdict_line(d),
+                           getattr(args, "source", "cli"))
         head = "%s · %s · first-test veto" % (d["symbol"], tf_lbl)
         print("\n" + head + "\n" + "-" * len(head) + "\n" + review + "\n\nsaved " + os.path.relpath(path, HERE))
         if args.telegram:
@@ -1643,7 +1648,8 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
         if extra:
             review = review.rstrip() + "\n\n" + extra
     tf_lbl = d["res"]
-    path = save_review(d["symbol"], tf_lbl, read_txt, review, prov, s4_verdict_line(d))
+    path = save_review(d["symbol"], tf_lbl, read_txt, review, prov, s4_verdict_line(d),
+                       getattr(args, "source", "cli"))
     head = "%s · %s · %s" % (d["symbol"], tf_lbl, prov)
     print("\n" + head + "\n" + "-" * len(head) + "\n" + review + "\n\nsaved " + os.path.relpath(path, HERE))
     if args.telegram:
@@ -1656,13 +1662,14 @@ LAST_RESULT: dict = {}
 
 
 def review_symbol(symbol: str, tf: str | None = None, provider: str = "auto",
-                  bars: int = BARS_N, send_telegram: bool = False) -> dict:
+                  bars: int = BARS_N, send_telegram: bool = False, source: str = "cli") -> dict:
     """Programmatic entry (13-Sep-2026, for s4_alert_review): review ONE name and return
     {"rc", "review", "path", "head"}. Same code path as the CLI."""
     import types
     global LAST_RESULT
     LAST_RESULT = {}
-    args = types.SimpleNamespace(bars=bars, dump=False, provider=provider, telegram=send_telegram)
+    args = types.SimpleNamespace(bars=bars, dump=False, provider=provider, telegram=send_telegram,
+                                 source=source)
     rc = review_one(symbol, tf, args)
     out = dict(LAST_RESULT) if LAST_RESULT else {}
     out.setdefault("rc", rc); out.setdefault("review", ""); out.setdefault("path", ""); out.setdefault("head", "")
@@ -1704,6 +1711,7 @@ def main() -> int:
     args = ap.parse_args()
 
     syms: list[str | None]
+    args.source = "board" if args.board else "cli"
     if args.board:
         syms = board_symbols(args.board, live=args.live)
         args.tf = args.tf or {"75m": "75", "125m": "125", "daily": "D"}[args.board]
