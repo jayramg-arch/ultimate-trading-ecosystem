@@ -6,7 +6,8 @@ row already carries a ruling and (from the review file) the levels, so forward p
 say what each ruling would have earned. s4_take stays for the other question - whether
 JAY's own call beats the reviewer's - which needs his decision and cannot be inferred.
 
-Per review (first review per symbol+TF+day, so one setup re-alerted three times counts once):
+Per review (one per symbol+TF+TRIGGER BAR, highest priority S4 alert > board > manual -
+review_priority.pick; different bars on the same day are different setups):
   ruling  TAKE / WAIT / PASS / NO   (from ai_review_log.csv, else the review file)
   levels  TAKE -> the reviewer's own PLAN levels (it may have moved them);
           WAIT/PASS/NO -> S4's panel plan: the COUNTERFACTUAL "what if you had taken S4's GO"
@@ -140,10 +141,11 @@ def simulate(bars: pd.DataFrame, ts: pd.Timestamp, e: float, s: float, t1: float
 
 def run() -> pd.DataFrame:
     log = pd.read_csv(LOG)
+    # PRIORITY (2-Oct-2026, Jay): one review per symbol+TF+day, the HIGHEST tier
+    # (S4 alert > board > manual), earliest within it - review_priority.pick.
+    import review_priority as _rp
+    log = _rp.pick(log)
     log["ts"] = pd.to_datetime(log["ts"], errors="coerce")
-    log = log.dropna(subset=["ts"]).sort_values("ts")
-    log["day"] = log["ts"].dt.date
-    log = log.drop_duplicates(subset=["symbol", "tf", "day"], keep="first")
     rows = []
     for _, r in log.iterrows():
         md = _read(str(r.get("file") or ""))
@@ -151,7 +153,7 @@ def run() -> pd.DataFrame:
         if not ru:
             continue
         lv = _levels(r, md, ru)
-        rec = {"ts": r["ts"], "symbol": r["symbol"], "tf": r["tf"], "ruling": ru,
+        rec = {"ts": r["ts"], "symbol": r["symbol"], "tf": r["tf"], "ruling": ru, "tier": int(r["tier"]),
                "entry": lv.get("entry"), "stop": lv.get("stop"), "t1": lv.get("t1")}
         if not all(rec[k] is not None for k in ("entry", "stop", "t1")):
             rec["status"] = "NO_LEVELS"
@@ -165,23 +167,29 @@ def run() -> pd.DataFrame:
 
 
 def report(df: pd.DataFrame) -> None:
-    print(f"reviews scored: {len(df)} (first review per symbol+TF+day) · "
+    print(f"reviews scored: {len(df)} (one per symbol+TF+trigger bar, highest priority tier) · "
           f"{df['ts'].min():%d %b} -> {df['ts'].max():%d %b}")
     print(df["status"].value_counts().to_string(), "\n")
-    print(f"{'ruling':6} {'n':>4} {'filled':>6} {'closed':>6} {'T1%':>6} {'closedR':>8} {'medR':>6} "
-          f"{'open':>5} {'openR(mtm)':>10}")
-    for ru in ("TAKE", "WAIT", "PASS", "NO"):
-        g = df[df["ruling"] == ru]
-        if g.empty:
-            continue
-        filled = g[g["status"].isin(["STOP", "T1", "OPEN"])]
-        closed = g[g["status"].isin(["STOP", "T1"])]
-        op = g[g["status"] == "OPEN"]
-        t1p = 100 * (closed["status"] == "T1").mean() if len(closed) else np.nan
-        print(f"{ru:6} {len(g):4d} {len(filled):6d} {len(closed):6d} {t1p:6.0f} "
-              f"{closed['R'].mean() if len(closed) else np.nan:8.2f} "
-              f"{closed['R'].median() if len(closed) else np.nan:6.2f} "
-              f"{len(op):5d} {op['R'].mean() if len(op) else np.nan:10.2f}")
+    # Per PRIORITY TIER, tier 1 first, never pooled (2-Oct-2026, Jay).
+    import review_priority as _rp
+    for t in sorted(int(x) for x in df["tier"].dropna().unique()):
+        dt_ = df[df["tier"] == t]
+        print(f"--- {_rp.LABEL.get(t, t)} · {len(dt_)} reviews ---")
+        print(f"{'ruling':6} {'n':>4} {'filled':>6} {'closed':>6} {'T1%':>6} {'closedR':>8} {'medR':>6} "
+              f"{'open':>5} {'openR(mtm)':>10}")
+        for ru in ("TAKE", "WAIT", "PASS", "NO"):
+            g = dt_[dt_["ruling"] == ru]
+            if g.empty:
+                continue
+            filled = g[g["status"].isin(["STOP", "T1", "OPEN"])]
+            closed = g[g["status"].isin(["STOP", "T1"])]
+            op = g[g["status"] == "OPEN"]
+            t1p = 100 * (closed["status"] == "T1").mean() if len(closed) else np.nan
+            print(f"{ru:6} {len(g):4d} {len(filled):6d} {len(closed):6d} {t1p:6.0f} "
+                  f"{closed['R'].mean() if len(closed) else np.nan:8.2f} "
+                  f"{closed['R'].median() if len(closed) else np.nan:6.2f} "
+                  f"{len(op):5d} {op['R'].mean() if len(op) else np.nan:10.2f}")
+        print()
     print("\nTAKE uses the reviewer's own levels; WAIT/PASS/NO use S4's plan (what taking the GO would"
           "\nhave done). Exit = first of stop/T1 on 25m bars, stop first on a shared bar. Small n,"
           "\nno partials, open trades kept out of closed R. Describes; does not validate.")

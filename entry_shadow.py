@@ -227,19 +227,29 @@ def main() -> int:
     log = pd.read_csv(LOG)
     log = log[pd.to_numeric(log["entry"], errors="coerce").notna() & pd.to_numeric(log["stop"], errors="coerce").notna()]
     log = log[log["tf"].astype(str).isin(["75", "125", "1D", "D"])]
+    # PRIORITY (2-Oct-2026, Jay): one review per symbol+TF+day - S4 alert > board > manual.
+    import review_priority as _rpr
+    log = _rpr.pick(log)
     rows = []
     for _, r in log.iterrows():
         try:
-            rows.extend(score_row(r))
+            rr = score_row(r)
         except Exception as e:
-            rows.append({"ts": r["ts"], "symbol": r["symbol"], "tf": r["tf"], "status": "err: %s" % str(e)[:60]})
+            rr = [{"ts": r["ts"], "symbol": r["symbol"], "tf": r["tf"], "status": "err: %s" % str(e)[:60]}]
+        for x in rr:
+            x["tier"] = int(r["tier"]); x["source"] = r.get("source", "")
+        rows.extend(rr)
     out = pd.DataFrame(rows)
     try:
         from io_utils import atomic_write_text
         atomic_write_text(OUT, out.to_csv(index=False))
     except Exception:
         out.to_csv(OUT, index=False)
-    print(summary(out))
+    # Per priority tier, tier 1 first, never pooled.
+    for t in sorted(int(x) for x in out["tier"].dropna().unique()):
+        print("=== %s ===" % _rpr.LABEL.get(t, t))
+        print(summary(out[out["tier"] == t].copy()))
+        print()
     return 0
 
 
