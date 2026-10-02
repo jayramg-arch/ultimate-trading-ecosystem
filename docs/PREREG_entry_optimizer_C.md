@@ -83,7 +83,12 @@ Nothing ships on a hypothesis that did not pass its own bar, even if a neighbour
 
 ## Amendments
 
-*(none — any amendment before the run is dated and listed here; none are permitted after it)*
+- **2-Oct-2026, before the run.** Exact holdout dates, mid-month moved to the next session where
+  the 15th was not one: early 2023-07-17, 2023-08-16, 2023-09-15, 2023-10-16, 2023-11-15,
+  2023-12-15, 2024-01-15, 2024-02-15, 2024-03-15, 2024-04-15, 2024-05-15; late 2025-12-15,
+  2026-01-16, 2026-02-16, 2026-03-16, 2026-04-15. The `--stop-floor` switch is added to
+  `intraday_replay.simulate` / `_stop` (default 0 = `f214434d`). Runner: `entry_optimizer_c.py`.
+  "n ≥ 40" is read per cell over both windows together; each window must be non-empty.
 
 ## Result
 

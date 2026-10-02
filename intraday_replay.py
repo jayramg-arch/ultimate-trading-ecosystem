@@ -214,7 +214,7 @@ def find_go(itf: pd.DataFrame, daily: pd.DataFrame, anchor: str, known_pb: bool)
 
 
 # ── trade ────────────────────────────────────────────────────────────────────
-def _stop(itf, go_pos, entry, loc, atr_d):
+def _stop(itf, go_pos, entry, loc, atr_d, floor: float = 0.0):
     cands = []
     if loc.get("distal") and loc["distal"] < entry:
         cands.append(float(loc["distal"]) * 0.999)
@@ -224,10 +224,14 @@ def _stop(itf, go_pos, entry, loc, atr_d):
     cap = entry - 3.0 * atr_d if atr_d else entry * 0.90
     sl = max(cands) if cands else cap
     sl = max(sl, cap)
+    # STOP FLOOR (PREREG_entry_optimizer_C H3, the one permitted switch): when > 0 the
+    # stop sits at least `floor` x daily ATR below the entry. 0 = off = commit f214434d.
+    if floor > 0 and atr_d:
+        sl = min(sl, entry - floor * atr_d)
     return min(sl, entry * 0.999)
 
 
-def simulate(itf, daily, go, variant, cand, bench) -> dict:
+def simulate(itf, daily, go, variant, cand, bench, stop_floor: float = 0.0) -> dict:
     j = go["pos"]
     go_c, go_h = float(itf["Close"].iloc[j]), float(itf["High"].iloc[j])
     if variant == "I_close":
@@ -246,7 +250,7 @@ def simulate(itf, daily, go, variant, cand, bench) -> dict:
                 break
     if fpos is None:
         return {"Status": "no fill"}
-    sl = _stop(itf, j, fpx, go["loc"], go["atr_d"])
+    sl = _stop(itf, j, fpx, go["loc"], go["atr_d"], stop_floor)
     risk = fpx - sl
     if risk <= 0:
         return {"Status": "bad stop"}
