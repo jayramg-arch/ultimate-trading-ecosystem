@@ -1066,6 +1066,32 @@ def main():
                 p.status = "SKIP"
                 p.message = f"skipped: {e}"[:160]
 
+    # 12b2. POSITIONAL ZONE-APPROACH ALERTS (2-Oct-2026, Jay). The two watchlist alerts are
+    # the swing clock; positional names get single-symbol PRICE alerts instead (they do not
+    # count against the watchlist quota): "within 1% of the Daily+ demand zone", from the
+    # Daily board just rebuilt by Phase 12. Replaces yesterday's set; touches only alerts
+    # named "GM-POS zone ...". Needs TradingView up with the debug port, like Phase 12b.
+    logger.info("\n[PHASE 12b2] POSITIONAL ZONE-APPROACH ALERTS...")
+    with run.phase("Phase 12b2 — positional zone alerts") as p:
+        if os.getenv("ZONE_ALERTS", "1") == "0":
+            p.status = "SKIP"; p.message = "ZONE_ALERTS=0"
+        else:
+            try:
+                import subprocess as _sp
+                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                           "tv_zone_alerts.py")],
+                             capture_output=True, text=True, timeout=10 * 60)
+                _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
+                for _ln in _lines:
+                    logger.info(f"   ↳ {_ln}")
+                p.message = (_lines[-1] if _lines else "done")[:160]
+                if _r.returncode != 0:
+                    p.status = "WARN"
+            except Exception as e:
+                logger.warning(f"⚠️  zone alerts skipped: {e}")
+                p.status = "SKIP"
+                p.message = f"skipped: {e}"[:160]
+
     # 12c. ENTRY SHADOW (2-Oct-2026, Jay: make GM+S4 an entry optimizer - step D). Re-scores
     # every reviewed GO in logs/ai_review_log.csv: where each entry method would have filled
     # on the real 75m/125m bars, and its R against S4's stop at 5/10 sessions. Read-only,

@@ -284,6 +284,13 @@ footer em{color:var(--ink-2)}
             <span class="m">REFRESH_ALERTS</span> after a manual bundle push (it prints a start line,
             is quiet ~10–30 s, then says <span class="m">DONE</span>). A Zigzag compile does not delete the
             alerts; an S4 compile does.</li>
+          <li><b>Positional names: zone-approach price alerts (2 Oct).</b> Auto-pilot
+            <span class="m">Phase 12b2</span> (<span class="m">tv_zone_alerts.py</span>) sets one price alert per
+            positional name that sits 1.5–12% above its Daily+ demand zone: it pings when price comes within 1% of
+            the zone top. An approach notice, not a trigger — the GO is still read on the Daily close. They are
+            named <span class="m">GM-POS zone …</span>, expire in 7 days and are replaced nightly; nothing else is
+            touched. One permanent alert, <span class="m">GM-POS zone SEED</span>, is cloned to make them —
+            do not delete it (if you do, create any price alert and give it that name).</li>
           <li><b>Check the sector-mix strip.</b> Over the cap means you are about to over-concentrate.</li>
         </ol>
       </div>

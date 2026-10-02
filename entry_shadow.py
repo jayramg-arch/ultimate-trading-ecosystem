@@ -238,7 +238,7 @@ def score_row(r) -> list[dict]:
         if s is None:
             row["status"] = "pending"
         else:
-            row.update({"status": "scored", "entry_px": round(px, 2), "bars_to_fill": pos - g,
+            row.update({"status": "scored", "entry_px": round(px, 2), "bars_to_fill": pos - g, "fill_ts": str(df.index[pos]),
                         "MAE_R": round(s["mae"], 3), "MFE_R": round(s["mfe"], 3), "stopped": s["stopped"]})
             for k in ("R5", "R10"):
                 if k in s:
