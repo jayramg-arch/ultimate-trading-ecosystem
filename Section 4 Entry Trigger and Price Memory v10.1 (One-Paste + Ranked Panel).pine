@@ -5048,7 +5048,7 @@ if show_panel and d_panel and barstate.islast
     f_sec(22, "  III · EXECUTION & TIMING  —  Are the intraday triggers and PA patterns firing?")
     f_sec(32, "  IV · DECISION SYNTHESIS   —  What is the final ruling of the engine?")
     f_sec(36, "  V · PLAN & RISK          —  How do we execute and size it?")
-    table.cell(pnl, 1, 0, syminfo.ticker, text_size=_pSize, text_color=color.white, bgcolor=C_REC, text_halign=text.align_left)
+    table.cell(pnl, 1, 0, syminfo.ticker + "     │     ATR(" + timeframe.period + ") " + str.tostring(chart_atr[_so], "0.00") + " (" + str.tostring(chart_atr[_so] / close[_so] * 100.0, "0.00") + "%)   ·   ATR(D) " + str.tostring(atrD_tf[_so], "0.00") + " (" + str.tostring(atrD_tf[_so] / close[_so] * 100.0, "0.00") + "%)", text_size=_pSize, text_color=color.white, bgcolor=C_REC, text_halign=text.align_left)
     // AVWAP levels — the three curves on one row (L · BO · Gap). Colour by the KEY
     // one (BO): green when price holds above the breakout AVWAP.
     string _avL = na(avwap_low) ? "—" : str.tostring(avwap_low, format.mintick)

@@ -135,10 +135,33 @@ if True:
         # three per-TF caches) showed the same rows plus the "stale snapshot" warning.
         # If a cache exists for the newly selected TF, swap to it; the warning below
         # now fires only when there is nothing on disk for that TF.
-        _want_tf = TF_LOCK or st.session_state.get("gm_trig_tf")
+        # 2-Oct-2026 (Jay): three faults on this load, fixed together.
+        #  1. On a fresh page the selector has not rendered yet, so gm_trig_tf was None and
+        #     the LEGACY shared cache was read (>24h old -> refused) -> "Not built yet" after
+        #     the auto-pilot, until a trip to Single Symbol set the key. Fall back to the
+        #     persisted trigger_tf, the value the selector itself starts from.
+        #  2. A window left open never re-read disk while it held a board, so the
+        #     auto-pilot's 16:30 build stayed invisible behind yesterday's. Reload when the
+        #     file on disk is NEWER than the board in memory.
+        #  3. A 24h age cap refused a valid cache after a weekend / holiday / before the
+        #     evening run, leaving the old TF on screen ("built on 75m"). The AGE guard
+        #     below already warns on an old snapshot, so show it and let that warn.
+        _want_tf = (TF_LOCK or st.session_state.get("gm_trig_tf")
+                    or _gm_settings().get("trigger_tf") or "75m")
         _have_tf = st.session_state.get("gm_board_built_tf")
-        if st.session_state.get("gm_board_df") is None or (_want_tf and _have_tf and _have_tf != _want_tf):
-            _cdf, _cmeta = _gtb.load_board_cache(tf=_want_tf)
+        _disk_newer = False
+        try:
+            _cp_csv, _cp_meta = _gtb.board_cache_paths(_want_tf)
+            _mem_iso = st.session_state.get("gm_board_saved_iso")
+            if os.path.exists(_cp_meta) and _mem_iso:
+                with open(_cp_meta, encoding="utf-8") as _fm:
+                    _disk_iso = (json.load(_fm) or {}).get("saved")
+                _disk_newer = bool(_disk_iso and str(_disk_iso) > str(_mem_iso))
+        except Exception as e:
+            _gm_logger.warning(f"board cache freshness check failed: {e}")
+        if (st.session_state.get("gm_board_df") is None or _disk_newer
+                or (_want_tf and _have_tf and _have_tf != _want_tf)):
+            _cdf, _cmeta = _gtb.load_board_cache(max_age_hours=24.0 * 14, tf=_want_tf)
             if _cdf is not None and (_cmeta or {}).get("built_tf", _want_tf) == _want_tf:
                 st.session_state["gm_board_df"] = _cdf
                 st.session_state["gm_board_stamp"] = (_cmeta or {}).get("stamp") or "from cache"
