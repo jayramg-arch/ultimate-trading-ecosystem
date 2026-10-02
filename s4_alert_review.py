@@ -185,7 +185,11 @@ def _err_tail(buf: io.StringIO, n: int = 3) -> str:
 def _src_label(source: str) -> str:
     """Receiver queue source -> the Reviewer Log's trigger label."""
     s = str(source or "").lower()
-    return "manual" if "manual" in s else ("s4-alert" if ("webhook" in s or "alert" in s) else (s or "s4-alert"))
+    if "manual" in s:
+        return "manual"
+    if "board" in s:
+        return "board"
+    return "s4-alert" if ("webhook" in s or "alert" in s) else (s or "s4-alert")
 
 
 def _run(symbol: str, tf: str, source: str) -> None:

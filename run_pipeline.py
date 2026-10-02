@@ -1073,6 +1073,31 @@ def main():
                 p.status = "SKIP"
                 p.message = f"skipped: {e}"[:160]
 
+    # 13. BOARD REVIEWS (2-Oct-2026, Jay): every 5/5 GO on the Daily, 125m and 75m boards just
+    # rebuilt by Phase 12 is queued on the AI reviewer, labelled "board" in the Reviewer Log
+    # (his evening REVIEW.bat routine, which logged them as "manual"). Queued on the alert
+    # receiver when it is up, else reviewed directly. BOARD_REVIEWS=0 skips.
+    logger.info("\n[PHASE 13] BOARD REVIEWS (5/5 GO on Daily / 125m / 75m -> AI reviewer)...")
+    with run.phase("Phase 13 — board reviews") as p:
+        if os.getenv("BOARD_REVIEWS", "1") == "0":
+            p.status = "SKIP"; p.message = "BOARD_REVIEWS=0"
+        else:
+            try:
+                import subprocess as _sp
+                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                           "board_reviews.py")],
+                             capture_output=True, text=True, timeout=90 * 60)
+                _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
+                for _ln in _lines:
+                    logger.info(f"   ↳ {_ln}")
+                p.message = ([l for l in _lines if l.startswith("board reviews")] or _lines[-1:] or ["done"])[0][:160]
+                if _r.returncode != 0:
+                    p.status = "WARN"
+            except Exception as e:
+                logger.warning(f"⚠️  board reviews skipped: {e}")
+                p.status = "SKIP"
+                p.message = f"skipped: {e}"[:160]
+
     run.finalize()
 
     logger.info("\n" + "="*60)

@@ -12,6 +12,9 @@ Called by REVIEW.bat. Accepts any mix of these, separated by spaces, commas or n
 Each name is POSTed to the local receiver (:8000) exactly like an S4 GO alert, so it takes
 the same path: the queue (ONE worker — they are reviewed one after another, ~90 s each),
 the 30-min dedup, the reviewer's own tabs, the banner, Telegram and the Reviewer Log.
+
+Requests are tagged "- manual" (2-Oct-2026), so the Reviewer Log records them as manual;
+board_reviews.py uses post(..., tag="board") for the auto-pilot's board pass.
 """
 import os
 import re
@@ -48,6 +51,33 @@ def parse(text):
     return [(s, tf or "75") for s, tf in out if s]
 
 
+def receiver_up() -> bool:
+    try:
+        requests.get("http://127.0.0.1:8000/", timeout=3)      # any HTTP answer = up
+        return True
+    except requests.RequestException:
+        return False
+
+
+def post(pairs, tag: str = "manual") -> int:
+    """POST each (SYMBOL, TF) to the local receiver tagged '- <tag>' (manual from REVIEW.bat,
+    board from board_reviews.py - the Reviewer Log records which). Returns the failure count."""
+    k = key()
+    if not k:
+        print("  [X] S4_REVIEW_KEY missing from .env")
+        return len(pairs)
+    bad = 0
+    for s, tf in pairs:
+        try:
+            r = requests.post(f"http://127.0.0.1:8000/s4-review?key={k}",
+                              data=f"{s} S4 GO {tf} - {tag}".encode("utf-8"), timeout=10)
+            print(f"   {s:14} {tf:>4}   {r.text.strip()[:90]}")
+        except requests.RequestException:
+            bad += 1
+            print(f"   {s:14} {tf:>4}   [X] receiver not answering on :8000 — is the S4 Alert Reviewer window up?")
+    return bad
+
+
 def main():
     text = " ".join(sys.argv[1:])
     if not text:
@@ -56,20 +86,8 @@ def main():
     if not pairs:
         print("  nothing to review")
         return 1
-    k = key()
-    if not k:
-        print("  [X] S4_REVIEW_KEY missing from .env")
-        return 1
     print(f"\n  queueing {len(pairs)} review(s) — one at a time, about 90 s each:")
-    bad = 0
-    for s, tf in pairs:
-        try:
-            r = requests.post(f"http://127.0.0.1:8000/s4-review?key={k}",
-                              data=f"{s} S4 GO {tf} - manual".encode("utf-8"), timeout=10)
-            print(f"   {s:14} {tf:>4}   {r.text.strip()[:90]}")
-        except requests.RequestException:
-            bad += 1
-            print(f"   {s:14} {tf:>4}   [X] receiver not answering on :8000 — is the S4 Alert Reviewer window up?")
+    bad = post(pairs, "manual")
     print("\n  Watch the banner; each ruling lands on Telegram and in the Reviewer Log.")
     print('  "duplicate within 30 min" = that name and timeframe was read recently.')
     return 1 if bad else 0

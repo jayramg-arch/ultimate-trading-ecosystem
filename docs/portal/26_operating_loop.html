@@ -257,6 +257,11 @@ footer em{color:var(--ink-2)}
             About a minute a name, ninety seconds for an ETF (its index is read first). Rulings land
             in <span class="m">logs/ai_reviews/</span> and on the <b>Reviewer Log</b> page (Doc 31).
             Take the R numbers from the canon line it prints, not from the prose. Doc 32 is the manual.</li>
+          <li><b>Board reviews run themselves (2 Oct).</b> Auto-pilot <span class="m">Phase 13</span>
+            queues every 5/5 GO on the Daily, 125m and 75m boards on the AI reviewer (about 90 s each,
+            one at a time), labelled <i>board</i> in the Reviewer Log. Keep the S4 Alert Reviewer window
+            up in the evening so they queue there; otherwise they run directly. <span class="m">REVIEW.bat</span>
+            stays for anything else and is labelled <i>manual</i>.</li>
           <li><b>Two new evening jobs (2 Oct).</b> The 16:45 breadth job now also updates the
             McClellan oscillator (it only moved when the Breadth page button was pressed). Auto-pilot
             <span class="m">Phase 12c</span> rescores every reviewed GO's entry methods

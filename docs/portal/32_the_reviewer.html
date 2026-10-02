@@ -489,8 +489,9 @@ python s4_review.py TITAN --dump             # the raw panel read, no model call
   <div class="note go">
     <span class="tag">2 Oct — what started each review, market context, no chart restore</span>
     <p><b>Every row now records its trigger</b> (<code>source</code> in <code>ai_review_log.csv</code>):
-    <b>s4-alert</b> (S4's own GO alert), <b>manual</b> (<code>REVIEW.bat</code>), <b>board</b>
-    (<code>s4_review --board</code> over the Python board's GO rows) or <b>cli</b>. Every review reads the
+    <b>s4-alert</b> (S4's own GO alert), <b>board</b> (every 5/5 GO on the Daily/125m/75m boards,
+    queued by auto-pilot Phase 13 via <code>board_reviews.py</code>, or <code>s4_review --board</code>),
+    <b>manual</b> (<code>REVIEW.bat</code>) or <b>cli</b>. Every review reads the
     S4/S5 panels, but only an s4-alert row was <em>started</em> by S4. The Log page has a TRIGGER filter and
     an <b>S4 not GO</b> pill for rows where S4's own TRIGGER row did not read GO when the panel was read
     — of 331 rows, 55: 40 from board/CLI runs and 16 alerts whose GO had moved by read time. Older rows
