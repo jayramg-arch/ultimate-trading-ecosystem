@@ -645,6 +645,10 @@ if True:
             _mxc1, _mxc2, _mxc3 = st.columns([1, 1.4, 4])
             _build = _mxc1.button("🔨 Rebuild", use_container_width=True, key="gm_board_build_mx",
                                   help="Re-runs the engine over data ALREADY CACHED. Fast.")
+            # The pop-out has no Evening-run button; without this the shared handler
+            # below read an undefined `_evening` and the maximized board crashed
+            # (NameError, found by the render check 2-Oct-2026).
+            _evening = False
             _refresh_all = _mxc2.button("🔄 Fresh + rebuild", use_container_width=True,
                                         key="gm_board_refresh_mx",
                                         help="Invalidates the on-disk cache for the whole universe, then "
