@@ -675,6 +675,12 @@ footer em{color:var(--ink-2)}
     <li><b>A retest limit is strictly better than a buy-stop</b> in every family and fills 52 more names — now the default. But it recovers only ~0.4 of the 2.6pp gap; the residual is the <b>confirmation-wait tax</b>, and no entry tweak removes it.</li>
     <li>Widening the stop does <b>not</b> rescue a GO-timed entry — it converts quick −2% shakeouts into slow, larger losses (win 34% → 30%, median −1.19% → −2.92%).</li>
     <li><b>So the GO gate is a trade CLASSIFIER, not an entry optimizer.</b> Use it to arm and focus; do not expect it to improve fills.</li>
+    <li><b>Re-tested properly, 2 Oct — the rule stands.</b> In R, like-for-like on the same names: daily bars
+    (GO −0.13 to −0.24R vs buying at qualification); a 75m/125m replay of the board's GO (nothing
+    significant); and a <b>pre-registered</b> test on 566 names it had never seen (<code>docs/PREREG_entry_optimizer_C.md</code>):
+    positional 125m GO entry −0.09R, buy-stop +0.05R, a 1× ATR stop floor changed nothing — all four
+    hypotheses FAILED. The sign flips by family and period, which is what noise looks like. A live
+    shadow record (<code>entry_shadow.py</code>) keeps scoring real GOs nightly.</li>
   </ul>
 
   <h3>Per family, because pooling has lied three times</h3>

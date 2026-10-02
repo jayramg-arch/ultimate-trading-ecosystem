@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 30 Sep · 30 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 2 Oct · 31 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,22 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">2 Oct<br>holiday build</td>
+        <td><b>Location from Daily and up, a trend grade, market breadth on the panel, holidays, and an
+        entry-optimizer test.</b> S4 v11.17 (compile + S4Core publish pending): 75/125m zones no longer pass
+        location, tested supply zones stay drawn until the next test, ATR(TF)/ATR(D) on the title row, a
+        display-only Trend grade (A+/B/C/F), and a MARKET line (regime + breadth + McClellan, now computed
+        nightly). GM: matching Location and Trend column; board loads the right TF and the newest build;
+        Maximize Board crash fixed; every page render-checked. NSE holiday calendar wired into every session
+        check. Reviewer: market context in the prompt, the trigger recorded on every Log row (S4 alert vs
+        board/CLI vs manual, plus S4-not-GO flags), no chart restore on its own tabs. <b>Entry optimizer:</b>
+        GO-timed entries tested on daily bars, on a 75m/125m replay and on a pre-registered unseen holdout —
+        all failed; the Golden Rules line stands. TradingView's Options Volume Profile, Market Breadth and Dhan
+        connection reviewed: display aids, nothing the system can read. Options volume by strike added for
+        display.</td>
+        <td class="af">22 · 23 · 25 · 26 · 32</td>
+      </tr>
       <tr>
         <td class="dt">30 Sep · night<br>pivot switch</td>
         <td><b>The pivot-zone switch works; it just had nothing to add.</b> Turning <em>Use pivot

@@ -567,6 +567,21 @@ footer a{color:var(--acc)}
 </section>
 
 <section id="cadence">
+  <div class="note go">
+    <span class="tag">2 Oct — location timeframes, trend grade, board fixes</span>
+    <p><b>Location: Daily and higher zones only</b> (checkbox beside the pivot switch, default ON): on the
+    75m/125m boards a zone drawn on the trigger timeframe no longer passes location or becomes the
+    →Zone answer; it still sets the stop. Weekly is macro, Daily is setup and location, 75/125m is the
+    trigger. The setting is pushed into S4 with the bundles. <b>Trend</b> column (after S4-GO): the
+    alignment grade A+ / A+ pending / B / C / F, display only. <b>Board loads:</b> a fresh window now
+    reads your saved trigger TF (it read a stale shared file and said "Not built yet"), reloads when the
+    auto-pilot's build on disk is newer than the one on screen, and accepts a saved board up to 14 days
+    old (the age guard warns) — so a TF switch after a weekend or holiday shows that TF.
+    <b>Maximize Board</b> no longer crashes (it read an undefined Evening-run flag). <b>Holidays:</b> the
+    staleness warning, bar-close refresh and freshness checks use NSE's holiday calendar
+    (<code>nse_calendar.py</code>), so a holiday no longer reads as a live session.</p>
+  </div>
+
   <h2><span class="n">05</span>Refresh cadence</h2>
   <p>Run the board on <b>75m + 125m bar-close</b>. It then rebuilds once per session bar —
   <b>10:30 · 11:20 · 11:45 · 13:00 · 13:25 · 14:15 · 15:30</b>, plus a short settle.</p>
