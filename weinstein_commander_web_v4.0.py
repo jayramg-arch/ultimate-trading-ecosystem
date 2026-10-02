@@ -227,7 +227,7 @@ from commander_core import (  # moved verbatim 25-Sep-2026 - see commander_core.
     _cat_on, _expected_last_session, _g, _get_dhan_client, _gm_apply_location_rule,
     _gm_bar_close_times, _gm_bff_gate, _gm_core_gate, _gm_entry_instruction, _gm_entry_method,
     _gm_last_passed_boundary, _gm_settings, _gm_settings_save, _gm_sl_basis, _gm_sync_pivot_setting,
-    _gm_use_pivot_zones, _gm_loc_htf_only, _gm_zone_rungs, _grade, _house_initial_stop, _plan_structural_sl,
+    _gm_use_pivot_zones, _gm_loc_htf_only, trend_grade, trend_grade_inputs, _gm_zone_rungs, _grade, _house_initial_stop, _plan_structural_sl,
     _range_bar, _rec_cfg, _s4_rv, _sb_cls, _stg_digit,
     clean_symbol, compute_decision, compute_portfolio_analytics, compute_recovery_workflow, compute_workflow,
     fnum, format_inr, format_inr_int, get_dhan_balance, get_dhanhq_client,
@@ -3196,6 +3196,18 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
     if ib: _cb["inherited_setup"] = ib
     if ir: _cr["inherited_setup"] = ir
 
+    # TREND ALIGNMENT GRADE (2-Oct-2026, Jay) - display only, never a gate. Weekly macro ·
+    # daily setup/location · trigger-TF execution. Reads the frames already loaded here.
+    try:
+        _tg_trig = _intra.get("df") if (intra_ok and trigger_tf in ("75m", "125m")) else None
+        _tgi = trend_grade_inputs(data.get("df"), _tg_trig, _g(rec, "Stage"), cmp_px,
+                                  bool((ctx.get("support") or {}).get("at_support")))
+        _tgg, _tgw = trend_grade(_g(rec, "Stage"), _tgi["w_trend"], _tgi["d_trend"], _tgi["ext_atr"],
+                                 bool((ctx.get("support") or {}).get("at_support")),
+                                 _tgi["shift_up"], _tgi["above_ema20"])
+        ctx["trend_grade"], ctx["trend_grade_why"] = _tgg, _tgw
+    except Exception as e:
+        _gm_logger.warning(f"{symbol}: trend grade failed: {e}")
     wf_bull = compute_workflow(rec, _cb, cmp_px, mansfield)
     # P0 fix (14-Jul-2026): gm_load_recovery returns {"_error": …} on total failure —
     # a TRUTHY dict. The old `if rec_r` ran the recovery workflow on the error dict,

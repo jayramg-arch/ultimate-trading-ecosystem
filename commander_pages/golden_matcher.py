@@ -819,6 +819,9 @@ if True:
                         "Category", width=215),
                     "S4-GO": st.column_config.TextColumn(
                         "S4-GO", width=175),
+                    "Trend": st.column_config.TextColumn(
+                        "Trend", width=260,
+                        help="Trend alignment grade (display only): A+ = W Stage 2 · D pullback at value · trigger TF shifted up; B = daily downtrend; C = daily extended; F = Stage 3/4."),
                     "Archetype": st.column_config.TextColumn(
                         "Archetype", width=250),
                     "Loc": st.column_config.TextColumn(
@@ -1438,7 +1441,7 @@ if True:
                     # after RRG, then everything else.
                     # "Pos" sits beside Archetype: on a Pyramid row it says what is already
                     # held and what the add would be, and is blank on every other row.
-                    _front = ["Symbol", "★", "Overall", "Category", "S4-GO", "Archetype",
+                    _front = ["Symbol", "★", "Overall", "Category", "S4-GO", "Trend", "Archetype",
                               "Pos", "Loc", "Path", "RRG", "RS", "Stage", "Catalyst", "ΣPA",
                               "BFF", "RFF"]
                     _ordered = ([c for c in _front if c in _v.columns]

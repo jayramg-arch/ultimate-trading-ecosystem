@@ -3462,6 +3462,12 @@ smc_cross_up   = ta.crossover (close, smc_last_sh)
 smc_cross_down = ta.crossunder(close, smc_last_sl)
 
 smc_bull_bos = not na(smc_last_sh) and smc_cross_up
+// Trend alignment grade inputs (2-Oct-2026) - global so they evaluate every bar:
+// daily Zigzag trend for this chart, bars since the chart TF broke its last swing high,
+// and close vs the chart TF's own EMA20. Display only (core.trendGrade).
+float _zzDsel  = timeframe.isintraday ? zzTrendD : timeframe.isdaily ? zzTrendC : na
+int   _tgBos   = ta.barssince(smc_bull_bos)
+bool  _tgAbove = close > ta.ema(close, 20)
 smc_bear_bos = not na(smc_last_sl) and smc_cross_down
 smc_choch_up = smc_bull_bos and not smc_trend_up
 smc_choch_dn = smc_bear_bos and     smc_trend_up
@@ -5915,7 +5921,8 @@ if show_panel and d_panel and barstate.islast
     for i = 0 to array.size(_paNm) - 1
         array.push(_paSt, array.get(_paFr, i) ? 1 : 0)
     string _paTxt = array.size(_paNm) == 0 ? "" : f_rankRow(_paNm, _paSt, _paWt)
-    f_row(26, "Setup", _setupTxt, _setupCol)
+    [_tgTxt, _tgCode] = core.trendGrade(stage_n, _zzWsel, _zzDsel, ext_atr[_so], ext_warn_atr, z_inDZ[_so], nz(_tgBos[_so], 99) <= 2, _tgAbove[_so])
+    f_row(26, "Setup", "TREND " + _tgTxt + "\n" + _setupTxt, _tgCode == 1 ? C_GO : _tgCode == 5 ? C_NO : _setupCol)
     f_row(27, _hdr, not show_pa ? "off" : str.length(_paTxt) == 0 ? "—" : _paTxt, not show_pa ? color.gray : tsum_v > 0 ? C_GO : C_MUTE)
     // Structure row — off52% + 30-WMA + 200-DMA. ALWAYS written: it was previously
     // inside `if mode == "Auto"`, so on a manual Bull/Recovery setting the row was

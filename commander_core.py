@@ -570,6 +570,84 @@ def _gm_use_pivot_zones() -> bool:
     # Default OFF since 25-Sep-2026 (Jay): pattern zones only.
     return bool(_gm_settings().get("use_pivot_zones", False))
 
+TREND_EXT_WARN_ATR = 2.5   # = S4 ext_warn_atr default: "extended" for the C grade
+
+
+def trend_grade(stage, w_trend=None, d_trend=None, ext_atr=None, at_loc=False,
+                shift_up=False, above_ema20=False) -> tuple:
+    """TREND ALIGNMENT GRADE (2-Oct-2026, Jay's "Trend checks" note). DISPLAY ONLY - it
+    never gates a GO. Weekly = macro, Daily = setup/location, trigger TF = execution.
+
+      A+  W Stage 2 (weekly trend not down) · D not down, not extended, AT a demand zone
+          · trigger TF shifted up (break of the last swing high) and above its EMA20
+      B   W Stage 2 but the DAILY trend is DOWN - deep correction, lower win rate
+      C   W Stage 2, D up but EXTENDED (>= 2.5 ATR over the daily EMA20) - momentum chase
+      F   W Stage 3/4 - avoid (the first test already rejects it)
+      –   weekly not a clean Stage 2 up
+
+    Trends are +1 / -1 / 0 (sideways); None = unknown, which never fails a test - an
+    unbound or missing read must not manufacture a bad grade. Mirrors S4Core.trendGrade.
+    Returns (grade, one-line reason)."""
+    try:
+        sd = int(str(stage).strip()[:1]) if stage not in (None, "", "—") else None
+    except Exception:
+        sd = None
+    if sd in (3, 4):
+        return "F", f"Stage {sd} - avoid: counter-trend bounce into distribution"
+    if sd != 2 or (w_trend is not None and w_trend < -0.5):
+        return "–", "weekly not a clean Stage 2 up"
+    if d_trend is not None and d_trend < -0.5:
+        return "B", "daily in a downtrend (deep correction) - lower win rate, overhead supply"
+    if ext_atr is not None and ext_atr >= TREND_EXT_WARN_ATR:
+        return "C", f"daily extended {ext_atr:.1f}x ATR over EMA20 - momentum chase, not a pullback"
+    need = [n for n, ok in (("daily location", at_loc), ("trigger-TF shift up", shift_up),
+                            ("above trigger-TF EMA20", above_ema20)) if not ok]
+    if not need:
+        return "A+", "W Stage 2 · D pullback at value · trigger TF shifted up"
+    return "A+ pending", "needs " + " · ".join(need)
+
+
+def trend_grade_inputs(daily_df, trigger_df, stage, cmp_px=None, at_loc=False) -> dict:
+    """Compute trend_grade's inputs from the frames gm_evaluate already holds.
+    Weekly/daily trends use strict_trend(structure=True) at the Zigzag's pivot lengths (W 5, D 2) -
+    raw strict state, a close approximation of the structure trend S4 binds from the
+    Zigzag v6.5. The trigger-TF shift mirrors S4's SMC break: close crossing above the
+    last confirmed 10/10 pivot high within the last 3 closed bars."""
+    out = {"w_trend": None, "d_trend": None, "ext_atr": None,
+           "shift_up": False, "above_ema20": False}
+    try:
+        import strict_trend as _st
+        import pa_patterns as _pap
+        if daily_df is not None and len(daily_df) >= 60:
+            h, l, c = daily_df["High"], daily_df["Low"], daily_df["Close"]
+            out["d_trend"] = float(_st.compute_strict_trend(h, l, piv_left=2, piv_right=2, structure=True).iloc[-1])
+            wk = _pap._confirmed_weekly_ohlcv(daily_df)
+            if wk is not None and len(wk) >= 30:
+                out["w_trend"] = float(_st.compute_strict_trend(wk["High"], wk["Low"], piv_left=5, piv_right=5, structure=True).iloc[-1])
+            ema20 = c.ewm(span=20, adjust=False).mean().iloc[-1]
+            tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+            atr = tr.ewm(alpha=1 / 14, adjust=False).mean().iloc[-1]
+            px = float(cmp_px) if cmp_px else float(c.iloc[-1])
+            if atr and atr > 0:
+                out["ext_atr"] = (px - float(ema20)) / float(atr)
+        f = trigger_df if trigger_df is not None and len(trigger_df) >= 40 else daily_df
+        if f is not None and len(f) >= 40:
+            h, c = f["High"].reset_index(drop=True), f["Close"].reset_index(drop=True)
+            n, L = len(f), 10
+            last_sh, crossed = None, []
+            for i in range(n):
+                p = i - L                      # pivot at p confirms on bar i
+                if p - L >= 0 and h[p] == h[p - L:i + 1].max() and h[p] > h[p - L:p].max() and h[p] >= h[p + 1:i + 1].max():
+                    last_sh = float(h[p])
+                if last_sh is not None and i > 0 and c[i] > last_sh and c[i - 1] <= last_sh:
+                    crossed.append(i)
+            out["shift_up"] = bool(crossed and crossed[-1] >= n - 3)
+            out["above_ema20"] = bool(c.iloc[-1] > c.ewm(span=20, adjust=False).mean().iloc[-1])
+    except Exception as e:
+        _gm_logger.warning(f"trend grade inputs failed: {e}")
+    return out
+
+
 def _gm_loc_htf_only() -> bool:
     """LOCATION = DAILY AND UP (2-Oct-2026, Jay): Weekly is macro, Daily is setup and
     location, 75/125m is trigger and execution. ON (default): on the 75m/125m boards a

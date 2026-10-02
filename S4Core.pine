@@ -3426,3 +3426,42 @@ export barRead(int so, float soClose, float soHigh, bool barOkV, color C_OK, col
     string _barTxt  = (barOkV ? "OK" : "WEAK/VETOED") + "   —   " + _barDesc
     color  _barCol  = barOkV ? C_OK : C_NO
     [_barTxt, _barCol]
+
+// ---------------------------------------------------------------------------
+// TREND ALIGNMENT GRADE (2-Oct-2026, Jay's "Trend checks" note). DISPLAY ONLY - it
+// never gates GO. Weekly = macro, Daily = setup / location, chart TF = execution.
+//   A+  W Stage 2 (weekly trend not down) · D not down, not extended, AT a demand
+//       zone · chart TF broke its last swing high and sits above its EMA20
+//   B   W Stage 2 but the DAILY trend is down - deep correction, lower win rate
+//   C   W Stage 2, D up but extended (>= extWarn ATR over the daily EMA20)
+//   F   W Stage 3/4 - avoid (the first test already rejects it)
+//   -   weekly not a clean Stage 2 up
+// Trends are bound Zigzag states (+1 / -1 / 0); a value outside -1..1 (unbound
+// source reads close) is UNKNOWN and never fails a test. Python twin:
+// commander_core.trend_grade - keep the two in step.
+// Returns [text, grade code 0 none / 1 A+ / 2 pending / 3 B / 4 C / 5 F].
+// ---------------------------------------------------------------------------
+export trendGrade(int stage, float zzW, float zzD, float extAtr, float extWarn, bool atLoc, bool shiftUp, bool aboveEma) =>
+    bool wKnown = not na(zzW) and zzW >= -1.0 and zzW <= 1.0
+    bool dKnown = not na(zzD) and zzD >= -1.0 and zzD <= 1.0
+    string t = ""
+    int g = 0
+    if stage >= 3
+        t := "F · Stage " + str.tostring(stage) + " - avoid: counter-trend bounce into distribution"
+        g := 5
+    else if stage != 2 or (wKnown and zzW < -0.5)
+        t := "- · weekly not a clean Stage 2 up"
+    else if dKnown and zzD < -0.5
+        t := "B · daily downtrend (deep correction) - lower win rate, overhead supply"
+        g := 3
+    else if not na(extAtr) and extAtr >= extWarn
+        t := "C · daily extended " + str.tostring(extAtr, "0.0") + "x ATR over EMA20 - momentum chase, not a pullback"
+        g := 4
+    else if atLoc and shiftUp and aboveEma
+        t := "A+ · W Stage 2 · D pullback at value · chart TF shifted up"
+        g := 1
+    else
+        string need = (atLoc ? "" : "daily location · ") + (shiftUp ? "" : "chart-TF shift up · ") + (aboveEma ? "" : "above chart-TF EMA20 · ")
+        t := "A+ pending · needs " + str.substring(need, 0, str.length(need) - 3)
+        g := 2
+    [t, g]

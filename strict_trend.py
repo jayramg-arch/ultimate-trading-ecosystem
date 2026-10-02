@@ -88,7 +88,7 @@ def classify_low(new_low: float, prev_low: float, eq: float = EQ_THRESHOLD) -> s
 
 def compute_strict_trend(high: pd.Series, low: pd.Series,
                          piv_left: int = 2, piv_right: int = 2,
-                         eq: float = EQ_THRESHOLD) -> pd.Series:
+                         eq: float = EQ_THRESHOLD, structure: bool = False) -> pd.Series:
     """Per-bar strict trend: +1 up, -1 down, 0 sideways.
 
     Signature is unchanged from the previous in-screener version so existing call
@@ -181,13 +181,25 @@ def compute_strict_trend(high: pd.Series, low: pd.Series,
 
         # fix 5: gated by the developing side; fix 4: opposite side uses the
         # CONFIRMED class, never a re-classification of the projection.
+        dev_h = dev_l = None
         if active_type == "L" and classify_high(proj_high, locked_high, eq) == "HH":
             dev_low = "HL" if last_low_class is None else last_low_class
             trend_state = 1 if dev_low == "HL" else 0
+            dev_h, dev_l = "HH", dev_low
         elif active_type == "H" and classify_low(proj_low, locked_low, eq) == "LL":
             dev_high = "LH" if last_high_class is None else last_high_class
             trend_state = -1 if dev_high == "LH" else 0
+            dev_h, dev_l = dev_high, "LL"
 
+        if structure:
+            # Zigzag v6.5 `structTrend` (2-Oct-2026): the trend the panel's TREND row
+            # shows and S4 now binds - UP only on HH+HL, DOWN only on LH+LL, anything
+            # else SIDEWAYS; the persisted state only while the pair is incomplete.
+            sh = dev_h if dev_h is not None else last_high_class
+            sl = dev_l if dev_l is not None else last_low_class
+            if sh is not None and sl is not None:
+                out.iloc[i] = 1 if (sh == "HH" and sl == "HL") else -1 if (sh == "LH" and sl == "LL") else 0
+                continue
         out.iloc[i] = trend_state
 
     return out

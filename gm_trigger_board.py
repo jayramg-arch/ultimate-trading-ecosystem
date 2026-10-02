@@ -2036,6 +2036,9 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         "Overall":       overall,
         "Category":      cat,                        # stage-1 ARM verdict (pa_fired; no bar_ok)
         "S4-GO":         s4go,                        # stage-2 preview: PA·loc·vol·bar_ok (S4 chart is final)
+        # Trend alignment grade (2-Oct-2026, Jay): W macro · D location · trigger-TF shift.
+        # DISPLAY ONLY - never gates; commander_core.trend_grade / S4Core.trendGrade.
+        "Trend":         (str(ctx.get("trend_grade") or "") + (f" · {ctx.get('trend_grade_why')}" if ctx.get("trend_grade_why") else "")),
         "WCL Context":   _wcl_disp,
         "Struct Health": _struct_disp,
         "VP Position":   _vp_disp,
