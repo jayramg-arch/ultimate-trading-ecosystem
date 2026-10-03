@@ -2000,7 +2000,9 @@ export summaryRead(int stage, float stgWks, float trW, float trD, bool tfUp,
        // request.footprint() delta. When it is absent the summary must say NOTHING
        // about flow - the old text asserted "not confirming the buyers" on every
        // symbol, which is a claim about a thing no longer measured.
-       bool pxUpConfirmed, bool locGated, bool ofKnown, float heldRaw) =>
+       bool pxUpConfirmed, bool locGated, bool ofKnown, float heldRaw,
+       // 3-Oct-2026: the MARKET line's regime, appended LAST (no positional shift).
+       bool bearTape) =>
     bool wUp = zzOkW and trW > 0.5
     bool wDn = zzOkW and trW < -0.5
     bool dUp = zzOkD and trD > 0.5
@@ -2034,12 +2036,15 @@ export summaryRead(int stage, float stgWks, float trW, float trD, bool tfUp,
     float rATR = atrD > 0 and risk > 0 ? risk / atrD : na
     // The na branch splits on `go`: before the trigger fires there is no plan to judge,
     // which is a different statement from "the plan has an unusable stop".
-    string sGeo = na(rATR) ? (not go ? "GEOMETRY · No plan yet. The trigger has not fired, so there is no stop or target to judge - geometry becomes readable the moment it does." : "GEOMETRY · No usable stop distance - treat every R figure on this panel as meaningless.") : rATR < 0.5 ? "GEOMETRY · THE STOP IS INSIDE THE NOISE. It sits well under one daily ATR from the entry, so ordinary daily movement will take it out before the idea is ever tested - and because R is measured against that distance, every reward multiple above is FLATTERED by it. Re-price the trade against a stop of roughly one ATR before believing any R number here." : rATR < 0.9 ? "GEOMETRY · The stop is tight relative to daily range. Workable, but it will be tested by noise as much as by thesis, so the R shown is optimistic rather than wrong." : rATR > 2.5 ? "GEOMETRY · The stop is very wide in ATR terms. Honest, but position size has to come down hard for risk to stay constant - check the reward still justifies the exposure." : "GEOMETRY · The stop clears daily noise without being extravagant, so the reward multiples above can be taken at face value."
+    string sGeo = na(rATR) ? (not go ? "GEOMETRY · No plan yet. The trigger has not fired, so there is no stop or target to judge - geometry becomes readable the moment it does." : "GEOMETRY · No usable stop distance - treat every R figure on this panel as meaningless.") : rATR < 0.5 ? "GEOMETRY · THE STOP IS INSIDE THE NOISE. It sits well under one daily ATR from the entry, so ordinary daily movement will take it out before the idea is ever tested - and because R is measured against that distance, every reward multiple above is FLATTERED by it. Re-price the trade against a stop of roughly one ATR before believing any R number here." : rATR < 0.9 ? "GEOMETRY · The stop is tight relative to daily range. Workable, but it will be tested by noise as much as by thesis, so the R shown is optimistic rather than wrong." : (not ttSwing and rATR >= 3.9) ? "GEOMETRY · The stop sits at the house positional floor - at least 4 x the daily ATR from the entry, wide by design so ordinary daily noise cannot take it out. Quantity is already sized off it, so the rupee risk is unchanged; what remains to judge is whether the reward clears the positional bar." : rATR > 2.5 ? "GEOMETRY · The stop is very wide in ATR terms. Honest, but position size has to come down hard for risk to stay constant - check the reward still justifies the exposure." : "GEOMETRY · The stop clears daily noise without being extravagant, so the reward multiples above can be taken at face value."
     // v51 / H10: thin room is the FIRST TEST, not a verdict. Measured: it did not hurt.
     string sRoom = roomR > 0 and roomR < 1.0 ? "  The first obstacle sits under 1R away - that is the first test on the way to the R-target, and such levels were broken about two times in three; the target is not this level." : roomR >= 3.0 ? "  Room to the first obstacle is generous, so the target is not fighting structure." : ""
     // 29-Sep-2026 (TVSMOTOR): SUMMARY said "hold for months" while the verdict said
     // "swing-sized reward - book at 2R". Same test as the verdict's 20% rule.
     float _roiT1 = (na(t1) or na(entry) or entry <= 0) ? na : (t1 - entry) / entry * 100.0
+    // PLAN CLOCK (3-Oct-2026): positional GOs are read on the Daily close, swing on
+    // 75m/125m - the board and alerts already split this way; the summary says so.
+    string sClock = not go ? "" : (not ttSwing and timeframe.isintraday) ? "  This is a POSITIONAL plan on an intraday chart: the Daily close decides the trade - this chart only times the fill once the Daily has confirmed." : (ttSwing and not timeframe.isintraday) ? "  This is a SWING plan on the Daily chart: the trigger belongs on 75m/125m - time the entry there." : ""
     string sType = ttSwing ? "  Structure says SWING: book into strength rather than holding for a positional target this does not support." : (not na(_roiT1) and _roiT1 < 20.0) ? "  Structure says POSITIONAL, but T1 is only +" + str.tostring(_roiT1, "0.0") + "% away - a swing-sized reward. Take it as a swing and book at 2R, or wait for a deeper entry that earns the positional target; do not hold this entry for months on a swing payoff." : "  Structure says POSITIONAL, so size and hold for a move measured in months, not days."
     // Open interest says whether the volume above is NEW commitment or a squeeze
     // unwinding, which changes how far the move can carry; the basis says which side the
@@ -2086,13 +2091,16 @@ export summaryRead(int stage, float stgWks, float trW, float trD, bool tfUp,
     string sConf = cf >= cfMax / 2 ? "  Confluence is dense - many of the panel's reads line up. They overlap, and the count has no measured edge, so it describes the setup rather than grading it." : "  Confluence is thin: few of the panel's reads line up, so this rests largely on the trigger itself."
     // Not on a holding (29-Sep-2026, M&MFIN): "read this as a RECOVERY entry" on a position.
     string sPath = isRec and na(heldRaw) ? "  Read this as a RECOVERY entry: qualification is fundamental (RFF), and since Gate 6 that score does reach this chart - see the QUALITY line above. What crosses over is the SCORE only, not the six-check verdict, the growth history or the quality rejection behind it, so the Golden Matcher is still the authority on whether the name belongs on the list at all." : ""
+    // MARKET (3-Oct-2026): the regime on the MARKET line. A Bear / Cash tape shrinks the
+    // size the way a Stage-4 sector does; on a holding it argues for trims over adds.
+    string sMkt = not bearTape ? "" : not na(heldRaw) ? "  The market regime is Bear / Cash, so lean towards trims and tighter management rather than adds." : go ? "  The market regime is Bear / Cash and breadth is weak - even a clean setup is working against the tape, so take it smaller or wait for breadth to turn." : ""
     [sHeld, _hd] = heldNote(heldRaw)
     // HELD (29-Sep-2026, M&MFIN): on a holding the direction is position management,
     // not an entry decision - "No trade" / "Nothing to do yet" answer the wrong question.
     string sMng = stage >= 3 ? "The structure is Stage " + str.tostring(stage) + " - topping or declining - which is where trims and tighter stops belong, not adds. " : wDn ? "The weekly trend is DOWN, so strength is a rally to sell into rather than to add on. " : ""
     string sDirH = str.length(sHeld) > 0 ? "DIRECTION · " + sHeld + "\nPosition management, not an entry. " + sMng + "Follow the ladder rung in MY TRADE, and use LOCATION, PARTICIPATION and the OI read above to judge whether the next move is a trim, a tighter stop or patience." : sDir
     sDirH := _hd and str.length(sHeld) == 0 ? sDir : sDirH
-    sTrend + sStage + sAge + "\n" + sLead + sSec + "\n" + sLoc + sOff + "\n" + sPart + sFlow + sOf + sOi + "\n" + sGeo + sRoom + sType + sWall + "\n" + sDirH + sConf + sPath
+    sTrend + sStage + sAge + "\n" + sLead + sSec + "\n" + sLoc + sOff + "\n" + sPart + sFlow + sOf + sOi + "\n" + sGeo + sRoom + sType + sClock + sWall + "\n" + sDirH + sMkt + sConf + sPath
 
 
 // ---- wrapText ---------------------------------------------------------------
