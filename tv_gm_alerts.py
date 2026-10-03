@@ -105,7 +105,10 @@ JS = r"""
     const wl = await (await fetch("https://www.tradingview.com/api/v1/symbols_list/custom/",
                                   {credentials: "include"})).json();
     const board = (wl || []).find(l => l.name === cfg.listName);
-    if (!board) return JSON.stringify({err: "watchlist '" + cfg.listName + "' not found - has the auto-pilot pushed today's lists?"});
+    // KEEP-LIST mode (3-Oct-2026): --upgrade-version on a day with no new lists (a weekend
+    // compile) leaves each alert on the list it already watches and only moves the version.
+    const keep = !board && cfg.upgrade;
+    if (!board && !keep) return JSON.stringify({err: "watchlist '" + cfg.listName + "' not found - has the auto-pilot pushed today's lists?"});
     // per-timeframe list: the plan-clock split list, else the full board list (said so)
     const listFor = (res) => {
       const want = (cfg.planLists || {})[res];
@@ -114,13 +117,15 @@ JS = r"""
       return {list: board, note: want ? " (split list " + want + " MISSING - fell back to the full board)" : ""};
     };
     const norm = (r) => { r = String(r); return (r === "1D" || r === "D") ? "D" : r; };
-    out.steps.push("board list " + cfg.listName + " = WATCHLIST:" + board.id + " (" + (board.symbols || []).length + " symbols)");
+    out.steps.push(keep ? "no list for today - alerts stay on their current lists (version upgrade only)"
+                        : "board list " + cfg.listName + " = WATCHLIST:" + board.id + " (" + (board.symbols || []).length + " symbols)");
 
     // S4 on this chart: the three inputs the evening run pushes
     const chart = (window.TradingViewApi || window.tvWidget).activeChart();
     const st = chart.getAllStudies().find(s => s.name.indexOf("Section 4") === 0);
     if (!st) return JSON.stringify({err: "S4 is not on this chart tab"});
     const s4 = chart.getStudyById(st.id);
+    let curVer = null; try { curVer = s4._study.metaInfo().pine.version; } catch (e) {}
     const ids = {};
     s4.getInputsInfo().forEach(i => { if (cfg.titles.indexOf(i.name) >= 0) ids[i.name] = i.id; });
     const missing = cfg.titles.filter(t => !(t in ids) && (cfg.optional || []).indexOf(t) < 0);
@@ -145,8 +150,9 @@ JS = r"""
                    "last_stop_reason", "active", "kinds", "id"];
     for (const res of cfg.resolutions) {
       const tpl = tpls.find(a => norm(a.resolution) === res);
-      const lf = listFor(res);
-      const list = lf.list;
+      const lf = keep ? null : listFor(res);
+      const _curId = tpl ? ((String(tpl.symbol).match(/WATCHLIST:(\d+)/) || [])[1]) : null;
+      const list = keep ? ((wl || []).find(l => String(l.id) === String(_curId)) || {id: _curId, name: "current list", symbols: []}) : lf.list;
       const newSym = "WATCHLIST:" + list.id;
       if (!tpl) { out.results.push({res: res, err: "no template on " + res + " - create that S4 GO alert by hand once, on the " + list.name + " list"}); continue; }
       const p = JSON.parse(JSON.stringify(tpl));
@@ -165,6 +171,7 @@ JS = r"""
       // go through; the server derives the symbol snapshot from the list id itself.
       // ignore_warnings = the "this script may repaint" warning the dialog asks you to
       // accept by hand - without it the service answers warning_pine_repainting.
+      let row_note = "";
       const KEEP = ["alert_id", "symbol", "resolution", "condition", "message", "web_hook", "name",
                     "popup", "email", "sms_over_email", "mobile_push", "sound_file", "sound_duration",
                     "expiration", "auto_deactivate", "cross_interval", "active"];
@@ -172,11 +179,25 @@ JS = r"""
       KEEP.forEach(k => { if (k in p) q[k] = p[k]; });
       q.ignore_warnings = true;
       const qin = q.condition.series[0].inputs;
+      // --upgrade-version (3-Oct-2026): an alert keeps the compiled version it was created
+      // on, and this refresh copies it along, so a compile that TradingView does not delete
+      // the alerts for leaves them running the OLD script. When every input the alert
+      // carries still exists on the chart's S4, move it to the chart's version.
+      if (cfg.upgrade && curVer && String(q.condition.series[0].pine_version) !== String(curVer)) {
+        const chartIds = {}; s4.getInputsInfo().forEach(i => { chartIds[i.id] = 1; });
+        const missing = Object.keys(qin).filter(k => !(k in chartIds));
+        if (missing.length) { row_note = "version NOT upgraded - " + missing.length + " alert input(s) no longer on the chart; recreate by hand"; }
+        else {
+          const oldVer = q.condition.series[0].pine_version;
+          [q.condition].concat(q.conditions || []).forEach(c => { ((c && c.series) || []).forEach(sr => { if (sr && sr.pine_version) sr.pine_version = curVer; }); });
+          row_note = "version " + oldVer + " -> " + curVer;
+        }
+      }
       Object.keys(fresh).forEach(k => { qin[k] = fresh[k]; });
       q.symbol = String(q.symbol).replace(/WATCHLIST:\d+/, newSym);
       const syms = (list.symbols || []).filter(x => String(x).indexOf("###") !== 0);
       const after = {sym: newSym, n: syms.length, b1: String(fresh[ids[cfg.titles[0]]] || "").length, b2: String(fresh[ids[cfg.titles[1]]] || "").length};
-      const row = {res: res, id: tpl.alert_id, before: before, after: after, list: list.name + lf.note};
+      const row = {res: res, id: tpl.alert_id, before: before, after: after, list: list.name + (lf ? lf.note : " (kept)"), note: row_note};
       if (cfg.dry) { row.action = "dry-run"; out.results.push(row); continue; }
 
       // 1) modify in place - nothing is deleted
@@ -187,7 +208,9 @@ JS = r"""
         const a2 = chk.s === "ok" && (chk.r || [])[0];
         const got = a2 ? {sym: (String(a2.symbol).match(/WATCHLIST:\d+/) || [""])[0],
                           n: ((a2.symbolset_data || {}).symbols || []).length,
-                          b1: String(a2.condition.series[0].inputs[ids[cfg.titles[0]]] || "").length} : null;
+                          b1: String(a2.condition.series[0].inputs[ids[cfg.titles[0]]] || "").length,
+                          ver: a2.condition.series[0].pine_version} : null;
+        if (got && row_note.indexOf(" -> ") > 0) row.note += (String(got.ver) === String(curVer) ? " (verified)" : " (NOT applied: alert still on " + got.ver + ")");
         row.action = got && got.sym === newSym && got.b1 === after.b1 ? "modified (verified: " + got.n + " names)" : "modified but NOT VERIFIED " + JSON.stringify(got);
         out.results.push(row); continue;
       }
@@ -223,7 +246,7 @@ def _eval(ws_url: str, expression: str):
         ws.close()
 
 
-def run(dry: bool = False, list_name: str | None = None) -> int:
+def run(dry: bool = False, list_name: str | None = None, upgrade: bool = False) -> int:
     print("Refreshing the S4 GO alerts (75m + 125m -> GM_Swing; positional names are alerted by the Daily board review; board %s)%s - takes ~10-30 s, "
           "the window stays quiet until TradingView answers..." % (
               list_name or todays_list_name(), " [dry run]" if dry else ""), flush=True)
@@ -232,7 +255,7 @@ def run(dry: bool = False, list_name: str | None = None) -> int:
         print("ERROR: no TradingView chart tab over CDP - is TradingView running with the debug port?", flush=True)
         return 2
     cfg = {"listName": list_name or todays_list_name(), "titles": [IN1, IN2, IN3, IN4], "optional": [IN4],
-           "resolutions": RESOLUTIONS, "dry": bool(dry),
+           "resolutions": RESOLUTIONS, "dry": bool(dry), "upgrade": bool(upgrade),
            "planLists": ({} if list_name else {r: todays_list_name(p) for r, p in PLAN_LISTS.items()})}
     js = JS.replace("__CFG__", json.dumps(cfg))
     last = None
@@ -261,6 +284,8 @@ def run(dry: bool = False, list_name: str | None = None) -> int:
         line = "%s: %s" % (r.get("res"), r.get("err") or "%s  %s (%s names) -> %s %s (%s names)  bundle1 %s -> %s chars  bundle2 %s -> %s" % (
             r.get("action"), r["before"]["sym"], r["before"]["n"], r.get("list", ""), r["after"]["sym"], r["after"]["n"],
             r["before"]["b1"], r["after"]["b1"], r["before"]["b2"], r["after"]["b2"]))
+        if r.get("note"):
+            line += "  [%s]" % r["note"]
         if r.get("modify_err"):
             line += "  (modify refused: %s)" % r["modify_err"]
         if r.get("create_err"):
@@ -276,8 +301,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--dry-run", action="store_true", help="show what would change, touch nothing")
     ap.add_argument("--list", help="watchlist name (default: today's Golden_Matcher_Board-DDMONYY)")
+    ap.add_argument("--upgrade-version", action="store_true",
+                    help="after an S4 compile: move both alerts to the chart's compiled version when their inputs still exist")
     a = ap.parse_args()
-    return run(dry=a.dry_run, list_name=a.list)
+    return run(dry=a.dry_run, list_name=a.list, upgrade=a.upgrade_version)
 
 
 if __name__ == "__main__":
