@@ -280,7 +280,7 @@ footer em{color:var(--ink-2)}
             the plan allows two watchlist alerts — and need none: their clock is the Daily close, and the
             16:30 auto-pilot rebuilds the Daily board and Phase 13 reviews every Daily 5/5 GO to Telegram.
             That Telegram message <em>is</em> the Daily alert. <b>Only after an S4 compile</b>
-            (which deletes them) do you create the two by hand, once, on today's GM_Swing list. Check the Phase 12b line in the auto-pilot log, or run
+            (which deletes them) do you create the two by hand, once, on today's GM_Swing list. If a compile leaves them in place, they still run the version they were created on — fine when the GO logic is unchanged, recreate them when it changed (the nightly refresh copies the old version along). Check the Phase 12b line in the auto-pilot log, or run
             <span class="m">REFRESH_ALERTS</span> after a manual bundle push (it prints a start line,
             is quiet ~10–30 s, then says <span class="m">DONE</span>). A Zigzag compile does not delete the
             alerts; an S4 compile does.</li>
