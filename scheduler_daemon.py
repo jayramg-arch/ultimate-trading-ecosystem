@@ -715,6 +715,22 @@ def start_scheduler() -> BackgroundScheduler:
         replace_existing=True,
     )
 
+    # ONE OWNER PER JOB (3-Oct-2026, audit AUD-OCT-07). Windows Task Scheduler owns every
+    # daily job - it catches up after the PC sleeps and does not need Web Commander open:
+    #   Dhan_Token_Check 08:00 · PreMarket_Report 08:30 · Morning_Digest 08:45 ·
+    #   Exit_Scan_Daily 16:00 · PostMarket_Report 16:30 · Breadth_Daily 16:45 ·
+    #   Weekly_Report Sun 19:00 · GTT_Trail_Daily (DISABLED - stops set by hand).
+    # The in-app copies are removed here rather than deleted above, so the job functions
+    # stay importable (run_daemon_job.py calls them) and APP_DAILY_JOBS=1 brings them back.
+    # Kept in the app: the in-session pollers (price alerts, stale feed, P&L alarm).
+    if os.getenv("APP_DAILY_JOBS", "0") != "1":
+        for _jid in ("token_check", "premarket", "postmarket", "breadth", "weekly",
+                     "gtt_trail", "exit_scan"):
+            try:
+                scheduler.remove_job(_jid)
+            except Exception:
+                pass
+
     scheduler.start()
     logger.info(f"Scheduler started with {len(scheduler.get_jobs())} jobs")
     return scheduler
