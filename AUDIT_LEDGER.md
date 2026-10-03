@@ -880,3 +880,39 @@ alerted 22–24 Sep, marks GO on 42 of 59 of those bars; its GO count on the sam
 Misses are expected — a recomputed history applies today's bundle, pivot setting and loaded
 bars to every past bar. The check collided with the live receiver at 13:25 (two reviews failed,
 both re-run); tab-driving diagnostics stay out of market hours from now on.
+
+## 3 October 2026 — GM + S4/S5 + Web Commander audit (evidence-first)
+
+Method: live logs (gtt_shield, scheduler, s4_alert_review, gm_errors), Task Scheduler state,
+`tools/render_pages.py` over all 22 pages, the three board caches, the Reviewer Log, the journal,
+`tv_bind_s4.py --check`. Every finding below carries the measurement it rests on.
+
+| ID | Sev | Finding | Evidence | Recommendation |
+|---|---|---|---|---|
+| AUD-OCT-01 | P0 | **The automated stop trail has never moved a stop.** Task `GTT_Trail_Daily` runs daily and exits 0, but every modify is refused by Dhan: DH-905 *Invalid IP* (order APIs need a whitelisted static IP). The in-app trail has been disabled since 17-Aug (stops set by hand); the Windows task was never told. | `logs/gtt_shield.log`: every pass since the first on 11-Sep reads `0 tightened, 15–44 failed`; 755 DH-905 lines. | Decide: (a) register a static IP with Dhan (also required for any API order — webhook, Risk Shield tighten, `dhan_place_order`), or (b) disable the task. Either way: a pass where every modify fails must exit non-zero and send a Telegram FAIL. |
+| AUD-OCT-02 | P0 | **Six holdings sit at or below their Chandelier** (exit review, not acted on by any job): BAJFINANCE, CUMMINSIND, IKS, M&MFIN, NESTLEIND, CAPLIPOINT. Journal noise watchdog: NESTLEIND stop 0.8×ATR, M&MFIN / BAJFINANCE 1.1×. | Risk Shield + Journal render (3-Oct). | Jay's review, not code. Then one stop rule set in `house_policy` (floor 4×ATR(D) positional, Chandelier 4.5×, noise flag) read by every surface; the Journal watchdog still uses its own 1.5×/2× numbers. |
+| AUD-OCT-03 | P1 | **The reviewer fails 15% of the time, on one provider.** 35 of 236 alert reviews failed — 23 were Gemini 403 PERMISSION_DENIED (project suspension, 17–18 Sep). Only `GEMINI_API_KEY` is set. | `logs/s4_alert_review.log`. | Add a second provider key (the code already supports `--provider auto`); Telegram must say FAILED (it does). |
+| AUD-OCT-04 | P1 | **The reviewer's ruling does not separate outcomes.** TAKE −0.72R, WAIT −0.76R, PASS −0.60R on filled triggers. | `reviewer_scorer`/Live Record, 2-Oct. | Treat the ruling as narration, not a filter, until the Log shows separation; keep scoring it per tier. |
+| AUD-OCT-05 | P1 | **No record of Jay's actual decisions.** `s4_take` used on 1 of 332 reviews; journal rows with a true entry snapshot: 9 (4 closed). Nothing joins a Dhan fill to the review that preceded it. | `ai_review_log.csv my_call`; journal `snapshot_meta`. | Auto-link: when `journal_sync` ADDs a position, stamp the latest Log review of that symbol as TAKEN (fill price, date) — no typing. |
+| AUD-OCT-06 | P1 | **Post-compile chores are manual and drift.** Bindings slipped on 2 of 3 tabs (fixed: verify-and-rebind); alerts lock the compiled version (86.0 vs chart 87.0) and the nightly refresh copies the old version along; library import must be bumped by hand. | `tv_bind_s4 --check`, alert `pine_version`. | One `AFTER_COMPILE.bat`: bind + verify → upgrade both alerts' `pine_version` to the chart's when the input ids match → push bundles → print OK/FAIL per step. |
+| AUD-OCT-07 | P1 | **Two schedulers own overlapping jobs.** In-app daemon (runs only while Web Commander is up) and Task Scheduler both carry trail / exit scan / token check; they disagree (AUD-OCT-01). | `scheduler.log`, Task Scheduler list. | Task Scheduler owns every daily job; the daemon keeps only app-bound jobs (stream, bar-close rebuilds). |
+| AUD-OCT-08 | P2 | **Board Arm column on the streaming grid errors on every tick** — `No objects to concatenate` (st_aggrid casting an empty frame when the 5/5 filter shows no rows). All 8 arm records ended CANCELLED via the grid. | 945 warnings in 7 days (`gm_errors.log`); `gm_armed.json`. | Guard the empty frame; then verify an arm survives a bar-close rebuild. |
+| AUD-OCT-09 | P2 | **Log hygiene.** The test suite writes into the production `gm_errors.log` (138 `gm_armed` warnings from temp stores); 497 INFO lines a week from `s4_fund_lists`. Real errors drown. | `gm_errors.log`. | conftest detaches the gm_log file handler; INFO to a separate file. |
+| AUD-OCT-10 | P2 | **Slow pages (cold):** BREADTH 161 s, DASHBOARD 34 s, MACRO 32 s, WATCHLIST 29 s, GOLDEN MATCHER 25 s. | `render_pages.py`. | Breadth reads the nightly `latest_breadth.json` instead of recomputing; cache the rest per session. |
+| AUD-OCT-11 | P2 | **S5 Geometry / Levels / Read withheld since 11-Sep** ("not yet fine-tuned"), so the reviewer never sees them. | `s4_review.S5_SKIP_SECTIONS`. | Tune and release, or retire them from the panel. |
+| AUD-OCT-12 | P2 | **S4 at the compiled-size ceiling**, 32 bound sources, 6,482 + 3,475 library lines; every feature needs a matching cut. | file sizes; compile history. | Keep moving prose/logic into S4Core; prefer reading v67 via bindings over recomputing. |
+| AUD-OCT-13 | P2 | **Code health:** 297 bare `except Exception` blocks in the web app/pages; 40 test files for ~23k lines of app code; 3 F? rows per board (screener.in breaker). | grep. | Continue the except sweep page by page (Risk Shield 24, router 31 first). |
+| AUD-OCT-14 | P2 | **60 commits unpushed** — pushes are blocked for the assistant. | `git status`. | Jay pushes, or adds a permission rule. |
+
+Clean: 22/22 pages render with no exception; boards have no ⧖D fallbacks and no stale rows; all Task
+Scheduler jobs last result 0; catalyst sentinel no blackouts; token refresh healthy; Live Record and
+entry shadow running.
+
+### Enhancements proposed (not built)
+1. **Evening health digest** — one Telegram after the auto-pilot: phases OK/WARN/FAIL, trail tightened/failed,
+   reviewer failures, unbound S4 tabs, alert version drift, exit-review names. AUD-OCT-01 would have
+   surfaced on 11-Sep.
+2. **Decision capture** (AUD-OCT-05) — the Log becomes a record of what was *done*, not only what was read.
+3. **AFTER_COMPILE.bat** (AUD-OCT-06).
+4. **Exit-review list as an action** — the Chandelier-breached names in the morning digest with the
+   current stop and the Chandelier level side by side.
