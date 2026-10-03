@@ -1141,6 +1141,23 @@ def main():
                 p.status = "SKIP"
                 p.message = f"skipped: {e}"[:160]
 
+    # 12e. TRADE LOG (3-Oct-2026, Jay: "the Take-it / Take-it reduced reviews are the pool -
+    # compare them with the actual trades and build the trade log"). Every TAKE review vs Dhan's
+    # own BUY fills: TAKEN / SKIPPED (with what S4's plan did) / OFF-LOG buys. Read-only.
+    with run.phase("Phase 12e — trade log") as p:
+        try:
+            import subprocess as _sp
+            _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "trade_log.py")],
+                         capture_output=True, text=True, timeout=10 * 60)
+            _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
+            for _ln in _lines:
+                logger.info(f"   ↳ {_ln}")
+            p.message = (_lines[-1] if _lines else "done")[:160]
+            if _r.returncode != 0:
+                p.status = "WARN"
+        except Exception as e:
+            p.status = "SKIP"; p.message = f"skipped: {e}"[:160]
+
     # 13. BOARD REVIEWS (2-Oct-2026, Jay): every 5/5 GO on the Daily, 125m and 75m boards just
     # rebuilt by Phase 12 is queued on the AI reviewer, labelled "board" in the Reviewer Log
     # (his evening REVIEW.bat routine, which logged them as "manual"). Queued on the alert
@@ -1173,6 +1190,24 @@ def main():
     logger.info("="*60)
     logger.info(f"[log] Full console log saved -> {log_path}")
 
+
+    # 14. EVENING DIGEST (3-Oct-2026, Jay; audit AUD-OCT-01). One Telegram: phases not OK,
+    # boards, reviewer failures, trade log, S4 bindings per tab, alert versions, exit-review
+    # count. Last on purpose - it reports on everything above. EVENING_DIGEST=0 skips.
+    with run.phase("Phase 14 — evening digest") as p:
+        if os.getenv("EVENING_DIGEST", "1") == "0":
+            p.status = "SKIP"; p.message = "EVENING_DIGEST=0"
+        else:
+            try:
+                import subprocess as _sp
+                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "evening_digest.py")],
+                             capture_output=True, text=True, timeout=10 * 60)
+                _tail = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()][-1:] or ["done"]
+                p.message = _tail[0][:160]
+                if _r.returncode != 0 or "NOT SENT" in _r.stdout:
+                    p.status = "WARN"
+            except Exception as e:
+                p.status = "SKIP"; p.message = f"skipped: {e}"[:160]
 
     # ── SHUTDOWN ───────────────────────────────────────────────────────────
     # The 27-Aug run reached this point at 22:25 and then sat idle for 24 HOURS
