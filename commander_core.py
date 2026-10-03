@@ -26,8 +26,8 @@ def get_sector(symbol):
         rec = sl.get_sector(symbol)
         if rec:
             return rec.get('display_name') or rec.get('sector_name') or "Unknown"
-    except Exception:
-        pass
+    except Exception as _sx:
+        _gm_logger.info("swallowed commander_core.py:29: %s", _sx)
     return "Unknown"
 
 logger = logging.getLogger("__main__")   # the app's logger - same name as before the move
@@ -407,8 +407,8 @@ def _g(d: dict, *keys, default=None):
             try:
                 if isinstance(v, float) and math.isnan(v):
                     continue                    # NaN == missing → next key / default
-            except Exception:
-                pass                            # non-numeric oddball → return as-is
+            except Exception as _sx:
+                _gm_logger.info("swallowed commander_core.py:410: %s", _sx)  # non-numeric oddball → return as-is
             return v
     return default
 
@@ -474,8 +474,8 @@ def _expected_last_session():
     try:
         import nse_calendar as _nc
         return _nc.last_completed_session()
-    except Exception:
-        pass
+    except Exception as _sx:
+        _gm_logger.info("swallowed commander_core.py:477: %s", _sx)
     now = datetime.now()
     d = now.date()
     market_closed_today = (d.weekday() < 5) and (now.hour * 60 + now.minute) >= (15 * 60 + 30)

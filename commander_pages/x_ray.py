@@ -36,8 +36,8 @@ if True:
                                 st.session_state["xr_sym_input"] = sym
                                 st.session_state["xr_symbol"] = sym
                                 return
-            except Exception:
-                pass
+            except Exception as _sx:
+                _swlog.info("swallowed x_ray.py:39: %s", _sx)
 
     if not _FUND_OK:
         st.error("❌ fundamental_hub module not available.")

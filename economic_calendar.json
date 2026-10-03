@@ -2,28 +2,10 @@
   "_doc": [
     "Auto-refreshed from investing.com/economic-calendar (country=India, timezone=IST). Run market_data_hub.refresh_calendar_from_investing() to repull."
   ],
-  "last_updated": "2026-09-09",
+  "last_updated": "2026-09-24",
   "events": [
     {
-      "date": "2026-09-09",
-      "event": "M3 Money Supply",
-      "importance": "LOW",
-      "previous": "",
-      "forecast": "",
-      "actual": "",
-      "source": "investing.com"
-    },
-    {
-      "date": "2026-09-10",
-      "event": "Thomson Reuters IPSOS PCSI  (Sep)",
-      "importance": "LOW",
-      "previous": "",
-      "forecast": "",
-      "actual": "",
-      "source": "investing.com"
-    },
-    {
-      "date": "2026-09-11",
+      "date": "2026-09-25",
       "event": "FX Reserves, USD",
       "importance": "LOW",
       "previous": "",
@@ -32,8 +14,8 @@
       "source": "investing.com"
     },
     {
-      "date": "2026-09-14",
-      "event": "WPI Food (YoY)  (Aug)",
+      "date": "2026-09-28",
+      "event": "Cumulative Industrial Production  (Aug)",
       "importance": "LOW",
       "previous": "",
       "forecast": "",
@@ -41,8 +23,8 @@
       "source": "investing.com"
     },
     {
-      "date": "2026-09-14",
-      "event": "WPI Fuel (YoY)  (Aug)",
+      "date": "2026-09-28",
+      "event": "Industrial Production (YoY)  (Aug)",
       "importance": "LOW",
       "previous": "",
       "forecast": "",
@@ -50,17 +32,8 @@
       "source": "investing.com"
     },
     {
-      "date": "2026-09-14",
-      "event": "WPI Inflation (YoY)  (Aug)",
-      "importance": "MEDIUM",
-      "previous": "",
-      "forecast": "",
-      "actual": "",
-      "source": "investing.com"
-    },
-    {
-      "date": "2026-09-14",
-      "event": "WPI Manufacturing Inflation (YoY)  (Aug)",
+      "date": "2026-09-28",
+      "event": "Manufacturing Output (MoM)  (Aug)",
       "importance": "LOW",
       "previous": "",
       "forecast": "",
@@ -68,17 +41,8 @@
       "source": "investing.com"
     },
     {
-      "date": "2026-09-14",
-      "event": "CPI (YoY)  (Aug)",
-      "importance": "MEDIUM",
-      "previous": "",
-      "forecast": "",
-      "actual": "",
-      "source": "investing.com"
-    },
-    {
-      "date": "2026-09-15",
-      "event": "Exports (USD)  (Aug)",
+      "date": "2026-09-30",
+      "event": "Federal Fiscal Deficit  (Aug)",
       "importance": "LOW",
       "previous": "",
       "forecast": "",
@@ -86,8 +50,8 @@
       "source": "investing.com"
     },
     {
-      "date": "2026-09-15",
-      "event": "Imports (USD)  (Aug)",
+      "date": "2026-09-30",
+      "event": "Trade Balance (USD)  (Q4)",
       "importance": "LOW",
       "previous": "",
       "forecast": "",
@@ -95,8 +59,8 @@
       "source": "investing.com"
     },
     {
-      "date": "2026-09-15",
-      "event": "Trade Balance  (Aug)",
+      "date": "2026-09-30",
+      "event": "Foreign Debt (USD)  (Q2)",
       "importance": "LOW",
       "previous": "",
       "forecast": "",
@@ -104,16 +68,7 @@
       "source": "investing.com"
     },
     {
-      "date": "2026-09-16",
-      "event": "M3 Money Supply",
-      "importance": "LOW",
-      "previous": "",
-      "forecast": "",
-      "actual": "",
-      "source": "investing.com"
-    },
-    {
-      "date": "2026-09-23",
+      "date": "2026-10-01",
       "event": "HSBC India Manufacturing PMI  (Sep)",
       "importance": "LOW",
       "previous": "",
@@ -122,7 +77,34 @@
       "source": "investing.com"
     },
     {
-      "date": "2026-09-23",
+      "date": "2026-10-02",
+      "event": "Bank Loan Growth",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-10-02",
+      "event": "Deposit Growth",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-10-02",
+      "event": "FX Reserves, USD",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-10-06",
       "event": "HSBC India Services PMI  (Sep)",
       "importance": "LOW",
       "previous": "",
@@ -131,8 +113,35 @@
       "source": "investing.com"
     },
     {
-      "date": "2026-09-23",
+      "date": "2026-10-06",
       "event": "HSBC Manufacturing & Services PMI  (Sep)",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-10-07",
+      "event": "Cash Reserve Ratio",
+      "importance": "LOW",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-10-07",
+      "event": "Interest Rate Decision",
+      "importance": "MEDIUM",
+      "previous": "",
+      "forecast": "",
+      "actual": "",
+      "source": "investing.com"
+    },
+    {
+      "date": "2026-10-07",
+      "event": "Reverse REPO Rate",
       "importance": "LOW",
       "previous": "",
       "forecast": "",

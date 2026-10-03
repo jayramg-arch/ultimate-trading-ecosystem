@@ -225,8 +225,8 @@ if True:
                                     "Source":      _source,
                                     "In Portfolio": "✅" if _in_port else "",
                                 })
-                        except Exception:
-                            pass
+                        except Exception as _sx:
+                            _swlog.info("swallowed post_market.py:228: %s", _sx)
 
                     if _mov_rows:
                         _df_mov = pd.DataFrame(_mov_rows).sort_values("Chg%", ascending=False).reset_index(drop=True)

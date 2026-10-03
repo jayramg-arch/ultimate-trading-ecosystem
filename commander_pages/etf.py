@@ -180,8 +180,8 @@ if True:
                         _enrich_cols = [c for c in _enrich_cols
                                         if c in _df_scr.columns]
                         _disp = _disp.merge(_df_scr[_enrich_cols], on="Symbol", how="left")
-                    except Exception:
-                        pass
+                    except Exception as _sx:
+                        _swlog.info("swallowed etf.py:183: %s", _sx)
 
                 st.dataframe(_disp, use_container_width=True, hide_index=True)
 
@@ -492,8 +492,8 @@ Gold floor 10% in RISK_OFF. Debt absorbs residual to 100%.
                                                        "aum_cr", "selected_from", "reason")
                                            if c in _prop.columns]],
                                     left_on="trade_symbol", right_on="Symbol", how="left")
-                except Exception:
-                    pass
+                except Exception as _sx:
+                    _swlog.info("swallowed etf.py:495: %s", _sx)
                 _c1, _c2, _c3 = st.columns(3)
                 _c1.metric("Exposures", len(_mp))
                 _c2.metric("Chart the index", int((_mp["chart_mode"] == "index").sum()))

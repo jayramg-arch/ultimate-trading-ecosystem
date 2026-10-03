@@ -93,3 +93,22 @@ def _guard_production_state(monkeypatch):
     monkeypatch.setattr("builtins.open", guarded_open)
     monkeypatch.setattr(os, "replace", guarded_replace)
     monkeypatch.setattr(os, "rename", guarded_rename)
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _quiet_production_logs():
+    """3-Oct-2026 (audit AUD-OCT-09): tests exercise failure paths on purpose (a corrupt
+    temp register, a missing file) and those warnings were landing in the PRODUCTION
+    logs/gm_errors.log - 138 'gm_armed: store unreadable' lines a week that read like live
+    faults. Detach the golden_matcher file handlers for the test session."""
+    import logging
+    lg = logging.getLogger("golden_matcher")
+    saved = list(lg.handlers)
+    for h in saved:
+        lg.removeHandler(h)
+    lg.addHandler(logging.NullHandler())
+    yield
+    for h in list(lg.handlers):
+        lg.removeHandler(h)
+    for h in saved:
+        lg.addHandler(h)

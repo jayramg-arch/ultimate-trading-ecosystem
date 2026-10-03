@@ -59,8 +59,8 @@ if True:
                         import nse_options as _nse_mod
                         _nse_mod._session_obj   = None
                         _nse_mod._session_built = 0.0
-                    except Exception:
-                        pass
+                    except Exception as _sx:
+                        _swlog.info("swallowed options.py:62: %s", _sx)
                 _oc_result = _get_oc(_oc_sym, int(_oc_expiry_idx))
                 st.session_state["oc_data_" + _oc_sym] = _oc_result
 

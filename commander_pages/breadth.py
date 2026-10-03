@@ -32,8 +32,8 @@ if True:
                     _ad_for_regime = None
                     try:
                         _bm_for_regime = calculate_breadth_metrics()
-                    except Exception:
-                        pass
+                    except Exception as _sx:
+                        _swlog.info("swallowed breadth.py:35: %s", _sx)
                     try:
                         from breadth_engine import load_or_bootstrap_ad_history as _load_ad
                         _ad_for_regime = _load_ad(min_rows=40)
@@ -395,8 +395,8 @@ if True:
                                        f"({_age_days}d ago, MSI={_last_msi:+.0f})")
                     except Exception:
                         st.caption(f"Last persisted state: {_last_d}, MSI={_last_msi:+.0f}")
-            except Exception:
-                pass
+            except Exception as _sx:
+                _swlog.info("swallowed breadth.py:398: %s", _sx)
 
             if st.button("📊 Compute McClellan Oscillator", key="br_mcl_btn", type="primary"):
                 with st.spinner("Loading A/D history — first run downloads 60 days of data for Nifty 500…"):

@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 3 Oct · 34 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 3 Oct · 35 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,17 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">3 Oct<br>audit &amp; plumbing</td>
+        <td><b>An audit found the stop trail had never moved a stop</b> — every modify since 11 Sep was refused by
+        Dhan (DH-905, no whitelisted IP) while the job reported success. The task is disabled (stops by hand) and two
+        Telegram digests now report what the plumbing did: a <b>morning</b> exit review (holdings at/below their
+        Chandelier) and an <b>evening</b> health report (phases, boards, reviewer failures, bindings, alert versions).
+        New: the <b>Trade Log</b> (TAKE reviews vs Dhan fills), a reviewer <b>fallback model</b>,
+        <b>AFTER_COMPILE.bat</b>, one owner per scheduled job (Task Scheduler), a Breadth snapshot (161 s → instant
+        after the close), quieter logs, and a trail for the 51 silent exception handlers.</td>
+        <td class="af">26 · 32 · 34</td>
+      </tr>
       <tr>
         <td class="dt">3 Oct<br>T2 &amp; binding</td>
         <td><b>Two fixes found reading SCHNEIDER's daily panel.</b> Recovery plans printed T2 (the 52-week
@@ -744,6 +755,18 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
       </div>
     </a>
 
+    <a class="card" style="--spine:var(--evidence)" href="34_trade_log.html">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 34 &middot; Evidence</p>
+        <p class="card-t">The Trade Log</p>
+        <p class="card-d">Every TAKE the reviewer gave, against what you actually bought on Dhan: taken,
+        skipped (with what S4's plan would have done) and buys taken off the log. No typing &mdash; the
+        fills are the record.</p>
+        <div class="card-m"><span>Rebuilt nightly by auto-pilot Phase 12e · local file</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
     <a class="card" style="--spine:var(--evidence)" href="33_live_record.html">
       <div class="spine"></div>
       <div class="card-b">
@@ -1001,6 +1024,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         <tr><td class="id">23</td><td class="nm"><a href="23_golden_matcher.html">The Golden Matcher</a></td><td>The board, the six-step path, the S4-GO grammar</td><td class="st"><span class="pill page gm">Page</span></td></tr>
         <tr><td class="id">22</td><td class="nm"><a href="22_section_four.html">Section Four</a></td><td>The five-gate GO, the verdict ladder, aged S/R, the Setup row</td><td class="st"><span class="pill page s4">Page</span></td></tr>
         <tr><td class="id">32</td><td class="nm"><a href="32_the_reviewer.html">The Reviewer</a></td><td>How the AI review works, runs, checks itself, and is scored</td><td class="st"><span class="pill page s4">Page</span></td></tr>
+        <tr><td class="id">34</td><td class="nm"><a href="34_trade_log.html">The Trade Log</a></td><td>TAKE reviews vs the trades actually taken</td><td class="st"><span class="pill page ev">Page</span></td></tr>
         <tr><td class="id">33</td><td class="nm"><a href="33_live_record.html">The Live Record</a></td><td>The Log as the backtest: features × outcomes per tier</td><td class="st"><span class="pill page ev">Page</span></td></tr>
         <tr><td class="id">31</td><td class="nm"><a href="31_reviewer_log_v2.html">The Reviewer Log</a></td><td>Every AI review, newest first; the scoring lives here</td><td class="st"><span class="pill page ev">Page</span></td></tr>
         <tr><td class="id">30</td><td class="nm"><a href="30_section_five.html">Section Five</a></td><td>The explain-surface beside S4: footprint, Wyckoff, geometry, the named setups</td><td class="st"><span class="pill page s5">Page</span></td></tr>

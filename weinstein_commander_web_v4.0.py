@@ -6,6 +6,8 @@
 # =============================================================================
 
 import streamlit as st
+import logging as _lg_sw
+_swlog = _lg_sw.getLogger("golden_matcher")   # silent-fallback trail (3-Oct-2026, AUD-OCT-13) -> logs/gm_info.log
 import commander_theme as _theme
 
 # ── PLOTLY DARK DEFAULT (27 Aug 2026) ────────────────────────────────────────
@@ -28,8 +30,8 @@ try:
         )
     )
     _pio.templates.default = "plotly_dark+commander"
-except Exception:
-    pass   # charts still render on Plotly's own default
+except Exception as _sx:
+    _swlog.info("swallowed weinstein_commander_web_v4.0.py:31: %s", _sx)  # charts still render on Plotly's own default
 
 import streamlit.components.v1 as st_components   # for HTML that must RUN script
 import pandas as pd
@@ -214,8 +216,8 @@ def journal_db_path():
                 for _s in _ast.walk(_n.value):
                     if isinstance(_s, _ast.Constant) and isinstance(_s.value, str)                             and _s.value.endswith(".db"):
                         return os.path.join(os.path.dirname(_p), _s.value)
-    except Exception:
-        pass
+    except Exception as _sx:
+        _swlog.info("swallowed weinstein_commander_web_v4.0.py:217: %s", _sx)
     return _jp.JOURNAL_DB
 
 
@@ -371,7 +373,7 @@ def get_earnings_date_cached(sym):
             edate = cal['Earnings Date'][0]
             if isinstance(edate, date): return edate
     except Exception as e:
-        pass
+        _swlog.info("swallowed weinstein_commander_web_v4.0.py:373: %s", e)
     return None
 
 @st.cache_data(ttl=300, show_spinner=False)
@@ -563,8 +565,8 @@ def _nse_session_resource():
         _time.sleep(0.6)
         sess.get("https://www.nseindia.com/option-chain", timeout=12)
         _time.sleep(0.4)
-    except Exception:
-        pass   # proceed — cookies may have partially set; fetch will retry
+    except Exception as _sx:
+        _swlog.info("swallowed weinstein_commander_web_v4.0.py:566: %s", _sx)  # proceed — cookies may have partially set; fetch will retry
     return sess
 
 # ── STARTUP DATA LOAD ─────────────────────────────────────────────────────────
@@ -688,8 +690,8 @@ def _goto_page(key: str):
     st.session_state["page"] = key
     try:
         st.query_params["p"] = key
-    except Exception:
-        pass                       # older Streamlit / read-only params — nav still works
+    except Exception as _sx:
+        _swlog.info("swallowed weinstein_commander_web_v4.0.py:691: %s", _sx)  # older Streamlit / read-only params — nav still works
 
 # 18-Sep: the pop-out views (?view=gm_window / gm_board_maximized / risk_window) hide the
 # sidebar, but the SIDEBAR block below forces `display: block !important` and, being
@@ -1472,8 +1474,8 @@ with st.sidebar:
                             st.error(f"Save failed: {_te}")
                     else:
                         st.warning("Paste a token first.")
-        except Exception:
-            pass
+        except Exception as _sx:
+            _swlog.info("swallowed weinstein_commander_web_v4.0.py:1475: %s", _sx)
 
     # ── Bottom: Mobile / Standalone page links ────────────────────────────
     # These are the originally-mobile-friendly standalone Streamlit pages
@@ -1533,8 +1535,8 @@ if _HUB_OK:
             )
             # Net colour for the cell border-tinge: dominant flow direction
             _fii_col = "var(--bull)" if (_fii_net + _dii_net) >= 0 else "var(--bear)"
-    except Exception:
-        pass
+    except Exception as _sx:
+        _swlog.info("swallowed weinstein_commander_web_v4.0.py:1536: %s", _sx)
 
 # Regime text — composite verdict from market_regime.compute_regime() persisted
 # in regime_state.json by the daily scheduler. Replaces the prior breadth-only
@@ -1585,8 +1587,8 @@ try:
                     f'<div style="font-family:JetBrains Mono,monospace;font-size:0.5rem;'
                     f'color:{_age_col};margin-top:1px;">as of {_comp_dt:%H:%M} · {_age}{_flag}</div>'
                 )
-            except Exception:
-                pass
+            except Exception as _sx:
+                _swlog.info("swallowed weinstein_commander_web_v4.0.py:1588: %s", _sx)
     if _stale:
         from net_utils import is_internet_available
         if is_internet_available():
@@ -1608,19 +1610,19 @@ try:
                             import breadth_engine as _be
                             _bm = _be.calculate_breadth_metrics()
                             _ad = _be.load_or_bootstrap_ad_history(min_rows=40)
-                        except Exception:
-                            pass
+                        except Exception as _sx:
+                            _swlog.info("swallowed weinstein_commander_web_v4.0.py:1611: %s", _sx)
                         _mr.compute_regime(_bm, _ad, persist=True)
-                    except Exception:
-                        pass
+                    except Exception as _sx:
+                        _swlog.info("swallowed weinstein_commander_web_v4.0.py:1614: %s", _sx)
                     finally:
                         try:
                             _mr._regime_update_lock.release()
-                        except Exception:
-                            pass
+                        except Exception as _sx:
+                            _swlog.info("swallowed weinstein_commander_web_v4.0.py:1619: %s", _sx)
                 _threading.Thread(target=_silent_regime_update, daemon=True).start()
-except Exception:
-    pass
+except Exception as _sx:
+    _swlog.info("swallowed weinstein_commander_web_v4.0.py:1622: %s", _sx)
 
 # Fallback: if regime_state.json is missing (fresh install / scheduler hasn't
 # run yet) fall back to the breadth-only label so the pill isn't blank.
@@ -1629,8 +1631,8 @@ if _regime_txt == "–" and _BREADTH_OK:
         _br = calculate_breadth_metrics()
         _regime_txt = build_breadth_regime(_br)
         _regime_col = "var(--bull)" if "BULL" in _regime_txt else "var(--bear)" if "BEAR" in _regime_txt else "var(--warn)"
-    except Exception:
-        pass
+    except Exception as _sx:
+        _swlog.info("swallowed weinstein_commander_web_v4.0.py:1632: %s", _sx)
 
 h_color_cls = _sb_cls(h_color)
 _regime_col_cls = _sb_cls(_regime_col)
@@ -3742,8 +3744,8 @@ def gm_load_symbol(symbol: str) -> dict:
                 # re-deriving it in the rule would risk a different bar.
                 try:
                     out["ctx"]["support"]["_px"] = float(out["df"]["Close"].iloc[-1])
-                except Exception:
-                    pass
+                except Exception as _sx:
+                    _swlog.info("swallowed weinstein_commander_web_v4.0.py:3745: %s", _sx)
         except Exception as e:
             out["ctx"]["support"] = {}
             _gm_logger.warning(f"{symbol}: support-zone detection failed: {e}")

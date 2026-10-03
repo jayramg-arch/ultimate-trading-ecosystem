@@ -273,6 +273,24 @@ footer em{color:var(--ink-2)}
           <li><b>Which tab for which name (2 Oct).</b> Positional names: the <b>Daily</b> tab and the
             Daily close. Swing names: <b>75m/125m</b>. The board's Plan column says which; a row on the
             wrong clock shows <span class="m">⏱D</span> or <span class="m">⏱75/125</span> and is not a GO there.</li>
+          <li><b>Two Telegram digests (3 Oct).</b> <b>08:45 Morning</b> (Task <span class="m">Morning_Digest</span>):
+            the exit review — every holding at or below its Chandelier, with LTP, the Chandelier and your
+            resting stop side by side — plus earnings within 7 days and the market line. Your stops are set by
+            hand (the automated trail cannot modify orders: Dhan DH-905, no whitelisted IP, so
+            <span class="m">GTT_Trail_Daily</span> is disabled); this list <em>is</em> the trail.
+            <b>Evening</b> (auto-pilot <span class="m">Phase 14</span>): phases that were not OK, the three boards,
+            reviewer failures, the trade log, S4 bindings per tab, both alerts and their compiled version,
+            zone alerts and the exit-review count. Both are also saved under <span class="m">reports/digest_*.txt</span>.</li>
+          <li><b>The trade log (3 Oct, Doc 34).</b> Auto-pilot <span class="m">Phase 12e</span> matches every TAKE /
+            TAKE·REDUCED review against your Dhan buys within 3 sessions: TAKEN, SKIPPED (with what S4's plan did)
+            and OFF-LOG buys. No typing — Dhan's fills are the record.</li>
+          <li><b>After any S4 compile: <span class="m">AFTER_COMPILE.bat</span></b> (Desktop shortcut). Binds and
+            verifies every tab, pushes the bundles, and moves both S4 GO alerts to the version just compiled.
+            If the compile deleted the alerts it says so: create the two by hand on GM_Swing, then run it again.</li>
+          <li><b>Who runs what (3 Oct).</b> Windows Task Scheduler owns every daily job — token check 08:00,
+            pre-market 08:30, morning digest 08:45, exit scan 16:00, post-market 16:30, breadth 16:45, auto-pilot
+            16:30, journal sync 16:30, F&amp;O bhavcopy 18:45, weekly report Sun 19:00. Web Commander keeps only the
+            in-session checks (price alerts, feed heartbeat, P&amp;L alarm).</li>
           <li><b>Alerts refresh themselves</b> — auto-pilot Phase 12b, around 16:50–17:10 IST, moves
             the S4 GO alerts onto the new dated watchlists with today's bundles, webhook intact:
             <b>75m and 125m on GM_Swing</b> (Phase 4.8 splits the board list by plan type; a name whose

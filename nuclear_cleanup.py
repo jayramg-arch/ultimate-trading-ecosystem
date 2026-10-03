@@ -378,7 +378,7 @@ async def cleanup_tradingview() -> dict:
                         has=page.locator("div[class*='title-']", has_text=name_rx(wl_name))).first
                     if await row.count() == 0:
                         print(f"      row not found for {wl_name}")
-                        out["failed"].append(wl_name)
+                        out["failed"].append(f"{wl_name} (row not found)")
                         continue
                     await row.scroll_into_view_if_needed()
                     await row.hover()
@@ -386,7 +386,7 @@ async def cleanup_tradingview() -> dict:
                     rm = row.locator("[data-name='remove-button']").first
                     if await rm.count() == 0:
                         print(f"      no Remove control on {wl_name}")
-                        out["failed"].append(wl_name)
+                        out["failed"].append(f"{wl_name} (no Remove control)")
                         continue
                     await rm.click(force=True)
                     await page.wait_for_timeout(700)
@@ -404,13 +404,13 @@ async def cleanup_tradingview() -> dict:
                         out["deleted"] += 1
                         print(f"      deleted {wl_name}")
                     else:
-                        out["failed"].append(wl_name)
+                        out["failed"].append(f"{wl_name} (still listed after Delete)")
                         print(f"      {wl_name} still listed after Delete")
                     if await dialog.count() == 0:          # TV closed it - reopen and continue
                         await page.keyboard.press("Shift+W")
                         await page.wait_for_timeout(1500)
                 except Exception as e:
-                    out["failed"].append(wl_name)
+                    out["failed"].append(f"{wl_name} ({str(e)[:60]})")
                     print(f"      failed on {wl_name}: {e}")
 
             await page.keyboard.press("Escape")

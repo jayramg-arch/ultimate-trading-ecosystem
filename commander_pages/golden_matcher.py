@@ -95,8 +95,8 @@ if True:
                                     st.session_state['gm_pend_sym'] = None
                                     st.session_state['gm_pend_count'] = 0
                                 return
-            except Exception:
-                pass
+            except Exception as _sx:
+                _swlog.info("swallowed golden_matcher.py:98: %s", _sx)
 
     # ── View switch: single-symbol checklist  vs  batch Trigger Board ──────────
     if is_max_board:
@@ -381,8 +381,8 @@ if True:
                     if _cnt:
                         _srcmix = " · src " + "/".join(f"{k}:{v}" for k, v in
                                                        sorted(_cnt.items(), key=lambda x: -x[1]))
-                except Exception:
-                    pass
+                except Exception as _sx:
+                    _swlog.info("swallowed golden_matcher.py:384: %s", _sx)
                 st.caption((f"Full build **{_stamp}**" + (f" · live tech **{_tstamp}**" if _tstamp else "")
                             + (f" · TF **{_btf}**" if _btf else "") + _srcmix
                             + " · RRG persists") if _stamp
@@ -1556,8 +1556,15 @@ if True:
                                    allow_unsafe_jscode=True, reload_data=False,
                                    update_mode=GridUpdateMode.VALUE_CHANGED, key="gm_aggrid")
                     # Arm ticks — SAME shared write-back the data_editor path uses.
+                    # An EMPTY grid (the 5/5 filter showing no rows) makes st_aggrid raise
+                    # "No objects to concatenate" when its data is read - 945 warnings in a
+                    # week (audit AUD-OCT-08). No rows means nothing to persist.
                     try:
-                        if _gm_apply_arm_edits(_resp["data"]):
+                        _rdata = _resp["data"]
+                    except ValueError:
+                        _rdata = None
+                    try:
+                        if _rdata is not None and len(_rdata) and _gm_apply_arm_edits(_rdata):
                             st.rerun()
                     except Exception as e:
                         _gm_logger.warning(f"stream grid: arm edit persist failed: {e}")
@@ -1764,8 +1771,8 @@ if True:
                 _dfh = data.get("df")
                 if _dfh is not None and len(_dfh):
                     _lastbar = _dfh.index[-1].date()
-            except Exception:
-                pass
+            except Exception as _sx:
+                _swlog.info("swallowed golden_matcher.py:1774: %s", _sx)
             _asof = _g(rec, "As_Of") or (_lastbar.strftime("%Y-%m-%d") if _lastbar else None)
             if _lastbar or _asof:
                 _exp_sess = _expected_last_session()
@@ -1780,8 +1787,8 @@ if True:
                     _src = _dpsrc.get_last_source(symbol)
                     if _src and _src not in ("none", "?"):
                         _fresh_txt += f" · src {_src}"
-                except Exception:
-                    pass
+                except Exception as _sx:
+                    _swlog.info("swallowed golden_matcher.py:1790: %s", _sx)
                 if _stale:
                     st.caption(f"⚠️ **STALE — {_fresh_txt}** (last completed session "
                                f"{_exp_sess.strftime('%d-%b')}). Refresh; if it stays behind, the "
@@ -1990,8 +1997,8 @@ if True:
                             "used 30-day forward windows on setups designed for 90-180 days, "
                             "which invalidates it; the one post-fix attempt did not finish. "
                             "Trade this path on your own read, not on a measured edge.")
-                except Exception:
-                    pass
+                except Exception as _sx:
+                    _swlog.info("swallowed golden_matcher.py:2000: %s", _sx)
             elif _ev.get("rec_error"):
                 # P0 fix: an eval FAILURE is decision-different from "no recovery context"
                 # — never render a confident verdict off an error dict.

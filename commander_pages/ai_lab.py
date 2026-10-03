@@ -181,8 +181,8 @@ if True:
                                     _ga_sym_news = filter_by_symbol(_ga_news_df, _ga_sym)
                                     if not _ga_sym_news.empty:
                                         _ga_data["recent_news"] = _ga_sym_news[["title","sentiment"]].head(3).to_dict(orient="records")
-                                except Exception:
-                                    pass
+                                except Exception as _sx:
+                                    _swlog.info("swallowed ai_lab.py:184: %s", _sx)
 
                             # Adjust prompt depth
                             _depth_map = {
@@ -215,8 +215,8 @@ if True:
                     except Exception:
                         _ltp_v = float(yf.Ticker(_ga_disp_sym+'.NS' if not _ga_disp_sym.endswith('.NS') else _ga_disp_sym).fast_info.get('lastPrice', 0))
                     _ltp_disp = f" — ₹{_ltp_v:,.2f}"
-                except Exception:
-                    pass
+                except Exception as _sx:
+                    _swlog.info("swallowed ai_lab.py:218: %s", _sx)
                 section(f"AI Analysis: {_ga_disp_sym}{_ltp_disp}")
                 _render_ai_report(st.session_state["ga_last_report"], header_color="var(--acc)")
 
@@ -509,13 +509,13 @@ if True:
         if os.path.exists(_wr_file):
             try:
                 _wr_cached_text = open(_wr_file, encoding="utf-8").read()
-            except Exception:
-                pass
+            except Exception as _sx:
+                _swlog.info("swallowed ai_lab.py:512: %s", _sx)
         if os.path.exists(_wr_json):
             try:
                 _wr_cached_meta = json.loads(open(_wr_json, encoding="utf-8").read())
-            except Exception:
-                pass
+            except Exception as _sx:
+                _swlog.info("swallowed ai_lab.py:517: %s", _sx)
 
         if _wr_cached_text:
             _wr_age = ""
@@ -553,8 +553,8 @@ if True:
                         try:
                             _bdata = json.loads(open(_bl, encoding="utf-8").read())
                             _wr_snapshot["breadth"] = _bdata.get("breadth", {})
-                        except Exception:
-                            pass
+                        except Exception as _sx:
+                            _swlog.info("swallowed ai_lab.py:556: %s", _sx)
 
                     _wr_snapshot["generated_at"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     _fresh_report = _gen_weekly(_wr_snapshot)

@@ -177,8 +177,8 @@ def _canon_key(s: str) -> str:
             out = str(_canonical_nse_symbol(s) or "").strip().upper()
             if out:
                 return out
-        except Exception:
-            pass
+        except Exception as _sx:
+            _log.info("swallowed gm_trigger_board.py:180: %s", _sx)
     return _canon_key_strip(s)
 
 
@@ -209,8 +209,8 @@ def _g(d: dict, *keys, default=None):
             try:
                 if isinstance(v, float) and math.isnan(v):
                     continue
-            except Exception:
-                pass
+            except Exception as _sx:
+                _log.info("swallowed gm_trigger_board.py:212: %s", _sx)
             return v
     return default
 
@@ -1816,8 +1816,8 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
             try:
                 import pa_patterns as _pap
                 _fr["W"] = _pap._confirmed_weekly_ohlcv(_dfd)
-            except Exception:
-                pass
+            except Exception as _sx:
+                _log.info("swallowed gm_trigger_board.py:1819: %s", _sx)
         if _fr:
             room = _zre.overhead_room(_fr, cmp_px, entry=entry,
                                       risk=(entry - sl) if (entry and sl and entry > sl) else None) or {}

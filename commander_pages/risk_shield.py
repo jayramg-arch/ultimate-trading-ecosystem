@@ -198,16 +198,16 @@ if True:
             with open(_tmp, "w") as f:
                 json.dump(obj, f)
             os.replace(_tmp, path)
-        except Exception:
-            pass
+        except Exception as _sx:
+            _swlog.info("swallowed risk_shield.py:201: %s", _sx)
 
     _portfolio_history = {}
     if os.path.exists(PORTFOLIO_FILE):
         try:
             with open(PORTFOLIO_FILE, "r") as f:
                 _portfolio_history = json.load(f)
-        except Exception:
-            pass
+        except Exception as _sx:
+            _swlog.info("swallowed risk_shield.py:209: %s", _sx)
     _today_str = datetime.date.today().isoformat()
     # Only a LIVE reading goes into the equity history; a Dhan outage used to write the
     # invented ₹50L fallback as that day's equity.
@@ -573,8 +573,8 @@ if True:
                     if _rs_score9 is not None:
                         _rs_regime_bear = _HP.is_bear(_rs_score9)
                         _rs_regime_chip = f"{_rs_reg.get('verdict','?')} ({_rs_score9}/10)"
-                except Exception:
-                    pass
+                except Exception as _sx:
+                    _swlog.info("swallowed risk_shield.py:576: %s", _sx)
 
                 # Catalyst-aware trail multipliers now live in risk_common.chandelier_exit
                 # (shared single source of truth with the Pyramid/Trim page).
@@ -816,8 +816,8 @@ if True:
                                 _asof_s = str(max(_asof_candidates).date())
                                 st.session_state["rs_tech_asof"] = _asof_s
                                 hist_data["_asof"] = _asof_s
-                        except Exception:
-                            pass
+                        except Exception as _sx:
+                            _swlog.info("swallowed risk_shield.py:819: %s", _sx)
 
                         for _s in missing_syms:
                             df_sym = _batch_data.get(_s)
@@ -1084,8 +1084,8 @@ if True:
                                f"{', '.join(_order_only9)})" if _order_only9 else f" ({len(holdings_map)} holdings)")
                     st.caption(f"🩺 Data: LTP sources [{_src_str}] · technicals as-of {_asof9} "
                                f"· hist cache {_nsyms9} syms{_split9}")
-                except Exception:
-                    pass
+                except Exception as _sx:
+                    _swlog.info("swallowed risk_shield.py:1087: %s", _sx)
 
                 _ai_tasks = []
                 for _sym, _orders in sell_gtts_by_symbol.items():
@@ -1242,8 +1242,8 @@ if True:
                             for _a in _scres.get("alerts", []):
                                 _sc_alerts.append({"type": "SECTOR", "sym": str(_a.get("Sector", "?")),
                                                    "msg": f"Sector {_a.get('Exposure', '?')} of book (>25%)"})
-                        except Exception:
-                            pass
+                        except Exception as _sx:
+                            _swlog.info("swallowed risk_shield.py:1245: %s", _sx)
                         try:
                             from ai_risk_manager import get_portfolio_correlation_matrix as _gpc
                             _corr_df5, _shadow5, _div5 = _gpc(list(holdings_map.keys()))
@@ -1261,8 +1261,8 @@ if True:
                         _sc_cache = {"ts": _t5.time(), "alerts": _sc_alerts}
                         st.session_state["rs_sector_corr"] = _sc_cache
                     alerts.extend(_sc_cache.get("alerts", []))
-                except Exception:
-                    pass
+                except Exception as _sx:
+                    _swlog.info("swallowed risk_shield.py:1264: %s", _sx)
 
                 # 1. Alerts
                 if alerts:
@@ -1579,16 +1579,16 @@ if True:
                                             _cn4.execute("UPDATE journal SET manual_sl_override=? "
                                                          "WHERE symbol=? AND status='OPEN'", (_new_sl, _psym))
                                             _cn4.commit(); _cn4.close()
-                                        except Exception:
-                                            pass
+                                        except Exception as _sx:
+                                            _swlog.info("swallowed risk_shield.py:1582: %s", _sx)
                                         try:
                                             os.makedirs("logs", exist_ok=True)
                                             with open(os.path.join("logs", "risk_shield_actions.log"), "a", encoding="utf-8") as _alf:
                                                 _alf.write(f"{datetime.datetime.now().isoformat(timespec='seconds')} "
                                                            f"TIGHTEN_SL {_psym} {_old_sl} -> {_new_sl} "
                                                            f"order={_oco0['order_id']} resp={_resp}\n")
-                                        except Exception:
-                                            pass
+                                        except Exception as _sx:
+                                            _swlog.info("swallowed risk_shield.py:1590: %s", _sx)
                                 except Exception as _pex:
                                     _exec_results.append((_psym, False, f"EXCEPTION: {_pex}"))
                             for _psym, _ok, _msg in _exec_results:
@@ -1753,8 +1753,8 @@ if True:
                                                                         f"title='Policy is {_want:.1f}R for this leg ({_basis}). "
                                                                         f"This order is {_why}. Re-place it.'>"
                                                                         f"&#9888; vs {_want:.1f}R</span>")
-                                                    except Exception:
-                                                        pass
+                                                    except Exception as _sx:
+                                                        _swlog.info("swallowed risk_shield.py:1756: %s", _sx)
                                             tgt_parts.append(tgt_str)
 
                                     header_entry = f"<b style='color:var(--faint);'>Entry ₹{buy_price:,.2f}</b>" if buy_price else "<b style='color:var(--faint);'>Entry: N/A</b>"
@@ -1900,8 +1900,8 @@ if True:
                                                 _a = float(ltp) * float(_tech.get("atr_pct")) / 100.0
                                                 _ce_g = (float(ltp) - float(_tech.get("chandelier_exit"))) / _a   # not `_g`: that name is the shared dict-getter
                                                 _ce_gap = f" · {_ce_g:.1f}×ATR below"
-                                            except Exception:
-                                                pass
+                                            except Exception as _sx:
+                                                _swlog.info("swallowed risk_shield.py:1903: %s", _sx)
                                             _flags.append(f"<span style='background: var(--surface-2);color:#C084FC;border:1.5px solid #7C3AED;padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>TSL({_ce_lbl}): ₹{_tech.get('chandelier_exit'):.0f}{_ce_gap}</span>")
                                         if _tech.get("invalid_ce_override"):
                                             _flags.append(f"<span style='background:#451A1A;color:var(--bear);padding:3px 8px;border-radius:6px;font-size:0.72rem;margin-right:6px;font-weight:700;'>⚠ invalid CE override ignored</span>")

@@ -31,8 +31,8 @@ if True:
             try:
                 from news_feed import _cache as _nw_cache_store
                 _nw_cache_store.clear()
-            except Exception:
-                pass
+            except Exception as _sx:
+                _swlog.info("swallowed news.py:34: %s", _sx)
 
         _nw_df = pd.DataFrame()
         _nw_health = {}

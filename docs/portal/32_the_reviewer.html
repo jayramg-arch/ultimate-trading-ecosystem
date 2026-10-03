@@ -283,6 +283,11 @@ footer a{color:var(--acc)}
     <span class="tag">The model</span>
     <p>Default <code>gemini-3.5-flash-lite</code> since 29 Sep (was 3.1-flash-lite) — the tier the rest of the app uses.
     <code>--provider claude</code> is opt-in (<code>S4_REVIEW_ANTHROPIC_KEY</code>, <code>claude-opus-5</code>).
+    <b>Fallback (3 Oct):</b> when the primary fails, <code>gemini-3.1-flash-lite</code> answers instead
+    (<code>S4_REVIEW_GEMINI_FALLBACK</code>); the log's provider column says <i>(fallback)</i>. It covers model
+    outages and overloads. It does <em>not</em> cover a suspended project (the 17–18 Sep 403s) unless
+    <code>GEMINI_API_KEY_2</code> holds a key from a different Google project. 35 of 236 alert reviews had failed
+    on the single provider.
     Flash-lite is fast and cheap and its <em>judgement</em> has been worth having; its
     <em>arithmetic</em> and its habit of writing “v67 confirms this” against a row that said the
     opposite are exactly why section 08 exists.</p>
@@ -585,6 +590,8 @@ python s4_take.py CHOLAFIN --skip "sector Stage 4"            # passed on it —
     <tbody>
       <tr><td class="m">GEMINI_API_KEY</td><td class="m">—</td><td>Required for the default provider</td></tr>
       <tr><td class="m">S4_REVIEW_GEMINI_MODEL</td><td class="m">gemini-3.5-flash-lite</td><td>The model behind <code>--provider auto</code></td></tr>
+      <tr><td class="m">S4_REVIEW_GEMINI_FALLBACK</td><td class="m">gemini-3.1-flash-lite</td><td>Tried when the primary fails</td></tr>
+      <tr><td class="m">GEMINI_API_KEY_2</td><td class="m">—</td><td>Optional key for the fallback, ideally from another Google project</td></tr>
       <tr><td class="m">S4_REVIEW_ANTHROPIC_KEY · S4_REVIEW_MODEL</td><td class="m">— · claude-opus-5</td><td>Opt-in Claude path (<code>--provider claude</code>). Never reads <code>ANTHROPIC_MODEL</code> / <code>BASE_URL</code></td></tr>
       <tr><td class="m">S4_REVIEW_KEY</td><td class="m">(falls back to WEBHOOK_SECRET)</td><td>The key in the alert URL. Private to the tunnel; never commit it</td></tr>
       <tr><td class="m">NGROK_DOMAIN</td><td class="m">—</td><td>The static ngrok domain, so the alert URL never changes across restarts</td></tr>

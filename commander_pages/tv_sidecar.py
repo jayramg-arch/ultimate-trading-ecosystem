@@ -55,8 +55,8 @@ if True:
                                     st.session_state["tv_pend_sym"] = None
                                     st.session_state["tv_pend_count"] = 0
                                 return
-            except Exception:
-                pass
+            except Exception as _sx:
+                _swlog.info("swallowed tv_sidecar.py:58: %s", _sx)
 
     _tv_col1, _tv_col2 = st.columns([2, 4])
     with _tv_col1:

@@ -160,6 +160,10 @@ def load_universe_symbols() -> list:
 # ---------------------------------------------------------------------------
 # Function 2: calculate_breadth_metrics
 # ---------------------------------------------------------------------------
+def _eod_snapshot_path(period: str) -> str:
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), "reports", "breadth_eod_%s.pkl" % period)
+
+
 def calculate_breadth_metrics(symbols=None, period: str = "15mo", ttl: int = 1800) -> dict:
     """
     Core breadth calculation across the NSE universe.
@@ -186,6 +190,25 @@ def calculate_breadth_metrics(symbols=None, period: str = "15mo", ttl: int = 180
     if cached is not None:
         logger.debug("Breadth metrics cache hit")
         return cached
+
+    # EOD SNAPSHOT (3-Oct-2026, audit AUD-OCT-10: the Breadth page took 161 s cold). Once a
+    # session has closed its breadth cannot change, so the full result (detailed_df included)
+    # is pickled by the first computation after the close - normally the 16:45 breadth job -
+    # and every later call until the next session opens loads it in a second. During market
+    # hours the snapshot is never used: the page computes live, as before.
+    _snap = _eod_snapshot_path(period) if symbols is None else None
+    if _snap is not None:
+        try:
+            import nse_calendar as _nc
+            if not _nc.is_session_open() and os.path.exists(_snap):
+                import pickle
+                with open(_snap, "rb") as _f:
+                    _obj = pickle.load(_f)
+                if str(_obj.get("session")) == _nc.last_completed_session().isoformat():
+                    _ttl_set(cache_key, _obj["result"], ttl)
+                    return _obj["result"]
+        except Exception as _se:
+            logger.warning("breadth EOD snapshot unreadable (computing fresh): %s", _se)
 
     if not is_internet_available():
         logger.warning("[breadth_engine] Internet offline: loading cached breadth metrics from disk.")
@@ -347,6 +370,16 @@ def calculate_breadth_metrics(symbols=None, period: str = "15mo", ttl: int = 180
     }
 
     _ttl_set(cache_key, result, ttl)
+    if _snap is not None:
+        try:
+            import nse_calendar as _nc
+            if not _nc.is_session_open():
+                import pickle
+                with open(_snap + ".tmp", "wb") as _f:
+                    pickle.dump({"session": _nc.last_completed_session().isoformat(), "result": result}, _f)
+                os.replace(_snap + ".tmp", _snap)
+        except Exception as _se:
+            logger.warning("breadth EOD snapshot not written: %s", _se)
     logger.info(
         "Breadth metrics: %d stocks | A/D %.2f | Above50 %.1f%% | Stage2 %.1f%%",
         total, ad_ratio, above50_pct, stage2_pct,

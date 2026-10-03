@@ -916,3 +916,18 @@ entry shadow running.
 3. **AFTER_COMPILE.bat** (AUD-OCT-06).
 4. **Exit-review list as an action** — the Chandelier-breached names in the morning digest with the
    current stop and the Chandelier level side by side.
+
+### Status — 3 Oct 2026, same day (Jay's calls)
+- **AUD-OCT-01** DONE: `GTT_Trail_Daily` disabled; stops by hand. Morning digest carries the exit review.
+- **AUD-OCT-02** Jay reviewing the six names by hand; the stop-rule consolidation is still OPEN.
+- **AUD-OCT-03** DONE (partly): fallback model `gemini-3.1-flash-lite`; `GEMINI_API_KEY_2` (another project) still to add for a suspended-project outage.
+- **AUD-OCT-04** answered — no code.
+- **AUD-OCT-05** DONE: `trade_log.py` (Phase 12e, Doc 34) — TAKE reviews vs Dhan BUY fills. First run: 108 TAKEs, 0 taken (no buys since 4 Sep), 28 skipped TAKEs scored −0.60R at 5 sessions.
+- **AUD-OCT-06** DONE: `AFTER_COMPILE.bat` + `tv_gm_alerts --upgrade-version`; both alerts moved 86.0 → 87.0, verified.
+- **AUD-OCT-07** DONE: Task Scheduler owns the daily jobs (4 new tasks via `run_daemon_job.py`); the app keeps 3 in-session pollers.
+- **AUD-OCT-08** DONE: empty-grid guard. **AUD-OCT-09** DONE: errors-only `gm_errors.log`, INFO to `gm_info.log`, tests detached.
+- **AUD-OCT-10** DONE for Breadth (EOD snapshot pickle; instant after the close); other pages unchanged.
+- **AUD-OCT-11** deferred by Jay (S5 Geometry in about a week). **AUD-OCT-12** standing.
+- **AUD-OCT-13** DONE for the silent ones: 51 `except: pass` now log to `gm_info.log` (`swallowed <file>:<line>`).
+- **AUD-OCT-14** Jay pushes.
+- New: watchlist cleanup fails on `XRay_Picks-30SEP26` every run; failure reasons are now recorded in the phase message.

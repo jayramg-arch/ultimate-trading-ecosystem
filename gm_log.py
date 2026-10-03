@@ -31,7 +31,17 @@ if not any(isinstance(h, RotatingFileHandler)
                                  encoding="utf-8")
         _h.setFormatter(logging.Formatter(
             "%(asctime)s %(levelname)s %(message)s", datefmt="%Y-%m-%d %H:%M:%S"))
+        # 3-Oct-2026 (audit AUD-OCT-09): gm_errors.log is WARNING and above only. INFO
+        # (497 "s4_fund_lists: added N off-board holdings" lines a week) buried the real
+        # errors; it goes to gm_info.log instead.
+        _h.setLevel(logging.WARNING)
         gm_log.addHandler(_h)
+        _hi = RotatingFileHandler(os.path.join(_LOG_DIR, "gm_info.log"), maxBytes=2_000_000,
+                                  backupCount=2, encoding="utf-8")
+        _hi.setFormatter(_h.formatter)
+        _hi.setLevel(logging.INFO)
+        _hi.addFilter(lambda r: r.levelno < logging.WARNING)
+        gm_log.addHandler(_hi)
         gm_log.setLevel(logging.INFO)
         gm_log.propagate = False        # don't spam the Streamlit console
     except Exception:

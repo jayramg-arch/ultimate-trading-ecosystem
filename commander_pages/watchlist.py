@@ -991,8 +991,8 @@ if True:
                                 _fig.add_hline(y=0, line_dash="dot",
                                                 line_color="#B6C4C6")
                                 st.plotly_chart(_fig, use_container_width=True)
-                        except Exception:
-                            pass
+                        except Exception as _sx:
+                            _swlog.info("swallowed watchlist.py:994: %s", _sx)
 
                         st.download_button(
                             "📥 Download Validation Summary (CSV)",
