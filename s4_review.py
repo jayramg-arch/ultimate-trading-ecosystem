@@ -86,6 +86,12 @@ CLAUDE_BASE = (os.getenv("S4_REVIEW_BASE_URL") or "https://api.anthropic.com").r
 # Same tier ai_provider_manager.ask_llm already pays for. Jay's call (11-Sep): cost first;
 # Claude stays opt-in via --provider claude and is never in the auto path.
 GEMINI_MODEL = os.getenv("S4_REVIEW_GEMINI_MODEL", "gemini-3.5-flash-lite")
+# SECONDARY (3-Oct-2026, Jay; audit AUD-OCT-03: 35 of 236 alert reviews failed, 23 of them a
+# Gemini 403 PERMISSION_DENIED project suspension). Tried only when the primary fails.
+# A second MODEL on the same key covers model outages and overloads (504 / 429 / 5xx); it
+# does NOT cover a suspended project - put a key from a DIFFERENT Google project in
+# GEMINI_API_KEY_2 for that. Unset key 2 = the fallback uses GEMINI_API_KEY.
+GEMINI_FALLBACK_MODEL = os.getenv("S4_REVIEW_GEMINI_FALLBACK", "gemini-3.1-flash-lite")
 
 
 # ---------------------------------------------------------------------------------------
@@ -1210,8 +1216,8 @@ def ask_claude(prompt: str, model: str = DEFAULT_MODEL) -> str:
     return "".join(b.get("text", "") for b in r.json().get("content", []) if b.get("type") == "text").strip()
 
 
-def ask_gemini(prompt: str, model: str = GEMINI_MODEL) -> str:
-    key = os.getenv("GEMINI_API_KEY")
+def ask_gemini(prompt: str, model: str = GEMINI_MODEL, key_env: str = "GEMINI_API_KEY") -> str:
+    key = os.getenv(key_env) or os.getenv("GEMINI_API_KEY")
     if not key:
         raise RuntimeError("GEMINI_API_KEY not set")
     from google import genai
@@ -1221,17 +1227,21 @@ def ask_gemini(prompt: str, model: str = GEMINI_MODEL) -> str:
 
 
 def deliberate(prompt: str, provider: str) -> tuple[str, str]:
-    order = {"auto": ["gemini"], "claude": ["claude"], "gemini": ["gemini"]}[provider]
+    # (provider, model, key env) in order; the fallback is skipped when it is the same model.
+    gem = [("gemini", GEMINI_MODEL, "GEMINI_API_KEY")]
+    if GEMINI_FALLBACK_MODEL and GEMINI_FALLBACK_MODEL != GEMINI_MODEL:
+        gem.append(("gemini", GEMINI_FALLBACK_MODEL, "GEMINI_API_KEY_2"))
+    order = {"auto": gem, "claude": [("claude", DEFAULT_MODEL, "")], "gemini": gem}[provider]
     errs = []
-    for p in order:
+    for p, model, key_env in order:
         try:
-            txt = ask_claude(prompt) if p == "claude" else ask_gemini(prompt)
+            txt = ask_claude(prompt) if p == "claude" else ask_gemini(prompt, model=model, key_env=key_env)
             if txt:
                 from plain_text import delatex      # stray inline LaTeX -> plain text
                 txt = delatex(txt)
-                return txt, p +(":" + DEFAULT_MODEL if p == "claude" else ":" + GEMINI_MODEL)
+                return txt, p + ":" + model + (" (fallback)" if model != order[0][1] else "")
         except Exception as e:
-            errs.append("%s: %s" % (p, e))
+            errs.append("%s:%s: %s" % (p, model, str(e)[:200]))
     raise RuntimeError("no model answered — " + " | ".join(errs))
 
 
