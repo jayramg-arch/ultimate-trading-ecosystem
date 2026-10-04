@@ -686,6 +686,27 @@ if True:
                         f"carry no stop.** These do NOT appear under Unprotected Holdings, because that "
                         f"list is per-symbol and each of these has *some* order resting: {_pc_txt}")
 
+                # STOPS DISAGREE (5-Oct-2026, Jay). One holding, two different stop prices
+                # resting (VIJAYA: 24 sh @ 1275.5 beside 25 sh @ 1268.5). Every one still
+                # fires, the higher first, and the journal/v67 stop flips with whichever order
+                # was edited last (Dhan re-stamps an order's time on any edit). Same check as
+                # the Journal page and the 16:30 sync: order_levels.stop_report.
+                try:
+                    import order_levels as _ol
+                    _parsed = _ol.parse_orders(data)
+                    _dis = []
+                    for _csym, _h in holdings_map.items():
+                        _rep = _ol.stop_report(_parsed.get(_ol.clean_symbol(_csym), []),
+                                               float(_h.get("ltp") or 0), None)
+                        if _rep:
+                            _dis.append(f"**{_csym}** {_rep.replace('stops disagree: ', '')}")
+                    if _dis:
+                        st.warning("⚠️ **Stops disagree — keep one stop price per holding.** Every live "
+                                   "stop fires, the higher one first; the journal and v67 show the most "
+                                   "recently edited one: " + " · ".join(_dis))
+                except Exception as _e_dis:
+                    _gm_logger.warning(f"stop-disagreement check failed: {_e_dis}")
+
 
 
                 # ─────────────────────────────────────────────────────────────
