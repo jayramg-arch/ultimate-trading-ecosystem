@@ -361,6 +361,9 @@ async def cleanup_tradingview() -> dict:
             keep_today = [n for n in stale if today_stamp in n.upper()]
             stale = [n for n in stale if today_stamp not in n.upper()]
             out["skipped_today"] = len(keep_today)
+            only = os.getenv("NUCLEAR_ONLY", "").strip()      # diagnostic: one named list only
+            if only:
+                stale = [n for n in stale if n.upper() == only.upper()]
             out["stale"] = len(stale)
             print("%d lists on the account - %d stale - %d carry today's stamp (kept)"
                   % (len(names), len(stale), len(keep_today)))
@@ -374,12 +377,22 @@ async def cleanup_tradingview() -> dict:
                     continue
                 print(f"   deleting: {wl_name}")
                 try:
-                    row = dialog.locator("div[class*='container-']").filter(
-                        has=page.locator("div[class*='title-']", has_text=name_rx(wl_name))).first
-                    if await row.count() == 0:
+                    # 4-Oct-2026: the old `container-` filter also matched the OUTER list
+                    # container, so `.first` was the whole list and the Remove control
+                    # clicked belonged to the TOP row - it deleted Bull_Hunter-02OCT26
+                    # while "failing" on XRay_Picks-30SEP26. Anchor on the title, take its
+                    # NEAREST container ancestor, and require that row to hold one title.
+                    title = dialog.locator("div[class*='title-']", has_text=name_rx(wl_name))
+                    if await title.count() != 1:
                         print(f"      row not found for {wl_name}")
                         out["failed"].append(f"{wl_name} (row not found)")
                         continue
+                    row = title.first.locator("xpath=ancestor::div[contains(@class,'container-')][1]")
+                    if await row.locator("div[class*='title-']").count() != 1:
+                        out["failed"].append(f"{wl_name} (row not isolated - skipped)")
+                        print(f"      could not isolate the row for {wl_name} - skipped")
+                        continue
+                    before = set(n.strip() for n in await titles.all_inner_texts() if n.strip())
                     await row.scroll_into_view_if_needed()
                     await row.hover()
                     await page.wait_for_timeout(300)
@@ -400,6 +413,12 @@ async def cleanup_tradingview() -> dict:
                         left = await dialog.locator("div[class*='title-']", has_text=name_rx(wl_name)).count()
                         if left == 0:
                             break
+                    after = set(n.strip() for n in await titles.all_inner_texts() if n.strip())
+                    collateral = sorted((before - after) - {wl_name})
+                    if collateral:            # a different list vanished: stop everything
+                        out["failed"].append(f"ABORTED - {', '.join(collateral)} disappeared while deleting {wl_name}")
+                        print(f"      ABORT: {collateral} disappeared while deleting {wl_name}")
+                        break
                     if left == 0:
                         out["deleted"] += 1
                         print(f"      deleted {wl_name}")
