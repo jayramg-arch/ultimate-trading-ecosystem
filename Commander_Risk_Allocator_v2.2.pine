@@ -68,7 +68,7 @@ telegram_chat_id  = input.string("", "Telegram Chat ID", group=grp_notes)
 
 grp_viz = "Visuals"
 show_alloc_table = input.bool(true, "Show Allocator Table", group=grp_viz)
-alloc_table_pos  = input.string("Bottom Right", "Table Position", options=["Bottom Right", "Top Right", "Bottom Left", "Top Left", "Middle Right", "Middle Center"], group=grp_viz)
+alloc_table_pos  = input.string("Top Left", "Table Position", options=["Bottom Right", "Top Right", "Bottom Left", "Top Left", "Middle Right", "Middle Center"], group=grp_viz)
 show_lines       = input.bool(true, "Show Entry/Stop/Target Lines", group=grp_viz)
 line_extension   = input.int(8, "Line Extension (Bars)", minval=2, group=grp_viz)
 
@@ -361,7 +361,7 @@ if barstate.islast and show_alloc_table and m_entry > 0
 
     // Trail Step (Chandelier SL Step)
     table.cell(tbl_alloc, 0, 6, "Trail Step (SL)", text_color=color.aqua, text_size=size.small, text_halign=text.align_right)
-    table.cell(tbl_alloc, 1, 6, str.tostring(trail_jump, "0.00") + " (" + str.tostring(eff_trail_mult, "0.1") + "x ATR)", text_color=color.aqua, text_size=size.small, text_halign=text.align_left)
+    table.cell(tbl_alloc, 1, 6, str.tostring(trail_jump, "0.00") + " (" + str.tostring(eff_trail_mult, "0.0") + "x ATR)", text_color=color.aqua, text_size=size.small, text_halign=text.align_left)
 
     // --- DHAN EXECUTION ORDERS CARD (Restored 50/50 OCO-1 & OCO-2) ---
     // Order 1: OCO-1 (50% Qty) -> Fixed Static Target 1 + SL
@@ -391,7 +391,7 @@ if barstate.islast and show_alloc_table and m_entry > 0
 
     // Detection source
     table.cell(tbl_alloc, 0, 13, "Catalyst Source", text_color=color.gray, text_size=size.small, text_halign=text.align_right)
-    table.cell(tbl_alloc, 1, 13, use_auto ? "AUTO-detected" : (auto_detect_catalyst ? "AUTO→none, using MANUAL" : "MANUAL (auto off)"), text_color=use_auto ? color.aqua : color.gray, text_size=size.small, text_halign=text.align_left)
+    table.cell(tbl_alloc, 1, 13, cat_src == "AUTO" ? "AUTO-detected" : cat_src == "CTX" ? "No catalyst fired - family from trade context" : (auto_detect_catalyst ? "AUTO→none, using MANUAL" : "MANUAL (auto off)"), text_color=cat_src == "AUTO" ? color.aqua : color.gray, text_size=size.small, text_halign=text.align_left)
 
 // ============================================================================
 // 12. CHART LINES & LABELS (Dhan 50/50 OCO View)
