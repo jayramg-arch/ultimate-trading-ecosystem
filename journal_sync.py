@@ -191,6 +191,7 @@ def sync(db_file=DB_FILE, dry_run=False, do_close=True):
     # stayed shut. Same rule as the page (order_levels.derive_sl_targets), same 0.05 band;
     # a symbol with no resting orders is left alone (never zeroed).
     levels = 0
+    stop_flags = []
     try:
         import order_levels as ol
         from dhan_auth import ensure_valid_token
@@ -207,6 +208,9 @@ def sync(db_file=DB_FILE, dry_run=False, do_close=True):
                     continue
                 ltp = (live.get(str(sym).upper()) or {}).get("ltp") or buy or 0
                 sl, t1, t2 = ol.derive_sl_targets(orders[key], ltp)
+                _rep = ol.stop_report(orders[key], ltp, (live.get(str(sym).upper()) or {}).get("qty"))
+                if _rep:
+                    stop_flags.append(f"{sym}: {_rep}")
                 sets, desc = {}, []
                 for col, new, old in (("stoploss", sl, sl0), ("target1", t1, t10), ("target2", t2, t20)):
                     if new and new > 0 and abs(new - float(old or 0)) > 0.05:
@@ -233,9 +237,13 @@ def sync(db_file=DB_FILE, dry_run=False, do_close=True):
     if flagged:
         print("  ⚠ FLAGGED (OPEN in journal, not in live book, no completing exit found — review):")
         print("     " + ", ".join(flagged))
+    if stop_flags:
+        print("  ⚠ STOP ORDERS (Dhan) - every live stop fires; the journal keeps the latest:")
+        for _f in stop_flags:
+            print("     " + _f)
     print(f"\n  {'Would ' if dry_run else ''}ADD {added} · UPDATE {updated} · CLOSE {closed} · LEVELS {levels} · FLAG {len(flagged)}")
     return {"status": "ok", "added": added, "updated": updated,
-            "closed": closed, "levels": levels, "flagged": flagged}
+            "closed": closed, "levels": levels, "flagged": flagged, "stop_flags": stop_flags}
 
 
 def main(argv=None):

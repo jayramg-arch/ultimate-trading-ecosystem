@@ -191,6 +191,7 @@ div[data-testid='column-header-content'] { font-weight:bold!important; }
         st.error(f"Portfolio Load Error: {e}")
 
     # 2. Update Active Symbols in DB (Prices + SECTOR + SL SYNC)
+    _stop_warnings = []          # 4-Oct-2026: stop legs that disagree / shares with no stop
     for sym in active_symbols:
         live_qty = live_map[sym]['Quantity']
         live_buy = live_map[sym]['BuyPrice']
@@ -221,6 +222,9 @@ div[data-testid='column-header-content'] { font-weight:bold!important; }
             # order_levels.derive_sl_targets - the SAME rule the 16:30 journal sync uses (4-Oct-2026)
             import order_levels as _ol
             live_sl, live_target1, live_target2 = _ol.derive_sl_targets(live_orders_data[lookup_sym], ref_price)
+            _sw = _ol.stop_report(live_orders_data[lookup_sym], ref_price, live_qty)
+            if _sw:
+                _stop_warnings.append(f"**{sym}**: {_sw}")
     
         # 2. Fetch from Master Portfolio (fallback for SL, primary for Sector)
         master_sl = 0.0
@@ -315,6 +319,10 @@ div[data-testid='column-header-content'] { font-weight:bold!important; }
             
             if updates:
                 upsert_trade({'Symbol': sym, **updates})
+
+    if _stop_warnings:
+        st.warning("⚠️ **Dhan stop orders need a look** — the journal (and v67) use the most recently "
+                   "placed stop, but every live stop still fires:\n\n" + "\n\n".join(_stop_warnings))
 
     # 2. Close stale trades & Reconcile automatically
     db_df = load_db()
