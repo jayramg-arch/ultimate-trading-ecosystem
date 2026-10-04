@@ -1,5 +1,5 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.25]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.26]", overlay=true, max_bars_back=5000, max_lines_count=500)
 // v67.4.17 (31 Jul 2026): RESTORE INLINE TREND ARROWS (Jay: "place arrow icons properly,
 //   they should appear like Pre-S2 on Weekly structure row"). Reverted badge column split:
 //   restored 4-column compressed panel layout. Re-embedded W & 30WMA arrows into WEEKLY STRUCTURE,
@@ -971,6 +971,12 @@ p25_date = input.time(0, title="Date", group=grpP21_25, inline="p25d", display=d
 grpQuick = "Quick Check (Overrides Portfolio)"
 quick_ent = input.float(0.0, title="Temporary Entry Price", group=grpQuick)
 quick_sl  = input.price(0.0, title="Temporary Hard SL", group=grpQuick)
+// v67.4.26 (4-Oct-2026): RISK SHIELD'S CHANDELIER, per holding. Written by
+// tv_push_v67_trail.py (nightly, and by AFTER_COMPILE) from risk_common.holding_chandelier -
+// the same function the Risk Shield page calls - so the plotted trail equals that page.
+// Format SYM=window,multiplier,floor;...  floor 0 | <price> (Floor) | E<price> (Exact).
+// A symbol not in the book keeps the chart-derived trail below.
+trail_book = input.string("", title="Chandelier book (pushed by Python - do not edit)", group=grpQuick, display=display.none)
 
 // Trailing Stop inputs removed. Using Chandelier Exit indicator natively.
 
@@ -4337,11 +4343,27 @@ isBullMarket := str.contains(mktState, "BULLISH")
 // final rung — instead of asking the chart.
 string _active_cat_raw   = persistCat
 string _active_cat_safe  = na(_active_cat_raw) ? "" : _active_cat_raw
-bool   _is_swg_trade     = str.startswith(_active_cat_safe, "SWG")
+// RISK SHIELD BOOK (v67.4.26). When this symbol is in the pushed book, window,
+// multiplier and floor are Risk Shield's (journal trade type, house regime, custom
+// multiplier, capital protection, manual override) and win over the chart guess.
+string _tbSrc  = ";" + trail_book + ";"
+int    _tbAt   = str.pos(_tbSrc, ";" + syminfo.ticker + "=")
+bool   tbHit   = not na(_tbAt) and str.length(trail_book) > 0
+string _tbRest = tbHit ? str.substring(_tbSrc, _tbAt + str.length(syminfo.ticker) + 2) : ""
+string _tbFld  = tbHit ? str.substring(_tbRest, 0, nz(str.pos(_tbRest, ";"), str.length(_tbRest))) : ""
+array<string> _tbP = str.split(_tbFld, ",")
+float  tbWin   = tbHit and array.size(_tbP) >= 2 ? str.tonumber(array.get(_tbP, 0)) : na
+float  tbMult  = tbHit and array.size(_tbP) >= 2 ? str.tonumber(array.get(_tbP, 1)) : na
+string _tbFl   = tbHit and array.size(_tbP) >= 3 ? array.get(_tbP, 2) : "0"
+bool   tbExact = str.startswith(_tbFl, "E")
+float  tbFloor = nz(str.tonumber(tbExact ? str.substring(_tbFl, 1) : _tbFl), 0.0)
+bool   tbOn    = tbHit and not na(tbWin) and not na(tbMult) and tbMult > 0
+bool   _is_swg_trade     = tbOn ? tbWin < 18 : str.startswith(_active_cat_safe, "SWG")
 float  ce_h_d            = _is_swg_trade ? ce_h_d_14 : ce_h_d_22
 float  ce_atr_d          = _is_swg_trade ? ce_atr_d_14 : ce_atr_d_22
-float  active_ce_mult    = f_canonical_ce_mult(_active_cat_safe, isBullMarket)
-float  ce_trailing_stop  = ce_h_d - (ce_atr_d * active_ce_mult)
+float  active_ce_mult    = tbOn ? tbMult : f_canonical_ce_mult(_active_cat_safe, isBullMarket)
+float  _ce_raw           = ce_h_d - (ce_atr_d * active_ce_mult)
+float  ce_trailing_stop  = tbOn and tbExact and tbFloor > 0 ? tbFloor : tbOn and tbFloor > 0 ? math.max(_ce_raw, tbFloor) : _ce_raw
 
 // Daily terms the pyramid ladder needs that the main daily bundle does not
 // return. Definitions are copied from pyramid_logic.load_open_positions so the

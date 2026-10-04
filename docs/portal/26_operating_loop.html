@@ -186,6 +186,10 @@ footer em{color:var(--ink-2)}
         <p class="d">Two OCOs per name is the normal case (11 of 15 holdings), and both stop legs are
           trailed; a stop that has already run past its Chandelier is reported <b>BREACHED</b>
           and never sold by the machine.</p>
+        <p class="d"><b>Disabled since 3 Oct</b> (Dhan refuses every modify without a whitelisted IP), so you trail by
+          hand off v67's Chandelier line — which, from v67.4.26 (4 Oct), is Risk Shield's number: the auto-pilot's
+          Phase 12f pushes each holding's window, multiplier and floor into v67. After you edit a holding's Timeframe,
+          setup or manual override in the journal, run <span class="m">python tv_push_v67_trail.py</span>.</p>
       </div>
     </div>
 

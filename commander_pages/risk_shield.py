@@ -224,7 +224,7 @@ if True:
         _s_port = pd.Series([v for _, v in sorted(_portfolio_history.items())])
         _port_ema20 = _s_port.ewm(span=20, adjust=False).mean().iloc[-1]
         _curr_port = _s_port.iloc[-1]
-        if _curr_port < _port_ema20:
+        if _rc.capital_protection_active(_portfolio_history):   # shared with the v67 push
             _capital_protection_mode = True
             _cap_prot_msg = f"📉 CAPITAL PROTECTION MODE ACTIVE: Portfolio Equity (₹{_curr_port:,.0f}) is below 20-EMA (₹{_port_ema20:,.0f}). Mechanical stops will be tightened globally."
 
@@ -908,80 +908,29 @@ if True:
                                                             and not (isinstance(_custom_mult, (int, float)) and _custom_mult > 0))
                                     import risk_common as _rc
                                     _setup_s = journal_overrides.get(_s, {}).get("setup", "")
-                                    # Trade-type-aware trail clock (Jay, 14-Jul-2026):
-                                    # journal Timeframe → swing 14-bar / positional 22-bar.
-                                    # ONE resolver, same as the tile and the R-policy check
-                                    # (10-Aug-2026). This read the journal Timeframe ONLY, so a
-                                    # holding the page labelled SWING? from structure still fed
-                                    # swing=None here and trailed on the positional multiplier.
-                                    # resolve_trade_type's precedence is journal -> setup prefix
-                                    # -> structural -> positional, so a declared Timeframe still
-                                    # wins; the structural read only speaks when nothing else can.
-                                    # TRADE TYPE — Risk Allocator v2.2 classifier, computed HERE
-                                    # because df_sym is in hand. RS quadrant comes from the MANUAL
-                                    # Strike flags, which is the reading Jay trades.
-                                    #
-                                    # THIS USED TO READ `rs_trade_type`, WHICH IS BUILT ~120 LINES
-                                    # BELOW THIS LOOP. The NameError was swallowed by the batch
-                                    # except as "Technicals fetch failed this run", so NO symbol got
-                                    # technicals: no chandelier (TSL marker gone), no atr_pct (ladder
-                                    # rung 3 silent), no tt_label (rung 4 silent) — and every tile
-                                    # read "POSITIONAL default". One forward reference, every symptom
-                                    # reported today. A batch-level except that reports a data problem
-                                    # will hide a code problem indefinitely.
-                                    _tt_sw = _tt_lab = _tt_fam = _tt_why = None
+                                    # 4-Oct-2026: ONE function computes this holding's trail, shared with the v67
+                                    # push (tv_push_v67_trail.py) so the chart line equals this page's number.
+                                    # Trade-type ladder, structural classifier (RRG = computed quadrant), bear
+                                    # widening, cap-protect, custom multiplier and the manual override all live
+                                    # in risk_common.holding_chandelier now.
+                                    _q_rrg = None
                                     try:
-                                        # RRG for rung 4 = the COMPUTED quadrant (25-Sep-2026); the
-                                        # hand-typed flag it used to read had gone 39 days stale.
-                                        _q_rrg = None
-                                        try:
-                                            import gm_trigger_board as _gtb_tt
-                                            _q_rrg = _gtb_tt.rrg_live(df_sym).get("quadrant")
-                                        except Exception as _e_rrg:
-                                            _gm_logger.warning(f"{_s}: RRG compute failed (rung 4 runs without it): {_e_rrg}")
-                                        _tt_sw, _tt_lab, _tt_why, _tt_fam = _rc.classify_trade_type_v22(
-                                            df_sym, rrg=_q_rrg)
-                                    except Exception as _e_tt:
-                                        _gm_logger.warning(f"{_s}: trade-type classify failed: {_e_tt}")
-                                    _struct_s = _tt_sw
-                                    _jov_s = journal_overrides.get(_s, {}) if isinstance(journal_overrides, dict) else {}
-                                    _swing_s, _ttlab_s, _ttsrc_s = _rc.resolve_trade_type(
-                                        timeframe=_jov_s.get("timeframe"),
-                                        setup=_jov_s.get("setup"),
-                                        structural=_struct_s,
-                                        entry=_jov_s.get("buy_price"),
-                                        stop=_jov_s.get("stoploss"),
-                                        atr_pct=_atr_pct)
-                                    if len(_c) >= _rc.trail_window_for(_setup_s, _swing_s):
-                                        # #16 (24-Aug-2026). `bear` is the MARKET regime -- it widens the
-                                        # trail by 0.5 ATR to survive a choppy tape. The old fallback fed it
-                                        # `not _ws_above200`, a per-STOCK test, so when market_regime failed
-                                        # every stock under its own 200-DMA silently got a LOOSER trail. That
-                                        # is both a category error and backwards: a stock below its 200-DMA is
-                                        # weak, and weak is not an argument for more room. v67 uses its own
-                                        # market state for the same flag, so this was also a live source of
-                                        # the v67-vs-Risk-Shield gap Jay reported.
-                                        # Unknown regime now means NO widening, and the badge says so, rather
-                                        # than a guess dressed as a measurement.
-                                        _bear_s = bool(_rs_regime_bear) if _rs_regime_bear is not None else False
-                                        _bear_unknown = _rs_regime_bear is None
-                                        _ce_win = _rc.trail_window_for(_setup_s, _swing_s)
-                                        _chandelier_exit, _ce_mult, _ce_mult_src = _rc.chandelier_exit(
-                                            _hi, _lo, _c, setup=_setup_s, bear=_bear_s,
-                                            cap_protect=_capital_protection_mode,
-                                            custom_mult=_custom_mult, above200=_ws_above200,
-                                            swing=_swing_s)
-
-                                        # Apply Manual SL Override if present.
-                                        # A7 FIX: override MODE — 'Floor' (default, can only tighten)
-                                        # or 'Exact' (use the manual value verbatim, both directions).
-                                        _manual_sl = journal_overrides.get(_s, {}).get("manual_sl_override") if _s in journal_overrides else None
-                                        if _manual_sl and _manual_sl > 0:
-                                            if st.session_state.get("rs_sl_override_mode",
-                                                                    _gm_settings().get("sl_override_mode", "Floor")) == "Exact":
-                                                _chandelier_exit = _manual_sl
-                                            else:
-                                                _chandelier_exit = max(_chandelier_exit, _manual_sl)
+                                        import gm_trigger_board as _gtb_tt
+                                        _q_rrg = _gtb_tt.rrg_live(df_sym).get("quadrant")
+                                    except Exception as _e_rrg:
+                                        _gm_logger.warning(f"{_s}: RRG compute failed (rung 4 runs without it): {_e_rrg}")
+                                    _hc = _rc.holding_chandelier(
+                                        df_sym, journal_overrides.get(_s, {}) if isinstance(journal_overrides, dict) else {},
+                                        _rs_regime_bear, cap_protect=_capital_protection_mode,
+                                        override_mode=st.session_state.get("rs_sl_override_mode",
+                                                                           _gm_settings().get("sl_override_mode", "Floor")),
+                                        rrg=_q_rrg)
+                                    _tt_sw, _tt_lab, _tt_why, _tt_fam = _hc["tt"]
+                                    _swing_s, _ttlab_s, _ttsrc_s = _hc["swing"], _hc["tt_label"], _hc["tt_source"]
+                                    _bear_unknown = _hc["bear_unknown"]
+                                    if _hc["window"] is not None:
+                                        _ce_win = _hc["window"]
+                                        _chandelier_exit, _ce_mult, _ce_mult_src = _hc["level"], _hc["mult"], _hc["src"]
                                         
                                     _days_to_earnings = None
                                     _edate = get_earnings_date_cached(_s)

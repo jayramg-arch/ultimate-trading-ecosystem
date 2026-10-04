@@ -110,3 +110,22 @@ def test_no_private_copies_of_the_noise_or_at_sl_rule():
     for f in ("journal_page.py", "ai_risk_manager.py", "pyramid_logic.py"):
         hits = [l for l in _src(f).splitlines() if pat.search(l) and not l.lstrip().startswith("#")]
         assert not hits, (f, hits)
+
+
+def test_holding_chandelier_matches_chandelier_exit_and_floor():
+    """4-Oct-2026: the function Risk Shield and the v67 push share."""
+    import numpy as np, pandas as pd, risk_common as rc
+    n = 260
+    idx = pd.date_range("2025-01-01", periods=n, freq="B")
+    c = pd.Series(np.linspace(100, 200, n), index=idx)
+    df = pd.DataFrame({"Open": c, "High": c + 2, "Low": c - 2, "Close": c})
+    j = {"setup": "", "timeframe": "Swing", "buy_price": 150.0, "stoploss": 140.0}
+    hc = rc.holding_chandelier(df, j, bear=True)
+    lvl, m, _ = rc.chandelier_exit(df["High"], df["Low"], df["Close"], setup="", bear=True,
+                                   above200=True, swing=True)
+    assert hc["window"] == 14 and hc["mult"] == m == 2.0 and abs(hc["level"] - lvl) < 1e-9
+    hi_floor = lvl + 5
+    assert rc.holding_chandelier(df, {**j, "manual_sl_override": hi_floor}, bear=True)["level"] == hi_floor
+    assert rc.holding_chandelier(df, {**j, "manual_sl_override": 10.0}, bear=True)["level"] == lvl
+    assert rc.holding_chandelier(df, {**j, "manual_sl_override": 10.0}, bear=True, override_mode="Exact")["level"] == 10.0
+    assert rc.holding_chandelier(df, j, bear=True, cap_protect=True)["mult"] == 2.5

@@ -344,3 +344,71 @@ def chandelier_exit(high: pd.Series, low: pd.Series, close: pd.Series,
     if np.isnan(highest_close_n) or np.isnan(atr_n):
         return (None, None, None)
     return (float(highest_close_n - atr_n * mult), float(mult), src)
+
+
+def holding_chandelier(df, jrow: dict | None, bear, cap_protect: bool = False,
+                       override_mode: str = "Floor", rrg: str | None = None) -> dict:
+    """The Chandelier stop for ONE holding, exactly as Risk Shield shows it (4-Oct-2026).
+
+    Lifted out of the Risk Shield page so the page and the v67 push
+    (tv_push_v67_trail.py) run the SAME code: Jay trails his stops off v67's line, and
+    it must be the Risk Shield number, not a near copy. Inputs mirror the page:
+      df        daily OHLC (needs >= 200 bars, as the page did)
+      jrow      journal overrides: setup, timeframe, buy_price, stoploss,
+                custom_ce_mult, manual_sl_override
+      bear      market regime from market_regime (None = unknown = no widening)
+      cap_protect / override_mode ("Floor" | "Exact") / rrg (computed quadrant)
+    Returns a dict; level is None when there is not enough history."""
+    out = {"level": None, "raw_level": None, "mult": None, "src": None, "window": None,
+           "swing": None, "tt_label": None, "tt_source": None, "tt": (None, None, None, None),
+           "atr_pct": 0.0, "above200": False, "bear_unknown": bear is None, "override": None}
+    j = jrow or {}
+    if df is None or getattr(df, "empty", True) or "Close" not in df.columns:
+        return out
+    c = df["Close"].dropna()
+    hi = df["High"].dropna() if "High" in df.columns else c
+    lo = df["Low"].dropna() if "Low" in df.columns else c
+    if len(c) < 200:
+        return out
+    ltp = float(c.iloc[-1])
+    sma200 = float(c.rolling(200).mean().iloc[-1])
+    above200 = ltp > sma200
+    tr = pd.concat([hi - lo, (hi - c.shift(1)).abs(), (lo - c.shift(1)).abs()], axis=1).max(axis=1)
+    atr = float(tr.rolling(14).mean().iloc[-1])
+    atr_pct = (atr / ltp) * 100 if ltp else 0.0
+    out.update(atr_pct=atr_pct, above200=above200)
+    tt = (None, None, None, None)
+    try:
+        tt = classify_trade_type_v22(df, rrg=rrg)
+    except Exception:
+        pass
+    out["tt"] = tt
+    setup = j.get("setup", "") or ""
+    swing, lab, src = resolve_trade_type(timeframe=j.get("timeframe"), setup=setup,
+                                         structural=tt[0], entry=j.get("buy_price"),
+                                         stop=j.get("stoploss"), atr_pct=atr_pct)
+    out.update(swing=swing, tt_label=lab, tt_source=src)
+    win = trail_window_for(setup, swing)
+    if len(c) < win:
+        return out
+    level, mult, msrc = chandelier_exit(hi, lo, c, setup=setup,
+                                        bear=bool(bear) if bear is not None else False,
+                                        cap_protect=cap_protect, custom_mult=j.get("custom_ce_mult"),
+                                        above200=above200, swing=swing)
+    out.update(raw_level=level, mult=mult, src=msrc, window=win)
+    ov = j.get("manual_sl_override")
+    if level is not None and ov and ov > 0:
+        level = ov if override_mode == "Exact" else max(level, ov)
+        out["override"] = (float(ov), override_mode)
+    out["level"] = level
+    return out
+
+
+def capital_protection_active(history: dict) -> bool:
+    """Risk Shield's CAPITAL PROTECTION switch: portfolio equity below the 20-EMA of its
+    own daily history (>= 5 readings). Shared with the v67 push so the cap-protect 2.5x
+    trail applies on the chart exactly when it applies on the page."""
+    if not isinstance(history, dict) or len(history) < 5:
+        return False
+    s = pd.Series([v for _, v in sorted(history.items())])
+    return bool(s.iloc[-1] < s.ewm(span=20, adjust=False).mean().iloc[-1])

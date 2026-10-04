@@ -1158,6 +1158,26 @@ def main():
         except Exception as e:
             p.status = "SKIP"; p.message = f"skipped: {e}"[:160]
 
+    # 12f. V67 TRAIL BOOK (4-Oct-2026, Jay: "the v67 chandelier stops should be exactly same as
+    # the ones on Risk Shield"). Computes every holding's trail with risk_common.holding_chandelier
+    # (the Risk Shield function) and pushes it into v67's "Chandelier book" input on every tab.
+    with run.phase("Phase 12f — v67 trail book") as p:
+        if os.getenv("V67_TRAIL_BOOK", "1") == "0":
+            p.status = "SKIP"; p.message = "V67_TRAIL_BOOK=0"
+        else:
+            try:
+                import subprocess as _sp
+                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tv_push_v67_trail.py")],
+                             capture_output=True, text=True, timeout=10 * 60)
+                _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
+                for _ln in _lines[-6:]:
+                    logger.info(f"   ↳ {_ln}")
+                p.message = (" · ".join(l for l in _lines if l.startswith(("book:", "chart"))) or "done")[:160]
+                if _r.returncode != 0:
+                    p.status = "WARN"
+            except Exception as e:
+                p.status = "SKIP"; p.message = f"skipped: {e}"[:160]
+
     # 13. BOARD REVIEWS (2-Oct-2026, Jay): every 5/5 GO on the Daily, 125m and 75m boards just
     # rebuilt by Phase 12 is queued on the AI reviewer, labelled "board" in the Reviewer Log
     # (his evening REVIEW.bat routine, which logged them as "manual"). Queued on the alert
