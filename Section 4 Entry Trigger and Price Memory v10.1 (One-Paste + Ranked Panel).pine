@@ -856,7 +856,7 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.20"
+string S4_VER      = "v11.21"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -6240,7 +6240,7 @@ if show_panel and d_panel and barstate.islast
             table.cell(pnl, _sc, _r, "", bgcolor=f_softBg(C_INFO))
         table.cell(pnl, _sc, 0,
              "SUMMARY\n\n" + core.wrapText(f_sumHdr(str.replace_all(
-                  ((ctx_reject and not is_held) ? "REJECTED — first test failed (Stage 3/4 or weekly trend DOWN, see VERDICT). No further analysis." : core.qualityRead(_isEtf, _fundHave, fund_raw[_so], fund_ok[_so])
+                  ((ctx_reject and not is_held) ? "REJECTED — first test failed (Stage 3/4 or weekly trend DOWN, see VERDICT). No further analysis." : core.qualityRead(_isEtf, _fundHave, fund_raw[_so], fund_ok[_so], syminfo.type == "index")
                   + "\n" + _sumRaw), "\n", "\n\n")), summary_wrap),
              text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(C_INFO),
              text_halign=text.align_left, text_valign=text.align_top)

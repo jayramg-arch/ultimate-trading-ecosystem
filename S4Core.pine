@@ -2734,8 +2734,11 @@ export volumeProfile(bool run, float hiS, float loS, float volS, float rngHi, fl
 // unconditional verdict and `ok` is the gate-mode-applied one, so the two disagreeing is
 // precisely the Warn state - a name below the floor that is not being blocked, which is
 // the case worth spelling out and the one nothing else on the panel says.
-export qualityRead(bool isEtf, bool have, bool raw, bool ok) =>
-    isEtf ? "QUALITY · There are no company books to judge here. An ETF's quality read is its LIQUIDITY and its PREMIUM TO NAV, both on the rows above - and the premium is the only thing on this panel that can make a technically perfect chart the wrong trade, because that loss is booked on entry whatever the index does next."
+// isIdx (4-Oct-2026), appended LAST with a default: an index has no books, so the
+// "clear the floor" line read as a claim about accounts that do not exist (Phase-1 tab).
+export qualityRead(bool isEtf, bool have, bool raw, bool ok, bool isIdx = false) =>
+    isIdx ? "QUALITY · n/a - an index has no company books. Quality is judged on the stocks or the ETF you actually trade off this read, not here."
+     : isEtf ? "QUALITY · There are no company books to judge here. An ETF's quality read is its LIQUIDITY and its PREMIUM TO NAV, both on the rows above - and the premium is the only thing on this panel that can make a technically perfect chart the wrong trade, because that loss is booked on entry whatever the index does next."
      : not have ? "QUALITY · Nothing has vouched for the books. The Golden Matcher has not scored this name, so the fundamental gate is inert and everything below is a purely technical case. Fine for a chart you are studying; thin ground for a position."
      : raw ? "QUALITY · The books clear the Golden Matcher's floor, so the technical read below is not carrying this trade on its own. It is a SUBSET of the GM's verdict rather than the whole of it - return on equity, leverage and the size/pledge floor are not carried onto this chart, so the board can still reject a name that passes here."
      : ok ? "QUALITY · The books are BELOW the floor and the gate is set to Warn, so nothing is being blocked. Everything below is a technical case for a name the Golden Matcher scores as fundamentally weak: take it as a trade if you must, never as a position, and size it as the former."
