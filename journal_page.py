@@ -218,28 +218,9 @@ div[data-testid='column-header-content'] { font-weight:bold!important; }
             # did. Falls back to the buy price only when there is no LTP.
             _ltp = live_map[sym].get('LTP', 0.0) or 0.0
             ref_price = _ltp if _ltp > 0 else live_buy
-            live_targets = set()
-        
-            for o in live_orders_data[lookup_sym]:
-                val = o['trigger'] if o['trigger'] > 0 else o['price']
-                val_limit = o['price'] if o['price'] > 0 else o['trigger']
-            
-                if o['leg'] == 'TARGET_LEG':
-                    live_targets.add(val_limit)
-                elif o['leg'] == 'STOP_LOSS_LEG' and o['otype'] == 'OCO':
-                    if val > live_sl: live_sl = val
-                elif o['otype'] in ['SL', 'SL-M', 'STOP_LOSS']:
-                    if val > live_sl: live_sl = val
-                else:
-                    # Inference based on price for SINGLE/GTT orders
-                    if val > ref_price:
-                        live_targets.add(val_limit)
-                    elif val < ref_price and val > 0:
-                        if val > live_sl: live_sl = val
-                    
-            sorted_targets = sorted(list(live_targets))
-            live_target1 = sorted_targets[0] if len(sorted_targets) > 0 else 0.0
-            live_target2 = sorted_targets[1] if len(sorted_targets) > 1 else 0.0
+            # order_levels.derive_sl_targets - the SAME rule the 16:30 journal sync uses (4-Oct-2026)
+            import order_levels as _ol
+            live_sl, live_target1, live_target2 = _ol.derive_sl_targets(live_orders_data[lookup_sym], ref_price)
     
         # 2. Fetch from Master Portfolio (fallback for SL, primary for Sector)
         master_sl = 0.0
@@ -606,11 +587,13 @@ div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid=
             if st.button("🔄 Sync to TV", help="Sync Active Ledger to the v67 portfolio slots, then push Risk Shield's Chandelier (window, multiplier, floor per holding) into v67's Chandelier book", width="stretch"):
                 with st.spinner("Syncing..."):
                     import subprocess, sys as _sys_sync
+                    # The Pine file's slot defaults are still refreshed (a backup of the slots),
+                    # but there is nothing to copy any more: the push below writes the slots
+                    # straight into v67. One message, not two (4-Oct-2026).
                     try:
                         subprocess.run([_sys_sync.executable, "db_portfolio_sync.py"], capture_output=True, text=True, check=True)
-                        st.success("✅ Slots synced! Copy code from `Weinstein and Swing Pro Dashboard v67.4.12.pine`")
                     except Exception as e:
-                        st.error(f"❌ Slot sync failed: {e}")
+                        st.warning(f"⚠️ Pine-file slot backup not refreshed: {e}")
                     # 4-Oct-2026: the same button also puts Risk Shield's Chandelier on v67
                     # (tv_push_v67_trail.py). Needs TradingView with the debug port; it pushes
                     # an input, so no compile - the line updates on the chart at once.
@@ -619,7 +602,7 @@ div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid=
                                              capture_output=True, text=True, timeout=300)
                         _tl = [l for l in _tr.stdout.splitlines() if l.startswith(("slots:", "book:")) or " OK " in l or "FAIL" in l]
                         if _tr.returncode == 0:
-                            st.success("✅ Slots + Chandelier pushed to v67 (no paste needed) · " + " · ".join(_tl))
+                            st.success("✅ v67 updated — portfolio slots and Chandelier stops, all chart tabs (no paste, no compile). " + " · ".join(_tl))
                         else:
                             st.warning("⚠️ Chandelier push: " + (" · ".join(_tl) or (_tr.stderr or "failed")[-300:])
                                        + " — is TradingView open with the debug port, and v67.4.26 compiled?")

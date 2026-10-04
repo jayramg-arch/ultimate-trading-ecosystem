@@ -185,6 +185,42 @@ def sync(db_file=DB_FILE, dry_run=False, do_close=True):
             else:
                 flagged.append(str(row["symbol"]))
 
+    # 4 — STOPS & TARGETS from the resting Dhan orders (4-Oct-2026, Jay). The Journal page
+    # did this only when it was opened, so a stop moved on Dhan never reached the journal -
+    # or v67's slots, which the nightly push builds from the journal - on a day the page
+    # stayed shut. Same rule as the page (order_levels.derive_sl_targets), same 0.05 band;
+    # a symbol with no resting orders is left alone (never zeroed).
+    levels = 0
+    try:
+        import order_levels as ol
+        from dhan_auth import ensure_valid_token
+        from dhanhq import dhanhq
+        orders = ol.fetch_live_orders(dhanhq(client_id=os.getenv("DHAN_CLIENT_ID"),
+                                             access_token=ensure_valid_token()))
+        cols = {r[1] for r in conn.execute("PRAGMA table_info(journal)")}
+        if orders and {"stoploss", "target1", "target2"} <= cols:
+            cur_rows = conn.execute("SELECT id, symbol, stoploss, target1, target2, buy_price "
+                                    "FROM journal WHERE status='OPEN'").fetchall()
+            for rid, sym, sl0, t10, t20, buy in cur_rows:
+                key = ol.clean_symbol(sym)
+                if key not in orders:
+                    continue
+                ltp = (live.get(str(sym).upper()) or {}).get("ltp") or buy or 0
+                sl, t1, t2 = ol.derive_sl_targets(orders[key], ltp)
+                sets, desc = {}, []
+                for col, new, old in (("stoploss", sl, sl0), ("target1", t1, t10), ("target2", t2, t20)):
+                    if new and new > 0 and abs(new - float(old or 0)) > 0.05:
+                        sets[col] = new
+                        desc.append(f"{col} {round(float(old or 0), 2)}->{round(new, 2)}")
+                if sets:
+                    plan.append(f"LEVELS {sym:<14} " + ", ".join(desc))
+                    if not dry_run:
+                        conn.execute("UPDATE journal SET " + ", ".join(f"{c}=?" for c in sets) + " WHERE id=?",
+                                     (*sets.values(), int(rid)))
+                    levels += 1
+    except Exception as e:
+        print(f"  (stops/targets not synced from Dhan orders: {e})")
+
     if not dry_run:
         conn.commit()
     conn.close()
@@ -197,9 +233,9 @@ def sync(db_file=DB_FILE, dry_run=False, do_close=True):
     if flagged:
         print("  ⚠ FLAGGED (OPEN in journal, not in live book, no completing exit found — review):")
         print("     " + ", ".join(flagged))
-    print(f"\n  {'Would ' if dry_run else ''}ADD {added} · UPDATE {updated} · CLOSE {closed} · FLAG {len(flagged)}")
+    print(f"\n  {'Would ' if dry_run else ''}ADD {added} · UPDATE {updated} · CLOSE {closed} · LEVELS {levels} · FLAG {len(flagged)}")
     return {"status": "ok", "added": added, "updated": updated,
-            "closed": closed, "flagged": flagged}
+            "closed": closed, "levels": levels, "flagged": flagged}
 
 
 def main(argv=None):

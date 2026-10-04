@@ -470,43 +470,11 @@ def fetch_live_data():
 
 @st.cache_data(ttl=60)
 def fetch_active_orders():
+    """Pending sell orders per symbol (order book + forever/OCO) - order_levels.fetch_live_orders,
+    the same parse the 16:30 journal sync uses (4-Oct-2026)."""
     if dhan is None: return {}
-    live_orders = {}
-    
-    def process_orders(data):
-        for item in data:
-            if item.get('transactionType') != 'SELL' or item.get('orderStatus') != 'PENDING':
-                continue
-            
-            sym = item.get('tradingSymbol')
-            if not sym: continue
-            
-            clean_sym = clean_symbol(sym)
-            if clean_sym not in live_orders:
-                live_orders[clean_sym] = []
-            
-            leg = item.get('legName')
-            otype = item.get('orderType', '')
-            price = float(item.get('price') or 0.0)
-            trigger = float(item.get('triggerPrice') or 0.0)
-            
-            live_orders[clean_sym].append({
-                'leg': leg, 'otype': otype, 'price': price, 'trigger': trigger
-            })
-
-    try:
-        ord_res = dhan.get_order_list()
-        if ord_res.get('status') == 'success' and ord_res.get('data'):
-            process_orders(ord_res['data'])
-    except Exception: pass
-    
-    try:
-        gtt_res = dhan.get_forever()
-        if gtt_res.get('status') == 'success' and gtt_res.get('data'):
-            process_orders(gtt_res['data'])
-    except Exception: pass
-    
-    return live_orders
+    import order_levels as _ol
+    return _ol.fetch_live_orders(dhan)
 
 def sync_history_data(days=90, id_map=None):
     if dhan is None or not id_map: return {}
