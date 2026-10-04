@@ -1023,7 +1023,7 @@ stop distance = entry − initial stop
       <tr><td class="k">ATR length</td><td class="num">14</td><td>Every stop and risk calculation</td></tr>
       <tr><td class="k">Stop padding</td><td class="num">0.2%</td><td>Buffer below structural lows</td></tr>
       <tr><td class="k">Trail buffer</td><td class="num">1.0%</td><td>Buffer below the short average</td></tr>
-      <tr><td class="k">Chandelier length</td><td class="num">22</td><td>Positional and recovery trail lookback</td></tr>
+      <tr><td class="k">Chandelier length</td><td class="num">22</td><td>Positional and recovery trail lookback (14 for swing). <b>4 Oct:</b> the ATR inside it is now Wilder's (as v67 and Risk Shield use); it was an EMA, which put this trail 0–2% off theirs. The strategy trails its own simulated trades, not your holdings — use v67's line for those. Strategy Tester results move slightly</td></tr>
       <tr><td class="k">Chandelier multiple</td><td class="num">see note</td><td>Auto-loosened by half a unit in a bear regime</td></tr>
       <tr><td class="k">Use a fixed stop</td><td class="num">off</td><td>Overrides the structural stop with a flat percentage</td></tr>
       <tr><td class="k">Fixed stop</td><td class="num">10%</td><td>Live only with the override on</td></tr>
