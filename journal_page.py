@@ -617,9 +617,9 @@ div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid=
                     try:
                         _tr = subprocess.run([_sys_sync.executable, "tv_push_v67_trail.py"],
                                              capture_output=True, text=True, timeout=300)
-                        _tl = [l for l in _tr.stdout.splitlines() if l.startswith(("book:", "chart"))]
+                        _tl = [l for l in _tr.stdout.splitlines() if l.startswith(("slots:", "book:")) or " OK " in l or "FAIL" in l]
                         if _tr.returncode == 0:
-                            st.success("✅ Chandelier book pushed to v67 · " + " · ".join(_tl))
+                            st.success("✅ Slots + Chandelier pushed to v67 (no paste needed) · " + " · ".join(_tl))
                         else:
                             st.warning("⚠️ Chandelier push: " + (" · ".join(_tl) or (_tr.stderr or "failed")[-300:])
                                        + " — is TradingView open with the debug port, and v67.4.26 compiled?")

@@ -971,12 +971,6 @@ p25_date = input.time(0, title="Date", group=grpP21_25, inline="p25d", display=d
 grpQuick = "Quick Check (Overrides Portfolio)"
 quick_ent = input.float(0.0, title="Temporary Entry Price", group=grpQuick)
 quick_sl  = input.price(0.0, title="Temporary Hard SL", group=grpQuick)
-// v67.4.26 (4-Oct-2026): RISK SHIELD'S CHANDELIER, per holding. Written by
-// tv_push_v67_trail.py (nightly, and by AFTER_COMPILE) from risk_common.holding_chandelier -
-// the same function the Risk Shield page calls - so the plotted trail equals that page.
-// Format SYM=window,multiplier,floor;...  floor 0 | <price> (Floor) | E<price> (Exact).
-// A symbol not in the book keeps the chart-derived trail below.
-trail_book = input.string("", title="Chandelier book (pushed by Python - do not edit)", group=grpQuick, display=display.none)
 
 // Trailing Stop inputs removed. Using Chandelier Exit indicator natively.
 
@@ -4298,6 +4292,14 @@ else if f_match(p25_tick)
 // ce_trailing_stop, and the MY TRADE panel row is drawn long before the old
 // location. Pine needs the declaration first. The plot() stayed where it was.
 // ══════════════════════════════════════════════════════════════════════════
+// v67.4.26 (4-Oct-2026): RISK SHIELD'S CHANDELIER, per holding. Declared HERE, after
+// every input but eight display ones, because TradingView keys saved input values by
+// position: an input inserted higher up shifts every saved value below it. Written by
+// tv_push_v67_trail.py (nightly, and by AFTER_COMPILE) from risk_common.holding_chandelier -
+// the same function the Risk Shield page calls - so the plotted trail equals that page.
+// Format SYM=window,multiplier,floor;...  floor 0 | <price> (Floor) | E<price> (Exact).
+// A symbol not in the book keeps the chart-derived trail below.
+trail_book = input.string("", title="Chandelier book (pushed by Python - do not edit)", group="Chandelier (Risk Shield)", display=display.none)
 f_canonical_ce_mult(string _cat, bool _bull) =>
     float _m = 4.5
     if str.startswith(_cat, "POS")

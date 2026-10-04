@@ -225,6 +225,13 @@ footer a{color:var(--acc)}
   nightly (auto-pilot Phase 12f), as step 4 of <code>AFTER_COMPILE.bat</code>, and every time you press <b>🔄 Sync to TV</b>
   on the Journal page (after the slot sync) — press it after you change a holding's Timeframe, setup or manual override. A name not in the book keeps the old chart-derived
   trail. The only residual difference is TradingView's bars against Dhan's.</p>
+  <p><b>The portfolio slots update themselves too.</b> The same push writes the 25 slots (ticker, entry, SL, T1, T2,
+  sector, date — exactly what Sync to TV writes into the Pine file) straight into v67 on every tab, so there is no
+  code to paste and nothing to compile when you buy or sell. A Trail SL you typed on the chart is kept while the slot
+  holds the same ticker. First push (4 Oct) removed four sold names still sitting in slots (NAM-INDIA, APOLLOHOSP,
+  EICHERMOT, ASTERDM); Dhan, the journal and v67 now all show the same 18.
+  <b>After a v67 compile, run AFTER_COMPILE.bat</b>: TradingView keeps saved settings by position, so a new input can
+  shift them; step 4 puts every setting back from the snapshot the last push saved.</p>
 </div>
 
 <section id="scope">

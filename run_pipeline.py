@@ -1158,10 +1158,11 @@ def main():
         except Exception as e:
             p.status = "SKIP"; p.message = f"skipped: {e}"[:160]
 
-    # 12f. V67 TRAIL BOOK (4-Oct-2026, Jay: "the v67 chandelier stops should be exactly same as
+    # 12f. V67 SLOTS + TRAIL BOOK (4-Oct-2026). The portfolio slots (what Sync to TV writes) and
+    # Risk Shield's Chandelier go straight into v67 over CDP - no paste, no compile. Jay: "the v67 chandelier stops should be exactly same as
     # the ones on Risk Shield"). Computes every holding's trail with risk_common.holding_chandelier
     # (the Risk Shield function) and pushes it into v67's "Chandelier book" input on every tab.
-    with run.phase("Phase 12f — v67 trail book") as p:
+    with run.phase("Phase 12f — v67 slots + trail book") as p:
         if os.getenv("V67_TRAIL_BOOK", "1") == "0":
             p.status = "SKIP"; p.message = "V67_TRAIL_BOOK=0"
         else:

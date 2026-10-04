@@ -1,4 +1,12 @@
-"""tv_push_v67_trail.py — put Risk Shield's Chandelier on v67's chart line (4-Oct-2026).
+"""tv_push_v67_trail.py — keep v67 current with no paste and no compile (4-Oct-2026).
+
+Two pushes, both over the debug port into v67's inputs on every chart tab:
+  1. SLOTS: the 25 portfolio slots Sync to TV writes into the Pine file
+     (db_portfolio_sync.build_slots - same values). A Trail SL you typed on the chart is
+     kept while the slot holds the same ticker. --no-slots skips this.
+  2. CHANDELIER BOOK: Risk Shield's trail per holding (below).
+
+Put Risk Shield's Chandelier on v67's chart line.
 
 Jay trails his stops off v67's "ALGO Chandelier TSL" line, so that line must be the
 Risk Shield number. v67 cannot see the journal (trade type, setup, overrides) or the
@@ -14,6 +22,9 @@ bars, with the floor applied — identical inputs, identical formula. Nothing is
     python tv_push_v67_trail.py            compute + push + read back
     python tv_push_v67_trail.py --check    print the book and what each tab holds now
     python tv_push_v67_trail.py --dry-run  compute and print only
+    python tv_push_v67_trail.py --snapshot save every v67 setting (every push also saves one)
+    python tv_push_v67_trail.py --restore  after a v67 compile: put back settings it shifted
+                                           (AFTER_COMPILE.bat passes this)
 
 Runs nightly in the auto-pilot (Phase 12f) and from AFTER_COMPILE.bat. Needs TradingView
 started with the debug port.
@@ -48,6 +59,155 @@ JS = r"""
   } catch (e) { return JSON.stringify({error: String(e)}); }
 })()
 """
+
+
+SLOTS_JS = r"""
+(function () {
+  try {
+    var chart = (window.TradingViewApi || window.tvWidget).activeChart();
+    var st = chart.getAllStudies(); var id = null;
+    for (var i = 0; i < st.length; i++) if (st[i].name.indexOf(%(prefix)s) === 0) { id = st[i].id; break; }
+    if (!id) return JSON.stringify({none: 1});
+    var v = chart.getStudyById(id); var info = v.getInputsInfo();
+    var cur = {}; v.getInputValues().forEach(function (x) { cur[x.id] = x.value; });
+    var slots = %(slots)s; var want = []; var bad = [];
+    var NAMES = ["Entry", "SL", "Trail SL", "T1", "T2", "Sector", "Date"];
+    slots.forEach(function (s) {
+      var k = -1;
+      for (var j = 0; j < info.length; j++) if (info[j].name === "Slot " + s.i) { k = j; break; }
+      if (k < 0) { bad.push("Slot " + s.i + " missing"); return; }
+      for (var q = 0; q < 7; q++) if (!info[k + 1 + q] || info[k + 1 + q].name !== NAMES[q]) { bad.push("Slot " + s.i + " layout"); return; }
+      var tslId = info[k + 3].id;
+      // the Trail SL you typed on the chart wins while the slot holds the same ticker
+      var tsl = (String(cur[info[k].id]).toUpperCase() === s.tick.toUpperCase() && Number(cur[tslId]) > 0) ? Number(cur[tslId]) : s.tsl;
+      var vals = [s.tick, s.entry, s.sl, tsl, s.t1, s.t2, s.sec, s.date];
+      want.push({id: info[k].id, value: vals[0]});
+      for (var q2 = 0; q2 < 7; q2++) want.push({id: info[k + 1 + q2].id, value: vals[q2 + 1]});
+    });
+    if (bad.length) return JSON.stringify({error: bad.slice(0, 5).join("; ")});
+    v.setInputValues(want);
+    var got = {}; v.getInputValues().forEach(function (x) { got[x.id] = x.value; });
+    var miss = want.filter(function (w) { return String(got[w.id]) !== String(w.value); }).length;
+    var filled = slots.filter(function (s) { return s.tick; }).length;
+    return JSON.stringify({set: want.length, miss: miss, filled: filled});
+  } catch (e) { return JSON.stringify({error: String(e)}); }
+})()
+"""
+
+
+# ── SETTINGS SNAPSHOT / RESTORE (4-Oct-2026) ─────────────────────────────────────────
+# TradingView keys a study's saved input values by POSITION. An input added to v67 shifts
+# every saved value below it onto the wrong input. --snapshot (run BEFORE a v67 compile)
+# saves every non-slot setting by (name, occurrence); every push afterwards puts back any
+# value that no longer matches the snapshot. Slots and the book are pushed separately.
+SNAP_PATH = os.path.join(HERE, "data", "v67_inputs_snapshot.json")
+SNAP_JS = r"""
+(function () {
+  try {
+    var chart = (window.TradingViewApi || window.tvWidget).activeChart();
+    var st = chart.getAllStudies(); var id = null;
+    for (var i = 0; i < st.length; i++) if (st[i].name.indexOf(%(prefix)s) === 0) { id = st[i].id; break; }
+    if (!id) return JSON.stringify({none: 1});
+    var v = chart.getStudyById(id); var info = v.getInputsInfo();
+    var cur = {}; v.getInputValues().forEach(function (x) { cur[x.id] = x.value; });
+    var SKIP = {"Entry":1, "SL":1, "Trail SL":1, "T1":1, "T2":1, "Sector":1, "Date":1};
+    var seen = {}; var out = [];
+    info.forEach(function (x) {
+      // user inputs only: TradingView's own fields (ILScript = the compiled script,
+      // pineId, pineVersion...) must never be written back - that would undo a compile
+      if (!/^in_\d+$/.test(String(x.id))) return;
+      if (/^Slot \d+$/.test(x.name) || SKIP[x.name] || x.name === %(book)s) return;
+      seen[x.name] = (seen[x.name] || 0) + 1;
+      out.push({key: x.name + "#" + seen[x.name], id: x.id, value: cur[x.id]});
+    });
+    var restore = %(restore)s;
+    if (restore === null) return JSON.stringify({inputs: out});
+    var fix = [];
+    out.forEach(function (o) { if (o.key in restore && String(restore[o.key]) !== String(o.value)) fix.push({id: o.id, value: restore[o.key], key: o.key}); });
+    if (fix.length) v.setInputValues(fix.map(function (f) { return {id: f.id, value: f.value}; }));
+    return JSON.stringify({fixed: fix.map(function (f) { return f.key; })});
+  } catch (e) { return JSON.stringify({error: String(e)}); }
+})()
+"""
+
+
+def snapshot_or_restore(restore: bool) -> int:
+    import s4_review as s
+    snap = {}
+    if restore:
+        if not os.path.exists(SNAP_PATH):
+            return 0
+        with open(SNAP_PATH, encoding="utf-8") as f:
+            snap = json.load(f)
+    out = {}
+    for t in s._chart_targets():
+        cid = t["url"].split("/chart/")[1].split("/")[0]
+        want = json.dumps(snap.get(cid)) if restore else "null"
+        if restore and cid not in snap:
+            continue
+        r = json.loads(s._tv(SNAP_JS % {"prefix": json.dumps(V67_PREFIX), "book": json.dumps(INPUT_TITLE),
+                                        "restore": want}, t))
+        if r.get("none"):
+            continue
+        if r.get("error"):
+            print(f"chart {cid}: settings {'restore' if restore else 'snapshot'} FAIL - {r['error']}")
+            continue
+        if restore:
+            print(f"chart {cid}: settings restored - {len(r['fixed'])} put back" +
+                  (": " + ", ".join(r["fixed"][:8]) if r["fixed"] else ""))
+        else:
+            out[cid] = {x["key"]: x["value"] for x in r["inputs"]}
+            print(f"chart {cid}: settings snapshot - {len(r['inputs'])} inputs")
+    if not restore:
+        os.makedirs(os.path.dirname(SNAP_PATH), exist_ok=True)
+        with open(SNAP_PATH, "w", encoding="utf-8") as f:
+            json.dump(out, f, indent=1)
+    return 0
+
+
+def compute_slots() -> list[dict]:
+    """The 25 slot values Sync to TV writes into the Pine file (db_portfolio_sync.build_slots),
+    as plain values for setInputValues."""
+    import re
+    from datetime import datetime, timezone
+    import db_portfolio_sync as dps
+    con = sqlite3.connect(dps.DB_PATH)
+    con.row_factory = sqlite3.Row
+    try:
+        open_trades = con.execute("SELECT * FROM journal WHERE status='OPEN' ORDER BY id ASC").fetchall()
+    finally:
+        con.close()
+    with open(os.path.join(HERE, dps.PINE_PATH), encoding="utf-8") as f:
+        pine = f.read()
+    out = []
+    for sl in dps.build_slots(open_trades, pine):
+        m = re.search(r"(\d{4}-\d{2}-\d{2})", str(sl["date_val"]))
+        date_ms = int(datetime.strptime(m.group(1), "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp() * 1000) if m else 0
+        try:
+            tsl = float(sl["tsl_val"])
+        except (TypeError, ValueError):
+            tsl = 0.0
+        out.append({"i": sl["i"], "tick": sl["tick"], "entry": float(sl["entry"]), "sl": float(sl["sl"]),
+                    "tsl": tsl, "t1": float(sl["t1"]), "t2": float(sl["t2"]), "sec": sl["sec"], "date": date_ms})
+    return out
+
+
+def push_slots(slots: list[dict]) -> int:
+    import s4_review as s
+    js = SLOTS_JS % {"prefix": json.dumps(V67_PREFIX), "slots": json.dumps(slots)}
+    bad = seen = 0
+    for t in s._chart_targets():
+        cid = t["url"].split("/chart/")[1].split("/")[0]
+        r = json.loads(s._tv(js, t))
+        if r.get("none"):
+            continue
+        seen += 1
+        if r.get("error") or r.get("miss"):
+            bad += 1
+            print(f"chart {cid}: slots FAIL - {r.get('error') or str(r['miss']) + ' values did not stick'}")
+        else:
+            print(f"chart {cid}: slots OK - {r['filled']} holdings in 25 slots")
+    return 1 if (bad or not seen) else 0
 
 
 def _tv_keys(sym: str) -> list[str]:
@@ -175,6 +335,18 @@ def push(book: str | None) -> int:
 def main() -> int:
     check = "--check" in sys.argv
     dry = "--dry-run" in sys.argv
+    if "--snapshot" in sys.argv:
+        return snapshot_or_restore(restore=False)
+    # --restore (AFTER_COMPILE only): put back settings a v67 compile shifted. Never on
+    # the nightly run - it would undo a setting you changed on purpose.
+    if "--restore" in sys.argv and not check and not dry:
+        snapshot_or_restore(restore=True)
+    rc_slots = 0
+    if not check and "--no-slots" not in sys.argv:
+        slots = compute_slots()
+        print("slots: %d holdings -> v67 portfolio slots" % sum(1 for x in slots if x["tick"]))
+        if not dry:
+            rc_slots = push_slots(slots)
     rows = compute_book()
     print("%-12s %-11s %6s %5s %10s %10s  %s" % ("symbol", "type", "window", "mult", "raw", "shown", "override"))
     for r in rows:
@@ -187,7 +359,10 @@ def main() -> int:
     print(f"\nbook: {len(book)} chars, {len(rows)} holdings")
     if dry:
         return 0
-    return push(None if check else book)
+    rc_book = push(None if check else book)
+    if not check:
+        snapshot_or_restore(restore=False)      # today's settings = the next restore point
+    return max(rc_slots, rc_book)
 
 
 if __name__ == "__main__":

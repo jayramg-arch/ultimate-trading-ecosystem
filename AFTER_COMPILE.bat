@@ -39,8 +39,8 @@ echo  ===== 3/4  ALERTS (version + list + bundles) =====
 set "R3=%ERRORLEVEL%"
 
 echo.
-echo  ===== 4/4  V67 TRAIL BOOK (Risk Shield's Chandelier on v67) =====
-"%PY%" tv_push_v67_trail.py
+echo  ===== 4/4  V67: settings restore + portfolio slots + Chandelier book =====
+"%PY%" tv_push_v67_trail.py --restore
 set "R4=%ERRORLEVEL%"
 
 echo.

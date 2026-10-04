@@ -29,31 +29,10 @@ def normalize_ticker(t):
     return (str(t).strip().upper().replace("NSE:", "").replace("BSE:", "")
             .replace("-", "_"))
 
-def main():
-    print("\n" + "="*60)
-    print("🔄 DB PORTFOLIO SYNC (SQLite -> Pine Script)")
-    print("="*60)
-
-    # 1. Fetch from DB
-    try:
-        conn = sqlite3.connect(DB_PATH)
-        conn.row_factory = sqlite3.Row
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM journal WHERE status='OPEN' ORDER BY id ASC")
-        open_trades = cursor.fetchall()
-        print(f"✅ Fetched {len(open_trades)} active trades from DB.")
-    except Exception as e:
-        print(f"❌ Error reading DB: {e}")
-        return
-
-    # 2. Read Pine Script to preserve existing dates and TSL if we want
-    try:
-        with open(PINE_PATH, "r", encoding="utf-8") as f:
-            pine_content = f.read()
-    except Exception as e:
-        print(f"❌ Error reading {PINE_PATH}: {e}")
-        return
-
+def build_slots(open_trades, pine_content: str) -> list[dict]:
+    """The 25 v67 slot values, one dict per slot (4-Oct-2026: lifted out of main() so
+    tv_push_v67_trail.py pushes the SAME values straight into v67 over CDP - the
+    auto-pilot then keeps v67 current with no paste and no compile)."""
     # Extract existing inputs to preserve TSL and Date if they aren't changing
     existing_tsl = {}
     existing_dates = {}
@@ -65,8 +44,6 @@ def main():
             existing_tsl[t] = match.group(2).strip()
             existing_dates[t] = match.group(3).strip()
 
-    # 3. Generate Pine Code
-    lines = []
     
     # 25 SLOTS, not 20 (2 Sep 2026). v67 grew to slots 21-25 - it carries 55 references
     # to p21..p25 - but this loop was never raised with it, so the generated block
@@ -74,6 +51,7 @@ def main():
     # group logic below already handled 21-25 and 26-30; only the bound was stale.
     # Also: the live book is 22 positions, so at 20 slots two holdings could not reach
     # the chart at all. Raise this and v67's slot count TOGETHER.
+    slots = []
     for i in range(1, 26):
         tick = ""
         entry = 0.0
@@ -111,7 +89,44 @@ def main():
         # Preserve Date if DB has no date
         if date_val == "0" and norm_t in existing_dates:
             date_val = existing_dates[norm_t]
-            
+        slots.append({'i': i, 'tick': tick, 'entry': entry, 'sl': sl, 't1': t1, 't2': t2,
+                      'sec': sec, 'date_val': date_val, 'tsl_val': tsl_val})
+    return slots
+
+
+def main():
+    print("\n" + "="*60)
+    print("🔄 DB PORTFOLIO SYNC (SQLite -> Pine Script)")
+    print("="*60)
+
+    # 1. Fetch from DB
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        conn.row_factory = sqlite3.Row
+        cursor = conn.cursor()
+        cursor.execute("SELECT * FROM journal WHERE status='OPEN' ORDER BY id ASC")
+        open_trades = cursor.fetchall()
+        print(f"✅ Fetched {len(open_trades)} active trades from DB.")
+    except Exception as e:
+        print(f"❌ Error reading DB: {e}")
+        return
+
+    # 2. Read Pine Script to preserve existing dates and TSL if we want
+    try:
+        with open(PINE_PATH, "r", encoding="utf-8") as f:
+            pine_content = f.read()
+    except Exception as e:
+        print(f"❌ Error reading {PINE_PATH}: {e}")
+        return
+
+    slots = build_slots(open_trades, pine_content)
+
+    # 3. Generate Pine Code
+    lines = []
+    for _sl in slots:
+        i, tick, entry, sl, t1, t2, sec, date_val, tsl_val = (
+            _sl['i'], _sl['tick'], _sl['entry'], _sl['sl'], _sl['t1'], _sl['t2'],
+            _sl['sec'], _sl['date_val'], _sl['tsl_val'])
         # Group Logic
         grp_var = "grpP1_5"
         if i == 1: lines.append(f'grpP1_5 = "1. Portfolio Slots 1-5"')
