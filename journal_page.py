@@ -603,14 +603,28 @@ div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid=
             st.title("📘 Active Trade Journal")
         with col_t2:
             st.write("") # Spacer
-            if st.button("🔄 Sync to TV", help="Sync Active Ledger to Pine Script Dashboard", width="stretch"):
+            if st.button("🔄 Sync to TV", help="Sync Active Ledger to the v67 portfolio slots, then push Risk Shield's Chandelier (window, multiplier, floor per holding) into v67's Chandelier book", width="stretch"):
                 with st.spinner("Syncing..."):
+                    import subprocess, sys as _sys_sync
                     try:
-                        import subprocess
-                        subprocess.run(["python", "db_portfolio_sync.py"], capture_output=True, text=True, check=True)
-                        st.success("✅ Synced! Copy code from `Weinstein and Swing Pro Dashboard v67.4.12.pine`")
+                        subprocess.run([_sys_sync.executable, "db_portfolio_sync.py"], capture_output=True, text=True, check=True)
+                        st.success("✅ Slots synced! Copy code from `Weinstein and Swing Pro Dashboard v67.4.12.pine`")
                     except Exception as e:
-                        st.error(f"❌ Sync failed: {e}")
+                        st.error(f"❌ Slot sync failed: {e}")
+                    # 4-Oct-2026: the same button also puts Risk Shield's Chandelier on v67
+                    # (tv_push_v67_trail.py). Needs TradingView with the debug port; it pushes
+                    # an input, so no compile - the line updates on the chart at once.
+                    try:
+                        _tr = subprocess.run([_sys_sync.executable, "tv_push_v67_trail.py"],
+                                             capture_output=True, text=True, timeout=300)
+                        _tl = [l for l in _tr.stdout.splitlines() if l.startswith(("book:", "chart"))]
+                        if _tr.returncode == 0:
+                            st.success("✅ Chandelier book pushed to v67 · " + " · ".join(_tl))
+                        else:
+                            st.warning("⚠️ Chandelier push: " + (" · ".join(_tl) or (_tr.stderr or "failed")[-300:])
+                                       + " — is TradingView open with the debug port, and v67.4.26 compiled?")
+                    except Exception as e:
+                        st.warning(f"⚠️ Chandelier push failed: {e}")
 
         # AI Market Brief Section
         with st.container(border=True):
