@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 3 Oct · 35 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 4 Oct · 36 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,18 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">4 Oct<br>stops &amp; sizing</td>
+        <td><b>One home for the stop rules.</b> The positional floor (4&times; daily ATR), the Chandelier table, the
+        pyramid at-stop exit and one "stop too close" rule now live in <code>house_policy</code>; the Journal banner,
+        its ledger column and the AI Risk Guard agree (the Guard used 2&times; ATR, the banner 1.5&times;).
+        <b>Risk Allocator v2.6</b> gets the positional floor, the house capital (₹30L) and per-trade cap (₹1L),
+        S4's risk floors, a full OCO breakdown and the runner in its exported JSON. <b>S4 v11.20</b> (SUMMARY: stop
+        floor, plan clock, Bear tape) compiled on S4Core/67; v11.21 (QUALITY n/a on an index) waits on the next
+        publish. The watchlist cleanup was deleting the <b>top</b> list instead of the named one — fixed, with a
+        stop if any other list vanishes. Reviewer: second Gemini key from another project is live.</td>
+        <td class="af">10 · 22 · 26 · 32</td>
+      </tr>
       <tr>
         <td class="dt">3 Oct<br>audit &amp; plumbing</td>
         <td><b>An audit found the stop trail had never moved a stop</b> — every modify since 11 Sep was refused by

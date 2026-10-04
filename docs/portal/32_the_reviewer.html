@@ -591,7 +591,7 @@ python s4_take.py CHOLAFIN --skip "sector Stage 4"            # passed on it —
       <tr><td class="m">GEMINI_API_KEY</td><td class="m">—</td><td>Required for the default provider</td></tr>
       <tr><td class="m">S4_REVIEW_GEMINI_MODEL</td><td class="m">gemini-3.5-flash-lite</td><td>The model behind <code>--provider auto</code></td></tr>
       <tr><td class="m">S4_REVIEW_GEMINI_FALLBACK</td><td class="m">gemini-3.1-flash-lite</td><td>Tried when the primary fails</td></tr>
-      <tr><td class="m">GEMINI_API_KEY_2</td><td class="m">—</td><td>Optional key for the fallback, ideally from another Google project</td></tr>
+      <tr><td class="m">GEMINI_API_KEY_2</td><td class="m">set (4 Oct)</td><td>Key for the fallback, from a different Google project — covers a suspended-project outage. Read at receiver start: restart the receiver after changing it</td></tr>
       <tr><td class="m">S4_REVIEW_ANTHROPIC_KEY · S4_REVIEW_MODEL</td><td class="m">— · claude-opus-5</td><td>Opt-in Claude path (<code>--provider claude</code>). Never reads <code>ANTHROPIC_MODEL</code> / <code>BASE_URL</code></td></tr>
       <tr><td class="m">S4_REVIEW_KEY</td><td class="m">(falls back to WEBHOOK_SECRET)</td><td>The key in the alert URL. Private to the tunnel; never commit it</td></tr>
       <tr><td class="m">NGROK_DOMAIN</td><td class="m">—</td><td>The static ngrok domain, so the alert URL never changes across restarts</td></tr>

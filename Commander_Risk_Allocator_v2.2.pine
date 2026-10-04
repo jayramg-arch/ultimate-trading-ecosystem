@@ -10,7 +10,7 @@
 //   • OCO-2 (50% Qty): Fixed Static Target 2 + Stop Loss.
 //   • Panel Table and Chart Labels reflect clean 50/50 static OCO targets with Chandelier SL.
 // ============================================================================
-indicator("Commander Risk Allocator v2.5", overlay=true, format=format.inherit, precision=2, max_lines_count=20, max_labels_count=20, max_boxes_count=10)
+indicator("Commander Risk Allocator v2.6", overlay=true, format=format.inherit, precision=2, max_lines_count=20, max_labels_count=20, max_boxes_count=10)
 
 // ============================================================================
 // 1. INPUTS
@@ -20,25 +20,27 @@ asset_type = input.string("Auto", "Asset Type", options=["Auto", "ETF", "Stock"]
 resolved_asset = asset_type == "Auto" ? (syminfo.type == "fund" ? "ETF" : "Stock") : asset_type
 
 grp_port = "Portfolio & Risk"
-portfolio_capital = input.float(4000000.0, "Total Portfolio Capital (Reference)", step=1000.0, group=grp_port)
-etf_capital       = input.float(1200000.0, "ETF Portfolio Capital", step=1000.0, group=grp_port)
-stock_capital     = input.float(2800000.0, "Stock Portfolio Capital", step=1000.0, group=grp_port)
+portfolio_capital = input.float(3000000.0, "Total Portfolio Capital (Reference)", step=1000.0, group=grp_port, tooltip="Reference only. (v2.6, 4-Oct-2026: house value, same as S4 and the GM sizer - house_policy / gm_settings)")
+etf_capital       = input.float(3000000.0, "ETF Portfolio Capital", step=1000.0, group=grp_port, tooltip="The capital an ETF is sized against. S4 and the GM size an ETF off the same ₹30,00,000 as a stock (at 0.75%), so the default is the full figure, not a split. (v2.6, 4-Oct-2026: house value, same as S4 and the GM sizer - house_policy / gm_settings)")
+stock_capital     = input.float(3000000.0, "Stock Portfolio Capital", step=1000.0, group=grp_port, tooltip="(v2.6, 4-Oct-2026: house value, same as S4 and the GM sizer - house_policy / gm_settings)")
 etf_risk_pct      = input.float(0.75, "ETF Risk %",   minval=0.01, step=0.01, group=grp_port, tooltip="House rule for an ETF: 0.75% on a new entry (Jay, 24-Sep-2026; stocks 0.5%). Same value as S4 (1.5x its base on an ETF) and the GM sizer.")
 stock_risk_pct    = input.float(0.5,  "Stock Risk %", minval=0.01, step=0.01, group=grp_port, tooltip="House rule 0.5% on a new entry, 1% on a pyramid add (24-Sep-2026; was 0.75%). Same value as S4 Qty, the GM sizer and the order gate.")
-etf_max_alloc     = input.float(240000.0, "Max Alloc per ETF Trade", step=1000.0, group=grp_port)
-stock_max_alloc   = input.float(280000.0, "Max Alloc per Stock Trade", step=1000.0, group=grp_port)
+etf_max_alloc     = input.float(100000.0, "Max Alloc per ETF Trade", step=1000.0, group=grp_port, tooltip="Per-trade ₹ cap, house ₹1,00,000 (S4 size_max_alloc, gm_settings max_alloc). Was 2,40,000. (v2.6, 4-Oct-2026: house value, same as S4 and the GM sizer - house_policy / gm_settings)")
+stock_max_alloc   = input.float(100000.0, "Max Alloc per Stock Trade", step=1000.0, group=grp_port, tooltip="Per-trade ₹ cap, house ₹1,00,000. Was 2,80,000. (v2.6, 4-Oct-2026: house value, same as S4 and the GM sizer - house_policy / gm_settings)")
 multiplier        = input.int(1, "Lot Multiplier (1 for Equity)", minval=1, group=grp_port)
 
 grp_auto = "v2.0 Automation"
 auto_detect_catalyst = input.bool(true,  "Auto-detect Catalyst (manual = override)", group=grp_auto, tooltip="Reads Weekly Stage + Mansfield RS + price-action to suggest the catalyst family. Falls back to manual selector when no setup is detected.")
 auto_sl              = input.bool(true,  "Auto-suggest Structural SL (click = override)", group=grp_auto, tooltip="Proposes stop from catalyst-aware structural rule. Click Stop on chart to override.")
+pos_floor_atrD       = input.float(4.0, "Positional: SL floor (x DAILY ATR, 0 = off)", minval=0.0, maxval=8.0, step=0.5, group=grp_auto, tooltip="v2.6 (4-Oct-2026). House stop rule (house_policy.POS_STOP_FLOOR_ATR_D, S4 pos_floor_atrD): a POSITIONAL auto-stop is never closer than this many daily ATRs. Positional/swing is the house plan-type rule, same as S4 and the GM: daily ATR% > 4, or > 30% off the 52W high, or below the 200-DMA = swing (no floor). Qty sizes off the stop, so rupee risk is unchanged. A clicked stop is never moved.")
 
 grp_trade = "Interactive Trade Setup"
 catalyst    = input.string("POS-BO / POS-ACCUM", "Catalyst (manual / override)", options=["POS-BO / POS-ACCUM", "WYC (Wyckoff)", "SWG-BO / SWG-PB", "SWG-GAP", "SWG-REV", "REV-CB / RS / EARLY"], group=grp_trade, tooltip="Used when Auto-detect is OFF or finds no setup.")
 entry_p_raw = input.price(0.00, "Entry Price", confirm=true, group=grp_trade, tooltip="Click chart to place Entry. If left at 0, current close is used.")
 sl_p_raw    = input.price(0.00, "Stop Loss Price — OPTIONAL override", confirm=true, group=grp_trade, tooltip="OPTIONAL. Leave at 0 to auto-suggest structural SL.")
 tp_p_raw    = input.float(0.00, "Target Price (T1) — OPTIONAL override", group=grp_trade, tooltip="OPTIONAL. Leave at 0 to auto-derive T1 from catalyst R-multiple.")
-tick_size   = input.float(0.10, "Price Tick Size", step=0.05, group=grp_trade, tooltip="Rounds all prices to nearest tick. NSE typically uses 0.05 or 0.10.")
+tick_size_in = input.float(0.0, "Price Tick Size (0 = symbol's own tick)", step=0.01, group=grp_trade, tooltip="v2.6: 0 uses the instrument's tick from TradingView (syminfo.mintick). NSE ticks vary by price band, so a fixed 0.10 rounded some levels to a price that cannot be ordered.")
+tick_size   = tick_size_in > 0 ? tick_size_in : syminfo.mintick
 
 grp_dhan = "Dhan GTT 2-OCO Execution Settings"
 auto_trail_jump   = input.bool(true, "Trail Jump = catalyst-aware (recommended)", group=grp_dhan, tooltip="ON: the Dhan Trail Jump uses the SAME catalyst-aware multiplier as the Chandelier — POS 4.5 / WYC 3.5 / REV 2.5 / SWG 1.5 xATR, +0.5 in a weak tape.")
@@ -206,6 +208,12 @@ float ref_px  = m_entry > 0 ? m_entry : close
 float sl_struct = cat_fam == "POS" ? d_low10 - d_atr14 * 0.2 : cat_fam == "WYC" ? d_low40 * 0.98 : cat_fam == "REV" ? d_low20 - d_atr14 * 0.5 : math.min(d_ema20, d_low10) - d_atr14 * 0.1
 float sl_fb_mult = cat_fam == "POS" ? 4.0 : cat_fam == "WYC" ? 3.5 : cat_fam == "REV" ? 2.5 : 1.5
 float sl_auto_raw = (na(sl_struct) or sl_struct >= ref_px) ? ref_px - d_atr14 * sl_fb_mult : sl_struct
+// v2.6: house positional floor (AUD-OCT-02). Plan type = commander_core.plan_type / S4
+// tt_swing on DAILY values; the floor only ever WIDENS an auto stop, never a clicked one.
+bool  pt_swing   = (close > 0 and d_atr14 / close * 100 > 4.0) or dd_from_high > 0.30 or close < d_200
+bool  sl_floored = not pt_swing and pos_floor_atrD > 0 and not na(d_atr14) and sl_auto_raw > ref_px - pos_floor_atrD * d_atr14
+if sl_floored
+    sl_auto_raw := ref_px - pos_floor_atrD * d_atr14
 float sl_auto = tick_size > 0 ? math.round(sl_auto_raw / tick_size) * tick_size : sl_auto_raw
 
 bool  sl_manual = sl_click > 0
@@ -254,7 +262,9 @@ float t3_r = m_dist > 0 ? (m_t3 - ref_px) / m_dist : 0.0
 // 9. POSITION SIZING & DHAN 2-OCO SPLIT QUANTITIES
 // ============================================================================
 float base_risk_pct = resolved_asset == "ETF" ? etf_risk_pct : stock_risk_pct
-float regime_risk   = (use_regime_disc and not mkt_health_res) ? math.max(base_risk_pct - 0.25, 0.25) : base_risk_pct
+// v2.6: floors are 0.25 x BASE, as in S4 (it was an absolute 0.25%, which held a bear-tape
+// stock trade above S4's figure).
+float regime_risk   = (use_regime_disc and not mkt_health_res) ? math.max(base_risk_pct - 0.25, 0.25 * base_risk_pct) : base_risk_pct
 
 float atr_pct = close > 0 ? (d_atr14 / close) * 100 : 0
 float vol_discount = (use_vol_scale and atr_pct > 0) ? math.min(3.0 / atr_pct, 1.0) : 1.0
@@ -266,7 +276,7 @@ if use_kelly
     kelly_mult := kelly_pts >= 3 ? 1.25 : kelly_pts == 2 ? 1.0 : 0.75
 
 float vol_kelly = math.max(vol_discount * kelly_mult, 0.75)
-float active_risk_pct = math.max(regime_risk * vol_kelly, 0.25)
+float active_risk_pct = math.max(regime_risk * vol_kelly, 0.25 * base_risk_pct)
 
 float active_capital   = resolved_asset == "ETF" ? etf_capital : stock_capital
 float active_max_alloc = resolved_asset == "ETF" ? etf_max_alloc : stock_max_alloc
@@ -294,6 +304,13 @@ float q_run = math.max(0, m_final_qty - q_t1 - q_t2 - q_t3)
 bool is_dhan_5050 = dhan_split_mode == "50/50 Split (OCO-1 & OCO-2)"
 float q_dhan_oco1 = is_dhan_5050 ? math.floor(m_final_qty * 0.5) : q_t1
 float q_dhan_oco2 = is_dhan_5050 ? math.max(0, m_final_qty - math.floor(m_final_qty * 0.5)) : q_t2
+// v2.6 (4-Oct-2026): a small position no longer rounds a leg to ZERO shares (POS 25/25 on
+// 3 shares gave OCO-1 0 / OCO-2 0 / runner 3 - two empty orders). Each target leg gets at
+// least one share while shares remain; the runner keeps whatever is left.
+if m_final_qty >= 1 and q_dhan_oco1 < 1
+    q_dhan_oco1 := 1
+if m_final_qty - q_dhan_oco1 >= 1 and q_dhan_oco2 < 1
+    q_dhan_oco2 := 1
 float q_dhan_run  = math.max(0, m_final_qty - q_dhan_oco1 - q_dhan_oco2)
 string p_oco1 = m_final_qty > 0 ? str.tostring(math.round(q_dhan_oco1 / m_final_qty * 100)) + "%" : "—"
 string p_oco2 = m_final_qty > 0 ? str.tostring(math.round(q_dhan_oco2 / m_final_qty * 100)) + "%" : "—"
@@ -321,7 +338,7 @@ if barstate.islast and show_alloc_table and m_entry > 0
     var table tbl_alloc = table.new(pos_str, 2, 14, bgcolor=color.new(color.black, 40), border_color=color.new(color.gray, 70), border_width=1)
 
     // Header
-    table.cell(tbl_alloc, 0, 0, "Risk Allocator v2.2", bgcolor=color.blue, text_color=color.white, text_size=size.small, text_halign=text.align_right)
+    table.cell(tbl_alloc, 0, 0, "Risk Allocator v2.6", bgcolor=color.blue, text_color=color.white, text_size=size.small, text_halign=text.align_right)
     table.cell(tbl_alloc, 1, 0, resolved_asset + " · " + cat_src + " " + cat_fam, bgcolor=color.blue, text_color=color.white, text_size=size.small, text_halign=text.align_left)
 
     // Context: Stage + RRG
@@ -338,7 +355,7 @@ if barstate.islast and show_alloc_table and m_entry > 0
 
     // Total Qty & Risk
     table.cell(tbl_alloc, 0, 4, "Total Quantity", text_color=color.yellow, text_size=size.normal, text_halign=text.align_right)
-    table.cell(tbl_alloc, 1, 4, str.tostring(m_final_qty) + " Shares", text_color=color.yellow, text_size=size.normal, text_halign=text.align_left)
+    table.cell(tbl_alloc, 1, 4, str.tostring(m_final_qty) + " Shares = OCO-1 " + str.tostring(q_dhan_oco1) + " + OCO-2 " + str.tostring(q_dhan_oco2) + " + runner " + str.tostring(q_dhan_run), text_color=color.yellow, text_size=size.normal, text_halign=text.align_left)
     table.cell(tbl_alloc, 0, 5, "Invested / Risk", text_color=color.white, text_size=size.small, text_halign=text.align_right)
     table.cell(tbl_alloc, 1, 5, str.tostring(m_invested, format.volume) + " / " + str.tostring(m_act_risk, format.volume) + " (" + str.tostring(active_risk_pct, "0.00") + "%)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
 
@@ -410,7 +427,7 @@ if barstate.islast and show_lines and m_entry > 0 and m_stop > 0
     string lbl_t2_txt = "DHAN OCO-2 (" + p_oco2 + " ×" + str.tostring(q_dhan_oco2) + "): " + str.tostring(m_t2, "0.00") + " (" + str.tostring(t2_r, "0.0") + "R)"
 
     lbl_entry := label.new(lx2, m_entry, "Entry: " + str.tostring(m_entry, "0.00"), xloc=xloc.bar_index, color=color.new(color.blue, 70), textcolor=color.white, style=label.style_label_left, size=size.small)
-    lbl_stop  := label.new(lx2, m_stop,  "SL: " + str.tostring(m_stop, "0.00") + " [" + trail_kind + " Step: " + str.tostring(trail_jump, "0.00") + "]", xloc=xloc.bar_index, color=color.new(color.red, 70), textcolor=color.white, style=label.style_label_left, size=size.small)
+    lbl_stop  := label.new(lx2, m_stop,  "SL: " + str.tostring(m_stop, "0.00") + (sl_floored and not sl_manual and auto_sl ? " (" + str.tostring(pos_floor_atrD, "0.0") + "xATR(D) floor)" : "") + " [" + trail_kind + " Step: " + str.tostring(trail_jump, "0.00") + "]", xloc=xloc.bar_index, color=color.new(color.red, 70), textcolor=color.white, style=label.style_label_left, size=size.small)
     lbl_t1    := label.new(lx2, m_t1,    lbl_t1_txt, xloc=xloc.bar_index, color=color.new(color.navy, 70), textcolor=color.white, style=label.style_label_left, size=size.small)
     lbl_t2    := label.new(lx2, m_t2,    lbl_t2_txt, xloc=xloc.bar_index, color=color.new(color.purple, 70), textcolor=color.white, style=label.style_label_left, size=size.small)
 
@@ -434,6 +451,6 @@ if fire_notes_alert and barstate.islast and m_entry > 0 and m_stop > 0
 // --- Dhan GTT JSON Export (Structured payload for 2-OCO execution) ---
 if fire_gtt_alert and barstate.islast and m_entry > 0 and m_stop > 0
     string _ord_class = "FOREVER_GTT_2OCO"
-    string gtt_json = '{"source":"RiskAllocator_v2_2","broker":"DHAN","order_type":"' + _ord_class + '","symbol":"' + syminfo.ticker + '","exchange":"' + syminfo.prefix + '","total_qty":' + str.tostring(m_final_qty) + ',"entry":' + str.tostring(m_entry, "0.00") + ',"stop_loss":' + str.tostring(m_stop, "0.00") + ',"trail_jump":' + str.tostring(trail_jump, "0.00") + ',"order_1":{"qty":' + str.tostring(q_dhan_oco1) + ',"target_1_static":' + str.tostring(m_t1, "0.00") + ',"stop_loss":' + str.tostring(m_stop, "0.00") + '},"order_2":{"qty":' + str.tostring(q_dhan_oco2) + ',"target_2_static":' + str.tostring(m_t2, "0.00") + ',"stop_loss":' + str.tostring(m_stop, "0.00") + '}}'
+    string gtt_json = '{"source":"RiskAllocator_v2_2","broker":"DHAN","order_type":"' + _ord_class + '","symbol":"' + syminfo.ticker + '","exchange":"' + syminfo.prefix + '","total_qty":' + str.tostring(m_final_qty) + ',"entry":' + str.tostring(m_entry, "0.00") + ',"stop_loss":' + str.tostring(m_stop, "0.00") + ',"trail_jump":' + str.tostring(trail_jump, "0.00") + ',"order_1":{"qty":' + str.tostring(q_dhan_oco1) + ',"target_1_static":' + str.tostring(m_t1, "0.00") + ',"stop_loss":' + str.tostring(m_stop, "0.00") + '},"order_2":{"qty":' + str.tostring(q_dhan_oco2) + ',"target_2_static":' + str.tostring(m_t2, "0.00") + ',"stop_loss":' + str.tostring(m_stop, "0.00") + '},"runner":{"qty":' + str.tostring(q_dhan_run) + ',"stop_loss":' + str.tostring(m_stop, "0.00") + '}}'
     log.info(gtt_json)
     alert(gtt_json, alert.freq_all)

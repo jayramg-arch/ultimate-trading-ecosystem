@@ -216,7 +216,7 @@ footer a{color:var(--acc)}
     <thead><tr><th>File</th><th>In-file title</th><th>Status</th></tr></thead><tbody>
       <tr><td class="m">…v1.0.pine</td><td>v1.1</td><td>Archived to <code>_archive/pine_superseded/</code> (20 Sep)</td></tr>
       <tr><td class="m">…v2.0.pine</td><td>v2.1</td><td>Archived to <code>_archive/pine_superseded/</code> (20 Sep)</td></tr>
-      <tr><td class="m">…v2.2.pine</td><td><b>v2.5</b></td><td><b>The live one</b> (24 Sep). The filename stays v2.2. Everything below is read from it</td></tr>
+      <tr><td class="m">…v2.2.pine</td><td><b>v2.6</b></td><td><b>The live one</b> (v2.5 24 Sep; v2.6 4 Oct adds the positional stop floor — compile pending). The filename stays v2.2. Everything below is read from it</td></tr>
     </tbody></table></div>
   <div class="tw"><table>
     <thead><tr><th>Guide</th><th>Describes</th></tr></thead><tbody>
@@ -312,6 +312,27 @@ quantity      = risk amount ÷ (entry − stop)
     </tbody></table></div>
   <p>The fallback multiple applies when the structural anchor comes out <b>at or above the entry</b>
   — which happens more often than you would expect on a name that has already run.</p>
+  <div class="note warn">
+    <span class="tag">v2.6 (4 Oct) — the positional floor, same as S4 and the Golden Matcher</span>
+    <p>After the structural stop (or its fallback) is chosen, a <b>positional</b> plan's auto-stop is pushed
+    down to at least <b>4&times; the daily ATR</b> below the entry (input <em>Positional: SL floor</em>, 0 = off).
+    Positional vs swing is the house plan-type rule, not the family: daily ATR% above 4, more than 30% off the
+    52-week high, or below the 200-day average reads <b>swing</b> and gets no floor. A stop you click on the
+    chart is never moved. Quantity sizes off the wider stop, so the rupee risk is unchanged; the stop label says
+    <em>(4.0xATR(D) floor)</em> when the floor set it. Before v2.6 the allocator kept a 10-bar-low stop the
+    Golden Matcher and S4 would have widened, so the three quoted different stops and quantities for one trade.
+    The floor's home is <code>house_policy.POS_STOP_FLOOR_ATR_D</code>; this input mirrors it.</p>
+    <p><b>Also in v2.6.</b> Defaults now match S4 and the GM sizer: capital <b>₹30,00,000</b> for stocks
+    <em>and</em> ETFs (was 28L / 12L), per-trade cap <b>₹1,00,000</b> (was 2.8L / 2.4L), and the risk floors are
+    0.25&times; the base rate, as in S4 (was an absolute 0.25%). Tick size 0 = the instrument's own tick.
+    <b>Defaults do not overwrite a chart that is already loaded</b> — set these four on your instance, or remove
+    and re-add the indicator. The Dhan split now shows the whole breakdown on the Quantity row
+    (<em>OCO-1 + OCO-2 + runner</em>), no target leg rounds to zero shares on a small position, and the exported
+    JSON carries the runner as a third, stop-only order (it used to list only the two OCOs, so a copied plan
+    left the runner without a stop). Still different from S4: the Kelly points (S4 scores above-200/30W/rising
+    150, RS slope and RV; the allocator scores the MA stack, RS above zero and volume) — S4's Qty row is the plan
+    of record.</p>
+  </div>
   <div class="note">
     <span class="tag">Recovery targets are structural, not multiples</span>
     <p>The second target for a recovery trade is <b>the 52-week high itself</b>, and Wyckoff takes
@@ -499,6 +520,6 @@ quantity      = risk amount ÷ (entry − stop)
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/10 · Commander Risk Allocator v2.5 · revised against the code 24 Sep 2026</span>
+  <span>docs/10 · Commander Risk Allocator v2.6 · revised against the code 4 Oct 2026</span>
   <span>Companions — <a href="13_unified_ecosystem.html">13 Unified Ecosystem</a> · <a href="15_context_layers.html">15 Context Layers</a></span>
 </div></footer>

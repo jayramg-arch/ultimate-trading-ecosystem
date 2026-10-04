@@ -3406,3 +3406,10 @@ S4 **v11.16 on S4Core/65** (file title v10.13), compiled, bound, alerts live. S5
 - **Schedulers:** Task Scheduler owns daily jobs (new: PreMarket_Report, PostMarket_Report, Breadth_Daily, Weekly_Report via `run_daemon_job.py`); in-app scheduler keeps price_alerts / stale_feed / pnl_alarm only (`APP_DAILY_JOBS=1` restores).
 - **Cleanup:** empty AgGrid guard; `gm_errors.log` = WARNING+ (INFO → `gm_info.log`); conftest detaches GM log handlers; Breadth EOD snapshot `reports/breadth_eod_15mo.pkl`; 51 silent excepts log `swallowed file:line`; nuclear_cleanup records failure reasons.
 - Positions: six at/below Chandelier on 3 Oct (M&MFIN, BAJFINANCE, IKS, NESTLEIND, CUMMINSIND, CAPLIPOINT) — Jay reviewing.
+
+### 4 Oct (Sun) — stop rules, Risk Allocator v2.6, cleanup fix
+- **Stop rules live in `house_policy`** (AUD-OCT-02): `POS_STOP_FLOOR_ATR_D` 4.0, `CHANDELIER_MULT` (POS 4.5/WYC 3.5/REV 2.5/SWG 1.5, +0.5 bear, windows 14/22), `AT_SL_ATR` 1.5, one noise rule `noise_band` (red <1.5×, amber <2.0×). commander_core, risk_common, pyramid_logic, journal_page, ai_risk_manager import them; guard tests in test_house_policy. AI Risk Guard now alerts at 1.5× (was 2.0×) so it agrees with the Journal banner.
+- **Risk Allocator v2.6** (file `Commander_Risk_Allocator_v2.2.pine`, compile PENDING): positional floor 4×ATR(D) by the house plan-type rule (never moves a clicked stop); defaults capital ₹30L stock+ETF, cap ₹1L, risk floors 0.25×base (= S4); tick 0 = syminfo.mintick; Qty row shows OCO-1 + OCO-2 + runner; no leg rounds to 0; GTT JSON carries the runner (stop-only). Defaults don't overwrite a loaded instance — set inputs or re-add. Kelly points still differ from S4 (S4 Qty = plan of record).
+- **S4 v11.20 on S4Core/67 compiled + bound**; v11.21 (QUALITY n/a on an index) waits on the next S4Core publish — do not compile S4 alone before it.
+- **Watchlist cleanup was deleting the TOP row** (selector matched the outer container); fixed + abort-if-collateral; `NUCLEAR_ONLY=<name>`. Collateral 4 Oct: Bull_Hunter-02OCT26 (stale).
+- Reviewer: `GEMINI_API_KEY_2` (other project) + `S4_REVIEW_GEMINI_FALLBACK` set; receiver restarted.
