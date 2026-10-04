@@ -2315,9 +2315,12 @@ f_canonical_ce_mult(string _cat, bool _bull) =>
         _m := _m + 0.5
     _m
 
-// Request both Positional (22-bar) and Swing (14-bar) highest CLOSE + EMA ATRs
-[ce_h_d_22, ce_atr_d_22] = request.security(syminfo.tickerid, "D", [ta.highest(close, 22), ta.ema(ta.tr, 22)], lookahead=barmerge.lookahead_off)
-[ce_h_d_14, ce_atr_d_14] = request.security(syminfo.tickerid, "D", [ta.highest(close, 14), ta.ema(ta.tr, 14)], lookahead=barmerge.lookahead_off)
+// Request both Positional (22-bar) and Swing (14-bar) highest CLOSE + WILDER ATRs.
+// 4-Oct-2026: was ta.ema(ta.tr, n) (alpha 2/(n+1)); risk_common.chandelier_exit and v67
+// use Wilder's RMA (alpha 1/n), so this strategy's trail sat 0-2% off theirs on the same
+// bars. Same fix v67 got on 17-Aug.
+[ce_h_d_22, ce_atr_d_22] = request.security(syminfo.tickerid, "D", [ta.highest(close, 22), ta.rma(ta.tr(true), 22)], lookahead=barmerge.lookahead_off)
+[ce_h_d_14, ce_atr_d_14] = request.security(syminfo.tickerid, "D", [ta.highest(close, 14), ta.rma(ta.tr(true), 14)], lookahead=barmerge.lookahead_off)
 
 string _active_cat_safe = na(active_catalyst) ? "" : active_catalyst
 bool   _is_swg_trade    = str.startswith(_active_cat_safe, "SWG")

@@ -318,7 +318,7 @@ def chandelier_exit(high: pd.Series, low: pd.Series, close: pd.Series,
             # with a blank journal setup (i.e. all the backfilled ones) carried a
             # POSITIONAL trail, which is the opposite of the "tighter risk, faster exits"
             # mandate a swing trade is taken under.
-            mult = (1.5 if swing else 4.5) + (0.5 if bear else 0.0)
+            mult = (_hp.CHANDELIER_MULT["SWG"] if swing else _hp.CHANDELIER_MULT["POS"]) + (_hp.CHANDELIER_BEAR_ADD if bear else 0.0)
             src = ("swing-inferred" if swing else "pos-inferred")
         else:
             # LABEL ONLY (17-Aug). Multiplier deliberately UNCHANGED.
