@@ -27,13 +27,15 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
+import house_policy as _hp   # AUD-OCT-02: the stop numbers live there
+
 
 def trail_mult_for(setup, bear: bool):
     """Catalyst-aware ATR multiplier for the Chandelier trail. Returns
     (multiplier, family) or (None, None) if the setup prefix isn't recognised."""
-    for pfx, m in (("POS", 4.5), ("WYC", 3.5), ("REV", 2.5), ("SWG", 1.5)):
+    for pfx, m in _hp.CHANDELIER_MULT.items():
         if str(setup or "").startswith(pfx):
-            return (m + (0.5 if bear else 0.0)), pfx
+            return (m + (_hp.CHANDELIER_BEAR_ADD if bear else 0.0)), pfx
     return None, None
 
 
@@ -48,7 +50,7 @@ def trail_window_for(setup, swing=None) -> int:
             swing = True
         elif s.startswith(("POS", "WYC", "REV")):
             swing = False
-    return 14 if swing else 22
+    return _hp.CHANDELIER_WINDOW_SWING if swing else _hp.CHANDELIER_WINDOW_POS
 
 
 def classify_trade_type_v22(df_daily, rrg: str = None):

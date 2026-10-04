@@ -835,7 +835,7 @@ SL_MULT_SWING, SL_MULT_POS = 2.5, 4.0   # S4 tt_sl_swing / tt_sl_pos
 
 TT_SWING_ATR_PCT, TT_SWING_OFF52 = 4.0, 30.0   # S4 swing_atr_max / swing_off52_max
 
-POS_STOP_FLOOR_ATR_D = 4.0   # positional stop never closer than 4x DAILY ATR (2-Oct-2026; S4 pos_floor_atrD)
+from house_policy import POS_STOP_FLOOR_ATR_D   # AUD-OCT-02 (was 4.0 here) - positional stop never closer than 4x DAILY ATR (2-Oct-2026; S4 pos_floor_atrD)
 
 def _gm_zone_rungs(zs_list):
     """(in-zone distal, nearest-below distal) across zone_support() results, S4 order."""

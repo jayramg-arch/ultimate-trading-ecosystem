@@ -2,6 +2,7 @@ import pandas as pd
 import yfinance as yf
 import streamlit as st
 from datetime import datetime, timedelta
+import house_policy as _hp   # AUD-OCT-02: one noise rule (was 2.0x here, 1.5x in the Journal)
 
 # C1: route OHLCV through the unified data_provider when available.
 try:
@@ -146,8 +147,8 @@ def get_noise_risk_stats(df):
         if atr <= 0: continue
         
         dist = abs(ltp - sl)
-        # Aligned with validate_risk_hygiene threshold — both use 2.0×ATR.
-        if dist < (2.0 * atr):
+        # house_policy.noise_band - the same rule as the Journal banner and ledger.
+        if _hp.noise_band(dist / atr) == "red":
             risk_count += 1
             at_risk_symbols.append(symbol)
             
@@ -155,7 +156,7 @@ def get_noise_risk_stats(df):
 
 def validate_risk_hygiene(df):
     """
-    Compares the distance to Stop Loss against 2x ATR.
+    Compares the distance to Stop Loss against house_policy.NOISE_ATR_RED (1.5x ATR).
     Returns a list of alerts for trades with 'Noise Risk' (SL too tight).
     """
     alerts = []
@@ -175,11 +176,11 @@ def validate_risk_hygiene(df):
         dist_to_sl = abs(ltp - sl)
         # If distance to SL is less than 2x ATR, it's considered "Tight/Noise Risk"
         # (D2: threshold + suggested-buffer aligned. D1: typo "prematurey" fixed.)
-        if dist_to_sl < (2.0 * atr):
+        if _hp.noise_band(dist_to_sl / atr) == "red":
             alerts.append({
                 'Symbol': symbol,
                 'Issue': 'Noise Risk',
-                'Detail': f"SL is only {dist_to_sl/atr:.1f}x ATR away. Market noise might trigger it prematurely. 2x ATR suggested."
+                'Detail': f"SL is only {dist_to_sl/atr:.1f}x ATR away. Market noise might trigger it prematurely. {_hp.NOISE_ATR_AMBER:g}x ATR or more suggested."
             })
             
     return alerts

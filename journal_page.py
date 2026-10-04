@@ -25,6 +25,7 @@ import streamlit as st
 
 from journal_core import *          # noqa: F401,F403  - the data layer, names unchanged
 import journal_core as _jc
+import house_policy as _hp   # AUD-OCT-02: one noise rule
 # `import *` skips names starting with an underscore, and the UI body uses _DIR (it
 # builds the screenshot path from it). Imported explicitly rather than renamed, so the
 # body stays byte-identical to what the standalone app has always run.
@@ -632,12 +633,12 @@ div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid=
                     atr = get_atr(sym)
                     if atr > 0:
                         dist = abs(ltp - sl)
-                        if dist < (1.5 * atr):
+                        if _hp.noise_band(dist / atr) == "red":
                             noise_risk_count += 1
                             noise_risk_symbols.append(sym)
 
         if noise_risk_count > 0:
-            st.error(f"⚠️ **NOISE WATCHDOG ALERT**: {noise_risk_count} trades ( {', '.join(noise_risk_symbols)} ) have Stop Losses inside the 'Noise Zone' (< 1.5x ATR). Consider widening stops to avoid premature exit.")
+            st.error(f"⚠️ **NOISE WATCHDOG ALERT**: {noise_risk_count} trades ( {', '.join(noise_risk_symbols)} ) have Stop Losses inside the 'Noise Zone' (< {_hp.NOISE_ATR_RED:g}x ATR). Consider widening stops to avoid premature exit.")
         else:
             st.success("🛡️ **NOISE WATCHDOG**: All Stop Losses are outside the immediate noise zone. Risk hygiene is optimal.")
 
@@ -703,9 +704,10 @@ div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid=
                 if atr > 0 and sl > 0:
                     dist_atr = abs(ltp - sl) / atr
                     risk_atr_vis = f"{dist_atr:.1f}x ATR"
-                    if dist_atr < 1.5:
+                    _nb = _hp.noise_band(dist_atr)
+                    if _nb == "red":
                         risk_atr_vis = "🔴 " + risk_atr_vis
-                    elif dist_atr < 2.0:
+                    elif _nb == "amber":
                         risk_atr_vis = "🟠 " + risk_atr_vis
                     else:
                         risk_atr_vis = "🟢 " + risk_atr_vis
@@ -853,7 +855,7 @@ div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid=
                     "Entry Date": st.column_config.DateColumn("Entry Date", disabled=True),
                     "LTP": st.column_config.NumberColumn("LTP", format="₹%.2f", disabled=True),
                     "Ageing": st.column_config.TextColumn("Ageing", disabled=True),
-                    "Risk (ATR)": st.column_config.TextColumn("Risk (ATR)", disabled=True, help="Distance to SL. Red if < 1.5x ATR (Noise Risk)"),
+                    "Risk (ATR)": st.column_config.TextColumn("Risk (ATR)", disabled=True, help=f"Distance to SL. Red if < {_hp.NOISE_ATR_RED:g}x ATR (noise risk), amber if < {_hp.NOISE_ATR_AMBER:g}x"),
                     "Planned R:R": st.column_config.TextColumn("Planned R:R", width="small", help="Default is 1:2"),
                     "Pot. Profit": st.column_config.TextColumn("Pot. Profit", disabled=True),
                     "P&L": st.column_config.TextColumn("P&L", disabled=True),

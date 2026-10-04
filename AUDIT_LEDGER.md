@@ -919,7 +919,7 @@ entry shadow running.
 
 ### Status — 3 Oct 2026, same day (Jay's calls)
 - **AUD-OCT-01** DONE: `GTT_Trail_Daily` disabled; stops by hand. Morning digest carries the exit review.
-- **AUD-OCT-02** Jay reviewing the six names by hand; the stop-rule consolidation is still OPEN.
+- **AUD-OCT-02** Jay reviewing the six names by hand. Stop-rule consolidation DONE (4-Oct): `house_policy` owns the positional floor (4×ATR(D)), the Chandelier table (POS 4.5 / WYC 3.5 / REV 2.5 / SWG 1.5, +0.5 bear, windows 14/22), the at-SL exit (1.5×ATR) and one noise rule (`noise_band`: red < 1.5×, amber < 2.0×). commander_core, risk_common, pyramid_logic, journal_page and ai_risk_manager import them; guard tests in `test_house_policy.py`. Behaviour change: the AI Risk Guard alerted at < 2.0× while the Journal banner used 1.5× — both now alert at 1.5× (amber is a tint only). S4 Pine keeps its own `pos_floor_atrD` input (mirrors 4.0).
 - **AUD-OCT-03** DONE (partly): fallback model `gemini-3.1-flash-lite`; `GEMINI_API_KEY_2` (another project) still to add for a suspended-project outage.
 - **AUD-OCT-04** answered — no code.
 - **AUD-OCT-05** DONE: `trade_log.py` (Phase 12e, Doc 34) — TAKE reviews vs Dhan BUY fills. First run: 108 TAKEs, 0 taken (no buys since 4 Sep), 28 skipped TAKEs scored −0.60R at 5 sessions.
@@ -930,4 +930,4 @@ entry shadow running.
 - **AUD-OCT-11** deferred by Jay (S5 Geometry in about a week). **AUD-OCT-12** standing.
 - **AUD-OCT-13** DONE for the silent ones: 51 `except: pass` now log to `gm_info.log` (`swallowed <file>:<line>`).
 - **AUD-OCT-14** Jay pushes.
-- New: watchlist cleanup fails on `XRay_Picks-30SEP26` every run; failure reasons are now recorded in the phase message.
+- Watchlist cleanup `XRay_Picks` failure FIXED (4-Oct): the row selector matched the outer list container, so every delete clicked the TOP row's Remove — the XRay 'failure' was a wrong-row delete (a targeted run on XRay_Picks-30SEP26 removed Bull_Hunter-02OCT26). Row now = nearest container of the exact title, must hold one title, run aborts if any other list disappears; `NUCLEAR_ONLY=<name>` for one-list runs. Verified: the target alone was deleted.

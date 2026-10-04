@@ -51,6 +51,28 @@ MAX_RISK_PCT = 1.5             # hard ceiling on any single order, % of equity
 #    pyramid ladder and Risk Shield already used; now one constant.
 BEAR_SCORE_MAX = 5
 
+# ── STOP RULES (AUD-OCT-02, 4-Oct-2026). Before this, the positional floor lived in
+#    commander_core, the Chandelier table in risk_common, the pyramid at-SL test in
+#    pyramid_logic, and the "noise" warning twice in the Journal (1.5x) and once in
+#    ai_risk_manager (2.0x) - so one stop could read green on the banner and red in the
+#    sidebar. Every surface reads these. S4 Pine mirrors them as inputs (pos_floor_atrD).
+POS_STOP_FLOOR_ATR_D = 4.0     # positional initial stop >= 4x DAILY ATR (2-Oct-2026)
+CHANDELIER_MULT = {"POS": 4.5, "WYC": 3.5, "REV": 2.5, "SWG": 1.5}   # by setup family
+CHANDELIER_BEAR_ADD = 0.5      # wider in a Bear/Cash tape
+CHANDELIER_WINDOW_SWING = 14   # bars for the highest-close anchor + ATR
+CHANDELIER_WINDOW_POS = 22
+NOISE_ATR_RED = 1.5            # stop within this many ATR of LTP = inside the noise: warn
+NOISE_ATR_AMBER = 2.0          # display tint only, never an alert
+AT_SL_ATR = 1.5                # pyramid ladder: losing position this close to its stop = EXIT
+
+
+def noise_band(dist_atr: float | None) -> str:
+    """'red' / 'amber' / 'green' for a stop-to-LTP distance in ATR; '' when unknown.
+    One rule for the Journal banner, its ledger column and the AI Risk Guard."""
+    if dist_atr is None or not math.isfinite(dist_atr):
+        return ""
+    return "red" if dist_atr < NOISE_ATR_RED else "amber" if dist_atr < NOISE_ATR_AMBER else "green"
+
 
 def _settings() -> dict:
     try:

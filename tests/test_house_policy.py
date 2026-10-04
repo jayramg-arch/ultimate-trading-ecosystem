@@ -87,3 +87,26 @@ def test_rrg_live_returns_quadrant_and_verdict_shape():
     import gm_trigger_board as g
     out = g.rrg_live(None)                         # too little data -> unknown, not a verdict
     assert out == {"quadrant": None, "tradeable": None}
+
+
+# ── AUD-OCT-02 (4-Oct-2026): stop rules have one home ─────────────────────────────
+def test_stop_rules_values():
+    assert hp.POS_STOP_FLOOR_ATR_D == 4.0
+    assert hp.CHANDELIER_MULT == {"POS": 4.5, "WYC": 3.5, "REV": 2.5, "SWG": 1.5}
+    assert (hp.NOISE_ATR_RED, hp.NOISE_ATR_AMBER, hp.AT_SL_ATR) == (1.5, 2.0, 1.5)
+    assert [hp.noise_band(x) for x in (1.0, 1.7, 3.0, None)] == ["red", "amber", "green", ""]
+
+
+def test_stop_consumers_read_house_policy():
+    import commander_core, risk_common
+    assert commander_core.POS_STOP_FLOOR_ATR_D is hp.POS_STOP_FLOOR_ATR_D
+    assert risk_common.trail_mult_for("POS-BO", False) == (4.5, "POS")
+    assert risk_common.trail_mult_for("SWG-PB", True) == (2.0, "SWG")
+    assert risk_common.trail_window_for("SWG-PB") == 14 and risk_common.trail_window_for("POS-BO") == 22
+
+
+def test_no_private_copies_of_the_noise_or_at_sl_rule():
+    pat = re.compile(r"\b(1\.5|2\.0)\s*\*\s*atr(14)?\b")
+    for f in ("journal_page.py", "ai_risk_manager.py", "pyramid_logic.py"):
+        hits = [l for l in _src(f).splitlines() if pat.search(l) and not l.lstrip().startswith("#")]
+        assert not hits, (f, hits)

@@ -33,6 +33,7 @@ import streamlit as st
 
 import bull_screener as bs
 import data_provider as dp
+import house_policy as _hp  # AUD-OCT-02: stop rules
 import risk_common as rc   # shared Chandelier / trail logic (synced with Risk Shield)
 
 # Max extension above the 20-EMA, in ATR, for a pyramid ADD to count as "at a
@@ -324,7 +325,7 @@ def classify(row: dict) -> tuple[str, str]:
     R = ((ltp - buy) / _risk_ps) if (_numok(ltp) and _numok(_risk_ps) and _risk_ps >= MIN_RISK_FRAC * buy) else np.nan
 
     # ══ 1. EXIT (full, 100%) — structure / thesis / risk broken ══════════
-    if _numok(ltp) and _numok(sl) and _numok(atr14) and atr14 > 0 and (ltp - sl) <= 1.5 * atr14 and pnl <= 0:
+    if _numok(ltp) and _numok(sl) and _numok(atr14) and atr14 > 0 and (ltp - sl) <= _hp.AT_SL_ATR * atr14 and pnl <= 0:
         return "EXIT", f"At SL: {(ltp-sl)/atr14:.1f}× ATR from stop, P&L {pnl:+.1f}% — exit"
     if pnl <= -8.0:
         return "EXIT", f"P&L {pnl:+.1f}% — thesis underwater, exit"
