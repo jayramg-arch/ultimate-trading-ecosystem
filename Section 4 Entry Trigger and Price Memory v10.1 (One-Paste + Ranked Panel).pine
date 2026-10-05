@@ -4932,6 +4932,7 @@ f_sumHdr(string t) =>
     o := str.replace_all(o, "TREND · ", "TREND\n")
     o := str.replace_all(o, "LEADERSHIP · ", "LEADERSHIP\n")
     o := str.replace_all(o, "LOCATION · ", "LOCATION\n")
+    o := str.replace_all(o, "LEVELS · ", "LEVELS\n")
     o := str.replace_all(o, "PARTICIPATION · ", "PARTICIPATION\n")
     o := str.replace_all(o, "GEOMETRY · ", "GEOMETRY\n")
     str.replace_all(o, "DIRECTION · ", "DIRECTION\n")
@@ -5180,7 +5181,7 @@ if show_panel and d_panel and barstate.islast
     // each bar), NOT a drawn horizontal S/R line. Renamed from "Nearest support": it was
     // being read as a chart level that isn't there. The horizontal S/R levels live in
     // the "S/R (nearest)" row below — a different, static price-memory engine.
-    f_row(24, "AVWAP", _avwTxt + f_vAVW(nearest_sup, close[_so], nz(atrD_tf, chart_atr)), avwap_v ? C_OK : na(nearest_sup) ? color.gray : C_INFO)
+    f_row(24, "AVWAP", _avwTxt + f_vAVW(nearest_sup, close[_so], nz(atrD_tf, chart_atr)) + (eSeen and not na(avwapE) ? "  │  Earn " + str.tostring(avwapE, format.mintick) + " (" + str.tostring((close[_so] / avwapE - 1) * 100.0, "+0.0;-0.0") + "%)" : ""), avwap_v ? C_OK : na(nearest_sup) ? color.gray : C_INFO)
     string intra_status = not show_intraday ? "off" : (intra_ok_v ? (require_squeeze ? "🟢 GO 10EMA+sqz" : "🟢 GO 10EMA") : (ema_reclaim[_so] ? "⚪ 10EMA ok" : (sqz_on[_so] ? "⚪ sqz ON, wait EMA" : "🔴 wait")))
     // relocated to row 24 (24-Jul) — row 11 now holds the dedicated Location (L) row,
     // keeping the P(10)·L(11)·V(12) trigger-gate block contiguous, per Jay's sequence.
@@ -5239,6 +5240,7 @@ if show_panel and d_panel and barstate.islast
         sr_txt := sr_txt + "   │  COILING " + (coil_bo[_so] ? "under " : "on ") + str.tostring(coil_lvl[_so], format.mintick) + (coil_bo[_so] ? " → breakout watch" : " → breakdown watch")
         sr_col := coil_bo[_so] ? C_WARN : C_NO
     f_row(16, "S/R (nearest)", sr_txt + f_vSR(sr_below, close[_so], nz(atrD_tf, chart_atr), _so_z_inDZ) +
+         (na(pwH) or timeframe.isweekly or timeframe.ismonthly ? "" : "   │  PW " + str.tostring(pwL, format.mintick) + "-" + str.tostring(pwH, format.mintick) + (na(pmH) ? "" : "  PM " + str.tostring(pmL, format.mintick) + "-" + str.tostring(pmH, format.mintick))) +
          ((isIdxChart or (na(idxSup) and na(idxRes))) ? "" :
           "   ║   SECTOR (translated ~): " +
           (na(idxSup) ? "S —" : "S " + str.tostring(idxSup, format.mintick)) + "   " +
@@ -5986,7 +5988,8 @@ if show_panel and d_panel and barstate.islast
         // row 3 for the Minervini template, so nothing else renumbers. The two dots are
         // read independently: context can be bullish while structure is not clean.
         f_row(6, "WCL context · structure", (_total_final >= 4 ? "🟢" : "⚪") + _wcl_val_str + "  │  " + (str.contains(_struct_str, "CLEAN") ? "🟢" : "⚪") + _struct_str, _wcl_score_col)
-        f_row(17, "Volume Profile", _vp_pos_str + (not na(vp_poc) ? " (POC " + str.tostring(vp_poc, format.mintick) + "  VAH " + str.tostring(vp_vah, format.mintick) + "  VAL " + str.tostring(vp_val, format.mintick) + ")" : "") + f_vVP(_vp_pos_str), _vp_pos_col)
+        f_row(17, "Volume Profile", _vp_pos_str + (not na(vp_poc) ? " (POC " + str.tostring(vp_poc, format.mintick) + "  VAH " + str.tostring(vp_vah, format.mintick) + "  VAL " + str.tostring(vp_val, format.mintick) + ")" : "") + f_vVP(_vp_pos_str)
+             + (timeframe.isdaily and not na(vp1_poc) ? "  │  1Y: POC " + str.tostring(vp1_poc, format.mintick) + "  VAH " + str.tostring(vp1_vah, format.mintick) + "  VAL " + str.tostring(vp1_val, format.mintick) : ""), _vp_pos_col)
 
     // --- PA CONDITIONS: one cell PER TOKEN, mode-aware ---
     // #badge (30-Jul, Jay: "the PA grid too — all ~17 tokens"). Replaces the old single
@@ -6320,7 +6323,8 @@ if show_panel and d_panel and barstate.islast
     // The body lives in S4Core.summaryRead so its prose never touches this file's
     // compiled-token budget; the cost here is one call plus its arguments.
     if show_summary
-        string _sumRaw = core.summaryRead(stage_n, nz(dashStgWks[_so], 0.0),
+        string _sumLv  = core.refLevelsRead(close[_so], pwH, pwL, pmH, pmL, timeframe.isdaily ? vp1_poc : na, timeframe.isdaily ? vp1_vah : na, timeframe.isdaily ? vp1_val : na, eSeen ? avwapE : na)
+        string _sumRaw0 = core.summaryRead(stage_n, nz(dashStgWks[_so], 0.0),
              _zzWv, _zzDv, _tfUp, _zzOkD, _zzOkW,
              // A1: v67's slope, the one the RS row renders. Passing S4's own 60-bar
              // linreg made LEADERSHIP say "Not leading" while the row said Rising
@@ -6349,6 +6353,9 @@ if show_panel and d_panel and barstate.islast
              dashOi, dashOiPrev, oi_basis, opt_ceK, pl_t1,
              oiPxUp, support_v, of_known, pyrClassSrc[_so] != close[_so] ? pyrClassSrc[_so] : na,
              str.contains(_mkt, "regime Bear"))
+        // v11.22: the reference levels read as their own LEVELS section, between LOCATION
+        // and PARTICIPATION (core.refLevelsRead; empty when none is known).
+        string _sumRaw = str.length(_sumLv) > 0 ? str.replace(_sumRaw0, "PARTICIPATION · ", _sumLv + "\nPARTICIPATION · ", 0) : _sumRaw0
         // Every cell of the column has to EXIST before it can be merged, so blank the
         // range first, write the text into the top-left cell, then merge. Skipping the
         // blanking pass is the usual reason a vertical merge silently does nothing.

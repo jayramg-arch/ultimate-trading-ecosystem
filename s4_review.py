@@ -553,6 +553,18 @@ PARTICIPATION — use these ACTIVELY, they are where the panel earns its keep, n
   like a supply zone - they belong in section 3 and in the T1 discussion; the put-writer
   strike BELOW is a support shelf that belongs in the stop discussion. A plan that puts T1
   under the call wall without saying so is incomplete.
+- REFERENCE LEVELS (S4 v11.22): "S/R (nearest)" carries PW (prior week low-high) and PM
+  (prior month low-high); "AVWAP" carries "Earn" (the VWAP anchored on the last earnings,
+  with price's % from it); "Volume Profile" carries "1Y" (POC/VAH/VAL over 250 Daily bars,
+  Daily charts only); SUMMARY has a LEVELS section reading all of them. For a POSITIONAL
+  read on the Daily they matter: a Daily close above PMH is a monthly breakout and PMH
+  becomes the first support; inside the prior month's range, PMH is overhead the plan must
+  clear; above the earnings AVWAP the post-results holders are in profit (support), below it
+  they are under water (supply); above the 1-year VAH is price discovery, below the 1-year
+  VAL is cheap but under the year's sellers. Use them in sections 2 and 3 like any other
+  level - a PMH, earnings AVWAP or 1Y VAH ABOVE price and below T1 is a ROOM obstacle; one
+  BELOW price is a support reference for the stop discussion. Name the ones that change the
+  plan; do not list the rest.
   Two OI-state readings reach you: S4's "Futures OI" row and v67's "FUTURES OI STATE".
   Since v67.4.25 / S4 v10.11 both read the same OI (near + next month) against the same
   price leg (the daily FUTURES change), so they should agree. If they differ, S4's futures

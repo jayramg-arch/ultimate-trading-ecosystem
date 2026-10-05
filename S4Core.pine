@@ -2721,6 +2721,33 @@ export volumeProfile(bool run, float hiS, float loS, float volS, float rngHi, fl
     [_poc, _vah, _val]
 
 
+// ---- refLevelsRead -------------------------------------------------------------
+// The SUMMARY's read of the reference levels added in v11.22 (5-Oct-2026, Jay): prior week
+// and month high/low, the 1-year volume profile and the AVWAP anchored on the last
+// earnings. Says WHERE price sits against each and what that means for a positional read;
+// prints a level only where the meaning needs it. "" when none is known. S4 splices it in
+// as a LEVELS section between LOCATION and PARTICIPATION.
+export refLevelsRead(float px, float pwH, float pwL, float pmH, float pmL,
+       float v1p, float v1h, float v1l, float avE) =>
+    string o = ""
+    if not na(pmH) and not na(pmL)
+        o += px > pmH ? "Above last month's high (" + str.tostring(pmH, format.mintick) + ") - a monthly breakout; that high is now the first support a positional stop should respect. " :
+             px < pmL ? "Below last month's low (" + str.tostring(pmL, format.mintick) + ") - a monthly breakdown; longs here are buying weakness. " :
+             "Inside last month's range (" + str.tostring(pmL, format.mintick) + " - " + str.tostring(pmH, format.mintick) + "); a Daily close above " + str.tostring(pmH, format.mintick) + " is the monthly breakout to wait for. "
+    if not na(pwH) and not na(pwL)
+        o += px > pwH ? "Through last week's high - the week is resolving up. " :
+             px < pwL ? "Under last week's low - the week is resolving down. " :
+             "Inside last week's range. "
+    if not na(v1h) and not na(v1l)
+        o += px > v1h ? "Above the 1-year value area (VAH " + str.tostring(v1h, format.mintick) + ") - price discovery against the year; pullbacks to VAH are the value entries. " :
+             px < v1l ? "Below the 1-year value area (VAL " + str.tostring(v1l, format.mintick) + ") - cheap against the year, but the year's sellers sit above. " :
+             "Inside the 1-year value area; its POC " + str.tostring(v1p, format.mintick) + " is the magnet. "
+    if not na(avE)
+        o += px >= avE ? "Above the earnings AVWAP (" + str.tostring(avE, format.mintick) + "): holders since the last results are in profit - support, not supply." :
+             "Below the earnings AVWAP (" + str.tostring(avE, format.mintick) + "): holders since the last results are under water - expect supply there."
+    str.length(o) > 0 ? "LEVELS · " + o : ""
+
+
 // ---- qualityRead ------------------------------------------------------------
 // The SUMMARY's non-technical section. Added when Gate 6 shipped: the field that reads
 // the whole panel as ONE judgement was, until then, entirely technical - which is the
