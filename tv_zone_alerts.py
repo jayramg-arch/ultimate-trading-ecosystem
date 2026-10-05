@@ -58,8 +58,9 @@ def _log(msg: str) -> None:
 
 
 def _tv_symbol(sym: str) -> str:
-    """TradingView spells separators as underscores (NAM-INDIA -> NAM_INDIA, M&M -> M_M)."""
-    return "NSE:" + re.sub(r"[-&]", "_", sym.strip().upper())
+    """TradingView turns '-' into '_' (NAM-INDIA -> NAM_INDIA) but KEEPS '&' (NSE:M&MFIN is the
+    live chart symbol - db_portfolio_sync.normalize_ticker, verified 10-Sep-2026)."""
+    return "NSE:" + sym.strip().upper().replace("-", "_")
 
 
 def candidates() -> tuple[list[dict], str]:

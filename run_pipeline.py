@@ -1092,6 +1092,32 @@ def main():
                 p.status = "SKIP"
                 p.message = f"skipped: {e}"[:160]
 
+    # 12b3. POSITIONAL DAILY S4 GO ALERTS (5-Oct-2026, Jay). One single-symbol S4 GO alert on
+    # the Daily close per GM_Positional name (FINAL_GM_POSITIONAL.csv, Phase 4.8), cloned from
+    # the 75m watchlist alert so it carries the same condition, message and reviewer webhook;
+    # S4's inputs are today's bundles, which is why this runs after Phase 12/12b. Replaces
+    # yesterday's set; touches only alerts named "GM-POS GO ...". POS_GO_ALERTS=0 skips.
+    logger.info("\n[PHASE 12b3] POSITIONAL DAILY S4 GO ALERTS...")
+    with run.phase("Phase 12b3 — positional Daily GO alerts") as p:
+        if os.getenv("POS_GO_ALERTS", "1") == "0":
+            p.status = "SKIP"; p.message = "POS_GO_ALERTS=0"
+        else:
+            try:
+                import subprocess as _sp
+                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                           "tv_pos_alerts.py")],
+                             capture_output=True, text=True, timeout=20 * 60)
+                _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
+                for _ln in _lines:
+                    logger.info(f"   ↳ {_ln}")
+                p.message = next((l for l in _lines if l.startswith("alerts on the account")), _lines[-1] if _lines else "done")[:160]
+                if _r.returncode != 0:
+                    p.status = "WARN"
+            except Exception as e:
+                logger.warning(f"⚠️  positional GO alerts skipped: {e}")
+                p.status = "SKIP"
+                p.message = f"skipped: {e}"[:160]
+
     # 12c. ENTRY SHADOW (2-Oct-2026, Jay: make GM+S4 an entry optimizer - step D). Re-scores
     # every reviewed GO in logs/ai_review_log.csv: where each entry method would have filled
     # on the real 75m/125m bars, and its R against S4's stop at 5/10 sessions. Read-only,

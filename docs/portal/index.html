@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 5 Oct · 37 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 5 Oct · 38 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,15 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">5 Oct<br>positional alerts</td>
+        <td><b>Every positional name gets its own Daily S4 GO alert.</b> The two-alert limit only applies to
+        watchlist alerts, so the auto-pilot (Phase 12b3) now copies the 75m S4 GO alert onto each GM_Positional name
+        on the Daily close — same condition, message and reviewer webhook, today's bundles — and replaces the set
+        nightly (38 names on the first run). A positional GO now pings at the 15:30 close and queues the reviewer
+        instead of waiting for the evening board review. The zone-approach alerts stay as notices: no webhook.</td>
+        <td class="af">26</td>
+      </tr>
       <tr>
         <td class="dt">5 Oct<br>stop hygiene</td>
         <td><b>Dhan stops are now checked, not assumed.</b> Risk Shield gains a <b>Stops disagree</b> warning beside

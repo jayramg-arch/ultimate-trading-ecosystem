@@ -330,7 +330,18 @@ footer em{color:var(--ink-2)}
             the zone top. An approach notice, not a trigger — the GO is still read on the Daily close. They are
             named <span class="m">GM-POS zone …</span>, expire in 7 days and are replaced nightly; nothing else is
             touched. One permanent alert, <span class="m">GM-POS zone SEED</span>, is cloned to make them —
-            do not delete it (if you do, create any price alert and give it that name).</li>
+            do not delete it (if you do, create any price alert and give it that name). They carry <b>no
+            webhook</b>, so they do not queue the reviewer — an approach is not a trigger.</li>
+          <li><b>Positional names: a Daily S4 GO alert each (5 Oct).</b> Auto-pilot
+            <span class="m">Phase 12b3</span> (<span class="m">tv_pos_alerts.py</span>) gives every
+            <span class="m">GM_Positional</span> name its own S4 GO alert on the Daily close, copied from the 75m
+            watchlist alert: same condition, once per bar close, same message and the same reviewer webhook, with
+            today's S4 bundles. Single-stock alerts sit outside the two-watchlist limit. So a positional GO now reaches
+            you at the 15:30 close <em>and</em> queues the AI reviewer (its Log row says <em>s4-alert</em> on 1D),
+            instead of waiting for the evening board review. Named <span class="m">GM-POS GO …</span>, expire in 7
+            days, replaced nightly; nothing else is touched. First set: 38 names. <b>After an S4 compile</b>
+            TradingView deletes the watchlist alerts these are copied from — recreate the 75m/125m alerts once,
+            and the next auto-pilot rebuilds these too (or run <span class="m">python tv_pos_alerts.py</span>).</li>
           <li><b>Check the sector-mix strip.</b> Over the cap means you are about to over-concentrate.</li>
         </ol>
       </div>
