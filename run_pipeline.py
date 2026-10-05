@@ -60,6 +60,8 @@ def _record_cleanup(p, res) -> None:
     failed = res.get("failed", [])
     p.records = deleted
     p.message = f"{deleted}/{stale} stale lists deleted of {seen} seen (today's kept: {res.get('skipped_today', 0)})"
+    if res.get("kept_alerted"):      # 5-Oct-2026: lists an alert still watches survive a night
+        p.message += " · kept, an alert watches: " + ", ".join(res["kept_alerted"])
     if seen == 0:
         p.status = "WARN"
         p.message = "cleanup saw 0 watchlists — dialog not read: " + ("; ".join(map(str, failed)) or "no detail")

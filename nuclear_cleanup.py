@@ -6,6 +6,7 @@ import asyncio
 from playwright.async_api import async_playwright
 import os
 import re
+import json
 from datetime import datetime
 
 # ==========================================
@@ -248,6 +249,44 @@ async def cleanup_strike():
                 await context.close()
 
 
+# Lists an ALERT watches are never deleted (5-Oct-2026). TradingView deletes a watchlist's
+# alerts with the list: the 16:30 cleanup removed GM_Swing-02OCT26 while both S4 GO alerts
+# still watched it, so Phase 12b found nothing to refresh at 17:00. A watched list is kept
+# one more night - by then Phase 12b has moved the alerts to the new list - and goes then.
+ALERT_LISTS_JS = r"""
+(async () => {
+  try {
+    const W = window.webpackChunktradingview;
+    if (!window.__tvReq) W.push([["nc" + Date.now()], {}, r => { window.__tvReq = r; }]);
+    let modId = null;
+    for (const c of W) { const m = c[1] || {}; for (const k in m) { let s; try { s = m[k].toString(); } catch (e) { continue; }
+      if (s.indexOf('"Alerts.AlertsRestApi"') >= 0 && s.indexOf("getAlertsRestApi") >= 0) { modId = k; break; } } if (modId) break; }
+    const api = window.__tvReq(modId).getAlertsRestApi();
+    const la = (await api.listAlerts()) || [];
+    const ids = new Set(); la.forEach(a => { const m = String(a.symbol || "").match(/WATCHLIST:(\d+)/); if (m) ids.add(m[1]); });
+    const wl = await (await fetch("https://www.tradingview.com/api/v1/symbols_list/custom/", {credentials: "include"})).json();
+    return JSON.stringify({names: (wl || []).filter(l => ids.has(String(l.id))).map(l => l.name)});
+  } catch (e) { return JSON.stringify({err: String(e)}); }
+})()
+"""
+FALLBACK_KEEP = ("GM_Swing-", "GM_Positional-", "Golden_Matcher_Board-")
+
+
+def alert_watched_lists() -> set | None:
+    """Names of the watchlists any alert watches, read from the running TradingView over
+    CDP; None when that cannot be read (the caller then keeps every GM_* list)."""
+    try:
+        from tv_gm_alerts import _eval
+        from tv_bind_s4 import _chart_targets_all
+        t = _chart_targets_all()
+        if not t:
+            return None
+        r = json.loads(_eval(t[0]["webSocketDebuggerUrl"], ALERT_LISTS_JS) or "{}")
+        return None if r.get("err") or "names" not in r else set(r["names"])
+    except Exception:
+        return None
+
+
 async def cleanup_tradingview() -> dict:
     """Delete the script-generated (date-stamped / [Auto] / Bull_ Rec_ FINAL_) watchlists on
     TradingView. Returns {"seen": n, "stale": n, "deleted": n, "failed": [...], "skipped_today": n}
@@ -360,6 +399,16 @@ async def cleanup_tradingview() -> dict:
             stale = get_stale_watchlists(names)
             keep_today = [n for n in stale if today_stamp in n.upper()]
             stale = [n for n in stale if today_stamp not in n.upper()]
+            watched = alert_watched_lists()
+            if watched is None:
+                held = [n for n in stale if n.startswith(FALLBACK_KEEP)]
+                print("   alert lookup unavailable - keeping every GM_* list: " + ", ".join(held))
+            else:
+                held = [n for n in stale if n in watched]
+                if held:
+                    print("   kept - an alert watches it: " + ", ".join(held))
+            stale = [n for n in stale if n not in held]
+            out["kept_alerted"] = held
             out["skipped_today"] = len(keep_today)
             only = os.getenv("NUCLEAR_ONLY", "").strip()      # diagnostic: one named list only
             if only:

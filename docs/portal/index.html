@@ -252,7 +252,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         watchlist alerts, so the auto-pilot (Phase 12b3) now copies the 75m S4 GO alert onto each GM_Positional name
         on the Daily close — same condition, message and reviewer webhook, today's bundles — and replaces the set
         nightly (38 names on the first run). A positional GO now pings at the 15:30 close and queues the reviewer
-        instead of waiting for the evening board review. The zone-approach alerts stay as notices: no webhook.</td>
+        instead of waiting for the evening board review. The zone-approach alerts stay as notices: no webhook. <b>Same evening:</b> the 75m/125m watchlist alerts had vanished because the 16:30 cleanup deleted the list they watched (TradingView deletes a list's alerts with it). The cleanup now keeps any list an alert watches, and a missing watchlist alert is rebuilt from any surviving S4 GO alert — restored the same night.</td>
         <td class="af">26</td>
       </tr>
       <tr>

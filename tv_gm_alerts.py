@@ -143,16 +143,41 @@ JS = r"""
     // a.symbol is an ENCODED string: ={"session":"regular","symbol":"WATCHLIST:349004311"}
     const tpls = (la.r || []).filter(a => a.condition && a.condition.type === "alert_cond"
         && String(a.message || "").indexOf("S4 GO") >= 0 && /WATCHLIST:\d+/.test(String(a.symbol || "")));
-    if (!tpls.length) return JSON.stringify({err: "no S4 GO watchlist alert to use as a template. After an S4 compile TradingView deletes them - create the 75m and 125m alerts ONCE by hand; this job keeps them fresh from then on."});
+    // REBUILD SOURCE (5-Oct-2026): deleting the watchlist an alert watches deletes the alert
+    // too, so a missing 75m/125m alert is rebuilt from ANY S4 GO alert still on the account
+    // (the other watchlist alert, or a per-stock GM-POS GO alert): clone it, then point the
+    // clone at the list and the timeframe. Only when no S4 GO alert exists at all (after an
+    // S4 compile) does it need a hand-made one.
+    const anyS4 = (la.r || []).filter(a => a.condition && a.condition.type === "alert_cond"
+        && String(a.message || "").indexOf("S4 GO") >= 0);
+    if (!tpls.length && !anyS4.length) return JSON.stringify({err: "no S4 GO alert of any kind to use as a template. After an S4 compile TradingView deletes them - create the 75m and 125m alerts ONCE by hand; this job keeps them fresh from then on."});
     out.steps.push(tpls.length + " template(s): " + tpls.map(a => a.alert_id + "@" + a.resolution).join(", "));
 
     const strip = ["alert_id", "create_time", "created", "last_fire_time", "last_fired", "last_error",
                    "last_stop_reason", "active", "kinds", "id"];
     for (const res of cfg.resolutions) {
-      const tpl = tpls.find(a => norm(a.resolution) === res);
+      let tpl = tpls.find(a => norm(a.resolution) === res);
+      let rebuilt = "";
+      if (!tpl) {
+        const src = tpls[0] || anyS4[0];
+        if (cfg.dry) { out.results.push({res: res, err: "missing - would be rebuilt from alert " + src.alert_id}); continue; }
+        const cl = await call("cloneAlerts", {alert_ids: [src.alert_id]});
+        const nid = cl.s === "ok" && cl.r && cl.r[0] && cl.r[0].alert_id;
+        if (!nid) { out.results.push({res: res, err: "missing, and cloning alert " + src.alert_id + " failed: " + (cl.errmsg || "no id")}); continue; }
+        tpl = JSON.parse(JSON.stringify(src));
+        tpl.alert_id = nid; tpl.name = null; tpl.expiration = null; tpl.resolution = res;
+        tpl.symbol = '={"session":"regular","symbol":"WATCHLIST:0"}';
+        [tpl.condition].concat(tpl.conditions || []).forEach(c => { if (c && "resolution" in c) c.resolution = res; });
+        rebuilt = "REBUILT from alert " + src.alert_id + " (the watchlist alert had been deleted)";
+      }
       const lf = keep ? null : listFor(res);
       const _curId = tpl ? ((String(tpl.symbol).match(/WATCHLIST:(\d+)/) || [])[1]) : null;
-      const list = keep ? ((wl || []).find(l => String(l.id) === String(_curId)) || {id: _curId, name: "current list", symbols: []}) : lf.list;
+      let list = keep ? ((wl || []).find(l => String(l.id) === String(_curId)) || {id: _curId, name: "current list", symbols: []}) : lf.list;
+      if (keep && rebuilt) {     // a rebuilt alert has no list to keep: newest list of its plan clock
+        const pre = (cfg.planLists || {})[res] ? String(cfg.planLists[res]).replace(/\d{2}[A-Z]{3}\d{2}$/, "") : "GM_Swing-";
+        const cands = (wl || []).filter(l => String(l.name).indexOf(pre) === 0).sort((x, y) => y.id - x.id);
+        if (cands.length) list = cands[0];
+      }
       const newSym = "WATCHLIST:" + list.id;
       if (!tpl) { out.results.push({res: res, err: "no template on " + res + " - create that S4 GO alert by hand once, on the " + list.name + " list"}); continue; }
       const p = JSON.parse(JSON.stringify(tpl));
@@ -197,7 +222,7 @@ JS = r"""
       q.symbol = String(q.symbol).replace(/WATCHLIST:\d+/, newSym);
       const syms = (list.symbols || []).filter(x => String(x).indexOf("###") !== 0);
       const after = {sym: newSym, n: syms.length, b1: String(fresh[ids[cfg.titles[0]]] || "").length, b2: String(fresh[ids[cfg.titles[1]]] || "").length};
-      const row = {res: res, id: tpl.alert_id, before: before, after: after, list: list.name + (lf ? lf.note : " (kept)"), note: row_note};
+      const row = {res: res, id: tpl.alert_id, before: before, after: after, list: list.name + (lf ? lf.note : " (kept)"), note: (rebuilt ? rebuilt + (row_note ? "; " : "") : "") + row_note};
       if (cfg.dry) { row.action = "dry-run"; out.results.push(row); continue; }
 
       // 1) modify in place - nothing is deleted

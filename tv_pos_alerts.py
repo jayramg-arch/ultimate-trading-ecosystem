@@ -92,9 +92,11 @@ JS = r"""
       return JSON.stringify({err: "bundle 1 is EMPTY on the chart - refusing to build alerts on it"});
 
     const la = (await api.listAlerts()) || [];
-    const tpl = la.find(a => a.condition && a.condition.type === "alert_cond" && String(a.message || "").indexOf("S4 GO") >= 0
-                             && /WATCHLIST:\d+/.test(String(a.symbol || "")));
-    if (!tpl) return JSON.stringify({err: "no S4 GO watchlist alert to use as a template - after an S4 compile, recreate the 75m/125m alerts by hand once"});
+    // template: a watchlist S4 GO alert, else any S4 GO alert left (5-Oct-2026 - a deleted
+    // watchlist takes its alerts with it, and this job must not depend on those two)
+    const s4a = la.filter(a => a.condition && a.condition.type === "alert_cond" && String(a.message || "").indexOf("S4 GO") >= 0);
+    const tpl = s4a.find(a => /WATCHLIST:\d+/.test(String(a.symbol || ""))) || s4a[0];
+    if (!tpl) return JSON.stringify({err: "no S4 GO alert of any kind to use as a template - after an S4 compile, recreate the 75m/125m alerts by hand once"});
     const ours = la.filter(a => String(a.name || "").indexOf(cfg.prefix) === 0);
     out.old = ours.length; out.kept_foreign = la.length - ours.length; out.total_before = la.length;
     out.old_ids = ours.map(a => a.alert_id);

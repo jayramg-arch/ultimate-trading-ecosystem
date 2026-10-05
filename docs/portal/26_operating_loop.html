@@ -342,6 +342,13 @@ footer em{color:var(--ink-2)}
             days, replaced nightly; nothing else is touched. First set: 38 names. <b>After an S4 compile</b>
             TradingView deletes the watchlist alerts these are copied from — recreate the 75m/125m alerts once,
             and the next auto-pilot rebuilds these too (or run <span class="m">python tv_pos_alerts.py</span>).</li>
+          <li><b>Deleting a watchlist deletes its alerts (found 5 Oct).</b> The 16:30 cleanup removed
+            <span class="m">GM_Swing-02OCT26</span> while both S4 GO alerts still watched it, so Phase 12b had
+            nothing to refresh. Now: the cleanup <b>keeps any list an alert watches</b> one more night (the phase line
+            says <em>kept, an alert watches …</em>) and deletes it after Phase 12b has moved the alerts on; and if a
+            75m/125m alert is ever missing, Phase 12b <b>rebuilds it from any S4 GO alert still on the account</b>
+            (another watchlist alert or one of the GM-POS GO alerts). A hand-made alert is needed only after an S4
+            compile, when every S4 alert is gone.</li>
           <li><b>Check the sector-mix strip.</b> Over the cap means you are about to over-concentrate.</li>
         </ol>
       </div>
