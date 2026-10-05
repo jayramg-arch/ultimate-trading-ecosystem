@@ -856,7 +856,7 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.21"
+string S4_VER      = "v11.22"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -3555,6 +3555,30 @@ if not na(_vpP)
     vp_vah := _vpVah
     vp_val := _vpVal
 
+// VOLUME PROFILE ON THE CHART (v11.22, 5-Oct-2026, Jay). POC / VAH / VAL as rays across the
+// profile's own window, labelled 14 bars to the RIGHT of the last bar so they never sit on
+// S4's S/R and plan labels (at the last bar) or v67's Avg. Entry / Hard SL / T1 / T2 (3
+// bars right). Follows the existing Volume Profile Module switch - no new input, because a
+// new input shifts S4's input positions and the alerts store inputs by position.
+var line  vpLnP = na
+var line  vpLnH = na
+var line  vpLnL = na
+var label vpLbP = na
+var label vpLbH = na
+var label vpLbL = na
+if barstate.islast
+    line.delete(vpLnP), line.delete(vpLnH), line.delete(vpLnL)
+    label.delete(vpLbP), label.delete(vpLbH), label.delete(vpLbL)
+    if en_wcl and en_wcl_vp and not na(vp_poc)
+        int _vx0 = bar_index - vp_lookback + 1
+        int _vx1 = bar_index + 14
+        vpLnP := line.new(_vx0, vp_poc, _vx1, vp_poc, xloc=xloc.bar_index, color=color.new(#ff9800, 10), width=2)
+        vpLnH := line.new(_vx0, vp_vah, _vx1, vp_vah, xloc=xloc.bar_index, color=color.new(#ab47bc, 20), width=1, style=line.style_dotted)
+        vpLnL := line.new(_vx0, vp_val, _vx1, vp_val, xloc=xloc.bar_index, color=color.new(#ab47bc, 20), width=1, style=line.style_dotted)
+        vpLbP := label.new(_vx1, vp_poc, "POC " + str.tostring(vp_poc, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ff9800, 80), textcolor=#ff9800, size=size.small)
+        vpLbH := label.new(_vx1, vp_vah, "VAH " + str.tostring(vp_vah, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ab47bc, 82), textcolor=#ce93d8, size=size.small)
+        vpLbL := label.new(_vx1, vp_val, "VAL " + str.tostring(vp_val, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ab47bc, 82), textcolor=#ce93d8, size=size.small)
+
 int _vp_score = 0
 float _poc_dist = na
 string _vp_pos_str = "—"
@@ -5479,8 +5503,7 @@ if show_panel and d_panel and barstate.islast
     // NEAR, SUPPORT or RESISTANCE. atrD_tf (not chart_atr) on purpose — the extension read
     // above it is measured against the daily EMA20, so both halves of the row share one
     // clock, and a 75m chart and a daily chart print the same number (the v4.6 unit bug).
-    if not na(atrD_tf) and close[_so] > 0
-        ema_txt := ema_txt + "  │  ATR(D) ₹" + str.tostring(atrD_tf, "0.0") + " (" + str.tostring(atrD_tf / close[_so] * 100.0, "0.0") + "%)"
+    // ATR(D) REMOVED from this row (v11.22, Jay): the title row already prints ATR(chart) and ATR(D).
     // DISTANCE FROM THE HIGHS (v9.7). off52 came off the Structure basis row when that
     // became a position/direction ladder; it belongs here instead, because this row
     // already answers "how stretched are we" — vs value (EMA20) and vs volatility
@@ -6075,7 +6098,12 @@ if show_panel and d_panel and barstate.islast
     // "D" and "W" always mean Daily and Weekly, so a rung is either correct or absent.
     // Only rungs ABOVE the chart timeframe are printed - on a Daily chart the Zigzag's
     // native state IS the D rung, so showing both would print the same arrow twice.
-    string _trd = "  │  Trend " + tf_suffix + _cArw + (_tfIntra ? "  │  D " + (_zzOkD ? _dArw : "—") : "") + ((_tfIntra or _tfDay) ? "  │  W " + (_zzOkW ? _wArw : "—") : "")
+    // MONTHLY RUNG (v11.22, 5-Oct-2026, Jay: positional trades on the Daily need Daily, Weekly
+    // and Monthly). No new binding: the Zigzag's MTF-2 IS Monthly on a Daily chart (zzTrendW)
+    // and its MTF-1 is Monthly on a Weekly chart (zzTrendD). Intraday charts keep chart · D · W.
+    bool  _zzOkMo = _tfDay ? _zzOkM2 : _tfWk ? _zzOkM1 : false
+    float _zzMv   = _tfDay ? zzTrendW[_so] : _tfWk ? zzTrendD[_so] : na
+    string _trd = "  │  Trend " + (_tfDay ? "D" : tf_suffix) + _cArw + (_tfIntra ? "  │  D " + (_zzOkD ? _dArw : "—") : "") + ((_tfIntra or _tfDay) ? "  │  W " + (_zzOkW ? _wArw : "—") : "") + ((_tfDay or _tfWk) ? "  │  M " + (_zzOkMo ? f_arw(_zzMv) : "—") : "")
     // MINERVINI TREND TEMPLATE, appended to Structure basis rather than given its own
     // row: it IS a structure statement, and a new panel row costs several hundred
     // compiled tokens against a file that has repeatedly hit the ceiling. Only the
@@ -6141,7 +6169,7 @@ if show_panel and d_panel and barstate.islast
     string _cprTxt = na(_cprPivot) ? "⚪ CPR —" : (close[_so] >= _cprPivot ? "🟢 above CPR " : "🔴 below CPR ") + str.tostring(_cprPivot, format.mintick)
     string _mvwTxt = na(_mvwap) ? "⚪ MVWAP —" : (close[_so] >= _mvwap ? "🟢 above MVWAP " : "🔴 below MVWAP ") + str.tostring(_mvwap, format.mintick)
     string _momTxt = (_adxV >= 25.0 and _diP > _diM ? "🟢 " : _adxV < 20.0 ? "⚪ " : "🔴 ") + "ADX(D) " + str.tostring(_adxV, "0.0") + (_diP > _diM ? " +DI" : " -DI") + " (" + str.tostring(_diP, "0") + "/" + str.tostring(_diM, "0") + ")"
-      + "  │  ⚪ ATR " + (_atrPct > 0 ? str.tostring(_atrPct, "0.0") + "%" : "—")   // reuses the closed-bar _atrPct from the trade-type block; it returns 0.0, never na
+      // ATR% REMOVED (v11.22, Jay): it is on the title row.
       + "  │  " + _cprTxt + "  │  " + _mvwTxt
       + "  │  VCP-BO " + (kVCP ? "🟢" : "⚪")
     f_row(18, "Momentum & value", _momTxt, _adxV >= 25.0 and _diP > _diM ? C_OK : _adxV < 20.0 ? C_MUTE : C_WARN)
