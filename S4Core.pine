@@ -2748,6 +2748,143 @@ export refLevelsRead(float px, float pwH, float pwL, float pmH, float pmL,
     str.length(o) > 0 ? "LEVELS · " + o : ""
 
 
+// ---- v11.22 chart levels + PORTFOLIO text (5-Oct-2026) ---------------------------------
+// Moved out of S4 because S4 went 3,690 compiled tokens over the 100,256 ceiling when the
+// reference levels were added. Library bodies compile separately, so here they cost S4 only
+// the call. Behaviour is unchanged from the in-S4 versions.
+
+// 100-bar VOLUME PROFILE on the chart: POC / VAH / VAL over the profile's own window,
+// labelled 38 bars right of the last bar (S4's S/R + plan sit at 0, v67's trade levels at 3,
+// the OI levels at 14).
+export vpLines(bool show, float poc, float vah, float val, int lookback) =>
+    var line  lP = na
+    var line  lH = na
+    var line  lL = na
+    var label bP = na
+    var label bH = na
+    var label bL = na
+    if barstate.islast
+        line.delete(lP)
+        line.delete(lH)
+        line.delete(lL)
+        label.delete(bP)
+        label.delete(bH)
+        label.delete(bL)
+        if show and not na(poc)
+            int x0 = bar_index - lookback + 1
+            int x1 = bar_index + 38
+            lP := line.new(x0, poc, x1, poc, xloc=xloc.bar_index, color=color.new(#ff9800, 10), width=2)
+            lH := line.new(x0, vah, x1, vah, xloc=xloc.bar_index, color=color.new(#ab47bc, 20), width=1, style=line.style_dotted)
+            lL := line.new(x0, val, x1, val, xloc=xloc.bar_index, color=color.new(#ab47bc, 20), width=1, style=line.style_dotted)
+            bP := label.new(x1, poc, "POC " + str.tostring(poc, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ff9800, 80), textcolor=#ff9800, size=size.small)
+            bH := label.new(x1, vah, "VAH " + str.tostring(vah, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ab47bc, 82), textcolor=#ce93d8, size=size.small)
+            bL := label.new(x1, val, "VAL " + str.tostring(val, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ab47bc, 82), textcolor=#ce93d8, size=size.small)
+    true
+
+// REFERENCE LEVELS: prior week / month high-low (built from the chart's own bars at each new
+// week / month), the AVWAP anchored on the last earnings (eRep = S4's request.earnings value,
+// gaps_on, so it is non-na only on a reporting bar), and a ONE-YEAR volume profile (250 bars,
+// computed only when run is true - S4 passes its closed-bar gate AND a Daily chart).
+export refCalc(float eRep, bool run, simple int rows) =>
+    var float cwH = na
+    var float cwL = na
+    var float pwH = na
+    var float pwL = na
+    var float cmH = na
+    var float cmL = na
+    var float pmH = na
+    var float pmL = na
+    if timeframe.change("W")
+        pwH := cwH
+        pwL := cwL
+        cwH := high
+        cwL := low
+    else
+        cwH := math.max(nz(cwH, high), high)
+        cwL := math.min(nz(cwL, low), low)
+    if timeframe.change("M")
+        pmH := cmH
+        pmL := cmL
+        cmH := high
+        cmL := low
+    else
+        cmH := math.max(nz(cmH, high), high)
+        cmL := math.min(nz(cmL, low), low)
+    bool eNew = not na(eRep) and na(eRep[1])
+    var bool eS = false
+    if eNew
+        eS := true
+    float avE = ta.vwap(hlc3, eNew)
+    [p1, vh1, vl1] = volumeProfile(run, high, low, volume, ta.highest(high, 250), ta.lowest(low, 250), rows, 250, bar_index)
+    var float vP = na
+    var float vH = na
+    var float vL = na
+    if not na(p1)
+        vP := p1
+        vH := vh1
+        vL := vl1
+    [pwH, pwL, pmH, pmL, eS, avE, vP, vH, vL]
+
+refLvl(array<line> ln, array<label> lb, float y, int x, string txt, color c, string sty) =>
+    array.push(ln, line.new(x - 40, y, x, y, xloc=xloc.bar_index, color=color.new(c, 25), width=1, style=sty))
+    array.push(lb, label.new(x, y, txt + " " + str.tostring(y, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(c, 85), textcolor=c, size=size.small))
+    true
+
+// Draws them: earnings AVWAP at +8, prior week/month at +22, 1-year profile at +30. Each
+// group follows the S4 switch passed in (S/R levels, AVWAPs, Volume Profile Module).
+export refDraw(bool showWM, bool showAV, bool showVP, float pwH, float pwL, float pmH, float pmL, bool eS, float avE, float vP, float vH, float vL) =>
+    var array<line>  ln = array.new<line>()
+    var array<label> lb = array.new<label>()
+    if barstate.islast
+        for o in ln
+            line.delete(o)
+        for o in lb
+            label.delete(o)
+        array.clear(ln)
+        array.clear(lb)
+        if showWM and not timeframe.isweekly and not timeframe.ismonthly
+            if not na(pwH)
+                refLvl(ln, lb, pwH, bar_index + 22, "PWH", #4dd0e1, line.style_dashed)
+                refLvl(ln, lb, pwL, bar_index + 22, "PWL", #4dd0e1, line.style_dashed)
+            if not na(pmH)
+                refLvl(ln, lb, pmH, bar_index + 22, "PMH", #00897b, line.style_solid)
+                refLvl(ln, lb, pmL, bar_index + 22, "PML", #00897b, line.style_solid)
+        if showAV and eS and not na(avE)
+            refLvl(ln, lb, avE, bar_index + 8, "AVWAP-Earn", #f06292, line.style_solid)
+        if showVP and timeframe.isdaily and not na(vP)
+            refLvl(ln, lb, vP, bar_index + 30, "POC 1Y", #ffb74d, line.style_solid)
+            refLvl(ln, lb, vH, bar_index + 30, "VAH 1Y", #ba68c8, line.style_dotted)
+            refLvl(ln, lb, vL, bar_index + 30, "VAL 1Y", #ba68c8, line.style_dotted)
+    true
+
+// The panel fragments for the reference levels: [S/R row, AVWAP row, Volume Profile row,
+// SUMMARY LEVELS text]. px = the panel's read bar close.
+export levelsText(float px, float pwH, float pwL, float pmH, float pmL, bool eS, float avE, float vP, float vH, float vL) =>
+    string sr = na(pwH) or timeframe.isweekly or timeframe.ismonthly ? "" : "   │  PW " + str.tostring(pwL, format.mintick) + "-" + str.tostring(pwH, format.mintick) + (na(pmH) ? "" : "  PM " + str.tostring(pmL, format.mintick) + "-" + str.tostring(pmH, format.mintick))
+    string ae = eS and not na(avE) ? "  │  Earn " + str.tostring(avE, format.mintick) + " (" + str.tostring((px / avE - 1) * 100.0, "+0.0;-0.0") + "%)" : ""
+    string v1 = timeframe.isdaily and not na(vP) ? "  │  1Y: POC " + str.tostring(vP, format.mintick) + "  VAH " + str.tostring(vH, format.mintick) + "  VAL " + str.tostring(vL, format.mintick) : ""
+    string lv = refLevelsRead(px, pwH, pwL, pmH, pmL, timeframe.isdaily ? vP : na, timeframe.isdaily ? vH : na, timeframe.isdaily ? vL : na, eS ? avE : na)
+    [sr, ae, v1, lv]
+
+// PORTFOLIO text from v67's bound slot values. cls packs the ladder rung (1 EXIT .. 5 HOLD)
+// and the trade type (+10 = swing); an unbound source reads the price, hence the shape test.
+// Returns [on, MY TRADE text, rung, POSITION text, time-stop passed].
+export pfText(float cls, float pnl, float r, float rc, float chand, float left, float ts, float days, float px) =>
+    float c  = na(cls) ? na : math.round(cls) % 10
+    bool  on = not na(cls) and cls != px and cls <= 20 and cls == math.round(cls) and c >= 1 and c <= 5
+    string my = ""
+    string pos = ""
+    if on
+        string nm = c == 1 ? "EXIT" : c == 2 ? "TRIM" : c == 3 ? "REDUCE" : c == 4 ? "ADD" : "HOLD"
+        string top = nm + "  " + (na(pnl) ? "" : (pnl > 0 ? "+" : "") + str.tostring(pnl, "0.0") + "%") + (na(r) ? "" : "  │  " + str.tostring(r, "0.00") + "R")
+        string ch = na(chand) ? "" : str.tostring(chand, format.mintick)
+        string why = na(rc) or rc == px ? "" : rc == 1 ? "at SL" : rc == 2 ? "thesis underwater" : rc == 3 ? "Stage 4 - trend broken" : rc == 4 ? "below swing low" : rc == 5 ? "below 30-WMA" : rc == 6 ? "below Chandelier " + ch : rc == 7 ? "time-stop, dead money" : rc == 11 ? "3R+ - book 1/2, trail the rest" : rc == 12 ? "2R+ - book 1/3, lock 0.5R" : rc == 13 ? "T1 reached - book partial" : rc == 14 ? "earnings <= 3d - trim into it" : rc == 15 ? "over-extended vs 20-EMA" : rc == 21 ? "below 50-DMA - tighten, do not add" : rc == 31 ? "pullback to EMA20 - RAISE stop -> " + ch : rc == 32 ? "pullback to EMA20 - keep the stop" : rc == 33 ? "pullback to EMA20 - raise the stop first" : rc == 41 ? "leader but extended - wait for the pullback" : rc == 42 ? "no rung triggered" : ""
+        my := "MY TRADE (v67 slot)\n" + top + (str.length(why) == 0 ? "" : "\n" + why)
+        bool tsOk = not na(ts) and ts > 1000000000000 and ts != px
+        pos := "POSITION\n" + (math.round(cls) >= 10 ? "SWING" : "POSITIONAL") + (tsOk ? "\nentry " + str.format_time(int(ts), "yyyy-MM-dd", syminfo.timezone) : "") + "\n" + str.tostring(days, "0") + "d held" + (na(left) ? "" : (left < 0 ? "\nTIME-STOP PASSED by " + str.tostring(-left, "0") + "d" : "\n" + str.tostring(left, "0") + "d to time-stop"))
+    [on, my, on ? int(c) : 0, pos, not na(left) and left < 0]
+
+
 // ---- qualityRead ------------------------------------------------------------
 // The SUMMARY's non-technical section. Added when Gate 6 shipped: the field that reads
 // the whole panel as ONE judgement was, until then, entirely technical - which is the

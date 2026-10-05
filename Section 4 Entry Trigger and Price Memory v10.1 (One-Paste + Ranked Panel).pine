@@ -3562,110 +3562,12 @@ if not na(_vpP)
 // No new inputs (input positions = alert/binding positions); each follows an existing toggle.
 //
 // 100-bar VOLUME PROFILE: POC / VAH / VAL over the profile's own window (Volume Profile Module).
-f_vpLines(float poc, float vah, float val) =>
-    var line  lP = na
-    var line  lH = na
-    var line  lL = na
-    var label bP = na
-    var label bH = na
-    var label bL = na
-    if barstate.islast
-        line.delete(lP)
-        line.delete(lH)
-        line.delete(lL)
-        label.delete(bP)
-        label.delete(bH)
-        label.delete(bL)
-        if en_wcl and en_wcl_vp and not na(poc)
-            int x0 = bar_index - vp_lookback + 1
-            int x1 = bar_index + 38
-            lP := line.new(x0, poc, x1, poc, xloc=xloc.bar_index, color=color.new(#ff9800, 10), width=2)
-            lH := line.new(x0, vah, x1, vah, xloc=xloc.bar_index, color=color.new(#ab47bc, 20), width=1, style=line.style_dotted)
-            lL := line.new(x0, val, x1, val, xloc=xloc.bar_index, color=color.new(#ab47bc, 20), width=1, style=line.style_dotted)
-            bP := label.new(x1, poc, "POC " + str.tostring(poc, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ff9800, 80), textcolor=#ff9800, size=size.small)
-            bH := label.new(x1, vah, "VAH " + str.tostring(vah, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ab47bc, 82), textcolor=#ce93d8, size=size.small)
-            bL := label.new(x1, val, "VAL " + str.tostring(val, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ab47bc, 82), textcolor=#ce93d8, size=size.small)
-    true
-f_vpLines(vp_poc, vp_vah, vp_val)
-
-// REFERENCE LEVELS: prior week / month high-low (built from the chart's own bars at each new
-// week / month - no request call), the AVWAP anchored on TradingView's last earnings date, and
-// a ONE-YEAR volume profile (250 Daily bars, Daily charts only - on 75m the same bar count is
-// two months and would mislead; same library function and closed-bar gate as the 100-bar one).
-f_refCalc() =>
-    var float cwH = na
-    var float cwL = na
-    var float pwH_ = na
-    var float pwL_ = na
-    var float cmH = na
-    var float cmL = na
-    var float pmH_ = na
-    var float pmL_ = na
-    if timeframe.change("W")
-        pwH_ := cwH
-        pwL_ := cwL
-        cwH := high
-        cwL := low
-    else
-        cwH := math.max(nz(cwH, high), high)
-        cwL := math.min(nz(cwL, low), low)
-    if timeframe.change("M")
-        pmH_ := cmH
-        pmL_ := cmL
-        cmH := high
-        cmL := low
-    else
-        cmH := math.max(nz(cmH, high), high)
-        cmL := math.min(nz(cmL, low), low)
-    float eRep = request.earnings(syminfo.tickerid, earnings.actual, barmerge.gaps_on, ignore_invalid_symbol=true)
-    bool  eNew = not na(eRep) and na(eRep[1])
-    var bool eS = false
-    if eNew
-        eS := true
-    float avE = ta.vwap(hlc3, eNew)
-    float h1 = ta.highest(high, 250)
-    float l1 = ta.lowest(low, 250)
-    [p1, vh1, vl1] = core.volumeProfile(_vpRun and timeframe.isdaily, high, low, volume, h1, l1, vp_num_rows, 250, bar_index)
-    var float vP = na
-    var float vH = na
-    var float vL = na
-    if not na(p1)
-        vP := p1
-        vH := vh1
-        vL := vl1
-    [pwH_, pwL_, pmH_, pmL_, eS, avE, vP, vH, vL]
-[pwH, pwL, pmH, pmL, eSeen, avwapE, vp1_poc, vp1_vah, vp1_val] = f_refCalc()
-
-// one ray + label, both recorded so the next redraw deletes them (no leak on live ticks)
-f_refLvl(array<line> ln, array<label> lb, float y, int x, string txt, color c, string sty) =>
-    array.push(ln, line.new(x - 40, y, x, y, xloc=xloc.bar_index, color=color.new(c, 25), width=1, style=sty))
-    array.push(lb, label.new(x, y, txt + " " + str.tostring(y, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(c, 85), textcolor=c, size=size.small))
-    true
-f_refDraw(float pwH_, float pwL_, float pmH_, float pmL_, bool eS, float avE, float vP, float vH, float vL) =>
-    var array<line>  ln = array.new<line>()
-    var array<label> lb = array.new<label>()
-    if barstate.islast
-        for o in ln
-            line.delete(o)
-        for o in lb
-            label.delete(o)
-        array.clear(ln)
-        array.clear(lb)
-        if show_sr_lv and not timeframe.isweekly and not timeframe.ismonthly
-            if not na(pwH_)
-                f_refLvl(ln, lb, pwH_, bar_index + 22, "PWH", #4dd0e1, line.style_dashed)
-                f_refLvl(ln, lb, pwL_, bar_index + 22, "PWL", #4dd0e1, line.style_dashed)
-            if not na(pmH_)
-                f_refLvl(ln, lb, pmH_, bar_index + 22, "PMH", #00897b, line.style_solid)
-                f_refLvl(ln, lb, pmL_, bar_index + 22, "PML", #00897b, line.style_solid)
-        if (show_low or show_bo or show_gap) and eS and not na(avE)
-            f_refLvl(ln, lb, avE, bar_index + 8, "AVWAP-Earn", #f06292, line.style_solid)
-        if en_wcl and en_wcl_vp and timeframe.isdaily and not na(vP)
-            f_refLvl(ln, lb, vP, bar_index + 30, "POC 1Y", #ffb74d, line.style_solid)
-            f_refLvl(ln, lb, vH, bar_index + 30, "VAH 1Y", #ba68c8, line.style_dotted)
-            f_refLvl(ln, lb, vL, bar_index + 30, "VAL 1Y", #ba68c8, line.style_dotted)
-    true
-f_refDraw(pwH, pwL, pmH, pmL, eSeen, avwapE, vp1_poc, vp1_vah, vp1_val)
+core.vpLines(en_wcl and en_wcl_vp, vp_poc, vp_vah, vp_val, vp_lookback)
+// REFERENCE LEVELS (prior week / month, earnings AVWAP, 1-year profile) - computed and drawn
+// in S4Core (token ceiling). The earnings request stays here: S4 owns its request calls.
+float eRep = request.earnings(syminfo.tickerid, earnings.actual, barmerge.gaps_on, ignore_invalid_symbol=true)
+[pwH, pwL, pmH, pmL, eSeen, avwapE, vp1_poc, vp1_vah, vp1_val] = core.refCalc(eRep, _vpRun and timeframe.isdaily, vp_num_rows)
+core.refDraw(show_sr_lv, show_low or show_bo or show_gap, en_wcl and en_wcl_vp, pwH, pwL, pmH, pmL, eSeen, avwapE, vp1_poc, vp1_vah, vp1_val)
 
 int _vp_score = 0
 float _poc_dist = na
@@ -5145,76 +5047,10 @@ f_vCF(int got, int max) =>
 // statement is too long" limit when the reference levels were added (5-Oct-2026), so the
 // new row fragments, the SUMMARY LEVELS text and the PORTFOLIO cells (drawn in their own
 // block below) live at global scope. Last bar only.
-f_v22txt() =>
-    string sr = ""
-    string ae = ""
-    string v1 = ""
-    string lv = ""
-    if barstate.islast
-        sr := na(pwH) or timeframe.isweekly or timeframe.ismonthly ? "" : "   │  PW " + str.tostring(pwL, format.mintick) + "-" + str.tostring(pwH, format.mintick) + (na(pmH) ? "" : "  PM " + str.tostring(pmL, format.mintick) + "-" + str.tostring(pmH, format.mintick))
-        ae := eSeen and not na(avwapE) ? "  │  Earn " + str.tostring(avwapE, format.mintick) + " (" + str.tostring((close[_so] / avwapE - 1) * 100.0, "+0.0;-0.0") + "%)" : ""
-        v1 := timeframe.isdaily and not na(vp1_poc) ? "  │  1Y: POC " + str.tostring(vp1_poc, format.mintick) + "  VAH " + str.tostring(vp1_vah, format.mintick) + "  VAL " + str.tostring(vp1_val, format.mintick) : ""
-        lv := core.refLevelsRead(close[_so], pwH, pwL, pmH, pmL, timeframe.isdaily ? vp1_poc : na, timeframe.isdaily ? vp1_vah : na, timeframe.isdaily ? vp1_val : na, eSeen ? avwapE : na)
-    [sr, ae, v1, lv]
-[v22_srRef, v22_avE, v22_vp1, v22_lvls] = f_v22txt()
-f_pf() =>
-    // v11.22: the PORTFOLIO texts, folded into a function (main-body statement limit).
-    string pfMy = ""
-    color  pfMyC = C_MUTE
-    string pfPos = ""
-    color  pfPosC = C_MUTE
-    float _pyRaw = pyrClassSrc[_so]
-    float _pyC   = na(_pyRaw) ? na : math.round(_pyRaw) % 10
-    float _pySw  = na(_pyRaw) ? na : (math.round(_pyRaw) >= 10 ? 1 : 0)
-    bool  _pyOn  = not na(_pyRaw) and _pyRaw != close[_so] and _pyRaw <= 20 and _pyRaw == math.round(_pyRaw) and _pyC >= 1 and _pyC <= 5
-    // v11.22 (5-Oct-2026, Jay): PORTFOLIO moved from rows 40-42 into the SUMMARY column's
-    // free space (rows 37-39), so the panel is three rows shorter and the top rows fit on
-    // screen. Texts are built here and drawn after SUMMARY (whose merge stops at row 36).
-    if _pyOn
-        string _pyName = _pyC == 1 ? "EXIT" : _pyC == 2 ? "TRIM" : _pyC == 3 ? "REDUCE" : _pyC == 4 ? "ADD" : "HOLD"
-        color  _pyCol  = _pyC == 1 ? C_NO : _pyC == 2 ? C_WARN : _pyC == 3 ? C_INFO : _pyC == 4 ? C_GO : C_OK
-        float  _pyPnl  = pyrPnlSrc[_so]
-        float  _pyR    = pyrRSrc[_so]
-        string _pyTop  = _pyName + "  " + (na(_pyPnl) ? "" : (_pyPnl > 0 ? "+" : "") + str.tostring(_pyPnl, "0.0") + "%") + (na(_pyR) ? "" : "  │  " + str.tostring(_pyR, "0.00") + "R")
-        // The reason text is NOT carried: input.source cannot pass a string, and
-        // encoding a dozen trigger codes would cost more than it is worth here.
-        // The rung is the decision; v67's own row and Risk Shield spell out why.
-        // WHY, rebuilt from the code. Numbers the reason cites are re-read from the
-        // values already bound (the Chandelier) rather than carried again; levels S4
-        // does not have (30-WMA, swing low, 50-DMA) are named without their price -
-        // v67's own row and Risk Shield print those.
-        float _pyRc = pyrReasonSrc[_so]
-        string _pyChTxt = na(pyrChandSrc[_so]) ? "" : str.tostring(pyrChandSrc[_so], format.mintick)
-        string _pyWhy = na(_pyRc) or _pyRc == close ? "" :
-             _pyRc == 1  ? "at SL" :
-             _pyRc == 2  ? "thesis underwater" :
-             _pyRc == 3  ? "Stage 4 - trend broken" :
-             _pyRc == 4  ? "below swing low" :
-             _pyRc == 5  ? "below 30-WMA" :
-             _pyRc == 6  ? "below Chandelier " + _pyChTxt :
-             _pyRc == 7  ? "time-stop, dead money" :
-             _pyRc == 11 ? "3R+ - book 1/2, trail the rest" :
-             _pyRc == 12 ? "2R+ - book 1/3, lock 0.5R" :
-             _pyRc == 13 ? "T1 reached - book partial" :
-             _pyRc == 14 ? "earnings <= 3d - trim into it" :
-             _pyRc == 15 ? "over-extended vs 20-EMA" :
-             _pyRc == 21 ? "below 50-DMA - tighten, do not add" :
-             _pyRc == 31 ? "pullback to EMA20 - RAISE stop -> " + _pyChTxt :
-             _pyRc == 32 ? "pullback to EMA20 - keep the stop" :
-             _pyRc == 33 ? "pullback to EMA20 - raise the stop first" :
-             _pyRc == 41 ? "leader but extended - wait for the pullback" :
-             _pyRc == 42 ? "no rung triggered" : ""
-        pfMy  := "MY TRADE (v67 slot)\n" + _pyTop + (str.length(_pyWhy) == 0 ? "" : "\n" + _pyWhy)
-        pfMyC := _pyCol
-
-        float  _pyLeft = pyrLeftSrc[_so]
-        float  _pyTs = pyrEntryTsSrc[_so]
-        bool   _pyTsOk = not na(_pyTs) and _pyTs > 1000000000000 and _pyTs != close
-        string _pySt = (_pySw == 1 ? "SWING" : "POSITIONAL") + (_pyTsOk ? "  │  entry " + str.format_time(int(_pyTs), "yyyy-MM-dd", syminfo.timezone) : "") + "  │  " + str.tostring(pyrDaysSrc[_so], "0") + "d held" + (na(_pyLeft) ? "" : (_pyLeft < 0 ? "  │  TIME-STOP PASSED by " + str.tostring(-_pyLeft, "0") + "d" : "  │  " + str.tostring(_pyLeft, "0") + "d to time-stop"))
-        pfPos  := "POSITION\n" + str.replace_all(_pySt, "  │  ", "\n")
-        pfPosC := na(_pyLeft) or _pyLeft >= 0 ? C_MUTE : C_WARN
-    [_pyOn, pfMy, pfMyC, pfPos, pfPosC]
-[pfOn, pfMy, pfMyC, pfPos, pfPosC] = f_pf()
+[v22_srRef, v22_avE, v22_vp1, v22_lvls] = core.levelsText(close[_so], pwH, pwL, pmH, pmL, eSeen, avwapE, vp1_poc, vp1_vah, vp1_val)
+[pfOn, pfMy, pfRung, pfPos, pfLate] = core.pfText(pyrClassSrc[_so], pyrPnlSrc[_so], pyrRSrc[_so], pyrReasonSrc[_so], pyrChandSrc[_so], pyrLeftSrc[_so], pyrEntryTsSrc[_so], pyrDaysSrc[_so], close[_so])
+color pfMyC  = pfRung == 1 ? C_NO : pfRung == 2 ? C_WARN : pfRung == 3 ? C_INFO : pfRung == 4 ? C_GO : C_OK
+color pfPosC = pfLate ? C_WARN : C_MUTE
 
 if show_panel and d_panel and barstate.islast
     // VERSION ON THE PANEL (Jay, 21-Aug). "v9.17" once spanned two different compiled
