@@ -3579,6 +3579,86 @@ if barstate.islast
         vpLbH := label.new(_vx1, vp_vah, "VAH " + str.tostring(vp_vah, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ab47bc, 82), textcolor=#ce93d8, size=size.small)
         vpLbL := label.new(_vx1, vp_val, "VAL " + str.tostring(vp_val, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ab47bc, 82), textcolor=#ce93d8, size=size.small)
 
+// ── THREE REFERENCE LEVELS for positional reads (v11.22, 5-Oct-2026, Jay) ───────────────
+// No new inputs (input positions = alert/binding positions); each follows a toggle that
+// already exists. Label columns, left to right: S4 S/R + plan (+0) · v67 trade (+3) ·
+// earnings AVWAP (+8) · VP 100-bar (+14) · prior week/month (+22) · VP 1-year (+30).
+//
+// 1) PRIOR WEEK / PRIOR MONTH HIGH-LOW, built from the chart's own bars at each new week /
+//    month (no request call). Follows "Draw auto S/R levels". Daily and intraday charts.
+var float cwH = na
+var float cwL = na
+var float pwH = na
+var float pwL = na
+var float cmH = na
+var float cmL = na
+var float pmH = na
+var float pmL = na
+if timeframe.change("W")
+    pwH := cwH
+    pwL := cwL
+    cwH := high
+    cwL := low
+else
+    cwH := math.max(nz(cwH, high), high)
+    cwL := math.min(nz(cwL, low), low)
+if timeframe.change("M")
+    pmH := cmH
+    pmL := cmL
+    cmH := high
+    cmL := low
+else
+    cmH := math.max(nz(cmH, high), high)
+    cmL := math.min(nz(cmL, low), low)
+// 2) AVWAP FROM THE LAST EARNINGS (TradingView's own earnings dates). Anchored on the
+//    reporting day; follows the AVWAP switches. Drawn as its current level.
+float _eRep = request.earnings(syminfo.tickerid, earnings.actual, barmerge.gaps_on, ignore_invalid_symbol=true)
+bool  _eNew = not na(_eRep) and na(_eRep[1])
+var bool eSeen = false
+if _eNew
+    eSeen := true
+float avwapE = ta.vwap(hlc3, _eNew)
+// 3) ONE-YEAR VOLUME PROFILE (250 daily bars, Daily charts only - on 75m the same bar count
+//    is two months and would mislead). Same library function and closed-bar gate as the
+//    100-bar profile. Follows the Volume Profile Module switch.
+vp1_hi_s = ta.highest(high, 250)
+vp1_lo_s = ta.lowest (low,  250)
+[_v1P, _v1H, _v1L] = core.volumeProfile(_vpRun and timeframe.isdaily, high, low, volume, vp1_hi_s, vp1_lo_s, vp_num_rows, 250, bar_index)
+var float vp1_poc = na
+var float vp1_vah = na
+var float vp1_val = na
+if not na(_v1P)
+    vp1_poc := _v1P
+    vp1_vah := _v1H
+    vp1_val := _v1L
+var array<line>  refLn = array.new<line>()
+var array<label> refLb = array.new<label>()
+// draws one ray + label and records BOTH, so the next redraw deletes them (no leak on live ticks)
+f_refLvl(float _y, int _x, string _txt, color _c, string _sty) =>
+    array.push(refLn, line.new(_x - 40, _y, _x, _y, xloc=xloc.bar_index, color=color.new(_c, 25), width=1, style=_sty))
+    array.push(refLb, label.new(_x, _y, _txt + " " + str.tostring(_y, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(_c, 85), textcolor=_c, size=size.small))
+    true
+if barstate.islast
+    for _o in refLn
+        line.delete(_o)
+    for _o in refLb
+        label.delete(_o)
+    array.clear(refLn)
+    array.clear(refLb)
+    if show_sr_lv and not timeframe.isweekly and not timeframe.ismonthly
+        if not na(pwH)
+            f_refLvl(pwH, bar_index + 22, "PWH", #4dd0e1, line.style_dashed)
+            f_refLvl(pwL, bar_index + 22, "PWL", #4dd0e1, line.style_dashed)
+        if not na(pmH)
+            f_refLvl(pmH, bar_index + 22, "PMH", #00897b, line.style_solid)
+            f_refLvl(pmL, bar_index + 22, "PML", #00897b, line.style_solid)
+    if (show_low or show_bo or show_gap) and eSeen and not na(avwapE)
+        f_refLvl(avwapE, bar_index + 8, "AVWAP-Earn", #f06292, line.style_solid)
+    if en_wcl and en_wcl_vp and timeframe.isdaily and not na(vp1_poc)
+        f_refLvl(vp1_poc, bar_index + 30, "POC 1Y", #ffb74d, line.style_solid)
+        f_refLvl(vp1_vah, bar_index + 30, "VAH 1Y", #ba68c8, line.style_dotted)
+        f_refLvl(vp1_val, bar_index + 30, "VAL 1Y", #ba68c8, line.style_dotted)
+
 int _vp_score = 0
 float _poc_dist = na
 string _vp_pos_str = "—"
