@@ -250,7 +250,23 @@ def _loop() -> None:
             _q.task_done()
 
 
-def enqueue(symbol: str, tf: str, source: str = "webhook") -> dict:
+def _daily_wait_s(tf: str, source: str) -> float:
+    """Seconds to hold a DAILY alert that arrived before the close (5-Oct-2026). ANANDRATHI's
+    1D alert came in at 15:15:59 and the panel read a minute later said "waiting on: no PA
+    pattern" - the alert had fired on an unfinished Daily bar (1-Oct also had 75m/125m
+    pings at 15:15, which is no bar's close). The Daily plan is decided on the closed bar,
+    so the review runs at 15:31 IST on it. 0 = review now."""
+    if str(tf).upper() not in ("D", "1D") or source != "tv-webhook":
+        return 0.0
+    from datetime import timedelta, timezone
+    now = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    close = now.replace(hour=15, minute=31, second=0, microsecond=0)
+    if now.weekday() >= 5 or now.hour < 9 or now >= close:
+        return 0.0
+    return (close - now).total_seconds()
+
+
+def enqueue(symbol: str, tf: str, source: str = "webhook", body: str = "") -> dict:
     """Queue a review. Returns {"queued": bool, "reason": str, "pending": n}."""
     global _worker
     key = (symbol.upper(), str(tf).upper())
@@ -264,6 +280,14 @@ def enqueue(symbol: str, tf: str, source: str = "webhook") -> dict:
         if _worker is None or not _worker.is_alive():
             _worker = threading.Thread(target=_loop, name="s4-alert-review", daemon=True)
             _worker.start()
+    if body:      # the alert's own text: bar time + close tell WHICH bar it fired on
+        _log("alert body %s %s: %s" % (key[0], key[1], " ".join(str(body)[:160].split())))
+    wait = _daily_wait_s(key[1], source)
+    if wait > 0:
+        threading.Timer(wait, lambda: _q.put((key[0], key[1], source))).start()
+        _log("deferred %s %s from %s - Daily alert before the close, reviewing at 15:31 on the closed bar (in %.0f s)"
+             % (key[0], key[1], source, wait))
+        return {"queued": True, "reason": "deferred to 15:31 (Daily alert before the close)", "pending": _q.qsize()}
     _q.put((key[0], key[1], source))
     _log("queued %s %s from %s (pending %d)" % (key[0], key[1], source, _q.qsize()))
     return {"queued": True, "reason": "ok", "pending": _q.qsize()}

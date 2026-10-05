@@ -363,6 +363,15 @@ python s4_review.py --board 125m --live</pre>
     that fail silently. Check <code>logs/s4_alert_review.log</code> for
     <code>queued … reviewed in Ns (telegram sent)</code>.</p>
   </div>
+  <h4>Daily alerts are reviewed on the closed bar (5 Oct)</h4>
+  <p>The positional names each carry a Daily S4 GO alert (<span class="m">GM-POS GO …</span>). On 5 Oct ANANDRATHI's
+  fired at <b>15:15:59</b>, and the panel read a minute later said <em>waiting on: no PA pattern</em> — the alert had
+  fired on an unfinished Daily bar (1 Oct had three 75m/125m pings at 15:15 too, which is no bar's close). So a
+  <b>Daily alert that arrives before 15:30 is held and reviewed at 15:31</b>, on the closed bar; the receiver log
+  says <em>deferred … reviewing at 15:31</em>. 75m/125m alerts and hand-requested reviews are unaffected. The
+  receiver also logs each alert's own text (bar time and close) so the next early ping shows which bar TradingView
+  thought it was closing. Repeat GOs on the same name are <b>not</b> suppressed — each new bar close is a fresh read
+  (CPPLUS fired four times on 5 Oct, by design).</p>
   <h4>Read a name on demand — <span class="m">REVIEW.bat</span></h4>
   <p><b>Since 21 Sep.</b> <span class="m">REVIEW TITAN 75</span> (or run it and answer the two
   prompts) posts to the <em>local</em> receiver, so a manual read takes exactly the alert’s path:
