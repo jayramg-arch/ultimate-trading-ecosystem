@@ -5134,6 +5134,25 @@ f_vCF(int got, int max) =>
     na(_r) ? "" : _r >= 0.55 ? "\n—   broad; many independent facts agree" : _r <= 0.25 ? "\n—   thin; few independent facts agree" : ""
 
 
+// v11.22 TEXT PIECES BUILT OUTSIDE THE PANEL BLOCK. The panel's `if` hit Pine's "if
+// statement is too long" limit when the reference levels were added (5-Oct-2026), so the
+// new row fragments, the SUMMARY LEVELS text and the PORTFOLIO cells (drawn in their own
+// block below) live at global scope. Last bar only.
+string v22_srRef = ""
+string v22_avE   = ""
+string v22_vp1   = ""
+string v22_lvls  = ""
+if barstate.islast
+    v22_srRef := na(pwH) or timeframe.isweekly or timeframe.ismonthly ? "" : "   │  PW " + str.tostring(pwL, format.mintick) + "-" + str.tostring(pwH, format.mintick) + (na(pmH) ? "" : "  PM " + str.tostring(pmL, format.mintick) + "-" + str.tostring(pmH, format.mintick))
+    v22_avE   := eSeen and not na(avwapE) ? "  │  Earn " + str.tostring(avwapE, format.mintick) + " (" + str.tostring((close[_so] / avwapE - 1) * 100.0, "+0.0;-0.0") + "%)" : ""
+    v22_vp1   := timeframe.isdaily and not na(vp1_poc) ? "  │  1Y: POC " + str.tostring(vp1_poc, format.mintick) + "  VAH " + str.tostring(vp1_vah, format.mintick) + "  VAL " + str.tostring(vp1_val, format.mintick) : ""
+    v22_lvls  := core.refLevelsRead(close[_so], pwH, pwL, pmH, pmL, timeframe.isdaily ? vp1_poc : na, timeframe.isdaily ? vp1_vah : na, timeframe.isdaily ? vp1_val : na, eSeen ? avwapE : na)
+var bool   pfOn   = false
+var string pfMy   = ""
+var color  pfMyC  = na
+var string pfPos  = ""
+var color  pfPosC = na
+
 if show_panel and d_panel and barstate.islast
     // VERSION ON THE PANEL (Jay, 21-Aug). "v9.17" once spanned two different compiled
     // builds and there was no way to tell them apart from the chart - the title bar is
@@ -5181,7 +5200,7 @@ if show_panel and d_panel and barstate.islast
     // each bar), NOT a drawn horizontal S/R line. Renamed from "Nearest support": it was
     // being read as a chart level that isn't there. The horizontal S/R levels live in
     // the "S/R (nearest)" row below — a different, static price-memory engine.
-    f_row(24, "AVWAP", _avwTxt + f_vAVW(nearest_sup, close[_so], nz(atrD_tf, chart_atr)) + (eSeen and not na(avwapE) ? "  │  Earn " + str.tostring(avwapE, format.mintick) + " (" + str.tostring((close[_so] / avwapE - 1) * 100.0, "+0.0;-0.0") + "%)" : ""), avwap_v ? C_OK : na(nearest_sup) ? color.gray : C_INFO)
+    f_row(24, "AVWAP", _avwTxt + f_vAVW(nearest_sup, close[_so], nz(atrD_tf, chart_atr)) + v22_avE, avwap_v ? C_OK : na(nearest_sup) ? color.gray : C_INFO)
     string intra_status = not show_intraday ? "off" : (intra_ok_v ? (require_squeeze ? "🟢 GO 10EMA+sqz" : "🟢 GO 10EMA") : (ema_reclaim[_so] ? "⚪ 10EMA ok" : (sqz_on[_so] ? "⚪ sqz ON, wait EMA" : "🔴 wait")))
     // relocated to row 24 (24-Jul) — row 11 now holds the dedicated Location (L) row,
     // keeping the P(10)·L(11)·V(12) trigger-gate block contiguous, per Jay's sequence.
@@ -5239,8 +5258,7 @@ if show_panel and d_panel and barstate.islast
     if coil_on[_so]
         sr_txt := sr_txt + "   │  COILING " + (coil_bo[_so] ? "under " : "on ") + str.tostring(coil_lvl[_so], format.mintick) + (coil_bo[_so] ? " → breakout watch" : " → breakdown watch")
         sr_col := coil_bo[_so] ? C_WARN : C_NO
-    f_row(16, "S/R (nearest)", sr_txt + f_vSR(sr_below, close[_so], nz(atrD_tf, chart_atr), _so_z_inDZ) +
-         (na(pwH) or timeframe.isweekly or timeframe.ismonthly ? "" : "   │  PW " + str.tostring(pwL, format.mintick) + "-" + str.tostring(pwH, format.mintick) + (na(pmH) ? "" : "  PM " + str.tostring(pmL, format.mintick) + "-" + str.tostring(pmH, format.mintick))) +
+    f_row(16, "S/R (nearest)", sr_txt + f_vSR(sr_below, close[_so], nz(atrD_tf, chart_atr), _so_z_inDZ) + v22_srRef +
          ((isIdxChart or (na(idxSup) and na(idxRes))) ? "" :
           "   ║   SECTOR (translated ~): " +
           (na(idxSup) ? "S —" : "S " + str.tostring(idxSup, format.mintick)) + "   " +
@@ -5490,10 +5508,7 @@ if show_panel and d_panel and barstate.islast
     // v11.22 (5-Oct-2026, Jay): PORTFOLIO moved from rows 40-42 into the SUMMARY column's
     // free space (rows 37-39), so the panel is three rows shorter and the top rows fit on
     // screen. Texts are built here and drawn after SUMMARY (whose merge stops at row 36).
-    string pfMy   = ""
-    color  pfMyC  = C_MUTE
-    string pfPos  = ""
-    color  pfPosC = C_MUTE
+    pfOn := _pyOn
     if _pyOn
         string _pyName = _pyC == 1 ? "EXIT" : _pyC == 2 ? "TRIM" : _pyC == 3 ? "REDUCE" : _pyC == 4 ? "ADD" : "HOLD"
         color  _pyCol  = _pyC == 1 ? C_NO : _pyC == 2 ? C_WARN : _pyC == 3 ? C_INFO : _pyC == 4 ? C_GO : C_OK
@@ -5988,8 +6003,7 @@ if show_panel and d_panel and barstate.islast
         // row 3 for the Minervini template, so nothing else renumbers. The two dots are
         // read independently: context can be bullish while structure is not clean.
         f_row(6, "WCL context · structure", (_total_final >= 4 ? "🟢" : "⚪") + _wcl_val_str + "  │  " + (str.contains(_struct_str, "CLEAN") ? "🟢" : "⚪") + _struct_str, _wcl_score_col)
-        f_row(17, "Volume Profile", _vp_pos_str + (not na(vp_poc) ? " (POC " + str.tostring(vp_poc, format.mintick) + "  VAH " + str.tostring(vp_vah, format.mintick) + "  VAL " + str.tostring(vp_val, format.mintick) + ")" : "") + f_vVP(_vp_pos_str)
-             + (timeframe.isdaily and not na(vp1_poc) ? "  │  1Y: POC " + str.tostring(vp1_poc, format.mintick) + "  VAH " + str.tostring(vp1_vah, format.mintick) + "  VAL " + str.tostring(vp1_val, format.mintick) : ""), _vp_pos_col)
+        f_row(17, "Volume Profile", _vp_pos_str + (not na(vp_poc) ? " (POC " + str.tostring(vp_poc, format.mintick) + "  VAH " + str.tostring(vp_vah, format.mintick) + "  VAL " + str.tostring(vp_val, format.mintick) + ")" : "") + f_vVP(_vp_pos_str) + v22_vp1, _vp_pos_col)
 
     // --- PA CONDITIONS: one cell PER TOKEN, mode-aware ---
     // #badge (30-Jul, Jay: "the PA grid too — all ~17 tokens"). Replaces the old single
@@ -6323,7 +6337,6 @@ if show_panel and d_panel and barstate.islast
     // The body lives in S4Core.summaryRead so its prose never touches this file's
     // compiled-token budget; the cost here is one call plus its arguments.
     if show_summary
-        string _sumLv  = core.refLevelsRead(close[_so], pwH, pwL, pmH, pmL, timeframe.isdaily ? vp1_poc : na, timeframe.isdaily ? vp1_vah : na, timeframe.isdaily ? vp1_val : na, eSeen ? avwapE : na)
         string _sumRaw0 = core.summaryRead(stage_n, nz(dashStgWks[_so], 0.0),
              _zzWv, _zzDv, _tfUp, _zzOkD, _zzOkW,
              // A1: v67's slope, the one the RS row renders. Passing S4's own 60-bar
@@ -6355,7 +6368,7 @@ if show_panel and d_panel and barstate.islast
              str.contains(_mkt, "regime Bear"))
         // v11.22: the reference levels read as their own LEVELS section, between LOCATION
         // and PARTICIPATION (core.refLevelsRead; empty when none is known).
-        string _sumRaw = str.length(_sumLv) > 0 ? str.replace(_sumRaw0, "PARTICIPATION · ", _sumLv + "\nPARTICIPATION · ", 0) : _sumRaw0
+        string _sumRaw = str.length(v22_lvls) > 0 ? str.replace(_sumRaw0, "PARTICIPATION · ", v22_lvls + "\nPARTICIPATION · ", 0) : _sumRaw0
         // Every cell of the column has to EXIST before it can be merged, so blank the
         // range first, write the text into the top-left cell, then merge. Skipping the
         // blanking pass is the usual reason a vertical merge silently does nothing.
@@ -6369,11 +6382,6 @@ if show_panel and d_panel and barstate.islast
              text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(C_INFO),
              text_halign=text.align_left, text_valign=text.align_top)
         table.merge_cells(pnl, _sc, 0, _sc, PANEL_LAST - (_pyOn ? 3 : 0))
-    if _pyOn
-        int _pc = PA_LAST_COL + 1
-        table.cell(pnl, _pc, PANEL_LAST - 2, "VI · PORTFOLIO — what do I own here, and what does the ladder say?", text_size=_pSize, text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_left)
-        table.cell(pnl, _pc, PANEL_LAST - 1, core.wrapText(pfMy, summary_wrap), text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(pfMyC), text_halign=text.align_left, text_valign=text.align_top)
-        table.cell(pnl, _pc, PANEL_LAST, core.wrapText(pfPos, summary_wrap), text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(pfPosC), text_halign=text.align_left, text_valign=text.align_top)
 
     // ======================================================================
     // ANALYSIS — the trade in words. Everything above is a number; this is the
@@ -6583,6 +6591,11 @@ if show_panel and d_panel and barstate.islast
 // The alert's evidence channel. A hidden plot is the ONLY way to get a live value into
 // an alertcondition message - those strings are static apart from {{...}} placeholders,
 // so a Pine variable cannot be interpolated. Costs 1 of the 64 plot outputs (16 in use).
+// PORTFOLIO cells in the SUMMARY column (v11.22) - own block, see the v22 note above.
+if show_panel and d_panel and barstate.islast and pfOn
+    table.cell(pnl, PA_LAST_COL + 1, PANEL_LAST - 2, "VI · PORTFOLIO — what do I own here, and what does the ladder say?", text_size=_pSize, text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_left)
+    table.cell(pnl, PA_LAST_COL + 1, PANEL_LAST - 1, core.wrapText(pfMy, summary_wrap), text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(pfMyC), text_halign=text.align_left, text_valign=text.align_top)
+    table.cell(pnl, PA_LAST_COL + 1, PANEL_LAST, core.wrapText(pfPos, summary_wrap), text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(pfPosC), text_halign=text.align_left, text_valign=text.align_top)
 plot(locSrc, "S4 loc src", display=display.none)
 alertcondition(go and (not use_closed_candle or barstate.isconfirmed),            title="S4 GO (PA + Location + Volume + Bar + Funda)", message="{{ticker}} S4 GO {{interval}} - bar {{time}} - close {{close}} - loc-src {{plot(\"S4 loc src\")}} (1=zone 2=lvl 4=AVWAP 8=EMA20 16=S/R 32=VP; sums, and 4/8 MOVE every bar). All five gates were true on that bar - an alert cannot fire otherwise - so if the panel now reads L· the location has EXPIRED, not misfired. A loc-src of 4, 8 or 12 is the fragile case: nothing static was under price. Open S4 and re-check the current bar before acting.")
 alertcondition(avwap_trig,    title="S4 AVWAP trigger",       message="{{ticker}} S4 AVWAP trigger - bounce / R2G>BO")
