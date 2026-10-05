@@ -41,13 +41,16 @@ CHECK_JS = r"""
   var s4=chart.getStudyById(s4m.id),vals={};
   s4.getInputValues().forEach(function(v){vals[v.id]=v.value;});
   var bound=[],unbound=[];
+  // no Unified Catalyst Bridge on this tab (the Panel Layout): its one source is not counted
+  var hasUni=!!f(function(n){return n.indexOf("Unified Catalyst Bridge")===0;});
   s4.getInputsInfo().forEach(function(inp){
     if(String(inp.type)!=="source")return;
     if(inp.name.indexOf("v67:")!==0&&inp.name.indexOf("Zigzag:")!==0&&inp.name.indexOf("Unified:")!==0)return;
+    if(!hasUni&&inp.name.indexOf("Unified:")===0)return;
     var v=vals[inp.id];
     (typeof v==="string"&&v.indexOf("$")>-1?bound:unbound).push(inp.name);
   });
-  return JSON.stringify({study:s4m.name,bound:bound.length,unbound:unbound.length,unboundList:unbound});
+  return JSON.stringify({study:s4m.name,bound:bound.length,unbound:unbound.length,unboundList:unbound,noBridge:!hasUni});
 }catch(e){return JSON.stringify({error:String(e&&e.message||e)});}})();
 """
 
@@ -188,7 +191,7 @@ def main() -> int:
                 d = {}
             if d.get("error") or "bound" not in d:
                 continue
-            final[cid] = (d["bound"], d["bound"] + d["unbound"])
+            final[cid] = (d["bound"], d["bound"] + d["unbound"], bool(d.get("noBridge")))
             if d["unbound"]:
                 slipped.append(tgt)
         if not slipped:
@@ -198,10 +201,11 @@ def main() -> int:
             _evaluate(tgt["webSocketDebuggerUrl"], js)
     print("\nVERIFIED (8 s after the last write):")
     bad = 0
-    for cid, (b, n) in sorted(final.items()):
+    for cid, (b, n, nb) in sorted(final.items()):
         ok = b == n
         bad += 0 if ok else 1
-        print(f"  {'OK  ' if ok else 'FAIL'}  chart {cid}: {b}/{n} bound")
+        print(f"  {'OK  ' if ok else 'FAIL'}  chart {cid}: {b}/{n} bound"
+              + ("  (no Unified Catalyst Bridge on this tab - catalyst code not bound)" if nb else ""))
     if bad:
         print(f"\n{bad} tab(s) still NOT bound. Open each one once (so it finishes loading) and run again.")
         rc |= 1

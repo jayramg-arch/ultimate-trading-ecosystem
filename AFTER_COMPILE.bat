@@ -13,7 +13,7 @@ REM             keeps the version it was created on) and refreshes their list
 REM             and bundles. If a compile DELETED the alerts, this says so:
 REM             create the 75m and 125m alerts once by hand, on GM_Swing.
 REM
-REM  Keep all five TradingView tabs open. Needs TradingView started with the
+REM  Keep all six TradingView tabs open (incl. Panel Layout). Needs TradingView started with the
 REM  debug port (LAUNCH_TRADINGVIEW_CDP.bat / MORNING.bat).
 REM  Order of work when S4Core changed: publish S4Core -> import bumped ->
 REM  compile S4 -> THIS.

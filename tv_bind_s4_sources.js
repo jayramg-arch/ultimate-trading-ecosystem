@@ -97,7 +97,9 @@
     if (!ids.s4)  return "S4 not on this chart";
     if (!ids.v67) return "v67 Dashboard not on this chart — load it first, the plots are the source";
     if (!ids.zz)  return "Swing Zigzag not on this chart";
-    if (!ids.uni) return "Unified Catalyst Bridge not on this chart - add it; do NOT bind the strategy";
+    // 5-Oct-2026: no Bridge = bind the other 31 (the Panel Layout tab carries S4/S5/Zigzag/v67
+    // only). Only "Unified: catalyst code" stays unbound there; S4 then infers the setup type
+    // from structure on that tab, as it did before 4-Sep. Never bind the STRATEGY instead.
 
     // plot title -> "<studyId>$<plotIndex>"; the index is the plot's position in
     // metaInfo.plots, which is what a source value actually references.
@@ -121,6 +123,7 @@
       if (!want) return;                                   // not one of ours
       var ref = plotRef[want[0] + "|" + want[1]];
       if (!ref && want[0] === "fp") { report.push("skip " + inp.name + " (no Footprint Bridge on this chart)"); return; }
+      if (!ref && want[0] === "uni" && !ids.uni) { report.push("skip " + inp.name + " (no Unified Catalyst Bridge on this chart)"); return; }
       if (!ref) { report.push("MISSING PLOT " + want[1] + " <- " + inp.name); return; }
       pending.push({ id: inp.id, value: ref });
       report.push("ok " + inp.name + " -> " + want[1]);
@@ -131,7 +134,7 @@
     var got = {};
     s4.getInputValues().forEach(function (v) { got[v.id] = v.value; });
     var bad = pending.filter(function (p) { return got[p.id] !== p.value; });
-    var expect = Object.keys(MAP).filter(function (k) { return MAP[k][0] !== "fp" || ids.fp; }).length;
+    var expect = Object.keys(MAP).filter(function (k) { return (MAP[k][0] !== "fp" || ids.fp) && (MAP[k][0] !== "uni" || ids.uni); }).length;
     return "bound " + pending.length + "/" + expect +
            " | mismatches: " + (bad.length ? JSON.stringify(bad) : "none") +
            (report.filter(function (r) { return r.indexOf("ok ") !== 0; }).length
