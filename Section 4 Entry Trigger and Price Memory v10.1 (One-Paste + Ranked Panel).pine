@@ -3555,110 +3555,117 @@ if not na(_vpP)
     vp_vah := _vpVah
     vp_val := _vpVal
 
-// VOLUME PROFILE ON THE CHART (v11.22, 5-Oct-2026, Jay). POC / VAH / VAL as rays across the
-// profile's own window, labelled 38 bars to the RIGHT of the last bar so they never sit on
-// S4's S/R and plan labels (at the last bar) or v67's Avg. Entry / Hard SL / T1 / T2 (3
-// bars right). Follows the existing Volume Profile Module switch - no new input, because a
-// new input shifts S4's input positions and the alerts store inputs by position.
-var line  vpLnP = na
-var line  vpLnH = na
-var line  vpLnL = na
-var label vpLbP = na
-var label vpLbH = na
-var label vpLbL = na
-if barstate.islast
-    line.delete(vpLnP), line.delete(vpLnH), line.delete(vpLnL)
-    label.delete(vpLbP), label.delete(vpLbH), label.delete(vpLbL)
-    if en_wcl and en_wcl_vp and not na(vp_poc)
-        int _vx0 = bar_index - vp_lookback + 1
-        int _vx1 = bar_index + 38   // +14 is the OI labels' column
-        vpLnP := line.new(_vx0, vp_poc, _vx1, vp_poc, xloc=xloc.bar_index, color=color.new(#ff9800, 10), width=2)
-        vpLnH := line.new(_vx0, vp_vah, _vx1, vp_vah, xloc=xloc.bar_index, color=color.new(#ab47bc, 20), width=1, style=line.style_dotted)
-        vpLnL := line.new(_vx0, vp_val, _vx1, vp_val, xloc=xloc.bar_index, color=color.new(#ab47bc, 20), width=1, style=line.style_dotted)
-        vpLbP := label.new(_vx1, vp_poc, "POC " + str.tostring(vp_poc, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ff9800, 80), textcolor=#ff9800, size=size.small)
-        vpLbH := label.new(_vx1, vp_vah, "VAH " + str.tostring(vp_vah, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ab47bc, 82), textcolor=#ce93d8, size=size.small)
-        vpLbL := label.new(_vx1, vp_val, "VAL " + str.tostring(vp_val, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ab47bc, 82), textcolor=#ce93d8, size=size.small)
-
-// ── THREE REFERENCE LEVELS for positional reads (v11.22, 5-Oct-2026, Jay) ───────────────
-// No new inputs (input positions = alert/binding positions); each follows a toggle that
-// already exists. Label columns, left to right: S4 S/R + plan (+0) · v67 trade (+3) ·
-// earnings AVWAP (+8) · futures/options OI (+14) · prior week/month (+22) · VP 1-year (+30)
-// · VP 100-bar (+38).
+// v11.22 CHART LEVELS (5-Oct-2026, Jay) - FOLDED INTO FUNCTIONS: added inline they took the
+// script past Pine's main-body statement limit; a function call counts as ONE statement.
+// Label columns, left to right: S4 S/R + plan (+0) · v67 trade (+3) · earnings AVWAP (+8)
+// · futures/options OI (+14) · prior week/month (+22) · VP 1-year (+30) · VP 100-bar (+38).
+// No new inputs (input positions = alert/binding positions); each follows an existing toggle.
 //
-// 1) PRIOR WEEK / PRIOR MONTH HIGH-LOW, built from the chart's own bars at each new week /
-//    month (no request call). Follows "Draw auto S/R levels". Daily and intraday charts.
-var float cwH = na
-var float cwL = na
-var float pwH = na
-var float pwL = na
-var float cmH = na
-var float cmL = na
-var float pmH = na
-var float pmL = na
-if timeframe.change("W")
-    pwH := cwH
-    pwL := cwL
-    cwH := high
-    cwL := low
-else
-    cwH := math.max(nz(cwH, high), high)
-    cwL := math.min(nz(cwL, low), low)
-if timeframe.change("M")
-    pmH := cmH
-    pmL := cmL
-    cmH := high
-    cmL := low
-else
-    cmH := math.max(nz(cmH, high), high)
-    cmL := math.min(nz(cmL, low), low)
-// 2) AVWAP FROM THE LAST EARNINGS (TradingView's own earnings dates). Anchored on the
-//    reporting day; follows the AVWAP switches. Drawn as its current level.
-float _eRep = request.earnings(syminfo.tickerid, earnings.actual, barmerge.gaps_on, ignore_invalid_symbol=true)
-bool  _eNew = not na(_eRep) and na(_eRep[1])
-var bool eSeen = false
-if _eNew
-    eSeen := true
-float avwapE = ta.vwap(hlc3, _eNew)
-// 3) ONE-YEAR VOLUME PROFILE (250 daily bars, Daily charts only - on 75m the same bar count
-//    is two months and would mislead). Same library function and closed-bar gate as the
-//    100-bar profile. Follows the Volume Profile Module switch.
-vp1_hi_s = ta.highest(high, 250)
-vp1_lo_s = ta.lowest (low,  250)
-[_v1P, _v1H, _v1L] = core.volumeProfile(_vpRun and timeframe.isdaily, high, low, volume, vp1_hi_s, vp1_lo_s, vp_num_rows, 250, bar_index)
-var float vp1_poc = na
-var float vp1_vah = na
-var float vp1_val = na
-if not na(_v1P)
-    vp1_poc := _v1P
-    vp1_vah := _v1H
-    vp1_val := _v1L
-var array<line>  refLn = array.new<line>()
-var array<label> refLb = array.new<label>()
-// draws one ray + label and records BOTH, so the next redraw deletes them (no leak on live ticks)
-f_refLvl(float _y, int _x, string _txt, color _c, string _sty) =>
-    array.push(refLn, line.new(_x - 40, _y, _x, _y, xloc=xloc.bar_index, color=color.new(_c, 25), width=1, style=_sty))
-    array.push(refLb, label.new(_x, _y, _txt + " " + str.tostring(_y, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(_c, 85), textcolor=_c, size=size.small))
+// 100-bar VOLUME PROFILE: POC / VAH / VAL over the profile's own window (Volume Profile Module).
+f_vpLines(float poc, float vah, float val) =>
+    var line  lP = na
+    var line  lH = na
+    var line  lL = na
+    var label bP = na
+    var label bH = na
+    var label bL = na
+    if barstate.islast
+        line.delete(lP)
+        line.delete(lH)
+        line.delete(lL)
+        label.delete(bP)
+        label.delete(bH)
+        label.delete(bL)
+        if en_wcl and en_wcl_vp and not na(poc)
+            int x0 = bar_index - vp_lookback + 1
+            int x1 = bar_index + 38
+            lP := line.new(x0, poc, x1, poc, xloc=xloc.bar_index, color=color.new(#ff9800, 10), width=2)
+            lH := line.new(x0, vah, x1, vah, xloc=xloc.bar_index, color=color.new(#ab47bc, 20), width=1, style=line.style_dotted)
+            lL := line.new(x0, val, x1, val, xloc=xloc.bar_index, color=color.new(#ab47bc, 20), width=1, style=line.style_dotted)
+            bP := label.new(x1, poc, "POC " + str.tostring(poc, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ff9800, 80), textcolor=#ff9800, size=size.small)
+            bH := label.new(x1, vah, "VAH " + str.tostring(vah, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ab47bc, 82), textcolor=#ce93d8, size=size.small)
+            bL := label.new(x1, val, "VAL " + str.tostring(val, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(#ab47bc, 82), textcolor=#ce93d8, size=size.small)
     true
-if barstate.islast
-    for _o in refLn
-        line.delete(_o)
-    for _o in refLb
-        label.delete(_o)
-    array.clear(refLn)
-    array.clear(refLb)
-    if show_sr_lv and not timeframe.isweekly and not timeframe.ismonthly
-        if not na(pwH)
-            f_refLvl(pwH, bar_index + 22, "PWH", #4dd0e1, line.style_dashed)
-            f_refLvl(pwL, bar_index + 22, "PWL", #4dd0e1, line.style_dashed)
-        if not na(pmH)
-            f_refLvl(pmH, bar_index + 22, "PMH", #00897b, line.style_solid)
-            f_refLvl(pmL, bar_index + 22, "PML", #00897b, line.style_solid)
-    if (show_low or show_bo or show_gap) and eSeen and not na(avwapE)
-        f_refLvl(avwapE, bar_index + 8, "AVWAP-Earn", #f06292, line.style_solid)
-    if en_wcl and en_wcl_vp and timeframe.isdaily and not na(vp1_poc)
-        f_refLvl(vp1_poc, bar_index + 30, "POC 1Y", #ffb74d, line.style_solid)
-        f_refLvl(vp1_vah, bar_index + 30, "VAH 1Y", #ba68c8, line.style_dotted)
-        f_refLvl(vp1_val, bar_index + 30, "VAL 1Y", #ba68c8, line.style_dotted)
+f_vpLines(vp_poc, vp_vah, vp_val)
+
+// REFERENCE LEVELS: prior week / month high-low (built from the chart's own bars at each new
+// week / month - no request call), the AVWAP anchored on TradingView's last earnings date, and
+// a ONE-YEAR volume profile (250 Daily bars, Daily charts only - on 75m the same bar count is
+// two months and would mislead; same library function and closed-bar gate as the 100-bar one).
+f_refCalc() =>
+    var float cwH = na
+    var float cwL = na
+    var float pwH_ = na
+    var float pwL_ = na
+    var float cmH = na
+    var float cmL = na
+    var float pmH_ = na
+    var float pmL_ = na
+    if timeframe.change("W")
+        pwH_ := cwH
+        pwL_ := cwL
+        cwH := high
+        cwL := low
+    else
+        cwH := math.max(nz(cwH, high), high)
+        cwL := math.min(nz(cwL, low), low)
+    if timeframe.change("M")
+        pmH_ := cmH
+        pmL_ := cmL
+        cmH := high
+        cmL := low
+    else
+        cmH := math.max(nz(cmH, high), high)
+        cmL := math.min(nz(cmL, low), low)
+    float eRep = request.earnings(syminfo.tickerid, earnings.actual, barmerge.gaps_on, ignore_invalid_symbol=true)
+    bool  eNew = not na(eRep) and na(eRep[1])
+    var bool eS = false
+    if eNew
+        eS := true
+    float avE = ta.vwap(hlc3, eNew)
+    float h1 = ta.highest(high, 250)
+    float l1 = ta.lowest(low, 250)
+    [p1, vh1, vl1] = core.volumeProfile(_vpRun and timeframe.isdaily, high, low, volume, h1, l1, vp_num_rows, 250, bar_index)
+    var float vP = na
+    var float vH = na
+    var float vL = na
+    if not na(p1)
+        vP := p1
+        vH := vh1
+        vL := vl1
+    [pwH_, pwL_, pmH_, pmL_, eS, avE, vP, vH, vL]
+[pwH, pwL, pmH, pmL, eSeen, avwapE, vp1_poc, vp1_vah, vp1_val] = f_refCalc()
+
+// one ray + label, both recorded so the next redraw deletes them (no leak on live ticks)
+f_refLvl(array<line> ln, array<label> lb, float y, int x, string txt, color c, string sty) =>
+    array.push(ln, line.new(x - 40, y, x, y, xloc=xloc.bar_index, color=color.new(c, 25), width=1, style=sty))
+    array.push(lb, label.new(x, y, txt + " " + str.tostring(y, format.mintick), xloc=xloc.bar_index, style=label.style_label_left, color=color.new(c, 85), textcolor=c, size=size.small))
+    true
+f_refDraw(float pwH_, float pwL_, float pmH_, float pmL_, bool eS, float avE, float vP, float vH, float vL) =>
+    var array<line>  ln = array.new<line>()
+    var array<label> lb = array.new<label>()
+    if barstate.islast
+        for o in ln
+            line.delete(o)
+        for o in lb
+            label.delete(o)
+        array.clear(ln)
+        array.clear(lb)
+        if show_sr_lv and not timeframe.isweekly and not timeframe.ismonthly
+            if not na(pwH_)
+                f_refLvl(ln, lb, pwH_, bar_index + 22, "PWH", #4dd0e1, line.style_dashed)
+                f_refLvl(ln, lb, pwL_, bar_index + 22, "PWL", #4dd0e1, line.style_dashed)
+            if not na(pmH_)
+                f_refLvl(ln, lb, pmH_, bar_index + 22, "PMH", #00897b, line.style_solid)
+                f_refLvl(ln, lb, pmL_, bar_index + 22, "PML", #00897b, line.style_solid)
+        if (show_low or show_bo or show_gap) and eS and not na(avE)
+            f_refLvl(ln, lb, avE, bar_index + 8, "AVWAP-Earn", #f06292, line.style_solid)
+        if en_wcl and en_wcl_vp and timeframe.isdaily and not na(vP)
+            f_refLvl(ln, lb, vP, bar_index + 30, "POC 1Y", #ffb74d, line.style_solid)
+            f_refLvl(ln, lb, vH, bar_index + 30, "VAH 1Y", #ba68c8, line.style_dotted)
+            f_refLvl(ln, lb, vL, bar_index + 30, "VAL 1Y", #ba68c8, line.style_dotted)
+    true
+f_refDraw(pwH, pwL, pmH, pmL, eSeen, avwapE, vp1_poc, vp1_vah, vp1_val)
 
 int _vp_score = 0
 float _poc_dist = na
@@ -5138,15 +5145,18 @@ f_vCF(int got, int max) =>
 // statement is too long" limit when the reference levels were added (5-Oct-2026), so the
 // new row fragments, the SUMMARY LEVELS text and the PORTFOLIO cells (drawn in their own
 // block below) live at global scope. Last bar only.
-string v22_srRef = ""
-string v22_avE   = ""
-string v22_vp1   = ""
-string v22_lvls  = ""
-if barstate.islast
-    v22_srRef := na(pwH) or timeframe.isweekly or timeframe.ismonthly ? "" : "   │  PW " + str.tostring(pwL, format.mintick) + "-" + str.tostring(pwH, format.mintick) + (na(pmH) ? "" : "  PM " + str.tostring(pmL, format.mintick) + "-" + str.tostring(pmH, format.mintick))
-    v22_avE   := eSeen and not na(avwapE) ? "  │  Earn " + str.tostring(avwapE, format.mintick) + " (" + str.tostring((close[_so] / avwapE - 1) * 100.0, "+0.0;-0.0") + "%)" : ""
-    v22_vp1   := timeframe.isdaily and not na(vp1_poc) ? "  │  1Y: POC " + str.tostring(vp1_poc, format.mintick) + "  VAH " + str.tostring(vp1_vah, format.mintick) + "  VAL " + str.tostring(vp1_val, format.mintick) : ""
-    v22_lvls  := core.refLevelsRead(close[_so], pwH, pwL, pmH, pmL, timeframe.isdaily ? vp1_poc : na, timeframe.isdaily ? vp1_vah : na, timeframe.isdaily ? vp1_val : na, eSeen ? avwapE : na)
+f_v22txt() =>
+    string sr = ""
+    string ae = ""
+    string v1 = ""
+    string lv = ""
+    if barstate.islast
+        sr := na(pwH) or timeframe.isweekly or timeframe.ismonthly ? "" : "   │  PW " + str.tostring(pwL, format.mintick) + "-" + str.tostring(pwH, format.mintick) + (na(pmH) ? "" : "  PM " + str.tostring(pmL, format.mintick) + "-" + str.tostring(pmH, format.mintick))
+        ae := eSeen and not na(avwapE) ? "  │  Earn " + str.tostring(avwapE, format.mintick) + " (" + str.tostring((close[_so] / avwapE - 1) * 100.0, "+0.0;-0.0") + "%)" : ""
+        v1 := timeframe.isdaily and not na(vp1_poc) ? "  │  1Y: POC " + str.tostring(vp1_poc, format.mintick) + "  VAH " + str.tostring(vp1_vah, format.mintick) + "  VAL " + str.tostring(vp1_val, format.mintick) : ""
+        lv := core.refLevelsRead(close[_so], pwH, pwL, pmH, pmL, timeframe.isdaily ? vp1_poc : na, timeframe.isdaily ? vp1_vah : na, timeframe.isdaily ? vp1_val : na, eSeen ? avwapE : na)
+    [sr, ae, v1, lv]
+[v22_srRef, v22_avE, v22_vp1, v22_lvls] = f_v22txt()
 var bool   pfOn   = false
 var string pfMy   = ""
 var color  pfMyC  = na
