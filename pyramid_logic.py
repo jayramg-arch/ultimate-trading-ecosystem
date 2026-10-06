@@ -99,8 +99,70 @@ def fetch_bench_weekly() -> pd.DataFrame:
     return df_w
 
 
+def sessions_since(entry_date) -> int | None:
+    """Trading sessions after the entry day (entry day = 0), on the NSE calendar. Reads the
+    replay pin when one is set, so a walk-forward replay counts from its own date."""
+    try:
+        ed = pd.Timestamp(entry_date)
+        if pd.isna(ed):
+            return None
+        import nse_calendar as _nc
+        _pin = dp.get_pinned_date()
+        today = (pd.Timestamp(_pin) if _pin else pd.Timestamp.now()).date()
+        d, n = ed.date(), 0
+        while d < today:
+            d = d + pd.Timedelta(days=1)
+            if _nc.is_trading_day(d):
+                n += 1
+        return n
+    except Exception:
+        return None
+
+
+def grace_state(df_d: pd.DataFrame, df_w: pd.DataFrame, entry_date, stoploss,
+                setup: str = "", bear: bool = False, swing=None) -> dict | None:
+    """The ladder grace window (house_policy.LADDER_GRACE_SESSIONS) for one holding.
+
+    None outside the window. Inside it: {"session", "n", "flags"} where flags are the
+    structural EXIT rungs that were ALREADY true on the entry-day close - computed from the
+    daily/weekly frames cut at the entry date, so no global replay pin is needed (safe in
+    Streamlit). Those rungs describe the entry, not a change since it."""
+    k = sessions_since(entry_date)
+    n = int(getattr(_hp, "LADDER_GRACE_SESSIONS", 0) or 0)
+    if k is None or n <= 0 or k > n:
+        return None
+    flags = []
+    try:
+        ed = pd.Timestamp(entry_date).normalize()
+        d = df_d[df_d.index.normalize() <= ed] if df_d is not None and not df_d.empty else pd.DataFrame()
+        if len(d) >= ATR_LEN + 1:
+            h, l, c = d["High"], d["Low"], d["Close"]
+            px = float(c.iloc[-1])
+            tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
+            atr = float(tr.rolling(ATR_LEN).mean().iloc[-1])
+            if _numok(stoploss) and _numok(atr) and atr > 0 and (px - float(stoploss)) <= _hp.AT_SL_ATR * atr:
+                flags.append("at_sl")
+            if len(l) >= 11 and px < float(l.iloc[-11:-1].min()):
+                flags.append("swing_low")
+            n_w = rc.trail_window_for(setup, swing)
+            if len(d) >= n_w:
+                s200 = float(c.rolling(200).mean().iloc[-1]) if len(c) >= 200 else np.nan
+                ce, _m, _s = rc.chandelier_exit(h, l, c, setup=setup, bear=bear,
+                                                 above200=bool(_numok(s200) and px > s200), swing=swing)
+                if ce is not None and px < float(ce):
+                    flags.append("chandelier")
+            if df_w is not None and not df_w.empty:
+                w = df_w[df_w.index.normalize() <= ed]
+                if len(w) >= 30 and px < float(w["Close"].rolling(30).mean().iloc[-1]):
+                    flags.append("wma30")
+    except Exception:
+        pass
+    return {"session": k, "n": n, "flags": flags}
+
+
 def fetch_symbol_full(symbol: str, df_bench_w: pd.DataFrame,
-                      setup: str = "", bear: bool = False, swing=None) -> dict:
+                      setup: str = "", bear: bool = False, swing=None,
+                      entry_date=None, stoploss=None) -> dict:
     """Full bull_screener per-symbol record + LTP/ATR + price-structure exit
     levels (50-DMA, 30-WMA, swing low) + catalyst-aware Chandelier trail.
     ``setup`` (journal setup) + ``bear`` (regime) drive the Chandelier multiplier;
@@ -143,6 +205,7 @@ def fetch_symbol_full(symbol: str, df_bench_w: pd.DataFrame,
             pass
 
     wma30 = np.nan
+    df_w = pd.DataFrame()
     try:
         df_w = bs._flatten_cols(dp.fetch_ohlcv(yf_sym, period="3y", interval="1wk"))
         if not df_w.empty and len(df_w) >= 30:
@@ -214,6 +277,8 @@ def fetch_symbol_full(symbol: str, df_bench_w: pd.DataFrame,
         # so for POS the Chandelier below is the operative stop, not this step.
         "trail_jump": (atr14 * (rc.trail_mult_for(setup, bear)[0] or 1.5)
                        if _numok(atr14) else np.nan),
+        "grace": (grace_state(df_d, df_w, entry_date, stoploss, setup=setup, bear=bear, swing=swing)
+                  if entry_date is not None else None),
         "score_100pt":    int(rec.get("Score", 0)),
         "catalyst":       rec.get("Catalyst", "None"),
         "stage":          int(rec.get("Stage", 0)),
@@ -324,19 +389,45 @@ def classify(row: dict) -> tuple[str, str]:
     _risk_ps = (buy - sl) if (_numok(buy) and _numok(sl)) else np.nan
     R = ((ltp - buy) / _risk_ps) if (_numok(ltp) and _numok(_risk_ps) and _risk_ps >= MIN_RISK_FRAC * buy) else np.nan
 
+    # LADDER GRACE (7-Oct-2026). For house_policy.LADDER_GRACE_SESSIONS sessions after
+    # entry, a structural EXIT rung that was already true on the entry-day close, and every
+    # REDUCE rung, is held off - it describes the entry, not a change since it. Measured on
+    # 22 trades since June: 10 read EXIT and 4 REDUCE on the entry day itself (a pullback
+    # entry starts below its own 14/22-bar Chandelier and under the pre-dip swing low; ETFs
+    # and pullback names score low). Never held off: P&L <= -8%, Stage 4, price at/through
+    # the stop. Held-off rungs are named in the reason, so nothing is silently hidden.
+    _gr = row.get("grace") if isinstance(row.get("grace"), dict) else None
+    _gflags = set(_gr.get("flags") or []) if _gr else set()
+    _held = []
+
+    def _hold_off(key: str, label: str) -> bool:
+        if _gr and key in _gflags:
+            _held.append(label)
+            return True
+        return False
+
+    def _gtag() -> str:
+        return (f" · grace s{_gr['session']}/{_gr['n']}: held off {', '.join(_held)}" if (_gr and _held) else "")
+
     # ══ 1. EXIT (full, 100%) — structure / thesis / risk broken ══════════
-    if _numok(ltp) and _numok(sl) and _numok(atr14) and atr14 > 0 and (ltp - sl) <= _hp.AT_SL_ATR * atr14 and pnl <= 0:
+    if _numok(ltp) and _numok(sl) and ltp <= sl:
+        return "EXIT", f"Stop ₹{sl:,.0f} breached (LTP ₹{ltp:,.0f}) — exit"
+    if _numok(ltp) and _numok(sl) and _numok(atr14) and atr14 > 0 and (ltp - sl) <= _hp.AT_SL_ATR * atr14 and pnl <= 0 \
+            and not _hold_off("at_sl", "at-SL (stop within 1.5×ATR from entry)"):
         return "EXIT", f"At SL: {(ltp-sl)/atr14:.1f}× ATR from stop, P&L {pnl:+.1f}% — exit"
     if pnl <= -8.0:
         return "EXIT", f"P&L {pnl:+.1f}% — thesis underwater, exit"
     if stage == 4:
         return "EXIT", "Stage 4 (declining) — trend broken, exit"
-    if is_swing and _numok(swing_low) and _numok(ltp) and ltp < swing_low:
+    if is_swing and _numok(swing_low) and _numok(ltp) and ltp < swing_low \
+            and not _hold_off("swing_low", f"below swing low ₹{swing_low:,.0f}"):
         return "EXIT", f"Closed below swing low ₹{swing_low:,.0f} — swing structure broken"
-    if is_positional and _numok(wma30) and _numok(ltp) and ltp < wma30:
+    if is_positional and _numok(wma30) and _numok(ltp) and ltp < wma30 \
+            and not _hold_off("wma30", f"below 30-WMA ₹{wma30:,.0f}"):
         return "EXIT", f"Closed below 30-WMA ₹{wma30:,.0f} — Stage-4 trigger"
     chandelier = row.get("chandelier", np.nan)
-    if _numok(chandelier) and _numok(ltp) and ltp < chandelier:
+    if _numok(chandelier) and _numok(ltp) and ltp < chandelier \
+            and not _hold_off("chandelier", f"below Chandelier ₹{chandelier:,.0f}"):
         return "EXIT", f"Chandelier stop-out — price below trail ₹{chandelier:,.0f}"
     # NO TIME STOP (Jay, 24-Sep-2026). A time-based exit existed in five places with five
     # clocks (this rung 180/60d, Risk Shield 42/10d, v67 36wk/60d, Unified 6wk/10d/15d) and in
@@ -372,12 +463,23 @@ def classify(row: dict) -> tuple[str, str]:
             return "TRIM", f"Earnings in {int(d2e)}d — trim into the event"
 
     # ══ 3. REDUCE (soft) — tighten stop / don't add — NOT a sell ═════════
+    # In the grace window every REDUCE rung is held off: REDUCE means "tighten the stop",
+    # and the initial stop is not tightened in the first sessions of a trade.
     if quad == "LAGGING":
-        return "REDUCE", "RS LAGGING vs N500 — tighten stop & don't pyramid (price still intact)"
+        if _gr:
+            _held.append("RS LAGGING")
+        else:
+            return "REDUCE", "RS LAGGING vs N500 — tighten stop & don't pyramid (price still intact)"
     if is_positional and _numok(dma50) and _numok(ltp) and ltp < dma50:
-        return "REDUCE", f"Below 50-DMA ₹{dma50:,.0f} — early warning; tighten stop toward 30-WMA"
+        if _gr:
+            _held.append(f"below 50-DMA ₹{dma50:,.0f}")
+        else:
+            return "REDUCE", f"Below 50-DMA ₹{dma50:,.0f} — early warning; tighten stop toward 30-WMA"
     if score <= 25:
-        return "REDUCE", f"Score {score} — setup/RS decay; demote, tighten stop"
+        if _gr:
+            _held.append(f"score {score}")
+        else:
+            return "REDUCE", f"Score {score} — setup/RS decay; demote, tighten stop"
 
     # ══ 4. ADD (pyramid) — leader AND good location ══════════════════════
     _is_leader = (quad in ("LEADING", "WEAKENING") and pnl >= 5.0 and score >= 60) or \
@@ -423,7 +525,7 @@ def classify(row: dict) -> tuple[str, str]:
             _slnote = f" · Chandelier trail ₹{_ch:,.0f}"
         else:
             _slnote = " · raise the position stop before adding"
-        return "ADD", f"Score {score} · {quad} {row.get('rrg_arrow','')} · pullback to EMA20{_slnote} · {catal}"
+        return "ADD", f"Score {score} · {quad} {row.get('rrg_arrow','')} · pullback to EMA20{_slnote} · {catal}{_gtag()}"
     if _is_leader and not _at_location:
         # A leader that's extended / not at a pullback — hold, don't chase.
         # Name the actual reason. "extended" used to be asserted for every location
@@ -438,9 +540,9 @@ def classify(row: dict) -> tuple[str, str]:
             _why = "up >10% in five sessions — mid-run"
         else:
             _why = "not at a pullback location"
-        return "HOLD", f"Leader ({quad}, Score {score}) but {_why} — wait for the pullback to add"
+        return "HOLD", f"Leader ({quad}, Score {score}) but {_why} — wait for the pullback to add{_gtag()}"
 
-    return "HOLD", f"Score {score} · {quad} {row.get('rrg_arrow','')} · {row.get('rrg_trajectory','')}"
+    return "HOLD", f"Score {score} · {quad} {row.get('rrg_arrow','')} · {row.get('rrg_trajectory','')}{_gtag()}"
 
 
 PORTFOLIO_PICKS_CSV = os.path.join(_DIR, "FINAL_Portfolio_Picks.csv")
@@ -660,7 +762,8 @@ def get_precomputed_classifications() -> pd.DataFrame:
     for _, pos in df_open.reset_index(drop=True).iterrows():
         rrg = fetch_symbol_full(pos["symbol"], df_bench_w,
                                 setup=str(pos.get("setup", "") or ""), bear=_bear,
-                                swing=swing_from_trade_type(pos.get("timeframe") or pos.get("trade_type")))
+                                swing=swing_from_trade_type(pos.get("timeframe") or pos.get("trade_type")),
+                                entry_date=pos.get("entry_date"), stoploss=pos.get("stoploss"))
         if not rrg:
             rrg = {"rrg_quadrant": "n/a", "rrg_tradeable": False, "rrg_score": 0,
                    "rrg_trajectory": "n/a", "rrg_arrow": "•", "ltp": np.nan,
@@ -749,7 +852,8 @@ def render_pyramid_trim(df_precomputed: pd.DataFrame = None):
                               text=f"[{i+1}/{len(df_open)}] {pos['symbol']}")
             rrg = fetch_symbol_full(pos["symbol"], df_bench_w,
                                     setup=str(pos.get("setup", "") or ""), bear=_bear,
-                                    swing=swing_from_trade_type(pos.get("timeframe") or pos.get("trade_type")))
+                                    swing=swing_from_trade_type(pos.get("timeframe") or pos.get("trade_type")),
+                                entry_date=pos.get("entry_date"), stoploss=pos.get("stoploss"))
             if not rrg:
                 rrg = {"rrg_quadrant": "n/a", "rrg_tradeable": False, "rrg_score": 0,
                        "rrg_trajectory": "n/a", "rrg_arrow": "•", "ltp": np.nan,

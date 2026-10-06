@@ -64,6 +64,12 @@ CHANDELIER_WINDOW_POS = 22
 NOISE_ATR_RED = 1.5            # stop within this many ATR of LTP = inside the noise: warn
 NOISE_ATR_AMBER = 2.0          # display tint only, never an alert
 AT_SL_ATR = 1.5                # pyramid ladder: losing position this close to its stop = EXIT
+# LADDER GRACE (7-Oct-2026, Jay: "Risk Shield recommends reduce/exits within a few days of taking
+# the trade"). For this many trading sessions after entry the pyramid ladder holds off a
+# structural EXIT rung that was ALREADY true on the entry-day close, and every REDUCE rung.
+# Never held off: P&L <= -8%, Stage 4, price at/through the stop. Measured on 22 trades since
+# June: 10 read EXIT and 4 REDUCE on the entry day itself.
+LADDER_GRACE_SESSIONS = 10
 
 
 def noise_band(dist_atr: float | None) -> str:

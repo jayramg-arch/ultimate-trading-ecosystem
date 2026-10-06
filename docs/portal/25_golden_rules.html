@@ -198,6 +198,7 @@ footer em{color:var(--ink-2)}
     <li><a href="#p7"><span>07</span>Sizing &amp; exits</a></li>
     <li><a href="#p7b"><span>7b</span>Swing or positional</a></li>
     <li><a href="#p7c"><span>7c</span>Open-risk budget</a></li>
+    <li><a href="#p7d"><span>7d</span>Ladder grace period</a></li>
     <li><a href="#p8"><span>08</span>The checklist</a></li>
     <li><a href="#p9"><span>09</span>Reading the panel</a></li>
     <li><a href="#p10"><span>10</span>Reading evidence</a></li>
@@ -589,6 +590,32 @@ footer em{color:var(--ink-2)}
   budget — over by ₹1,26,506; below-cost ₹2,14,150. The trim list: M&amp;MFIN 257 · NESTLEIND 69 · BAJFINANCE 93 ·
   CUMMINSIND 18 · COALINDIA 526 · IKS 54 · AUBANK 69 · TVSMOTOR 22 · SONACOMS 258 · CAPLIPOINT 66 · PHARMABEES 2,604
   of 7,326. LAURUSLABS, ANANDRATHI, SAILIFE (locked) and VIJAYA, NETWEB, SYRMA, GLAXO are untouched.</p>
+</section>
+
+<section id="p7d">
+  <p class="pt">Part 7d · 7 Oct 2026</p>
+  <h2>The ladder grace period for new positions</h2>
+  <p>Risk Shield's pyramid ladder was calling REDUCE or EXIT within days of an entry. Replaying it over the first ten
+  sessions of the 22 trades taken since June: <b>10 read EXIT and 4 REDUCE on the entry day itself</b>, from conditions
+  true when you bought — a pullback entry starts below its own Chandelier (anchored to the bars <em>before</em> entry)
+  and below the pre-dip swing low; pullback names and ETFs carry a low bull-screener score; a swing stop at 1–1.5 × ATR
+  is "at SL" on the first red tick.</p>
+  <p><b>The rule</b> — for the first <b>10 trading sessions</b> after entry (<span class="m">house_policy.LADDER_GRACE_SESSIONS</span>):</p>
+  <div class="tw"><table>
+    <thead><tr><th>Rung</th><th>In the grace window</th></tr></thead>
+    <tbody>
+      <tr><td>Chandelier stop-out · below swing low · below 30-WMA · at-SL</td><td><b>Held off only if already true on the entry-day close</b> — it describes the entry, not a change since it</td></tr>
+      <tr><td>REDUCE: RS lagging · below 50-DMA · score ≤ 25</td><td><b>Held off</b> — the initial stop is not tightened in the first sessions</td></tr>
+      <tr><td>P&amp;L ≤ −8% · Stage 4 · price at or through the stop</td><td><b>Never held off</b></td></tr>
+      <tr><td>TRIM · ADD</td><td>Unchanged</td></tr>
+    </tbody>
+  </table></div>
+  <p>Every held-off rung is named in the reason (<span class="m">grace s3/10: held off below Chandelier ₹1,422</span>). A
+  condition that turns true after entry fires as normal; after session 10 everything does.</p>
+  <p><b>Measured effect</b> (same replay): entry-day signals <b>14 → 4</b>; the four left are hard exits or replay
+  artefacts (the journal holds today's average cost and trailed stop). <b>Known limit:</b> the Chandelier is still
+  anchored to the bars before entry — ASTERDM slipped under it on day 1. Anchoring the trail to the highest close since
+  entry would fix that, but it moves Risk Shield's and v67's trail line, so it is a separate decision.</p>
 </section>
 
 <section id="p8">

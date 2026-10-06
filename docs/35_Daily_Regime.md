@@ -71,6 +71,7 @@ The alerts watch the session, the reviewer reads the chart, and you act only whe
 ### all day · Holdings: let the stops work (YOU)
 - Do not widen a stop unless you cut the quantity so the rupees at risk do not grow (Doc 25 Part 7b).
 - Do not convert a swing to positional intraday — conversions are judged on a Daily close.
+- A new position's first 10 sessions: the ladder shows 'grace sN/10: held off …' for rungs that were true on the entry day. Those describe your entry — act only on the hard exits (stop hit, P&L -8%, Stage 4).
 - Optional glance 5 minutes after each bar close; the board is the arm stage and does not decay in 30 minutes.
 - Open: [Doc 25 Part 7b · swing or positional](http://localhost:8502/docs/portal/25_golden_rules.html#p7b)
 

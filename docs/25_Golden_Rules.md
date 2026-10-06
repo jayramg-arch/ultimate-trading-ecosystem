@@ -394,6 +394,45 @@ and VIJAYA, NETWEB, SYRMA, GLAXO are untouched.
 
 ---
 
+## PART 7d — THE LADDER GRACE PERIOD FOR NEW POSITIONS (7 Oct 2026)
+
+*Why.* Risk Shield's pyramid ladder (EXIT → TRIM → REDUCE → ADD → HOLD) was calling REDUCE or
+EXIT within days of an entry, so a new trade was cut before it had a chance and you paid the
+charges for nothing. Replaying the ladder over the first ten sessions of the 22 trades taken
+since June: **10 read EXIT and 4 REDUCE on the entry day itself**, from conditions that were
+true when you bought —
+
+- a pullback entry starts **below its own Chandelier** (the trail is anchored to the highest
+  close of the 14/22 bars *before* entry) and **below the pre-dip swing low**;
+- pullback names and ETFs carry a **low bull-screener score** (REDUCE at ≤ 25);
+- a swing stop at 1–1.5 × ATR is **"at SL"** on the first red tick.
+
+**The rule.** For the first **10 trading sessions** after entry
+(`house_policy.LADDER_GRACE_SESSIONS`):
+
+| Rung | In the grace window |
+|---|---|
+| Chandelier stop-out · below swing low · below 30-WMA · at-SL (≤ 1.5×ATR, losing) | **held off only if it was already true on the entry-day close** — it describes the entry, not a change since it |
+| REDUCE: RS lagging · below 50-DMA · score ≤ 25 | **held off** — REDUCE means "tighten the stop", and the initial stop is not tightened in the first sessions |
+| P&L ≤ −8% · Stage 4 · price at or through the stop | **never held off** |
+| TRIM · ADD | unchanged |
+
+Every held-off rung is named in the reason — `HOLD … · grace s3/10: held off below Chandelier
+₹1,422` — so nothing is hidden. A condition that turns true *after* entry fires as normal, and
+after session 10 everything fires as normal.
+
+**Measured effect** (same 22 trades, same replay): entry-day signals **14 → 4**. The four left
+are hard exits or replay artefacts: the journal holds today's average cost and today's
+(trailed) stop, so CAPLIPOINT, LAURUSLABS and SONACOMS read "stop breached" against an
+entry-day price below a stop set weeks later. GESHIP at −8.3% on day 3 is a real hard exit.
+
+**Known limit.** The Chandelier itself is still anchored to the bars before entry. ASTERDM
+slipped under that pre-entry anchor on day 1 and was flagged — it was not under it on the
+entry-day close. Anchoring the trail to the highest close *since entry* would remove that
+case, but it moves Risk Shield's and v67's trail line, so it is a separate decision.
+
+---
+
 ## PART 8 — THE CHECKLIST (use this at the moment of the trade)
 
 Run it in order. **Stop at the first NO.**

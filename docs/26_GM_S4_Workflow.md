@@ -190,7 +190,7 @@ trade whose presence on the list you cannot explain.
 | Surface | Role |
 |---|---|
 | **Risk Shield → Active Exits** | the live stop/target picture per position, with the Chandelier and policy-R check |
-| **Pyramid / Trim** | the 5-rung ladder — EXIT → TRIM → REDUCE → ADD → HOLD |
+| **Pyramid / Trim** | the 5-rung ladder — EXIT → TRIM → REDUCE → ADD → HOLD. For the first 10 sessions after entry it holds off rungs that were already true on the entry day, and every REDUCE (`grace sN/10` in the reason); hard exits always fire. Doc 25 Part 7d |
 | **`gtt_auto_shield --trail`** | tighten-only trail at the broker — **disabled since 3 Oct** (DH-905, no whitelisted IP); trail by hand off v67's Chandelier |
 | **`journal_sync`** | keeps the journal equal to the live Dhan book, daily |
 | **Risk Shield → 🔥 Open risk** | the whole book's risk from LTP against the regime budget (OPEN 6% · NEUTRAL 3% · BEAR 3% of capital) and, over budget, the shares to sell with the stops left in place. Doc 25 Part 7c |
