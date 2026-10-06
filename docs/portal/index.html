@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 7 Oct · 42 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 7 Oct · 43 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,17 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">7 Oct<br>data fix</td>
+        <td><b>Daily bars were one session behind from midnight until Dhan's next-day publish.</b> Dhan publishes a
+        daily bar the next day, so the just-closed session is rebuilt from intraday bars; the request used the session
+        itself as <code>to_date</code>, which Dhan treats as exclusive. Before midnight that was harmless, after it the
+        morning digest, pre-market reads and the Swing ↔ Positional tab read the previous close. The request now runs
+        one day past the session, and the Swing ↔ Positional module refetches a cache older than the last completed
+        session. Found by checking the open-risk card (₹2,16,506, correct; it uses Dhan's live holdings price). Also:
+        Daily Regime has its own desktop icon, and Doc 26 now records the GTT trail as disabled since 3 Oct.</td>
+        <td class="af">26 · 25 · 35</td>
+      </tr>
       <tr>
         <td class="dt">7 Oct<br>daily regime</td>
         <td><b>New manual: the Daily Regime (Doc 35).</b> Before the open (desk start, digest, stops, open risk, the

@@ -315,7 +315,7 @@ ul.how li{font-size:15px;color:var(--ink-2);margin:0 0 5px;max-width:64ch}
 <section>
   <p class="pt">How to use it</p>
   <h2>One command, the right block</h2>
-  <p>Run <span class="m">DAILY_REGIME.bat</span> (or <span class="m">python daily_regime.py</span>) and it prints the block for
+  <p>Run <span class="m">DAILY_REGIME.bat</span> &mdash; the Desktop shortcut <b>Daily Regime</b> (calendar icon) &mdash; (or <span class="m">python daily_regime.py</span>) and it prints the block for
   right now — it knows IST and the NSE holidays — with every link. <span class="m">--open</span> also opens those pages;
   <span class="m">--phase post</span> picks a block; <span class="m">--host jaynuc</span> gives links for the phone. This page is
   generated from the same file (<span class="m">daily_regime.py --build</span>), so the two never disagree.</p>

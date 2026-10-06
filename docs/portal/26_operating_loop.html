@@ -613,7 +613,7 @@ footer em{color:var(--ink-2)}
     <tbody>
       <tr><td class="n">Risk Shield → Active Exits</td><td>Live stop/target picture per position, with the Chandelier and the policy-R check.</td></tr>
       <tr><td class="n">Pyramid / Trim</td><td>The five-rung ladder — EXIT → TRIM → REDUCE → ADD → HOLD.</td></tr>
-      <tr><td class="n">gtt_auto_shield --trail</td><td>Tighten-only trail at the broker &mdash; scheduled 15:45 daily, and on demand from the Morning Approval Dashboard.</td></tr>
+      <tr><td class="n">gtt_auto_shield --trail</td><td>Tighten-only trail at the broker &mdash; <b>disabled since 3 Oct</b> (Dhan DH-905: no whitelisted IP). Trail by hand off v67's Chandelier, which equals Risk Shield's.</td></tr>
       <tr><td class="n">journal_sync</td><td>Keeps the journal equal to the live Dhan book, daily.</td></tr>
       <tr><td class="n">Risk Shield → 🔥 Open risk</td><td>The whole book's risk from LTP against the regime budget (OPEN 6% · NEUTRAL 3% · BEAR 3% of capital) and, over budget, the shares to sell with the stops left in place. Doc 25 Part 7c.</td></tr>
       <tr><td class="n">Risk Shield → 🔁 Swing ↔ Positional</td><td>Classifies every holding, checks a swing → positional conversion (four gates, new stop, max quantity) and records it in the journal. Positional holdings that read Stage 3/4 on the weekly close show as EXIT REVIEW. Procedure: Doc 25 Part 7b.</td></tr>
@@ -648,6 +648,8 @@ footer em{color:var(--ink-2)}
       <tr><td>Dhan token</td><td>feed quietly falls back to yfinance</td></tr>
       <tr><td>GTT trail actually running</td><td>stops never ratchet</td></tr>
       <tr><td>Every position has a resting stop</td><td>naked exposure</td></tr>
+      <tr><td>Daily bars current after midnight</td><td>every daily read one session behind until Dhan's next-day publish &mdash; fixed 7 Oct (the intraday session-fill asked for <span class="m">to_date</span> = the session, which Dhan treats as exclusive)</td></tr>
+      <tr><td>Open risk inside budget</td><td>a book that loses far more than planned if the tape breaks &mdash; Risk Shield 🔥 Open risk card</td></tr>
       <tr><td>Both bundles pasted into S4</td><td>F reads blank and the Options OI row says "no options" on names that have them &mdash; looks like weak fundamentals, is a missing paste</td></tr>
       <tr><td>A 5/5 tagged <span class="m">F?</span></td><td>the books were never scored &mdash; the fifth gate passed by default, and the chart will show a blank F for the same reason</td></tr>
       <tr><td>Section Five on its own chart</td><td>S4's panel vanishes with "Memory limits exceeded" &mdash; Pine meters memory per chart, and the footprint cannot share one with S4</td></tr>

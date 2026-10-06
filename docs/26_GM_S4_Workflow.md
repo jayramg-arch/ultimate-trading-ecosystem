@@ -45,9 +45,10 @@ Nothing to do. The session's last bar closes and the 75m/125m boundaries land to
 Tighten-only Chandelier trail on the live OCO stop legs, catalyst-aware
 (POS 4.5× / SWG 1.5× ATR). Telegrams a summary. **It never loosens a stop and never sells.**
 
-> ⚠ Currently **disarmed** (`GTT_TRAIL_ENABLED=0`) while you set OCO stops and trailing
-> levels by hand. Re-arm with `GTT_TRAIL_ENABLED=1` + restart, and run
-> `python gtt_auto_shield.py --trail --dry-run` first to see what it would move.
+> ⚠ **Disabled since 3 Oct 2026** (`GTT_Trail_Daily`): Dhan refuses every stop modify without a
+> whitelisted static IP (DH-905), while the job still exited 0. Trail by hand off v67's
+> Chandelier line, which equals Risk Shield's. A static IP registered with Dhan is the only
+> way back to automated stops.
 
 ### 16:00 — `Exit Signal Scan` runs (automatic)
 
@@ -190,7 +191,7 @@ trade whose presence on the list you cannot explain.
 |---|---|
 | **Risk Shield → Active Exits** | the live stop/target picture per position, with the Chandelier and policy-R check |
 | **Pyramid / Trim** | the 5-rung ladder — EXIT → TRIM → REDUCE → ADD → HOLD |
-| **`gtt_auto_shield --trail`** | tighten-only trail at the broker (when re-armed) |
+| **`gtt_auto_shield --trail`** | tighten-only trail at the broker — **disabled since 3 Oct** (DH-905, no whitelisted IP); trail by hand off v67's Chandelier |
 | **`journal_sync`** | keeps the journal equal to the live Dhan book, daily |
 | **Risk Shield → 🔥 Open risk** | the whole book's risk from LTP against the regime budget (OPEN 6% · NEUTRAL 3% · BEAR 3% of capital) and, over budget, the shares to sell with the stops left in place. Doc 25 Part 7c |
 | **Risk Shield → 🔁 Swing ↔ Positional** | classify every holding, check a swing → positional conversion (four gates, new stop, max qty), record it in the journal; positional holdings that read Stage 3/4 on the weekly close show as EXIT REVIEW. Procedure: Doc 25 Part 7b |
@@ -225,6 +226,8 @@ Each of these has already cost a day or more.
 | Dhan token | feed silently falls back to yfinance | 08:00 job + `logs/` |
 | GTT trail actually running | stops never ratchet | `logs/gtt_shield.log` |
 | Every position has a resting stop | naked exposure | Risk Shield · `--cover` |
+| Daily bars current after midnight | every daily read one session behind until Dhan's next-day publish (fixed 7 Oct: the intraday session-fill asked Dhan for `to_date` = the session, which Dhan treats as exclusive) | a Swing ↔ Positional `close` that matches the last session |
+| Open risk inside budget | a book that loses far more than planned if the tape breaks | Risk Shield 🔥 Open risk card |
 
 ---
 
