@@ -363,6 +363,12 @@ python s4_review.py --board 125m --live</pre>
     that fail silently. Check <code>logs/s4_alert_review.log</code> for
     <code>queued … reviewed in Ns (telegram sent)</code>.</p>
   </div>
+  <h4>The exposure rule is binding (6 Oct)</h4>
+  <p>Every prompt now carries an <b>EXPOSURE RULE</b> line under the market context, marked binding. When the
+  rule forbids new size (BEAR tier, circuit breaker, pilots used, or an add in a tier that allows none), a TAKE is
+  overruled to <b>WAIT</b> by the script, the same way the index and held gates work, and the review ends with an
+  <span class="m">EXPOSURE-CHECK</span> line saying why. In a half-risk tier or on a pilot, a TAKE stands but the
+  plan must be sized at half risk.</p>
   <h4>Reference levels in the read (5 Oct, S4 v11.22)</h4>
   <p>S4 now carries prior week and month high/low, the earnings-anchored AVWAP and the 1-year volume profile on
   its rows and in a SUMMARY <b>LEVELS</b> section, so they reach the reviewer with the panel. Its instructions say

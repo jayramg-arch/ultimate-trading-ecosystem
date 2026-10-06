@@ -773,6 +773,36 @@ def index_gate(read_txt: str) -> tuple[str, str, bool]:
     return note, "INDEX-CHECK: %s trigger \"%s\" (not GO) → %s WAIT by house rule" % (idx, state, etf), True
 
 
+def exposure_gate(pos_txt: str) -> tuple[str, str, bool]:
+    """The exposure rule (Option A, 6-Oct-2026: house_policy.exposure_status), applied by
+    the script like the index and held gates. Returns (note_for_prompt, line_for_output,
+    blocked). Blocked = a TAKE is not allowed: the tier forbids new entries (or adds, on a
+    held name), the circuit breaker is on, or the pilots are used. A pilot or the NEUTRAL
+    tier does not block, but the note says the size is HALF risk."""
+    try:
+        import house_policy as hp
+        e = hp.exposure_status()
+    except Exception as ex:
+        return "", "EXPOSURE-CHECK: rule unreadable (%s)" % str(ex)[:60], False
+    held = bool(pos_txt) and pos_txt.startswith("HELD")
+    txt = e.get("text", "")
+    if e.get("pause_until") or not e.get("new_ok") or (held and not e.get("adds_ok")) \
+            or (e.get("pilot") and e.get("pilots_left", 0) <= 0):
+        why = ("circuit breaker until %s" % e["pause_until"]) if e.get("pause_until") else \
+              ("adds not allowed in the %s tier" % e.get("tier")) if held and not e.get("adds_ok") else \
+              ("both pilots used") if e.get("pilot") else ("%s tier - no new entries" % e.get("tier"))
+        note = ("EXPOSURE GATE (house rule, not negotiable): %s. The ruling cannot be TAKE or "
+                "TAKE · reduced - rule WAIT, keep the plan as the plan-in-waiting, and say what "
+                "unlocks it. %s" % (why, txt))
+        return note, "EXPOSURE-CHECK: %s → no new size (WAIT)" % why, True
+    if e.get("risk_mult", 1.0) < 1.0:
+        kind = "PILOT entry" if e.get("pilot") else "%s tier" % e.get("tier")
+        note = ("EXPOSURE GATE: %s - a TAKE is allowed at HALF the house risk (%.2f%% for a stock). "
+                "Size it so, and say it in the PLAN. %s" % (kind, 0.5 * hp.RISK_NEW_STOCK_PCT, txt))
+        return note, "EXPOSURE-CHECK: %s → a TAKE is half risk" % kind, False
+    return "", "", False
+
+
 def held_gate(pos_txt: str) -> tuple[str, str, str]:
     """A GO on a HELD name is not a new entry (29-Sep-2026, TVSMOTOR: held 22 @ 4394.50,
     ladder REDUCE, and the model still wrote a positional Buy-Stop plan without a word
@@ -1186,6 +1216,9 @@ def build_prompt(read_txt: str, pos_txt: str) -> str:
     hg, _, _ = held_gate(pos_txt)
     if hg:
         note = (hg + "\n" + note) if note else hg
+    xg, _, _ = exposure_gate(pos_txt)
+    if xg:
+        note = (xg + "\n" + note) if note else xg
     lv, _ = level_check(read_txt)
     if lv:
         note = (note + "\n\n" + lv) if note else lv
@@ -1664,9 +1697,15 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
         review = re.sub(r"(RULING:?\**:?\s*\**\s*)TAKE[^\n]*",
                         r"\g<1>%s — already held, ladder %s (house rule; model had ruled TAKE)" % (_to, hg_rung),
                         review, count=1)
+    _, xg_txt, xg_block = exposure_gate(pos_txt)
+    if xg_block and re.search(r"RULING:?\**:?\s*\**\s*TAKE", review):
+        xg_txt += "\n  ⚠ the model ruled TAKE — OVERRULED: WAIT (exposure rule)"
+        review = re.sub(r"(RULING:?\**:?\s*\**\s*)TAKE[^\n]*",
+                        r"\g<1>WAIT — exposure rule forbids new size now (house rule; model had ruled TAKE)",
+                        review, count=1)
     lva_txt = lv_audit(review)
     za_txt = zone_audit(read_txt, review)
-    for extra in (rc_txt, lv_txt, lva_txt, za_txt, oi_txt, ig_txt, hg_txt):
+    for extra in (rc_txt, lv_txt, lva_txt, za_txt, oi_txt, ig_txt, hg_txt, xg_txt):
         if extra:
             review = review.rstrip() + "\n\n" + extra
     tf_lbl = d["res"]

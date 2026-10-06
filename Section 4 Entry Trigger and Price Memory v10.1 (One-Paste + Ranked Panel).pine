@@ -6216,7 +6216,7 @@ if show_panel and d_panel and barstate.islast
              str.contains(_mkt, "regime Bear"))
         // v11.22: the reference levels read as their own LEVELS section, between LOCATION
         // and PARTICIPATION (core.refLevelsRead; empty when none is known).
-        string _sumRaw = str.length(v22_lvls) > 0 ? str.replace(_sumRaw0, "PARTICIPATION · ", v22_lvls + "\nPARTICIPATION · ", 0) : _sumRaw0
+        string _sumRaw = core.summarySplice(_sumRaw0, v22_lvls, _mkt)   // LEVELS + EXPOSURE (6-Oct-2026)
         // Every cell of the column has to EXIST before it can be merged, so blank the
         // range first, write the text into the top-left cell, then merge. Skipping the
         // blanking pass is the usual reason a vertical merge silently does nothing.

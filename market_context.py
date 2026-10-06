@@ -43,16 +43,33 @@ def parts() -> list[str]:
     return out
 
 
-def for_review() -> str:
-    """The reviewer's prompt block (header + one line), or '' when nothing is known."""
-    p = parts()
-    if not p:
+def exposure() -> str:
+    """The exposure rule's line (house_policy.exposure_status, Option A, 6-Oct-2026), or ''."""
+    try:
+        import house_policy as hp
+        return hp.exposure_status().get("text", "")
+    except Exception:
         return ""
-    return ("MARKET CONTEXT (information, not a gate - it sets expectations and size, never vetoes a setup)\n"
-            + " · ".join(p))
+
+
+def for_review() -> str:
+    """The reviewer's prompt block, or '' when nothing is known. The market context is
+    information; the EXPOSURE RULE line under it is binding (6-Oct-2026)."""
+    p = parts()
+    ex = exposure()
+    if not p and not ex:
+        return ""
+    out = ""
+    if p:
+        out = ("MARKET CONTEXT (information, not a gate - it sets expectations and size, never vetoes a setup)\n"
+               + " · ".join(p))
+    if ex:
+        out += ("\n\n" if out else "") + "EXPOSURE RULE (house rule, BINDING - unlike the context above): " + ex
+    return out
 
 
 def for_s4() -> str:
     """The S4 bundle's MKT section: one line, safe inside the pipe-separated bundle
     (no '|'). Empty when nothing is known, which leaves S4's default text in place."""
-    return " · ".join(parts()).replace("|", "/")
+    ex = exposure()
+    return " · ".join(parts() + ([ex] if ex else [])).replace("|", "/")

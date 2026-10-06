@@ -142,6 +142,25 @@ def gate_order(dhan, ticker: str, side: str, qty: int,
     """
     if str(side).upper() not in ("BUY", "B"):
         return True, "SELL/exit — not gated (exits are never blocked)"
+    # EXPOSURE RULE (Option A, 6-Oct-2026): the regime tier, the circuit breaker and the
+    # exposure cap. Fail-closed like every other check here: if the rule cannot be read,
+    # the BUY is blocked. Adds to a held name are blocked when the tier forbids adds.
+    try:
+        import house_policy as _hp
+        _e = _hp.exposure_status()
+        if _e.get("pause_until"):
+            return False, f"exposure rule: circuit breaker until {_e['pause_until']} — no new entries ({_e.get('text', '')})"
+        if not _e.get("new_ok"):
+            return False, f"exposure rule: {_e.get('tier')} tier — no new entries ({_e.get('text', '')})"
+        if _e.get("pilot") and _e.get("pilots_left", 0) <= 0:
+            return False, "exposure rule: both pilot entries used — wait for regime score 3+"
+        _cap, _dep = _e.get("cap_pct"), _e.get("deployed_pct")
+        if _cap is not None and _dep is not None and _hp.sizing_capital()[0]:
+            _after = _dep + float(entry_price or 0.0) * int(qty) / _hp.sizing_capital()[0] * 100.0
+            if _after > _cap:
+                return False, f"exposure rule: deployed would be {_after:.0f}% vs the {_cap:g}% cap ({_e.get('tier')} tier)"
+    except Exception as e:
+        return False, f"exposure rule unreadable ({e}) — order BLOCKED (fail-closed)"
     try:
         return pre_trade_risk_check(dhan, ticker, int(qty),
                                     float(entry_price or 0.0), float(sl_price or 0.0))

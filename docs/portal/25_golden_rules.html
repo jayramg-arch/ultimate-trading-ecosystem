@@ -207,6 +207,31 @@ footer em{color:var(--ink-2)}
 
 <main>
 
+<section id="p0exp">
+  <p class="pt">Rule zero · 6 Oct 2026</p>
+  <h2>The exposure rule — when to trade at all</h2>
+  <p>Everything below answers <em>what</em> and <em>how</em>. This answers <em>whether</em>, and it outranks them.
+  Set by Jay on 6 Oct (Option A) after four stop-outs in a week cost about ₹70K in a Bear/Cash tape.
+  It is enforced: the order gate blocks a BUY it forbids, and the AI reviewer cannot rule TAKE.</p>
+  <table>
+    <tr><th>Regime score (0–10)</th><th>New entries</th><th>Risk</th><th>Pyramid adds</th><th>Exposure cap</th></tr>
+    <tr><td>0–2 · BEAR</td><td><b>none</b></td><td>—</td><td>no</td><td>40%</td></tr>
+    <tr><td>3–5 · NEUTRAL</td><td>at most 3 a week</td><td>half (0.25% stock)</td><td>yes</td><td>70%</td></tr>
+    <tr><td>6+ · OPEN</td><td>house rules</td><td>full</td><td>yes</td><td>house caps</td></tr>
+  </table>
+  <ul>
+    <li><b>Recovery signal:</b> a follow-through day or a breadth thrust (both are regime components) unlocks
+      <b>2 pilot entries at half risk</b>, even in the BEAR tier.</li>
+    <li><b>Circuit breaker:</b> 3 losing exits in the last 7 sessions, or realised losses of 2% of capital
+      (₹60,000) over them, pause new entries for <b>5 sessions</b> from the last loss.</li>
+    <li><b>Exits are never touched.</b> The rule only governs new size.</li>
+    <li>Where you see it: the S4 panel's Section I header, the SUMMARY's EXPOSURE section, the reviewer's
+      <span class="m">EXPOSURE-CHECK</span> line in the Log, and a refused BUY at the order gate.</li>
+    <li>Not backtested — a policy choice. <span class="m">logs/board_counts_history.csv</span> and the trade
+      log will show whether it helps.</li>
+  </ul>
+</section>
+
 <section id="p1">
   <p class="pt">Part 1</p>
   <h2>The Ten Rules</h2>

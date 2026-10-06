@@ -129,3 +129,17 @@ def test_holding_chandelier_matches_chandelier_exit_and_floor():
     assert rc.holding_chandelier(df, {**j, "manual_sl_override": 10.0}, bear=True)["level"] == lvl
     assert rc.holding_chandelier(df, {**j, "manual_sl_override": 10.0}, bear=True, override_mode="Exact")["level"] == 10.0
     assert rc.holding_chandelier(df, j, bear=True, cap_protect=True)["mult"] == 2.5
+
+
+def test_exposure_rule_option_a():
+    """6-Oct-2026: Option A tiers, and the line's wording (no ', ' - the bundle eats the space)."""
+    assert [t[:2] for t in hp.EXPOSURE_TIERS] == [(6, "OPEN"), (3, "NEUTRAL"), (0, "BEAR")]
+    bear = [t for t in hp.EXPOSURE_TIERS if t[1] == "BEAR"][0]
+    assert bear[2] is False and bear[5] is False and bear[6] == 40.0
+    neu = [t for t in hp.EXPOSURE_TIERS if t[1] == "NEUTRAL"][0]
+    assert neu[3] == 0.5 and neu[4] == 3 and neu[6] == 70.0
+    assert (hp.PILOT_ENTRIES, hp.BREAKER_LOSSES, hp.BREAKER_SESSIONS, hp.BREAKER_LOSS_PCT, hp.BREAKER_PAUSE_SESSIONS) == (2, 3, 7, 2.0, 5)
+    t = hp.exposure_text({"score": 1, "tier": "BEAR", "pilot": False, "cap_pct": 40.0, "deployed_pct": 66.0})
+    assert "no new entries" in t and "OVER" in t and ", " not in t
+    e = hp.exposure_status()
+    assert e["tier"] in ("OPEN", "NEUTRAL", "BEAR") and "text" in e

@@ -2885,6 +2885,22 @@ export pfText(float cls, float pnl, float r, float rc, float chand, float left, 
     [on, my, on ? int(c) : 0, pos, not na(left) and left < 0]
 
 
+// ---- summarySplice ---------------------------------------------------------------
+// The SUMMARY's two spliced sections (6-Oct-2026), in one call so S4 pays one call's
+// tokens for both: LEVELS (refLevelsRead, between LOCATION and PARTICIPATION) and
+// EXPOSURE (the exposure rule - Option A - lifted from the MKT bundle line, between
+// GEOMETRY and DIRECTION). The rule is BINDING: when it says no new entries, DIRECTION's
+// "take it" is overridden by it, and the panel says so in the section's first words.
+export summarySplice(string sumRaw, string levels, string mkt) =>
+    string o = str.length(levels) > 0 ? str.replace(sumRaw, "PARTICIPATION · ", levels + "\n" + "PARTICIPATION · ", 0) : sumRaw
+    int p = str.pos(mkt, "EXPOSURE (")
+    if not na(p)
+        string ex = str.substring(mkt, p + 9)
+        string lead = str.contains(ex, "no new entries") ? "BINDING - no new size today, whatever DIRECTION below says. " : "Binding house rule. "
+        o := str.replace(o, "DIRECTION · ", "EXPOSURE\n" + lead + ex + "\n" + "DIRECTION · ", 0)
+    o
+
+
 // ---- qualityRead ------------------------------------------------------------
 // The SUMMARY's non-technical section. Added when Gate 6 shipped: the field that reads
 // the whole panel as ONE judgement was, until then, entirely technical - which is the
