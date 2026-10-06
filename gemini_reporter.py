@@ -324,9 +324,13 @@ AMFI publishes monthly so this lags 2-6 weeks; render only if present):
   Interpretation: [one line — cross-reference cash flow with F&O positioning and MF monthly direction]
 
 === Key Movers ===
-Use `top_movers` (Nifty 50) and `sectors` blocks. Example:
-  Sector outperformer: [best sector] +[X]% | Leader: [top_movers.leader.symbol] +[top_movers.leader.change_pct]%
-  Sector laggard: [worst sector] -[X]% | Drag: [top_movers.drag.symbol] [top_movers.drag.change_pct]%
+Use `sectors` for the sector lines and `top_movers` (Nifty 50 stocks, ANY sector) for the
+stock lines. Keep them on SEPARATE lines - top_movers is not filtered by sector, so pairing a
+stock with a sector implies a membership that may be false (5-Oct: "Healthcare | Drag:
+HCLTECH", an IT stock). Example:
+  Sector outperformer: [best sector] +[X]%
+  Sector laggard: [worst sector] -[X]%
+  Nifty 50 leader: [top_movers.leader.symbol] +[top_movers.leader.change_pct]% | Nifty 50 drag: [top_movers.drag.symbol] [top_movers.drag.change_pct]%
   Bulk/block deal: [stock] — [X] lakh shares @ ₹[price] (buyer/seller) — or "none in feed"
   F&O ban additions/exits: [stocks or "none"]
   Corporate action: [any dividend/split/result from corporate_actions, or "none in feed"]

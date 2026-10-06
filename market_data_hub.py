@@ -544,8 +544,12 @@ def fetch_mf_monthly_flows(ttl: int = 86400) -> Dict:
                     data = resp.read()
                 if not data or len(data) < 10000:
                     continue
-                df = pd.read_excel(BytesIO(data), sheet_name="MCR_Report",
-                                    engine="xlrd", header=None)
+                # Sheet was "MCR_Report"; AMFI renamed it "MCR_MonthlyReport" by Aug-2026,
+                # so take the first sheet whose name starts with MCR (6-Oct-2026). Needs
+                # xlrd in the venv - its absence had silently blanked this section.
+                _xl = pd.ExcelFile(BytesIO(data), engine="xlrd")
+                _sh = next((n for n in _xl.sheet_names if n.upper().startswith("MCR")), _xl.sheet_names[0])
+                df = pd.read_excel(_xl, sheet_name=_sh, header=None)
                 # Find the Open-Ended Equity sub-total row. The descriptive
                 # label "Sub Total - II..." actually lives in column 1 (col 0
                 # is the Sr code "A", "I", "i", etc). Row offsets shift between
@@ -662,7 +666,10 @@ def fetch_fii_dii_fno_participants(ttl: int = 3600) -> Dict:
 
     def _fetch():
         session = _get_nse_session()
-        for delta in range(4):
+        # 7 calendar days, not 4 (6-Oct-2026): the post-market run at 16:30 is before NSE
+        # posts the day's file, and on Mon 5 Oct a 4-day walk hit Sun / Sat / the 2-Oct
+        # holiday and stopped one day short of the last session - the report printed N/A.
+        for delta in range(8):
             try_date = date.today() - timedelta(days=delta)
             ds = try_date.strftime("%d%m%Y")
             url = (f"https://archives.nseindia.com/content/nsccl/"

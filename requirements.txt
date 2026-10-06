@@ -131,3 +131,4 @@ zstandard==0.25.0
 # Dev/pre-launch tooling (LAUNCH_*.bat calls preflight.py; tests/ needs pytest)
 pyflakes
 pytest
+xlrd>=2.0.1   # AMFI monthly MF flows (.xls) - market_data_hub.fetch_mf_monthly_flows
