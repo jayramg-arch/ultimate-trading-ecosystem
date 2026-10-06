@@ -236,6 +236,111 @@ you need follow-through. The RV floor drops to 0.5 in pullback context for exact
 
 ---
 
+## PART 7b — SWING OR POSITIONAL: CLASSIFY, CONVERT, RE-QUALIFY (7 Oct 2026)
+
+*Why this part exists.* Trades were taken as swing and carried on as positional when the
+tape turned; stops were widened while the quantity stayed the same, so the rupee risk grew
+past what the Risk Allocator had sized. On 6 Oct the open book carried ₹2.14L of risk (7.1%
+of capital), most of it in swing trades whose stops sat 14–26% below entry. Wide stops are
+not the mistake — a stop may be as wide as the volatility needs **if the quantity comes
+down with it**. The mistake is changing the plan after the trade goes against you.
+
+### 7b.1 Classify at entry — the stock decides, not the intention
+
+A trade is **POSITIONAL only if all four hold on the entry day**:
+
+| # | Test | Where you see it |
+|---|---|---|
+| 1 | Daily ATR ≤ 4% of price | S4 title row `ATR(D) … (x%)` |
+| 2 | Within 30% of the 52-week high | S4 Price vs EMA20 row, `off52` |
+| 3 | Above the 200-DMA | S4 Minervini row, `>150/200` |
+| 4 | Stage 2 on the confirmed weekly close (above a rising 30-week average) | S4 Structure basis + first test |
+
+Fail any of 1–3 and it is **SWING**. Fail 4 and it is no trade at all. This is
+`commander_core.plan_type` — the one rule S4's Plan row, the board's watchlist split and
+Risk Shield all use.
+
+In practice:
+
+- A GO from **GM_Positional** (the Daily alert) is positional. A GO from **GM_Swing**
+  (75m/125m) is swing. Both lists are built by the same rule, so the list *is* the class.
+- A name can move between lists from day to day. The list on the **entry day** decides;
+  if in doubt, **S4's Plan row (POSITIONAL / SWING) is the tie-breaker**.
+- Write it into the journal's **Timeframe** at entry (`s4_take` does). Risk Shield, the
+  v67 trail and the pyramid ladder read that field first; blank means they guess.
+
+### 7b.2 The two playbooks
+
+| | **Positional** | **Swing** |
+|---|---|---|
+| Clock | Daily close; weekly close for the stage | 75m / 125m |
+| Initial stop | Daily structure, never closer than 4 × ATR(D) | Structural, ~1.5–2.5 × ATR |
+| Risk | 0.5% stock / 0.75% ETF; half in a NEUTRAL tape; none in BEAR (exposure rule) | same |
+| Targets | T1 3R (trim a slice) · T2 5R · rest rides the trail | T1 2R · T2 4R |
+| Trail | Chandelier 4.5 × ATR, 22 bars (5.0 in a bear tape) | Chandelier 1.5 × ATR, 14 bars |
+| Exits | Daily close below the stop; Stage 3/4 on the weekly close | the stop — never widened; 60-day time stop |
+| Ignore | 75m/125m signals, intraday REDUCE calls | nothing |
+
+A positional stop is wide by design and the quantity comes off it, so the rupee risk is
+still the house 0.5%. **Widening any stop after entry is allowed only if the quantity is
+cut so the rupees at risk do not grow.**
+
+### 7b.3 Converting a swing into a positional trade
+
+Judge on a **Daily close**. All four gates must pass:
+
+| Gate | Test |
+|---|---|
+| **G1 working** | close ≥ the swing T1 (journal `target1`), or ≥ entry + 3 × ATR(D) when no T1 is recorded (2R on a 1.5 × ATR swing stop), or the new positional stop would already sit at/above the entry |
+| **G2 rule** | the rule reads positional today (on GM_Positional, or S4 Plan row POSITIONAL) |
+| **G3 stage** | Stage 2 on the confirmed weekly close, weekly structure trend not down (the S4 first test) |
+| **G4 sector** | the sector index is not Stage 4 — *soft*: allowed, but only with a written reason |
+
+Then, in order:
+
+1. **New stop** = close − 4 × ATR(D), moved down to the 20-day swing low when that low is
+   within 5 × ATR(D) — the nearest daily structure, never closer than the floor.
+2. **Risk check.** If the new stop is at or above your entry, the profit is locked and the
+   capital at risk is zero. Otherwise (close − new stop) × quantity must fit the house risk
+   (₹15,000 for a stock on ₹30L). Over it → **trim** to the max quantity shown.
+3. **Targets** reset to 3R / 5R from the conversion close and the new stop.
+4. **Record it** — Risk Shield → 🔁 Swing ↔ Positional → *Record conversion*. The journal
+   Timeframe becomes Positional and a dated line goes into the rationale
+   (`logs/trade_class_events.csv` keeps the event).
+5. **Dhan** — sell the trim (if any), then ONE stop price covering the full quantity, limit
+   below the trigger. Press **Sync to TV**: the v67 trail moves to 22 bars / 4.5 × ATR.
+6. From then on manage it on Daily and weekly closes only.
+
+**Never convert** a trade that is losing (outside the salvage path), below the 200-DMA,
+Stage 3/4, or in a stock whose daily ATR is above 4% — a 4 × ATR stop there is more than
+16% away; keep it a swing and let the swing trail work.
+
+**Salvage path.** A *losing* swing that still passes G2 and G3 may convert only at **half
+the house risk** (₹7,500): trim so (close − positional stop) × quantity fits. That is the
+line between a decision and a rescue — if you keep a loser, you keep it with less money in
+it. A losing swing that fails G2 or G3 is a swing trade whose thesis failed: its swing stop
+applies. Calling it positional is how the large drawdowns were built.
+
+### 7b.4 Re-qualifying positional holdings (every weekly close)
+
+A positional holding that is **Stage 3 or 4 on the confirmed weekly close** goes to the
+**exit / reduce review** — it is *not* relabelled swing (no Stage 3/4 holds). Below the
+200-DMA, or a weekly structure trend turning down, is a **watch** flag.
+
+The evening digest prints both lists every day under `TRADE CLASS` (Phase 14), and the
+Risk Shield tab shows them at the top. The weekly stage only changes after a Friday close,
+because the forming week is never counted.
+
+### 7b.5 What it said on 6 Oct (the first reading)
+
+11 positional · 7 swing. **Watch:** COALINDIA (positional, below the 200-DMA). **Salvage
+only:** IKS (losing, qualifies; trim to half risk or keep it a swing at its stop). **Not
+eligible:** BAJFINANCE, CUMMINSIND, M&MFIN, NESTLEIND (below the 200-DMA), CAPLIPOINT and
+SYRMA (ATR above 4% — winners, keep them on the swing trail). No positional holding read
+Stage 3/4 on the weekly close.
+
+---
+
 ## PART 8 — THE CHECKLIST (use this at the moment of the trade)
 
 Run it in order. **Stop at the first NO.**

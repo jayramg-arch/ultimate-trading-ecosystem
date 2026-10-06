@@ -136,9 +136,16 @@ def exit_lines() -> list[str]:
         len(rows), (" - " + ", ".join(r["sym"] for r in rows)) if rows else "")]
 
 
+def trade_class_lines() -> list[str]:
+    """Positional holdings that failed Stage 2 on the weekly close, swings that may convert
+    (trade_class, 7-Oct-2026)."""
+    import trade_class
+    return trade_class.digest_lines()
+
+
 def build() -> str:
     L = ["EVENING · %s" % now_ist().strftime("%a %d %b %Y %H:%M IST"), ""]
-    for part in (pipeline_lines, board_lines, reviewer_lines, trade_log_line, tv_lines, exit_lines):
+    for part in (pipeline_lines, board_lines, reviewer_lines, trade_log_line, tv_lines, exit_lines, trade_class_lines):
         try:
             L += part()
         except Exception as e:

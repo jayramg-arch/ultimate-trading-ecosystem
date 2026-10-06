@@ -1319,10 +1319,11 @@ if True:
                     st.error(_cap_prot_msg)
 
                 # --- TABS ---
-                entry_tab0, entry_tab1, entry_tab2, entry_tab_cq, entry_tab3, entry_tab4, entry_tab5 = st.tabs([
+                entry_tab0, entry_tab1, entry_tab2, entry_tab_tc, entry_tab_cq, entry_tab3, entry_tab4, entry_tab5 = st.tabs([
                     "✅ Morning Approval Dashboard",
                     "🎯 Active Exits (OCO)",
                     "⚖️ Pyramid / Trim",
+                    "🔁 Swing ↔ Positional",
                     "💰 Capital Queue",
                     "🛒 Pullback Entries (GTT)",
                     "📊 Risk Profile & Analytics",
@@ -2647,6 +2648,14 @@ if True:
                         pl.render_pyramid_trim(st.session_state.pyramid_classifications)
                     except Exception as _pe:
                         st.error(f"Pyramid / Trim Manager failed to load: {_pe}")
+
+                # ── Swing <-> Positional (7-Oct-2026): classify, convert, re-qualify ──
+                with entry_tab_tc:
+                    try:
+                        import trade_class as _tc
+                        _tc.render_streamlit()
+                    except Exception as _tce:
+                        st.error(f"Swing / Positional review failed to load: {_tce}")
 
                 # ── Tab 3: Pullback Entries (GTT) ──
                 with entry_tab3:

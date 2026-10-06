@@ -189,6 +189,17 @@ trade whose presence on the list you cannot explain.
 | **Pyramid / Trim** | the 5-rung ladder — EXIT → TRIM → REDUCE → ADD → HOLD |
 | **`gtt_auto_shield --trail`** | tighten-only trail at the broker (when re-armed) |
 | **`journal_sync`** | keeps the journal equal to the live Dhan book, daily |
+| **Risk Shield → 🔁 Swing ↔ Positional** | classify every holding, check a swing → positional conversion (four gates, new stop, max qty), record it in the journal; positional holdings that read Stage 3/4 on the weekly close show as EXIT REVIEW. Procedure: Doc 25 Part 7b |
+
+**Swing or positional (7 Oct).** Classify at entry from the list the GO came from
+(GM_Positional = positional, GM_Swing = swing; S4's Plan row breaks a tie) and write it into
+the journal Timeframe. A swing becomes positional only through the Risk Shield conversion
+check, judged on a Daily close: working (at T1, or the new stop above entry), the rule reads
+positional, Stage 2 weekly, sector not Stage 4. The new stop is never closer than
+4 × ATR(D) and the quantity is trimmed to the house risk. A losing swing converts only at
+half risk (salvage); otherwise its swing stop applies. Every weekly close, positional
+holdings that read Stage 3/4 go to the exit/reduce review — the evening digest lists them
+under `TRADE CLASS`.
 
 The management rule that matters most: **88% of positional exits come from the trail**, and
 only 8.4% ever reach 3R. Targets are upside; the trail is the mechanism. Do not tighten it —
