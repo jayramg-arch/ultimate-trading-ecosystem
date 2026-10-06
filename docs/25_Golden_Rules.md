@@ -386,11 +386,11 @@ full cover).
 **Where it lives:** the 🔥 Open risk card near the top of Risk Shield, with the per-position
 table and the trim list in the expander under it (open by default when over budget).
 
-**First reading (6 Oct close):** ₹1,96,108 at risk from LTP (6.5% of ₹30L) against the
-₹90,000 budget — over by ₹1,06,108; below-cost ₹2,14,150. Closing it takes all nine
-positions under water — the four non-convertible losing swings (M&MFIN, BAJFINANCE,
-CUMMINSIND, NESTLEIND), COALINDIA, IKS, PHARMABEES, AUBANK, TVSMOTOR — plus 209 of
-SONACOMS' 258 shares. The other winners are untouched.
+**First reading (6 Oct close, Dhan holdings LTP):** ₹2,16,506 at risk from LTP (7.2% of ₹30L)
+against the ₹90,000 budget — over by ₹1,26,506; below-cost ₹2,14,150. The trim list: M&MFIN 257 ·
+NESTLEIND 69 · BAJFINANCE 93 · CUMMINSIND 18 · COALINDIA 526 · IKS 54 · AUBANK 69 · TVSMOTOR 22 ·
+SONACOMS 258 · CAPLIPOINT 66 · PHARMABEES 2,604 of 7,326. LAURUSLABS, ANANDRATHI, SAILIFE (locked)
+and VIJAYA, NETWEB, SYRMA, GLAXO are untouched.
 
 ---
 
