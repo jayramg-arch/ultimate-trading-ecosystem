@@ -512,9 +512,15 @@ def _append_completed_session_from_intraday(symbol: str, meta: dict, df_daily):
     if last >= target:
         return df_daily                       # daily already current — the common path
     # Daily lags: pull recent intraday and aggregate per-day into daily bars.
+    # to_date is EXCLUSIVE at Dhan (7-Oct-2026: IKS to_date=10-06 stopped at 10-05 15:15;
+    # to_date=10-07 returned 10-06). Asking up to `target` therefore never returned the
+    # target session itself - harmless on the evening of the session (target = today, and
+    # "today" was in range), but from midnight until Dhan's daily publish every daily read
+    # was one session behind (the 08:45 digest, pre-market reads). Ask one day past it; the
+    # filter below still keeps only bars on/before the target.
     dfi = fetch_intraday(symbol,
                          from_date=(target - timedelta(days=6)).isoformat(),
-                         to_date=target.isoformat(), interval=15)
+                         to_date=(target + timedelta(days=1)).isoformat(), interval=15)
     if dfi is None or dfi.empty:
         return df_daily
     agg = dfi.resample("D").agg({"Open": "first", "High": "max", "Low": "min",

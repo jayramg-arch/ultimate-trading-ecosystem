@@ -91,6 +91,19 @@ def daily_facts(symbol: str, daily: pd.DataFrame | None = None) -> dict | None:
         if daily is None:
             import data_provider as dp
             daily = dp.fetch_ohlcv(symbol, period="2y", interval="1d", use_cache=True, auto_adjust=True)
+            # 7-Oct-2026: the cached frame was one session behind (5 Oct read at 00:40 on the 7th),
+            # so the conversion gates judged yesterday's close. A cache older than the last
+            # COMPLETED session is busted once and re-fetched.
+            try:
+                import nse_calendar as nc
+                want = nc.last_completed_session(dt.datetime.now(dt.timezone(dt.timedelta(hours=5, minutes=30))).replace(tzinfo=None))
+                if daily is not None and len(daily) and pd.Timestamp(daily.index[-1]).date() < want:
+                    dp.invalidate_symbol(symbol)
+                    fresh = dp.fetch_ohlcv(symbol, period="2y", interval="1d", use_cache=True, auto_adjust=True)
+                    if fresh is not None and len(fresh) >= 60:
+                        daily = fresh
+            except Exception:
+                pass
         if daily is None or len(daily) < 60:
             return None
         if isinstance(daily.columns, pd.MultiIndex):
