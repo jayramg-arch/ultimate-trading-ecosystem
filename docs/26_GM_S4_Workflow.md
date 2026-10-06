@@ -33,6 +33,9 @@ makes the shortlist useful.
 
 ## 1. THE DAILY LOOP
 
+> **The step-by-step version with links is Doc 35, the Daily Regime** — `DAILY_REGIME.bat`
+> prints the block for right now. This section explains the machinery behind it.
+
 ### 15:30 — close
 
 Nothing to do. The session's last bar closes and the 75m/125m boundaries land together.
@@ -189,7 +192,7 @@ trade whose presence on the list you cannot explain.
 | **Pyramid / Trim** | the 5-rung ladder — EXIT → TRIM → REDUCE → ADD → HOLD |
 | **`gtt_auto_shield --trail`** | tighten-only trail at the broker (when re-armed) |
 | **`journal_sync`** | keeps the journal equal to the live Dhan book, daily |
-| **Risk Shield → 🔥 Open risk** | the whole book's risk from LTP against the regime budget (OPEN 6% · NEUTRAL 3% · BEAR 1.5% of capital) and, over budget, the shares to sell with the stops left in place. Doc 25 Part 7c |
+| **Risk Shield → 🔥 Open risk** | the whole book's risk from LTP against the regime budget (OPEN 6% · NEUTRAL 3% · BEAR 3% of capital) and, over budget, the shares to sell with the stops left in place. Doc 25 Part 7c |
 | **Risk Shield → 🔁 Swing ↔ Positional** | classify every holding, check a swing → positional conversion (four gates, new stop, max qty), record it in the journal; positional holdings that read Stage 3/4 on the weekly close show as EXIT REVIEW. Procedure: Doc 25 Part 7b |
 
 **Swing or positional (7 Oct).** Classify at entry from the list the GO came from

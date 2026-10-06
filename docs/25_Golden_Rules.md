@@ -353,7 +353,7 @@ the regime:
 |---|---|---|
 | OPEN (score 6+) | 6% | ₹1,80,000 |
 | NEUTRAL (3–5) | 3% | ₹90,000 |
-| BEAR (0–2), or the circuit breaker on | 1.5% | ₹45,000 |
+| BEAR (0–2), or the circuit breaker on | 3% (set equal to NEUTRAL by Jay, 7 Oct; 1.5% was proposed) | ₹90,000 |
 
 (`house_policy.HEAT_BUDGET_PCT`; the tier is the same Option-A reading the order gate and
 the reviewer use.)
@@ -387,10 +387,10 @@ full cover).
 table and the trim list in the expander under it (open by default when over budget).
 
 **First reading (6 Oct close):** ₹1,96,108 at risk from LTP (6.5% of ₹30L) against the
-₹45,000 BEAR budget; below-cost ₹2,14,150. Fitting the budget meant selling the four
-non-convertible losing swings (M&MFIN, BAJFINANCE, CUMMINSIND, NESTLEIND), COALINDIA, IKS,
-PHARMABEES, AUBANK, TVSMOTOR and the three largest unlocked winners — about three quarters
-of the book's risk. At the NEUTRAL budget the gap would be ₹1,06,108.
+₹90,000 budget — over by ₹1,06,108; below-cost ₹2,14,150. Closing it takes all nine
+positions under water — the four non-convertible losing swings (M&MFIN, BAJFINANCE,
+CUMMINSIND, NESTLEIND), COALINDIA, IKS, PHARMABEES, AUBANK, TVSMOTOR — plus 209 of
+SONACOMS' 258 shares. The other winners are untouched.
 
 ---
 

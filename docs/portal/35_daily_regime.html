@@ -1,0 +1,402 @@
+<meta charset="utf-8">
+<title>Daily Regime</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --ground:#EEF1F4; --surface:#FFFFFF; --surface-2:#F6F8FA;
+  --ink:#0E1319; --ink-2:#3A4552; --muted:#66727F; --rule:#D6DDE4; --rule-soft:#E6EBF0;
+  --go:#0F7A66; --go-bg:#E4F2EE; --go-rule:#9FCFC2;
+  --wait:#A96500; --wait-bg:#FBF0DE; --wait-rule:#E0BE86;
+  --no:#B23025; --no-bg:#FBE9E7;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --grot:'Bricolage Grotesque','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+    --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+    --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+    --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+    --no:#EF6259; --no-bg:#34191A;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+  --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+  --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+  --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+  --no:#EF6259; --no-bg:#34191A;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--serif);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px}
+
+header.mast{border-bottom:1px solid var(--rule);background:var(--surface)}
+.mast-in{max-width:960px;margin:0 auto;padding:46px 24px 36px}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 12px}
+h1{font-family:var(--grot);font-weight:800;font-size:clamp(32px,5vw,50px);line-height:1.03;
+  letter-spacing:-.02em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.dek b{color:var(--ink);font-weight:600}
+
+main{padding:44px 0 90px}
+section{margin:0 0 62px;scroll-margin-top:20px}
+.pt{font-family:var(--mono);font-size:11.5px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 6px}
+h2{font-family:var(--grot);font-weight:700;font-size:clamp(22px,2.6vw,29px);line-height:1.15;
+  letter-spacing:-.015em;margin:0 0 10px;text-wrap:balance}
+h3{font-family:var(--grot);font-weight:600;font-size:17.5px;margin:30px 0 8px}
+p{margin:0 0 14px;max-width:68ch}
+.lede{font-size:18px;color:var(--ink-2);max-width:64ch}
+.m{font-family:var(--mono);font-size:.86em;background:var(--surface-2);
+  border:1px solid var(--rule-soft);border-radius:3px;padding:1px 5px;white-space:nowrap}
+
+/* ── timeline ─────────────────────────────────────────── */
+.tl{position:relative;margin:26px 0 0;padding-left:0}
+.tl::before{content:"";position:absolute;left:78px;top:8px;bottom:8px;width:1px;background:var(--rule)}
+.ev{display:grid;grid-template-columns:78px 1fr;gap:0;position:relative;margin:0 0 4px}
+.ev .clk{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;
+  color:var(--muted);padding:15px 16px 0 0;text-align:right;white-space:nowrap}
+.ev .bd{border:1px solid transparent;padding:13px 0 13px 22px;position:relative}
+.ev .bd::before{content:"";position:absolute;left:-4px;top:19px;width:9px;height:9px;
+  border-radius:50%;background:var(--ground);border:1.5px solid var(--rule)}
+.ev .t{font-family:var(--grot);font-weight:600;font-size:16.5px;margin:0 0 3px}
+.ev .d{font-size:15px;color:var(--ink-2);max-width:62ch;margin:0}
+.ev .d + .d{margin-top:6px}
+.ev .who{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);display:inline-block;margin-left:9px;vertical-align:1px;font-weight:500}
+
+/* the human step is the whole point of the page */
+.ev.you .bd{background:var(--go-bg);border:1px solid var(--go-rule);border-left-width:3px;
+  padding-left:20px;border-radius:2px}
+.ev.you .bd::before{background:var(--go);border-color:var(--go);width:11px;height:11px;left:-5.5px}
+.ev.you .t{color:var(--ink)}
+.ev.you .who{color:var(--go);font-weight:600}
+.ev.off .bd::before{background:var(--wait);border-color:var(--wait)}
+
+ol.mini{margin:10px 0 0;padding-left:19px;display:flex;flex-direction:column;gap:7px}
+ol.mini li{font-size:15px;color:var(--ink-2)}
+ol.mini li b{color:var(--ink)}
+ol.mini li::marker{font-family:var(--mono);font-size:12px;color:var(--go)}
+
+/* ── tables ───────────────────────────────────────────── */
+.tw{overflow-x:auto;margin:20px 0;border:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%;background:var(--surface);font-size:15px}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);text-align:left;font-weight:600;padding:11px 14px;
+  border-bottom:1px solid var(--rule);white-space:nowrap;background:var(--surface-2)}
+td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.5}
+tr:last-child td{border-bottom:0}
+td.n{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
+  white-space:nowrap;color:var(--ink-2)}
+td.warn{color:var(--no)}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--wait);background:var(--wait-bg);
+  padding:15px 18px;margin:20px 0;font-size:15.5px}
+.note .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--wait);display:block;margin-bottom:6px;font-weight:600}
+.note p{margin:0;max-width:none}
+
+pre{font-family:var(--mono);font-size:13.5px;line-height:1.85;background:var(--surface);
+  border:1px solid var(--rule);border-left:3px solid var(--go);padding:18px 20px;
+  overflow-x:auto;margin:20px 0;color:var(--ink-2)}
+pre b{color:var(--ink);font-weight:600}
+
+footer{border-top:1px solid var(--rule);padding:26px 0 60px;font-size:15px;color:var(--muted);max-width:68ch}
+footer em{color:var(--ink-2)}
+
+@media(max-width:720px){
+  body{font-size:16px}
+  .tl::before{left:60px}
+  .ev{grid-template-columns:60px 1fr}
+  .ev .clk{font-size:11.5px;padding-right:12px}
+  .ev .bd{padding-left:18px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<style>
+.lk{margin:8px 0 0;display:flex;flex-wrap:wrap;gap:8px}
+.lk a{font-family:var(--mono);font-size:12px;text-decoration:none;color:var(--go);border:1px solid var(--go-rule);
+  background:var(--surface);border-radius:3px;padding:2px 8px}
+.lk a:hover{background:var(--go-bg)}
+ul.how{margin:6px 0 0;padding-left:18px}
+ul.how li{font-size:15px;color:var(--ink-2);margin:0 0 5px;max-width:64ch}
+.toc{display:flex;flex-wrap:wrap;gap:10px;margin:22px 0 0}
+.toc a{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);
+  text-decoration:none;border:1px solid var(--rule);padding:6px 10px;background:var(--surface)}
+</style>
+<header class="mast"><div class="mast-in">
+  <p class="eyebrow">Doc 35 · Process · 7 Oct 2026</p>
+  <h1>Daily Regime</h1>
+  <p class="dek">What to do on a trading day — <b>before the open, during the session, after the close</b> —
+  and at the weekend, with the page to open for each step. The green steps are yours; the rest run by themselves.
+  The book's safety comes first every morning: stops covered, open risk inside budget, the exposure rule read.</p>
+  <div class="toc"><a href="#pre">Before the open</a><a href="#session">During market hours</a><a href="#post">After market hours</a><a href="#weekend">Weekends and holidays</a></div>
+</div></header>
+<div class="wrap"><main>
+<section>
+  <p class="pt">How to use it</p>
+  <h2>One command, the right block</h2>
+  <p>Run <span class="m">DAILY_REGIME.bat</span> (or <span class="m">python daily_regime.py</span>) and it prints the block for
+  right now — it knows IST and the NSE holidays — with every link. <span class="m">--open</span> also opens those pages;
+  <span class="m">--phase post</span> picks a block; <span class="m">--host jaynuc</span> gives links for the phone. This page is
+  generated from the same file (<span class="m">daily_regime.py --build</span>), so the two never disagree.</p>
+  <div class="note"><span class="lbl">The three numbers that decide every day</span>
+  <p><b>Exposure tier</b> (S4 Section I header / SUMMARY EXPOSURE): whether you may enter at all, and at what risk.
+  <b>Open risk vs budget</b> (Risk Shield 🔥 card): 6% of capital in an OPEN tape, 3% in NEUTRAL or BEAR.
+  <b>Stops</b>: one price per holding, full quantity, limit below the trigger.</p></div>
+</section>
+<section id="pre">
+  <p class="pt">Trading days · 08:00 – 09:15</p>
+  <h2>Before the open</h2>
+  <p class="lede">Arrive with the book already decided: stops covered, the day&#x27;s trims known, and the exposure rule read. Nothing that happens after 09:15 should be a surprise you could have seen at 08:50.</p>
+  <div class="tl">
+    <div class="ev">
+      <div class="clk">08:00</div>
+      <div class="bd">
+        <p class="t">Dhan token check<span class="who">automatic</span></p>
+        <ul class="how"><li>Dhan_Token_Check refreshes the API token (TOTP). A failure arrives on Telegram — then run run_token_check.bat.</li></ul>
+      </div>
+    </div>
+    <div class="ev">
+      <div class="clk">08:30</div>
+      <div class="bd">
+        <p class="t">Pre-market brief<span class="who">automatic</span></p>
+        <ul class="how"><li>PreMarket_Report sends GIFT Nifty, global cues, F&amp;O participants and the calendar to Telegram.</li></ul>
+      </div>
+    </div>
+    <div class="ev">
+      <div class="clk">08:45</div>
+      <div class="bd">
+        <p class="t">Morning digest<span class="who">automatic</span></p>
+        <ul class="how"><li>Morning_Digest: holdings at or below their Chandelier, results within 7 days, the market line.</li></ul>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">08:45</div>
+      <div class="bd">
+        <p class="t">Start the desk — MORNING.bat (one click)<span class="who">you</span></p>
+        <ul class="how"><li>Double-click Morning on the desktop. It starts, in order and only what is not running: TradingView with the CDP port, Web Commander, the alert receiver + ngrok, the reviewer banner, the Library server.</li><li>Check the window &quot;S4 webhook receiver :8000&quot; is open — closing it is the only way alerts stop being reviewed.</li><li>Check TradingView has its six tabs open: S4 Phase-2 and S5 Layout (yours), S4 Reviewer and S5 Reviewer, Phase-1 and Panel Layout. If the reviewer tabs are missing, reviews FAIL loudly; they never borrow yours.</li><li>Banner green = reviewer idle.</li></ul>
+        <div class="lk"><a href="http://localhost:8501/?p=DASHBOARD">Web Commander · Dashboard</a></div>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">08:50</div>
+      <div class="bd">
+        <p class="t">Read the morning digest, then decide the exits<span class="who">you</span></p>
+        <ul class="how"><li>Every name listed as at/below its Chandelier: decide now — exit at the open, or hold because the resting stop already handles it. Write the decision down; do not decide it in the first minute of trade.</li><li>Results within 3 days on a held name: decide the size (trim or hold), never the direction, from the result risk.</li></ul>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">08:55</div>
+      <div class="bd">
+        <p class="t">Risk Shield — stops, open risk, class<span class="who">you</span></p>
+        <ul class="how"><li>Banners first: &#x27;Stops disagree&#x27; or &#x27;Partly covered&#x27; → fix on Dhan before 09:15: ONE stop price per holding, covering the full quantity, limit price below the trigger.</li><li>🔥 Open risk card: if OVER budget, the expander lists the shares to sell with the stops left in place. Those trims are today&#x27;s first orders (Doc 25 Part 7c).</li><li>🔁 Swing ↔ Positional tab: any EXIT REVIEW name is decided like an exit above.</li></ul>
+        <div class="lk"><a href="http://localhost:8501/?p=RISK%20SHIELD">Risk Shield (🔥 Open risk card · 🔁 Swing ↔ Positional tab · warnings)</a><a href="http://localhost:8502/docs/portal/25_golden_rules.html#p7c">Doc 25 Part 7c · open-risk budget</a><a href="https://web.dhan.co">Dhan web (orders · positions · forever orders)</a></div>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">09:00</div>
+      <div class="bd">
+        <p class="t">Read the tape and the exposure rule<span class="who">you</span></p>
+        <ul class="how"><li>Pre-Market page and the MACRO regime. The S4 Section I header (and the SUMMARY&#x27;s EXPOSURE section) says the tier: BEAR or circuit breaker = no new entries today — a management-only day. NEUTRAL = half risk, at most 3 new entries a week. A follow-through day or breadth thrust unlocks 2 half-risk pilots.</li><li>This one line decides whether any alert today can become a trade.</li></ul>
+        <div class="lk"><a href="http://localhost:8501/?p=PRE-MARKET">Pre-Market</a><a href="http://localhost:8501/?p=MACRO">Macro (regime, sectors)</a></div>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="session">
+  <p class="pt">Trading days · 09:15 – 15:30</p>
+  <h2>During market hours</h2>
+  <p class="lede">The alerts watch the session, the reviewer reads the chart, and you act only when a review arrives. No code changes, no compiles, no restarts — if something breaks, roll back, do not fix forward.</p>
+  <div class="tl">
+    <div class="ev you">
+      <div class="clk">09:15</div>
+      <div class="bd">
+        <p class="t">Execute the planned trims and exits first<span class="who">you</span></p>
+        <ul class="how"><li>The trims and exits you decided before the open, at or shortly after the open. Then resize each remaining holding&#x27;s stop legs to the new quantity (one price, full cover).</li></ul>
+        <div class="lk"><a href="https://web.dhan.co">Dhan web (orders · positions · forever orders)</a><a href="http://localhost:8501/?p=RISK%20SHIELD">Risk Shield (🔥 Open risk card · 🔁 Swing ↔ Positional tab · warnings)</a></div>
+      </div>
+    </div>
+    <div class="ev">
+      <div class="clk">bar closes</div>
+      <div class="bd">
+        <p class="t">S4 GO alerts → the reviewer → Telegram<span class="who">automatic</span></p>
+        <ul class="how"><li>75m closes 10:30 · 11:45 · 13:00 · 14:15 · 15:30; 125m closes 11:20 · 13:25 · 15:30. The two watchlist alerts cover GM_Swing names. About 90 seconds later the review arrives on Telegram and in the Log.</li><li>Daily GO alerts (GM-POS GO, positional names) are reviewed after the close, at 15:31.</li></ul>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">on a review</div>
+      <div class="bd">
+        <p class="t">When a review arrives — the execution path<span class="who">you</span></p>
+        <ul class="how"><li>Open S4 on YOUR S4 Phase-2 tab, on the alert&#x27;s timeframe. Read the SUMMARY first — EXPOSURE is binding.</li><li>Take only TAKE-IT rulings. A swing name can be timed on 75m/125m; a POSITIONAL name is decided on the Daily close only — an intraday GO on a positional name is information, not an entry.</li><li>Size with the Risk Allocator on the S4 stop: 0.5% (stock) / 0.75% (ETF), half in a NEUTRAL tape or on a pilot, never above the ₹1L per-trade cap.</li><li>Place the entry and the stop together on Dhan: one stop price, full cover, limit below the trigger.</li><li>Write the class (Swing/Positional) at entry — s4_take does it after the close (below).</li></ul>
+        <div class="lk"><a href="http://localhost:8502/docs/portal/31_reviewer_log_v2.html">Reviewer Log (Doc 31)</a><a href="http://localhost:8502/docs/portal/22_section_four.html">Section Four (Doc 22)</a><a href="https://web.dhan.co">Dhan web (orders · positions · forever orders)</a></div>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">any time</div>
+      <div class="bd">
+        <p class="t">Manual review of a name<span class="who">you</span></p>
+        <ul class="how"><li>REVIEW.bat SYMBOL TF (e.g. REVIEW TITAN 75) — same path as an alert, on the reviewer&#x27;s own tabs.</li></ul>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">all day</div>
+      <div class="bd">
+        <p class="t">Holdings: let the stops work<span class="who">you</span></p>
+        <ul class="how"><li>Do not widen a stop unless you cut the quantity so the rupees at risk do not grow (Doc 25 Part 7b).</li><li>Do not convert a swing to positional intraday — conversions are judged on a Daily close.</li><li>Optional glance 5 minutes after each bar close; the board is the arm stage and does not decay in 30 minutes.</li></ul>
+        <div class="lk"><a href="http://localhost:8502/docs/portal/25_golden_rules.html#p7b">Doc 25 Part 7b · swing or positional</a></div>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="post">
+  <p class="pt">Trading days · 15:30 – 21:00</p>
+  <h2>After market hours</h2>
+  <p class="lede">The machine rebuilds everything between 16:00 and about 17:30. Your 20 minutes start when the evening digest lands: read what the day did, then set up tomorrow.</p>
+  <div class="tl">
+    <div class="ev">
+      <div class="clk">15:31</div>
+      <div class="bd">
+        <p class="t">Daily GO alerts reviewed<span class="who">automatic</span></p>
+        <ul class="how"><li>Positional GM-POS GO alerts that fired on the close are reviewed now — this is the positional entry decision.</li></ul>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">15:35</div>
+      <div class="bd">
+        <p class="t">Log the day&#x27;s decisions<span class="who">you</span></p>
+        <ul class="how"><li>For each trade taken: python s4_take.py SYMBOL --tf 75 --price FILL --qty SHARES. For each TAKE you passed on: python s4_take.py SYMBOL --skip &quot;why&quot;. This is the scoring — it is the only way the live record can tell you whether the system&#x27;s trades work.</li><li>Check on Dhan that today&#x27;s entries have their stop resting, full quantity.</li></ul>
+        <div class="lk"><a href="http://localhost:8502/docs/portal/31_reviewer_log_v2.html">Reviewer Log (Doc 31)</a><a href="https://web.dhan.co">Dhan web (orders · positions · forever orders)</a></div>
+      </div>
+    </div>
+    <div class="ev">
+      <div class="clk">16:00</div>
+      <div class="bd">
+        <p class="t">Exit scan<span class="who">automatic</span></p>
+        <ul class="how"><li>Exit_Scan_Daily: stop hits, stage decay, time stops → Telegram ACTION rows.</li></ul>
+      </div>
+    </div>
+    <div class="ev">
+      <div class="clk">16:30</div>
+      <div class="bd">
+        <p class="t">Auto-pilot, journal sync, post-market report<span class="who">automatic</span></p>
+        <ul class="how"><li>WeinsteinAutoPilot runs the whole pipeline (scans → Golden Matcher → screens → watchlists → TV sync). TradingJournal_DhanSync makes the journal equal the Dhan book and reads the resting stops back. PostMarket_Report goes to Telegram. 16:45 Breadth_Daily.</li></ul>
+      </div>
+    </div>
+    <div class="ev">
+      <div class="clk">~17:00</div>
+      <div class="bd">
+        <p class="t">Evening run — boards, bundles, alerts, records<span class="who">automatic</span></p>
+        <ul class="how"><li>Phase 12: Daily/125m/75m boards, bundles pushed to S4, the two watchlist alerts moved to today&#x27;s GM_Swing list, positional Daily alerts and zone-approach alerts rebuilt, v67 slots + trail pushed, live record and trade log rebuilt, board reviews. Phase 14 sends the evening digest. 17:15 docs truth check, 18:45 F&amp;O bhavcopy.</li></ul>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">~17:30</div>
+      <div class="bd">
+        <p class="t">Read the evening digest<span class="who">you</span></p>
+        <ul class="how"><li>Phases not OK · boards (5/5 counts against the 20-day median) · reviewer failures · bindings per tab (32/32) · alert versions · exit review · TRADE CLASS (positional EXIT REVIEW, swings that may convert).</li><li>Anything red here is fixed tonight — this is the only window for code.</li></ul>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">17:35</div>
+      <div class="bd">
+        <p class="t">Risk Shield — the book after today<span class="who">you</span></p>
+        <ul class="how"><li>🔥 Open risk: over budget → plan tomorrow&#x27;s trims (they go first at 09:15).</li><li>🔁 Swing ↔ Positional: a swing that passes all four gates may be converted now (it is a Daily close) — record it, then on Dhan set the new stop (and sell any trim), then Sync to TV. A losing swing converts only at half risk. EXIT REVIEW names are decided for tomorrow&#x27;s open.</li></ul>
+        <div class="lk"><a href="http://localhost:8501/?p=RISK%20SHIELD">Risk Shield (🔥 Open risk card · 🔁 Swing ↔ Positional tab · warnings)</a><a href="http://localhost:8502/docs/portal/25_golden_rules.html#p7b">Doc 25 Part 7b · swing or positional</a></div>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">17:45</div>
+      <div class="bd">
+        <p class="t">Tomorrow&#x27;s candidates — the boards<span class="who">you</span></p>
+        <ul class="how"><li>Daily board: the 5/5 positional names are tomorrow&#x27;s Daily-close candidates. 125m/75m boards: swing names the alerts will time. Open each worth attention in the Golden Matcher and read the decision path.</li><li>ARM what you intend to stalk — an armed name stays in tomorrow&#x27;s union even if it stops qualifying.</li></ul>
+        <div class="lk"><a href="http://localhost:8501/?view=gm_board_maximized&amp;tf=Daily">GM board · Daily (positional)</a><a href="http://localhost:8501/?view=gm_board_maximized&amp;tf=125m">GM board · 125m (swing)</a><a href="http://localhost:8501/?view=gm_board_maximized&amp;tf=75m">GM board · 75m (swing)</a><a href="http://localhost:8501/?view=gm_window">Golden Matcher (own window)</a></div>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">18:00</div>
+      <div class="bd">
+        <p class="t">Read the record<span class="who">you</span></p>
+        <ul class="how"><li>Reviewer Log: today&#x27;s rulings. Trade Log: TAKE vs what you bought. Live Record: the system&#x27;s numbers.</li></ul>
+        <div class="lk"><a href="http://localhost:8502/docs/portal/31_reviewer_log_v2.html">Reviewer Log (Doc 31)</a><a href="http://localhost:8502/docs/portal/34_trade_log.html">Trade Log (Doc 34)</a><a href="http://localhost:8502/docs/portal/33_live_record.html">Live Record (Doc 33)</a></div>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">if compiled</div>
+      <div class="bd">
+        <p class="t">After any S4 / v67 compile<span class="who">you</span></p>
+        <ul class="how"><li>AFTER_COMPILE.bat — binds and verifies all tabs, pushes the bundles, moves the alerts to the new version, restores v67 settings and pushes the slots. All TradingView tabs must be open first.</li></ul>
+      </div>
+    </div>
+  </div>
+</section>
+<section id="weekend">
+  <p class="pt">Saturday · Sunday · NSE holidays</p>
+  <h2>Weekends and holidays</h2>
+  <p class="lede">The weekly stage only changes after a Friday close. The weekend is for the weekly read, the book&#x27;s re-qualification, planning and system work — never for orders.</p>
+  <div class="tl">
+    <div class="ev you">
+      <div class="clk">Sat</div>
+      <div class="bd">
+        <p class="t">Re-qualify the book on the weekly close<span class="who">you</span></p>
+        <ul class="how"><li>🔁 Swing ↔ Positional: positional holdings that read Stage 3/4 on the confirmed weekly close are EXIT REVIEW — plan the exit for Monday. WATCH names (below the 200-DMA, weekly trend down): decide trim or hold.</li><li>🔥 Open risk: the budget for Monday&#x27;s tier; plan the trims.</li></ul>
+        <div class="lk"><a href="http://localhost:8501/?p=RISK%20SHIELD">Risk Shield (🔥 Open risk card · 🔁 Swing ↔ Positional tab · warnings)</a><a href="http://localhost:8502/docs/portal/25_golden_rules.html#p7b">Doc 25 Part 7b · swing or positional</a><a href="http://localhost:8502/docs/portal/25_golden_rules.html#p7c">Doc 25 Part 7c · open-risk budget</a></div>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">Sat</div>
+      <div class="bd">
+        <p class="t">The market&#x27;s stage before the stock&#x27;s<span class="who">you</span></p>
+        <ul class="how"><li>MACRO and BREADTH: regime score, % of stocks above the 50/200-DMA, new highs vs lows, Stage-2 share, McClellan. Write one line: what tier Monday is likely to start in, and what would unlock pilots.</li><li>Sector rotation: the RRG (START_RRG_STUDIO.bat — it uses :8502, so stop the Library server first).</li></ul>
+        <div class="lk"><a href="http://localhost:8501/?p=MACRO">Macro (regime, sectors)</a><a href="http://localhost:8501/?p=BREADTH">Breadth (McClellan, % above MAs)</a></div>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">Sat</div>
+      <div class="bd">
+        <p class="t">Strategic planning — fresh Stage-2 names<span class="who">you</span></p>
+        <ul class="how"><li>HUNTER and the Golden Matcher Daily board: Hunter / EarlyBird picks, fresh Stage-2 breakouts. Weekly charts on TradingView for the GM_Positional list; mark Daily+ demand zones by hand where the engine has none.</li><li>X-Ray for the fundamentals of anything you would stalk. ETF page for the rotation read.</li></ul>
+        <div class="lk"><a href="http://localhost:8501/?p=HUNTER">Hunter (fresh Stage-2 breakouts)</a><a href="http://localhost:8501/?view=gm_board_maximized&amp;tf=Daily">GM board · Daily (positional)</a><a href="http://localhost:8501/?p=X-RAY">X-Ray (fundamentals)</a><a href="http://localhost:8501/?p=ETF">ETF (screener + rotation)</a></div>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">Sun</div>
+      <div class="bd">
+        <p class="t">Review the week<span class="who">you</span></p>
+        <ul class="how"><li>Trade Log and Live Record: what was taken, skipped, and how the system&#x27;s trades did. Journal: lessons on every exit. logs/board_counts_history.csv: were quiet days the market or a gate?</li><li>Monthly: AUTOPSY → Attribution.</li></ul>
+        <div class="lk"><a href="http://localhost:8502/docs/portal/34_trade_log.html">Trade Log (Doc 34)</a><a href="http://localhost:8502/docs/portal/33_live_record.html">Live Record (Doc 33)</a><a href="http://localhost:8501/?p=JOURNAL">Journal</a><a href="http://localhost:8501/?p=AUTOPSY">Autopsy (attribution)</a></div>
+      </div>
+    </div>
+    <div class="ev">
+      <div class="clk">Sun 19:00</div>
+      <div class="bd">
+        <p class="t">Weekly report<span class="who">automatic</span></p>
+        <ul class="how"><li>Weekly_Report goes to Telegram.</li></ul>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">any time</div>
+      <div class="bd">
+        <p class="t">System work<span class="who">you</span></p>
+        <ul class="how"><li>Code changes, compiles and restarts belong here or after 15:30. After an S4 / v67 compile: AFTER_COMPILE.bat. Before Monday: Web Commander restarted on the latest code, and MORNING.bat on Monday morning.</li></ul>
+        <div class="lk"><a href="http://localhost:8502/docs/portal/index.html">The Library</a></div>
+      </div>
+    </div>
+  </div>
+</section>
+<section>
+  <p class="pt">Related</p>
+  <h2>Where the rules behind each step live</h2>
+  <p>Doc 25 Golden Rules — Part 7b (swing or positional) and Part 7c (the open-risk budget) · Doc 26 Operating Loop ·
+  Doc 22 Section Four · Doc 32 The Reviewer · Doc 31 / 33 / 34 for the record.</p>
+</section>
+<footer><em>Generated from daily_regime.py.</em> Change a step there and run <span class="m">--build</span>.</footer>
+</main></div>

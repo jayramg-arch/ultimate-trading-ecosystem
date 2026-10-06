@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 7 Oct · 41 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 7 Oct · 42 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -247,12 +247,22 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
       <tr>
+        <td class="dt">7 Oct<br>daily regime</td>
+        <td><b>New manual: the Daily Regime (Doc 35).</b> Before the open (desk start, digest, stops, open risk, the
+        exposure tier), during the session (planned trims first, the execution path on a review, positional names only
+        on the Daily close), after the close (log the day, the digest, the book, tomorrow's boards) and the weekend
+        (weekly re-qualification, the market's stage, planning, review). <code>daily_regime.py</code> holds every step
+        with its link; <code>DAILY_REGIME.bat</code> prints the block for right now. The open-risk budget in a BEAR tape
+        is now 3%, the same as NEUTRAL.</td>
+        <td class="af">35 · 25 · 26</td>
+      </tr>
+      <tr>
         <td class="dt">7 Oct<br>open-risk budget</td>
         <td><b>The book now has a risk budget that shrinks with the regime.</b> The rupees lost if every resting stop
-        fills are measured against 6% of capital in an OPEN tape, 3% NEUTRAL and 1.5% BEAR (or under the circuit
-        breaker). The old heat card's budget grew with the number of positions and always read within budget. Over
+        fills are measured against 6% of capital in an OPEN tape and 3% in a NEUTRAL or BEAR tape (or under the
+        circuit breaker). The old heat card's budget grew with the number of positions and always read within budget. Over
         budget, Risk Shield lists the shares to sell with the stops left in place — failed swings and losers first,
-        locked winners last. First reading: ₹1,96,108 against ₹45,000.</td>
+        locked winners last. First reading: ₹1,96,108 against ₹90,000.</td>
         <td class="af">25 · 26</td>
       </tr>
       <tr>
@@ -688,6 +698,19 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     </a>
 
     <a class="card" style="--spine:var(--doctrine)"
+       href="35_daily_regime.html">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 35 · Process</p>
+        <p class="card-t">Daily Regime</p>
+        <p class="card-d">What to do before the open, during the session, after the close and at the weekend,
+        with the page to open for each step. The book's safety comes first every morning: stops covered, open
+        risk inside budget, the exposure rule read. <code>DAILY_REGIME.bat</code> prints the block for right now.</p>
+        <div class="card-m"><span>Every day, in order</span><span class="go">Open →</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--doctrine)"
        href="26_operating_loop.html">
       <div class="spine"></div>
       <div class="card-b">
@@ -1088,6 +1111,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         <tr><td class="id">23</td><td class="nm"><a href="23_golden_matcher.html">The Golden Matcher</a></td><td>The board, the six-step path, the S4-GO grammar</td><td class="st"><span class="pill page gm">Page</span></td></tr>
         <tr><td class="id">22</td><td class="nm"><a href="22_section_four.html">Section Four</a></td><td>The five-gate GO, the verdict ladder, aged S/R, the Setup row</td><td class="st"><span class="pill page s4">Page</span></td></tr>
         <tr><td class="id">32</td><td class="nm"><a href="32_the_reviewer.html">The Reviewer</a></td><td>How the AI review works, runs, checks itself, and is scored</td><td class="st"><span class="pill page s4">Page</span></td></tr>
+        <tr><td class="id">35</td><td class="nm"><a href="35_daily_regime.html">Daily Regime</a></td><td>The trading day and the weekend, step by step, with the pages to open</td><td class="st"><span class="pill page gm">Page</span></td></tr>
         <tr><td class="id">34</td><td class="nm"><a href="34_trade_log.html">The Trade Log</a></td><td>TAKE reviews vs the trades actually taken</td><td class="st"><span class="pill page ev">Page</span></td></tr>
         <tr><td class="id">33</td><td class="nm"><a href="33_live_record.html">The Live Record</a></td><td>The Log as the backtest: features × outcomes per tier</td><td class="st"><span class="pill page ev">Page</span></td></tr>
         <tr><td class="id">31</td><td class="nm"><a href="31_reviewer_log_v2.html">The Reviewer Log</a></td><td>Every AI review, newest first; the scoring lives here</td><td class="st"><span class="pill page ev">Page</span></td></tr>

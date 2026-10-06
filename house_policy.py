@@ -200,7 +200,7 @@ BREAKER_PAUSE_SESSIONS = 5
 # OPEN-RISK BUDGET (7-Oct-2026, Jay - capital protection): the rupees the WHOLE book may
 # lose if every resting stop fills, as a % of the sizing capital, by exposure tier. The
 # circuit breaker uses the BEAR budget. open_risk.py measures it; Risk Shield shows it.
-HEAT_BUDGET_PCT = {"OPEN": 6.0, "NEUTRAL": 3.0, "BEAR": 1.5}
+HEAT_BUDGET_PCT = {"OPEN": 6.0, "NEUTRAL": 3.0, "BEAR": 3.0}   # BEAR = NEUTRAL: Jay, 7-Oct-2026 (proposed 1.5%)
 
 
 def _journal_frame():

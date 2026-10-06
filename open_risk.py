@@ -7,7 +7,8 @@ while the old Portfolio Heat card read "WITHIN BUDGET": its budget was 0.5% x th
 positions, so every position added raised its own ceiling. Here the budget is a fixed slice
 of capital that shrinks with the regime:
 
-    HEAT_BUDGET_PCT (house_policy)   OPEN 6%   ·   NEUTRAL 3%   ·   BEAR 1.5%
+    HEAT_BUDGET_PCT (house_policy)   OPEN 6%   ·   NEUTRAL 3%   ·   BEAR 3%
+    (BEAR was proposed at 1.5%; Jay set it equal to NEUTRAL on 7-Oct-2026.)
 
 The circuit breaker counts as BEAR. The tier comes from house_policy.exposure_status (the
 same Option-A reading the order gate and the reviewer use).
@@ -169,9 +170,8 @@ def render(st, sell_gtts_by_symbol, single_sells, ltps, inr) -> None:
         f"resting stop fills, vs the <b>{b['pct']:g}%</b> budget for a {tier_txt} tape = ₹{inr(b['rupees'])} — "
         f"<b style='color:{col}'>{'OVER by ₹' + inr(s['over']) + ' 🚨' if over else 'WITHIN BUDGET ✅'}</b>"
         f"<br><span style='font-size:0.8rem;color:var(--muted);'>Capital below cost at risk: ₹{inr(s['risk_cap'])} "
-        f"(the rest is open profit the stops would give back). Budget OPEN 6% · NEUTRAL 3% · BEAR 1.5% of the "
-        f"sizing capital (house_policy.HEAT_BUDGET_PCT). At NEUTRAL (3%) the gap would be "
-        f"{'₹' + inr(s['risk_ltp'] - b['capital'] * 0.03) if s['risk_ltp'] > b['capital'] * 0.03 else 'nil'}.</span></div>",
+        f"(the rest is open profit the stops would give back). Budget OPEN 6% · NEUTRAL 3% · BEAR 3% of the "
+        f"sizing capital (house_policy.HEAT_BUDGET_PCT).</span></div>",
         unsafe_allow_html=True)
     if s["uncovered"]:
         st.error("Shares with NO resting stop (risk unbounded, not in the total): " + ", ".join(s["uncovered"]))
