@@ -48,6 +48,14 @@ def pipeline_lines() -> list[str]:
 
 def board_lines() -> list[str]:
     out = ["BOARDS"]
+    # 6-Oct-2026: one row per board per day into logs/board_counts_history.csv, so a quiet
+    # evening reads against the last few weeks instead of against memory.
+    try:
+        import board_history as _bh
+        _hist = _bh.record()
+    except Exception as e:
+        _bh, _hist = None, None
+        out.append("  (board history not recorded: %s)" % str(e)[:60])
     for tf in ("Daily", "125m", "75m"):
         p = os.path.join(HERE, "gm_board_cache_%s.csv" % tf)
         if not os.path.exists(p):
@@ -62,8 +70,9 @@ def board_lines() -> list[str]:
             n = int(s.str.contains(tag, regex=False).sum())
             if n:
                 flags.append("%d %s" % (n, lab))
-        out.append("  %-5s %d × 5/5%s%s · %.0fh old%s" % (tf, len(go), (": " + ", ".join(go[:8])) if go else "",
-                                                     " …" if len(go) > 8 else "", age, (" · " + ", ".join(flags)) if flags else ""))
+        out.append("  %-5s %d × 5/5%s%s · %.0fh old%s%s" % (tf, len(go), (": " + ", ".join(go[:8])) if go else "",
+                                                     " …" if len(go) > 8 else "", age, (" · " + ", ".join(flags)) if flags else "",
+                                                     _bh.compare(tf, _hist) if _bh is not None else ""))
     return out
 
 
