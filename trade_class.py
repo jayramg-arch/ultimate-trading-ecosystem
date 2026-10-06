@@ -357,7 +357,7 @@ def render_streamlit() -> None:
         "it is Stage 2 weekly and the sector is not Stage 4 (soft). New stop = nearest daily structure, "
         "never closer than 4×ATR(D); risk from the close must fit the house risk, else trim. A losing "
         "swing that qualifies may convert only at HALF risk (salvage). Positional holdings that read "
-        "Stage 3/4 on the weekly close go to EXIT REVIEW. Doc 25 Rule zero-b / Doc 26.")
+        "Stage 3/4 on the weekly close go to EXIT REVIEW. Doc 25 Part 7b · Doc 26.")
 
     @st.cache_data(ttl=900, show_spinner="Reading the open book…")
     def _book():
