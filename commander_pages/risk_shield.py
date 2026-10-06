@@ -772,36 +772,15 @@ if True:
                     st.caption(f"⚠️ {len(_no_ltp_rows)} position(s) excluded from Capital-at-Risk "
                                f"(no live LTP): {', '.join(sorted(_no_ltp_rows))}")
 
-                # B3: PORTFOLIO HEAT vs the capital risk budget. Budget = the house risk each
-                # open position was allowed to take (stock 0.5% · ETF 0.75%, house_policy) x the
-                # SIZING capital - the same base the sizers use. It was a session-only 0.25%
-                # ("execution freeze") x live equity until 25-Sep-2026, so the card measured
-                # heat against a rule nothing else in the book followed.
+                # OPEN RISK vs the REGIME budget (7-Oct-2026, open_risk.py). Replaces the B3
+                # "Portfolio Heat" card, whose budget was house risk x the NUMBER of positions -
+                # every position added raised its own ceiling, so it always read within budget.
                 try:
-                    _cap_base, _cap_src = _HP.sizing_capital()
-                    _heat_syms = list(sell_gtts_by_symbol.keys()) + [u["symbol"] for u in unprotected_holdings]
-                    _n_open_h = len(_heat_syms)
-                    _rb_sum = sum(_HP.risk_pct_for(_x) for _x in _heat_syms)
-                    _rb_pct = (_rb_sum / _n_open_h) if _n_open_h else _HP.RISK_NEW_STOCK_PCT
-                    _heat_budget = (_cap_base * _rb_sum / 100.0) if _cap_base == _cap_base else 0.0
-                    if _cap_base != _cap_base:
-                        st.caption("🔥 Portfolio Heat: sizing capital is not set (GM settings → Capital), "
-                                   "so there is no budget to measure against.")
-                    elif _cap_base > 0:
-                        _heat_ok = total_risk <= _heat_budget
-                        _hcol = "var(--bull)" if _heat_ok else "var(--bear)"
-                        _chip = (f" · 🌡️ Regime: <b>{_rs_regime_chip}</b>" if _rs_regime_chip else "")
-                        st.markdown(
-                            f"<div style='background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border:1.5px solid {_hcol};border-radius:10px;padding:12px 16px;"
-                            f"margin:4px 0 16px;font-size:0.9rem;color: var(--ink-2);box-shadow:0 4px 16px rgba(0,0,0,0.2);'>"
-                            f"🔥 <b>Portfolio Heat:</b> ₹{format_inr_int(total_risk)} open risk vs budget "
-                            f"₹{format_inr_int(_heat_budget)} (house risk, avg {_rb_pct:.2f}% × {_n_open_h} positions × "
-                            f"₹{format_inr_int(_cap_base)} capital) — "
-                            f"<b style='color:{_hcol}'>{'WITHIN BUDGET ✅' if _heat_ok else 'OVER BUDGET 🚨'}</b>"
-                            f"{_chip}</div>", unsafe_allow_html=True)
+                    import open_risk as _ork
+                    _ork.render(st, sell_gtts_by_symbol, single_sells, ltps, format_inr_int)
                 except Exception as _e_heat:
-                    # A missing heat card reads as "nothing to worry about"; say it failed.
-                    st.warning(f"🔥 Portfolio Heat could not be computed: {type(_e_heat).__name__}: {_e_heat}")
+                    # A missing card reads as "nothing to worry about"; say it failed.
+                    st.warning(f"🔥 Open risk could not be computed: {type(_e_heat).__name__}: {_e_heat}")
 
                 # --- Fetch technicals for AI review and Risk Profile ---
                 hist_data = st.session_state.get("cached_hist_data_v4", {})

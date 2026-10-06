@@ -189,6 +189,7 @@ trade whose presence on the list you cannot explain.
 | **Pyramid / Trim** | the 5-rung ladder — EXIT → TRIM → REDUCE → ADD → HOLD |
 | **`gtt_auto_shield --trail`** | tighten-only trail at the broker (when re-armed) |
 | **`journal_sync`** | keeps the journal equal to the live Dhan book, daily |
+| **Risk Shield → 🔥 Open risk** | the whole book's risk from LTP against the regime budget (OPEN 6% · NEUTRAL 3% · BEAR 1.5% of capital) and, over budget, the shares to sell with the stops left in place. Doc 25 Part 7c |
 | **Risk Shield → 🔁 Swing ↔ Positional** | classify every holding, check a swing → positional conversion (four gates, new stop, max qty), record it in the journal; positional holdings that read Stage 3/4 on the weekly close show as EXIT REVIEW. Procedure: Doc 25 Part 7b |
 
 **Swing or positional (7 Oct).** Classify at entry from the list the GO came from

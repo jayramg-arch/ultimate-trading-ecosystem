@@ -341,6 +341,59 @@ Stage 3/4 on the weekly close.
 
 ---
 
+## PART 7c — THE OPEN-RISK BUDGET (7 Oct 2026)
+
+*Why.* A drawdown is set by the rupees the **whole book** loses if every resting stop
+fills, not by any one stop. The old Portfolio Heat card measured that against 0.5% × the
+number of positions — every position added raised its own ceiling, so it always read
+"within budget". The budget is now a fixed slice of the sizing capital that shrinks with
+the regime:
+
+| Exposure tier | Open-risk budget | On ₹30L |
+|---|---|---|
+| OPEN (score 6+) | 6% | ₹1,80,000 |
+| NEUTRAL (3–5) | 3% | ₹90,000 |
+| BEAR (0–2), or the circuit breaker on | 1.5% | ₹45,000 |
+
+(`house_policy.HEAT_BUDGET_PCT`; the tier is the same Option-A reading the order gate and
+the reviewer use.)
+
+**Two numbers per position,** both from the stops resting at Dhan:
+
+- **Risk from LTP** = Σ legs qty × (LTP − stop). What the book gives back if every stop
+  fills, open profit included. *This is the drawdown, and the budget is measured on it.*
+- **Below-cost risk** = Σ legs qty × (entry − stop), floored at zero. Money under cost. A
+  stop at/above entry is **locked** — zero below-cost risk.
+
+Shares with no resting stop are flagged in red and are not in the total — their risk is
+unbounded.
+
+**The trim plan (advisory).** When risk from LTP is over budget, Risk Shield lists the
+**shares to sell, leaving the stops where they are** — a wide stop is fine once the
+quantity comes down with it. It trims in this order, largest rupee risk first within each
+class, and only as many shares as the remaining gap needs:
+
+1. swing trades that cannot convert and are under water;
+2. positional holdings on EXIT REVIEW, or on WATCH while under water;
+3. salvage-only swings;
+4. any other position under water;
+5. winners whose stop is still below entry;
+6. locked winners — last; their risk is only open profit.
+
+After each sale, resize that holding's stop legs to the remaining quantity (one price,
+full cover).
+
+**Where it lives:** the 🔥 Open risk card near the top of Risk Shield, with the per-position
+table and the trim list in the expander under it (open by default when over budget).
+
+**First reading (6 Oct close):** ₹1,96,108 at risk from LTP (6.5% of ₹30L) against the
+₹45,000 BEAR budget; below-cost ₹2,14,150. Fitting the budget meant selling the four
+non-convertible losing swings (M&MFIN, BAJFINANCE, CUMMINSIND, NESTLEIND), COALINDIA, IKS,
+PHARMABEES, AUBANK, TVSMOTOR and the three largest unlocked winners — about three quarters
+of the book's risk. At the NEUTRAL budget the gap would be ₹1,06,108.
+
+---
+
 ## PART 8 — THE CHECKLIST (use this at the moment of the trade)
 
 Run it in order. **Stop at the first NO.**
