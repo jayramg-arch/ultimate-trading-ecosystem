@@ -198,3 +198,4 @@ data/cash_bhav/
 
 # screener.in company pages cached by screener_history.py (paid-session content; data, not code)
 data/screener_pages/
+logs/reviewer_banner.pid

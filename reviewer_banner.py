@@ -162,7 +162,11 @@ class Banner:
         elif kind in ("done", "failed"):
             self.pending = [p for p in self.pending if p != (sym, tf)]
             self.current = None
-            self.restoring = True
+            # 6-Oct-2026: no "restoring" after a review. Since 2-Oct the reviewer runs on its
+            # own tabs and never restores a chart, so "chart restored" never follows and the
+            # banner sat on "restoring your chart" for good. A restore line, if one ever
+            # comes, is simply ignored.
+            self.restoring = False
             self.last = ("%s %sm · %ds" % (sym, tf, secs)) if secs is not None \
                 else ("%s %sm · failed" % (sym, tf))
         elif kind == "restored":
@@ -178,13 +182,18 @@ class Banner:
         21-Sep evening: _run() writes busy / restoring / idle at each transition, so this
         is exact; the log tail below is only for a receiver that predates it."""
         try:
-            if time.time() - os.path.getmtime(STATUS) > STATUS_MAX_AGE_S:
-                return None
+            age = time.time() - os.path.getmtime(STATUS)
             with open(STATUS, encoding="utf-8") as f:
                 d = json.load(f)
         except Exception:
             return None
         st, sym, tf = d.get("state"), d.get("symbol", ""), d.get("tf", "")
+        # 6-Oct-2026: an IDLE file is never stale - the receiver writes it after every
+        # review and then has nothing to say until the next alert, often the next morning.
+        # Only busy/restoring are capped by age (a receiver that died mid-review).
+        # The old rule dropped to the log tail after 6 h, which read "restoring" for good.
+        if st != "idle" and age > STATUS_MAX_AGE_S:
+            return None
         pend = int(d.get("pending") or 0)
         if st == "busy":
             el = max(0, int(time.time() - float(d.get("started") or time.time())))
@@ -224,5 +233,35 @@ class Banner:
         self.root.after(POLL_MS, self._tick)
 
 
+PIDFILE = os.path.join(os.path.dirname(STATUS), "reviewer_banner.pid")
+
+
+def _single_instance() -> None:
+    """6-Oct-2026: starting the banner again stacked a second window on the first (three
+    were found running, one frozen since Saturday). The previous instance, if still alive
+    and still a python process, is closed, then this one records its own PID."""
+    import subprocess
+    try:
+        with open(PIDFILE, encoding="utf-8") as f:
+            old = int(f.read().strip() or 0)
+    except Exception:
+        old = 0
+    if old and old != os.getpid():
+        try:
+            q = subprocess.run(["tasklist", "/FI", "PID eq %d" % old, "/FO", "CSV", "/NH"],
+                               capture_output=True, text=True, creationflags=0x08000000)
+            if "python" in q.stdout.lower():
+                subprocess.run(["taskkill", "/PID", str(old), "/T", "/F"],
+                               capture_output=True, creationflags=0x08000000)
+        except Exception:
+            pass
+    try:
+        with open(PIDFILE, "w", encoding="utf-8") as f:
+            f.write(str(os.getpid()))
+    except Exception:
+        pass
+
+
 if __name__ == "__main__":
+    _single_instance()
     Banner().root.mainloop()
