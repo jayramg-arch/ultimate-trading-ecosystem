@@ -613,9 +613,12 @@ footer em{color:var(--ink-2)}
   <p>Every held-off rung is named in the reason (<span class="m">grace s3/10: held off below Chandelier ₹1,422</span>). A
   condition that turns true after entry fires as normal; after session 10 everything does.</p>
   <p><b>Measured effect</b> (same replay): entry-day signals <b>14 → 4</b>; the four left are hard exits or replay
-  artefacts (the journal holds today's average cost and trailed stop). <b>Known limit:</b> the Chandelier is still
-  anchored to the bars before entry — ASTERDM slipped under it on day 1. Anchoring the trail to the highest close since
-  entry would fix that, but it moves Risk Shield's and v67's trail line, so it is a separate decision.</p>
+  artefacts (the journal holds today's average cost and trailed stop). <b>The Chandelier now starts at
+  entry (7 Oct):</b> the anchor is the highest close within the window <em>and on or after the entry day</em>, one rule in
+  <span class="m">risk_common.chandelier_exit</span> used by Risk Shield, the ladder, the GTT trailer, the exit scan and
+  COMMAND. A position older than its window (22 bars positional, 14 swing) is unchanged; a younger one trails only off its
+  own highs (source tag <span class="m">·entry</span>). v67 draws the same line — the nightly book sends the entry-anchored
+  level as an Exact floor while the position is young, so no Pine compile was needed.</p>
 </section>
 
 <section id="p8">

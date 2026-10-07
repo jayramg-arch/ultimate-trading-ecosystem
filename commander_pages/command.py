@@ -154,7 +154,8 @@ if True:
                         _cm = float(_cm) if (_cm is not None and str(_cm).strip() not in ("", "nan", "None")) else None
                         atr_trail_sl, _mult_cmd, _src_cmd = _rc.chandelier_exit(
                             hist['High'], hist['Low'], hist['Close'], setup=str(row.get('Setup') or ""),
-                            bear=_bear_cmd, custom_mult=_cm, above200=_a200, swing=_swing_cmd)
+                            bear=_bear_cmd, custom_mult=_cm, above200=_a200, swing=_swing_cmd,
+                            entry_date=(row.get('EntryDate') or row.get('Entry Date') or None))
                         _tr = pd.concat([hist['High'] - hist['Low'], (hist['High'] - hist['Close'].shift()).abs(),
                                          (hist['Low'] - hist['Close'].shift()).abs()], axis=1).max(axis=1)
                         atr_val = float(_tr.ewm(alpha=1 / 14, adjust=False).mean().iloc[-1])

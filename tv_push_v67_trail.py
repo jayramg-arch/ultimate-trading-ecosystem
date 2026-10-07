@@ -279,6 +279,7 @@ def compute_book() -> list[dict]:
             "stoploss": _f(r.get("stoploss")),
             "custom_ce_mult": cm if (cm is not None and cm != 0) else None,
             "manual_sl_override": ov if (ov and ov > 0) else None,
+            "entry_date": r.get("entry_date") or None,
         }
         d = data.get(s)
         rrg = None
@@ -289,7 +290,7 @@ def compute_book() -> list[dict]:
                 rrg = None
         hc = rc.holding_chandelier(d, jrow, bear, cap_protect=cap_protect, override_mode=mode, rrg=rrg)
         out.append({"symbol": s, **{k: hc[k] for k in ("level", "raw_level", "mult", "src", "window",
-                                                        "tt_label", "override")}})
+                                                        "tt_label", "override", "anchored")}})
     return out
 
 
@@ -300,6 +301,12 @@ def book_string(rows: list[dict]) -> str:
             continue
         ov = r.get("override")
         floor = "0" if not ov else (("E%.2f" if ov[1] == "Exact" else "%.2f") % ov[0])
+        # ENTRY ANCHOR (7-Oct-2026): v67 computes ta.highest(close, window), which reaches back
+        # before the entry. While a position is younger than its window, send Risk Shield's
+        # entry-anchored level as an EXACT floor so the chart line is that number. (An Exact
+        # manual override already is the level; nothing to change.)
+        if r.get("anchored") and r.get("level") is not None and not (ov and ov[1] == "Exact"):
+            floor = "E%.2f" % float(r["level"])
         for k in _tv_keys(r["symbol"]):
             parts.append("%s=%d,%.4f,%s" % (k, int(r["window"]), float(r["mult"]), floor))
     return ";".join(parts)

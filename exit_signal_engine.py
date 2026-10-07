@@ -81,7 +81,7 @@ def recommend_actions(buy_price: float, stop_loss: float, ltp: float,
                        mansfield_rs: float | None,
                        df_d: pd.DataFrame | None = None,
                        sl_breached: bool = False,
-                       setup: str = "", timeframe: str = "") -> list[dict]:
+                       setup: str = "", timeframe: str = "", entry_date=None) -> list[dict]:
     """Build a list of suggested actions from the position's current state.
 
     v2.3 E-2: When the market regime is bearish (via v2_fixes), R-multiple
@@ -168,7 +168,8 @@ def recommend_actions(buy_price: float, stop_loss: float, ltp: float,
                 import house_policy as _hp
                 _bear = bool(_regime.get("active")) and _hp.is_bear(_regime.get("regime_score"))
                 _lvl, _mult, _src = _rc.chandelier_exit(df_d["High"], df_d["Low"], df_d["Close"],
-                                                        setup=setup or "", bear=_bear, swing=_is_swing)
+                                                        setup=setup or "", bear=_bear, swing=_is_swing,
+                                                        entry_date=entry_date)
                 if _lvl is not None:
                     chandelier = max(float(_lvl), buy_price + 0.5 * risk_per_share)
                     _trail_label = (f"Chandelier ({_rc.trail_window_for(setup or '', _is_swing)}-bar close "
@@ -403,6 +404,7 @@ def scan_position(row: pd.Series, df_cnx_d: pd.DataFrame, df_cnx_w: pd.DataFrame
                 stage=stage, mansfield_rs=result["Mansfield_RS"],
                 df_d=df_d, sl_breached=sl_breached,
                 setup=str(row.get("setup") or ""), timeframe=str(row.get("Timeframe") or row.get("timeframe") or ""),
+                entry_date=row.get("EntryDate") or row.get("entry_date"),
             )
             result["Recommendations"] = recs
             if recs and result["Exit_Flag"] != "ACTION":

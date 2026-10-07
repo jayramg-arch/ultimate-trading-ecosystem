@@ -276,8 +276,15 @@ def resolve_trade_type(timeframe=None, setup=None, structural=None, trade_type=N
 def chandelier_exit(high: pd.Series, low: pd.Series, close: pd.Series,
                     setup: str = "", bear: bool = False,
                     cap_protect: bool = False, custom_mult=None,
-                    above200: bool = True, swing=None):
+                    above200: bool = True, swing=None, entry_date=None):
     """Catalyst-aware, trade-type-aware Chandelier trailing-stop level.
+
+    ENTRY ANCHOR (7-Oct-2026, Jay): with `entry_date`, the anchor is the highest close
+    within the window AND on/after the entry day. For a position older than its window
+    nothing changes; a younger one no longer trails off highs printed BEFORE it was
+    bought - a pullback entry used to start below its own trail (NESTLEIND, M&MFIN on
+    day 0; ASTERDM on day 1). The ATR is unchanged. The source label gains '·entry'
+    while the anchor is clipped, so every surface can say so.
 
     Window/ATR clock (paired): swing → 14-bar, positional → 22-bar — see
     trail_window_for(). Multiplier precedence (identical to the Risk Shield page):
@@ -296,6 +303,23 @@ def chandelier_exit(high: pd.Series, low: pd.Series, close: pd.Series,
         return (None, None, None)
 
     highest_close_n = float(close.rolling(n).max().iloc[-1])
+    _anchored = False
+    if entry_date is not None and isinstance(close.index, pd.DatetimeIndex):
+        try:
+            _ed = pd.Timestamp(entry_date)
+            if not pd.isna(_ed):
+                _wc = close.iloc[-n:]
+                _ix = _wc.index
+                if _ix.tz is not None:
+                    _ix = _ix.tz_localize(None)
+                if _ed.tz is not None:
+                    _ed = _ed.tz_localize(None)
+                _since = _wc[_ix.normalize() >= _ed.normalize()]
+                if len(_since) < len(_wc):
+                    _anchored = True
+                    highest_close_n = float(_since.max()) if len(_since) else float(close.iloc[-1])
+        except Exception:
+            _anchored = False
     tr = pd.concat([high - low,
                     (high - close.shift(1)).abs(),
                     (low - close.shift(1)).abs()], axis=1).max(axis=1)
@@ -343,7 +367,7 @@ def chandelier_exit(high: pd.Series, low: pd.Series, close: pd.Series,
 
     if np.isnan(highest_close_n) or np.isnan(atr_n):
         return (None, None, None)
-    return (float(highest_close_n - atr_n * mult), float(mult), src)
+    return (float(highest_close_n - atr_n * mult), float(mult), (src + "·entry") if _anchored else src)
 
 
 def holding_chandelier(df, jrow: dict | None, bear, cap_protect: bool = False,
@@ -361,7 +385,8 @@ def holding_chandelier(df, jrow: dict | None, bear, cap_protect: bool = False,
     Returns a dict; level is None when there is not enough history."""
     out = {"level": None, "raw_level": None, "mult": None, "src": None, "window": None,
            "swing": None, "tt_label": None, "tt_source": None, "tt": (None, None, None, None),
-           "atr_pct": 0.0, "above200": False, "bear_unknown": bear is None, "override": None}
+           "atr_pct": 0.0, "above200": False, "bear_unknown": bear is None, "override": None,
+           "anchored": False}
     j = jrow or {}
     if df is None or getattr(df, "empty", True) or "Close" not in df.columns:
         return out
@@ -394,8 +419,9 @@ def holding_chandelier(df, jrow: dict | None, bear, cap_protect: bool = False,
     level, mult, msrc = chandelier_exit(hi, lo, c, setup=setup,
                                         bear=bool(bear) if bear is not None else False,
                                         cap_protect=cap_protect, custom_mult=j.get("custom_ce_mult"),
-                                        above200=above200, swing=swing)
-    out.update(raw_level=level, mult=mult, src=msrc, window=win)
+                                        above200=above200, swing=swing, entry_date=j.get("entry_date"))
+    out.update(raw_level=level, mult=mult, src=msrc, window=win,
+               anchored=bool(msrc and str(msrc).endswith("·entry")))
     ov = j.get("manual_sl_override")
     if level is not None and ov and ov > 0:
         level = ov if override_mode == "Exact" else max(level, ov)

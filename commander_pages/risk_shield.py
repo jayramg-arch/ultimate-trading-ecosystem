@@ -561,6 +561,9 @@ if True:
                                 # The ladder was correct and simply never had the inputs.
                                 "buy_price": float(r.get("BuyPrice")) if pd.notna(r.get("BuyPrice")) else None,
                                 "stoploss": float(r.get("StopLoss")) if pd.notna(r.get("StopLoss")) else None,
+                                # entry date anchors the Chandelier at entry (7-Oct-2026)
+                                "entry_date": (r.get("EntryDate") if pd.notna(r.get("EntryDate", None)) else
+                                               r.get("Entry Date") if pd.notna(r.get("Entry Date", None)) else None),
                             }
 
                 # B2: market regime (0-10 scorer) — degrades to per-symbol SMA200 check on failure

@@ -75,7 +75,7 @@ def load_journal_data():
     try:
         conn = sqlite3.connect(DB_FILE)
         df = pd.read_sql("SELECT symbol, stoploss, target, target1, target2, setup, timeframe, "
-                         "manual_sl_override, custom_ce_mult "
+                         "manual_sl_override, custom_ce_mult, entry_date "
                          "FROM journal WHERE status = 'OPEN'", conn)
         conn.close()
         # Normalize keys (Symbol -> data)
@@ -87,7 +87,8 @@ def load_journal_data():
                          'setup': r['setup'],
                          'timeframe': r['timeframe'],
                          'manual_sl': r['manual_sl_override'],
-                         'custom_mult': r['custom_ce_mult']}
+                         'custom_mult': r['custom_ce_mult'],
+                         'entry_date': r['entry_date']}
         return data
     except Exception as e:
         # RS-P1: this was a bare `except: return {}` — a schema/DB error silently
@@ -400,7 +401,7 @@ def _chandelier_for(sym: str, j: dict, bear: bool):
     _swing = True if "swing" in _tfj else (False if "pos" in _tfj else None)
     ce, mult, src = chandelier_exit(h, l, c, setup=str(j.get("setup") or ""),
                                     bear=bear, custom_mult=_cm,
-                                    above200=above200, swing=_swing)
+                                    above200=above200, swing=_swing, entry_date=j.get("entry_date"))
     if ce is None:
         return None
     return {"ce": float(ce), "mult": float(mult), "src": str(src),

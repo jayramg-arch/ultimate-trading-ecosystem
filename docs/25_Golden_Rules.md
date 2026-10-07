@@ -426,10 +426,16 @@ are hard exits or replay artefacts: the journal holds today's average cost and t
 (trailed) stop, so CAPLIPOINT, LAURUSLABS and SONACOMS read "stop breached" against an
 entry-day price below a stop set weeks later. GESHIP at −8.3% on day 3 is a real hard exit.
 
-**Known limit.** The Chandelier itself is still anchored to the bars before entry. ASTERDM
-slipped under that pre-entry anchor on day 1 and was flagged — it was not under it on the
-entry-day close. Anchoring the trail to the highest close *since entry* would remove that
-case, but it moves Risk Shield's and v67's trail line, so it is a separate decision.
+**The Chandelier now starts at entry (7 Oct, Jay's call).** The trail used to anchor to the
+highest close of the 14/22 bars *before* entry, so a pullback entry began life under its own
+trail (ASTERDM slipped under that pre-entry anchor on day 1). The anchor is now the highest
+close within the window **and on or after the entry day** — one rule in
+`risk_common.chandelier_exit`, used by Risk Shield, the pyramid ladder, the GTT trailer, the
+16:00 exit scan and COMMAND. A position older than its window (22 bars positional, 14 swing)
+is unchanged; a younger one trails only off its own highs, and its trail source reads
+`·entry`. v67 draws the same line: while a position is younger than its window, the nightly
+book sends Risk Shield's entry-anchored level as an Exact floor, so no Pine compile was needed.
+On 7 Oct no holding was young enough to move.
 
 ---
 

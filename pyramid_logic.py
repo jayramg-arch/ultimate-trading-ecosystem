@@ -148,7 +148,8 @@ def grace_state(df_d: pd.DataFrame, df_w: pd.DataFrame, entry_date, stoploss,
             if len(d) >= n_w:
                 s200 = float(c.rolling(200).mean().iloc[-1]) if len(c) >= 200 else np.nan
                 ce, _m, _s = rc.chandelier_exit(h, l, c, setup=setup, bear=bear,
-                                                 above200=bool(_numok(s200) and px > s200), swing=swing)
+                                                 above200=bool(_numok(s200) and px > s200), swing=swing,
+                                                 entry_date=entry_date)
                 if ce is not None and px < float(ce):
                     flags.append("chandelier")
             if df_w is not None and not df_w.empty:
@@ -224,7 +225,7 @@ def fetch_symbol_full(symbol: str, df_bench_w: pd.DataFrame,
             _above200 = bool(_numok(sma200) and _numok(ltp) and ltp > sma200)
             _ce, _cem, _ces = rc.chandelier_exit(
                 df_d["High"], df_d["Low"], df_d["Close"],
-                setup=setup, bear=bear, above200=_above200, swing=swing)
+                setup=setup, bear=bear, above200=_above200, swing=swing, entry_date=entry_date)
             if _ce is not None:
                 chandelier = float(_ce)
     except Exception:
