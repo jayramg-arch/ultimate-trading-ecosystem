@@ -856,7 +856,7 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.25"
+string S4_VER      = "v11.26"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -865,7 +865,13 @@ string S4_VER      = "v11.25"
 // Entry/SL/T1/T2 line - four levels, invalidation, first test, wall check - was that
 // row. Wrapped here it becomes two or three short lines and the table falls back to
 // the width of Confluence/RRG, which is what Jay asked for.
-int PANEL_ROW_WRAP = 96
+// v11.26 (9-Oct-2026, Jay): ONE wrap width for every row - the width of the Confluence
+// row, which is the widest and sets the column. Measured on TVSMOTOR 125m: the value
+// column is ~686 px and prose runs ~4.0 px/char (the 161-char Futures pooled line spans
+// 640 px), so ~168 chars fill it. Confluence itself is only 130 chars - its emoji are
+// twice the width of a letter - which is why its char count is NOT the wrap count.
+// Raise it if rows stop short of Confluence's edge; lower it if the panel widens.
+int PANEL_ROW_WRAP = 168
 string S4_CORE_VER = "70"
 // S4Core/27 (29-Aug-2026) takes the VP gate as a PARAMETER. A function that indexes its
 // series params must be CALLED on every calculation, or Pine warns that it should be
@@ -1240,7 +1246,7 @@ show_oi_lines = input.bool(true, "Draw OI-derived levels (futures + options)", g
 // there. To change it: edit S4Core, publish, bump the import.
 oi_events = input.int(20, "OI basis: last N OI prints", group=grpCF, minval=5, maxval=120, tooltip="Futures OI is published ONCE PER DAY, so this window counts OI PRINTS, not bars - 20 means the last 20 daily prints on a Daily chart AND on a 75m chart, instead of silently meaning four hours on one and a month on the other. It sets how far back positions are still considered part of the current book.")
 show_summary = input.bool(true, "Show SUMMARY row (whole-panel synthesis)", group=grpCF, tooltip="One row that reads the ENTIRE panel as a single judgement - trend stack, leadership, location, participation, geometry, direction - and says what the combination MEANS rather than repeating the numbers above it. The VERDICT row stays the short ruling; this is the long-form read. Off if you only want the gates and the plan.")
-verdict_wrap = input.int(140, "  · VERDICT wrap width (chars)", group=grpCF, minval=40, maxval=400, tooltip="The VERDICT row is merged across the whole panel, but its line breaks were written at SEMANTIC boundaries - headline, reason, caveat, action - with no knowledge of the width, so the ruling ran four or five lines with most of the row blank beside it.\n\nThose breaks are now separators and the text is re-wrapped to this width, which packs it and usually saves one to three lines. A Pine cell never wraps by itself, so this has to be a character count rather than a pixel width; the right value depends on your font size and monitor. Raise it until the row stops wrapping early, lower it if the panel gets wider than your chart.")
+verdict_wrap = input.int(140, "  · VERDICT wrap width (chars) - unused since v11.26", group=grpCF, minval=40, maxval=400, tooltip="The VERDICT row is merged across the whole panel, but its line breaks were written at SEMANTIC boundaries - headline, reason, caveat, action - with no knowledge of the width, so the ruling ran four or five lines with most of the row blank beside it.\n\nThose breaks are now separators and the text is re-wrapped to this width, which packs it and usually saves one to three lines. A Pine cell never wraps by itself, so this has to be a character count rather than a pixel width; the right value depends on your font size and monitor. Raise it until the row stops wrapping early, lower it if the panel gets wider than your chart.")
 summary_wrap = input.int(62, "  · SUMMARY wrap width (chars)", group=grpCF, minval=30, maxval=140, tooltip="A Pine table cell does NOT auto-wrap - long text renders on one line and the cell just grows, which is what pushed the panel across the whole screen. The summary is wrapped to this many characters and rendered as a right-hand COLUMN down the full height of the panel. Lower it if the panel is still too wide; raise it if the column is too tall.")
 show_analysis = input.bool(true, "Show VERDICT row", group=grpCF, tooltip="#62: the one synthesized line no other row states — the ruling, why, the single biggest caveat, and the action. The applicable house gate follows the TRADE TYPE: a SWING plan is judged on >= 2.0R, a POSITIONAL plan on >= 20% ROI to T1. Turn this off to hide the verdict too.")
 
@@ -4816,7 +4822,7 @@ f_sec(int r, string t) =>
 f_mktHead(string m) =>
     int p = str.pos(m, " · EXPOSURE (")
     string h = na(p) ? m : str.substring(m, 0, p) + " · EXPOSURE → see SUMMARY"
-    core.wrapText(h, 140)
+    core.wrapText(h, PANEL_ROW_WRAP)
 // #15 (25-Aug-2026): each summary section starts "HEADER · prose". Break after the
 // header so it stands on its own line. Jay asked for BOLD headers; a Pine table cell
 // has ONE text style and no inline markup, so bold is not available at any price --
@@ -4858,7 +4864,8 @@ f_row(int r, string k, string vv, color vc) =>
     // pattern token its own cell. Every OTHER row still reads as a plain 2-column row —
     // merge the value across the new columns so nothing else changes visually.
     table.merge_cells(pnl, 1, r, PA_LAST_COL, r)
-    table.cell(pnl, 1, r, vv, text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_bg, text_halign=text.align_left)
+    string _vw = core.wrapText((r == 9 or r == 10 or r == 29) ? vv : str.replace_all(vv, "\n", "  │  "), PANEL_ROW_WRAP)   // v11.26 uniform wrap
+    table.cell(pnl, 1, r, _vw, text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_bg, text_halign=text.align_left)
 // f_it (the plain-text "name ✓/·" token) is GONE, not just retired: the 30-Jul badge
 // rewrite gives every PA token its own table.cell (fired = C_BADGE_BG/C_BADGE_TXT,
 // unfired = blends into the row), so there is no longer a shared string to build. Its
@@ -5680,7 +5687,7 @@ if show_panel and d_panel and barstate.islast
     // the main body, which is what tripped Pine's ~1000-statement ceiling.
     string _lvlTxt = (na(pl_entry) ? "" : core.levelsRow(pl_entry, pl_sl, pl_cap, pl_t1, pl_t2, pl_rr1, pl_rr2, pl_t1_str, pl_t2_str, _ovh, _ovh2, _ovhSrc, _ovh2Src)) + core.invalLevels(close[_so], z_inDZdist, z_inDZ[_so], swingLo10[_so], sr_below, daily_ema20, nz(atrD_tf, chart_atr))
     _lvlTxt := str.startswith(_lvlTxt, "\n") ? str.substring(_lvlTxt, 1) : _lvlTxt   // v11.25: no "wait for GO" here - Plan says it
-    f_row(36, "Entry · SL · T1 · T2", core.wrapText(_lvlTxt + core.wallCheck(pl_entry, pl_sl, pl_t1, opt_ceK, opt_peK, nz(atrD_tf, chart_atr), 1.0, 3.0, close[_so], oi_basis, opt_mp), PANEL_ROW_WRAP), na(pl_entry) ? color.gray : C_OK)
+    f_row(36, "Entry · SL · T1 · T2", _lvlTxt + core.wallCheck(pl_entry, pl_sl, pl_t1, opt_ceK, opt_peK, nz(atrD_tf, chart_atr), 1.0, 3.0, close[_so], oi_basis, opt_mp), na(pl_entry) ? color.gray : C_OK)
     // Qty — the last manual step before the GTT, computed from the panel's own Entry/SL.
     // #12: Qty from the DYNAMIC risk% (Risk-Allocator rules), capped by max-allocation.
     float _riskAmt = size_cap * active_risk / 100.0
@@ -6412,7 +6419,7 @@ if show_panel and d_panel and barstate.islast
         // Repacked (1-Sep): verdictRead breaks at semantic boundaries, not at the row
         // width, so the ruling wrapped early and left most of a very wide row empty.
         // The boundaries survive as separators; the wrap now follows the actual width.
-        table.cell(pnl, 1, 33, core.wrapText("➤ " + str.replace_all(_aVer, "\n", "   │   "), verdict_wrap), text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_left)
+        table.cell(pnl, 1, 33, core.wrapText("➤ " + str.replace_all(_aVer, "\n", "   │   "), PANEL_ROW_WRAP), text_size=_pSize, text_color=C_SOFTTXT, bgcolor=_verBg, text_halign=text.align_left)
 
     // Trendlines row (24-Jul): confirms whether the hand-drawn companion lines are
     // ACTUALLY being sensed, not just drawn on the chart — the toggle + source wiring
