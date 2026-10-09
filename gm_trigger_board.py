@@ -1771,11 +1771,18 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     else:
         _rsrc = rec_r if rec_r else rec
         _rc = g(_rsrc, "RFF_Checks")
+        # INSUFFICIENT = not scored (9-Oct-2026, BAJFINANCE: an NBFC has no FCF/ICR/CR in the
+        # usual sense). Its bits were "000000" and its score "0/6", which the bundle sent to
+        # S4 as RFF 0 -> a hard F fail, while this board read the same name as F? (unscored).
+        if str(g(_rsrc, "RFF_Quality") or "").upper().startswith("INSUF"):
+            _rc = "------"
         if _rc:
             _S4_BITS.setdefault(_canon_key(sym), {})["RFFC"] = str(_rc)
         rff_b = g(_rsrc, "RFF_Base")
         rff_q = g(_rsrc, "RFF_Quality")
-        if rff_b is not None:
+        if str(rff_q or "").upper().startswith("INSUF"):
+            rff_txt = "— INSUFFICIENT"      # no digit: _num -> None -> unscored, never 0
+        elif rff_b is not None:
             try:
                 rff_txt = f"{int(rff_b)}/6" + (f" {str(rff_q)[:4]}" if rff_q else "")
             except (TypeError, ValueError):
@@ -2301,6 +2308,9 @@ def s4_fund_lists(tf: str = None) -> dict:
         for _, row in df.iterrows():
             _k = _canon_key(row.get("Symbol"))
             _v = (_S4_BITS.get(_k) or {}).get(_tag)
+            # an INSUFFICIENT RFF is unscored, not failed (9-Oct-2026) - also for a cache built before the fix
+            if _tag == "RFFC" and "INSU" in str(row.get("RFF") or "").upper():
+                _v = "------"
             if _k and _v:
                 _acc.append(f"{_k}:{_v}")
         out[_tag] = ",".join(sorted(set(_acc)))
@@ -2386,7 +2396,8 @@ def s4_fund_lists(tf: str = None) -> dict:
         pairs = []
         for _, row in df.iterrows():
             sym = _canon_key(row.get("Symbol"))
-            n = _num(row.get(col))
+            # "0/6 INSU" (a cache built before 9-Oct-2026) is UNSCORED, not 0 - see build_row
+            n = None if "INSU" in str(row.get(col) or "").upper() else _num(row.get(col))
             if sym and n is not None:
                 pairs.append(f"{sym}:{n}")
         out[col] = ",".join(sorted(set(pairs)))

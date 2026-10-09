@@ -856,7 +856,7 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.26"
+string S4_VER      = "v11.27"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -6100,7 +6100,7 @@ if show_panel and d_panel and barstate.islast
     string _fLbl = is_rec[_so] ? "NI>0,FCF>0,ICR>3.5,D/E<2,CR>1,ROA>5%" : "Profit gr,Sales gr,Margin exp,Return qual,Profitable"
     [_fbTxt, _fbP, _fbR] = core.bitsRow(is_rec[_so] ? _rffBits : _bffBits, _fLbl)
     int _fbN = array.size(str.split(_fLbl, ","))
-    string _fndTxt = _isEtf ? _etfTxt : "  │  RFF " + (na(_rffV) ? "—" : str.tostring(_rffV, "0") + (_rffV >= fund_rff_min ? " 🟢" : " 🔴")) + "  │  BFF " + (_fbR > 0 ? str.tostring(_fbP) + "/" + str.tostring(_fbR) : na(_bffV) ? "—" : str.tostring(_bffV, "0")) + (na(_bffV) ? "" : _bffV >= fund_bff_min ? " 🟢" : " ⚪") + "  │  F " + (na(_pioV) ? "—" : str.tostring(_pioV, "0") + (_pioV >= 7 ? " 🟢" : _pioV >= 4 ? " ⚪" : " 🔴"))
+    string _fndTxt = _isEtf ? _etfTxt : "  │  RFF " + (na(_rffV) ? "—" : str.tostring(_rffV, "0") + (_rffV >= fund_rff_min ? " 🟢" : " 🔴")) + "  │  BFF " + (not is_rec[_so] and _fbR > 0 ? str.tostring(_fbP) + "/" + str.tostring(_fbR) : na(_bffV) ? "—" : str.tostring(_bffV, "0")) + (na(_bffV) ? "" : _bffV >= fund_bff_min ? " 🟢" : " ⚪") + "  │  F " + (na(_pioV) ? "—" : str.tostring(_pioV, "0") + (_pioV >= 7 ? " 🟢" : _pioV >= 4 ? " ⚪" : " 🔴"))
     string _basis  = "Stage " + str.tostring(stage_n) + (stage_n == 2 and _b30 ? " (pullback)" : "") + (dashStgWks[_so] > 0 and dashStgWks[_so] < 500 ? " (" + str.tostring(dashStgWks[_so], "0") + "w leg/" + str.tostring(dashMacWks[_so], "0") + "w macro)" : "") + "  │  " + _30_st + _30_ar + _50_st + _50_ar + _200_st + _trd + _fndTxt
     f_row(2, (str.length(pairSym) == 0 ? "Structure basis"
               : isIdxChart ? "PHASE 1 · INDEX · structure only"
@@ -6146,7 +6146,7 @@ if show_panel and d_panel and barstate.islast
     // this chart any good) and reading them together is the whole point.
     f_row(4, (_isEtf ? "BFF  " : is_rec[_so] ? "RFF Tier-A  " : "BFF  ") +
              (_fbR > 0 ? str.tostring(_fbP) + "/" + str.tostring(_fbN) : _isEtf ? "n/a" : "—"),
-         (_fbR > 0 ? _fbTxt : "") + (_fbR > 0 ? "" : _isEtf ? "n/a — an ETF has no company fundamentals to score. Its quality read is LIQUIDITY and NAV PREMIUM, both on the Structure basis row above." : "not scored — rebuild the board and re-paste the GM bundle"),
+         (_fbR > 0 ? _fbTxt : "") + (_fbR > 0 ? "" : _isEtf ? "n/a — an ETF has no company fundamentals to score. Its quality read is LIQUIDITY and NAV PREMIUM, both on the Structure basis row above." : "not scored — too little data to score (a bank/NBFC has no FCF, ICR or current ratio), or the board has not been rebuilt. Unscored passes the gate as F?"),
          _fbR == 0 ? C_MUTE : _fbP >= _fbR - 1 ? C_GO : _fbP >= _fbR - 2 ? C_OK : C_MUTE)
     f_row(5, "Piotroski  " + (_fpR > 0 ? str.tostring(_fpP) + "/9" : "n/a"),
          (_fpR > 0 ? _fpTxt : "") + (_fpR > 0 ? "" : _isEtf ? "n/a — Piotroski scores a company's books; an ETF has none." : "not scored — a bank/NBFC is excluded (F2, F4 and F5 invert for a lender), or no board data"),
