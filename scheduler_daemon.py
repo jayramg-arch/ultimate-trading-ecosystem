@@ -457,6 +457,75 @@ def job_stale_feed_check() -> None:
         logger.warning("Stale-feed check failed: %s", exc)
 
 
+TUNNEL_ALARM   = os.getenv("TUNNEL_ALARM", "True").lower() in ("true", "1", "yes")
+NGROK_API      = os.getenv("NGROK_API", "http://127.0.0.1:4040/api/tunnels")
+_tunnel_last_ok: bool | None = None
+
+# ngrok edge error codes -> what to do (9-Oct-2026: a 10:30 S4 GO alert got
+# "Webhook delivery failed - 404" because the tunnel had dropped while ngrok.exe kept running).
+_NGROK_CODES = {
+    "ERR_NGROK_3200": "tunnel OFFLINE at ngrok's edge (alerts get 404)",
+    "ERR_NGROK_8012": "receiver :8000 DOWN behind a live tunnel (alerts get 502)",
+}
+
+
+def tunnel_status(timeout: float = 10.0) -> tuple[bool, str]:
+    """Is the S4 alert path reachable from the internet? Checks the local ngrok agent,
+    then calls the PUBLIC url's /health so the request travels the same way TradingView's
+    does. Any answer from uvicorn = path OK (a receiver older than /health answers 404,
+    still uvicorn). An ngrok error header or a 5xx = broken, with the reason."""
+    import requests
+    try:
+        tunnels = requests.get(NGROK_API, timeout=5).json().get("tunnels", [])
+    except Exception:
+        return False, "ngrok is NOT running on this PC (no agent on :4040)"
+    url = next((t.get("public_url") for t in tunnels
+                if str(t.get("public_url", "")).startswith("https://")), None)
+    if not url:
+        return False, "ngrok is running but has no https tunnel"
+    try:
+        r = requests.get(url.rstrip("/") + "/health", timeout=timeout,
+                         headers={"ngrok-skip-browser-warning": "1"})
+    except Exception as exc:
+        return False, f"public url unreachable: {type(exc).__name__}"
+    code = r.headers.get("Ngrok-Error-Code") or r.headers.get("ngrok-error-code")
+    if code:
+        return False, _NGROK_CODES.get(code, f"ngrok error {code} (HTTP {r.status_code})")
+    if "uvicorn" in r.headers.get("Server", "").lower():
+        return True, "ok"
+    if r.status_code >= 500:
+        return False, f"HTTP {r.status_code} - receiver :8000 likely down"
+    return r.ok, f"HTTP {r.status_code}"
+
+
+def job_tunnel_check() -> None:
+    """Every 15 min in market hours. Alarms on the FIRST failed check of the session
+    (the 9:15 run catches a tunnel that dropped overnight, before the 10:30 bar close)
+    and once on recovery. Notify-only."""
+    global _tunnel_last_ok
+    if not TUNNEL_ALARM:
+        return
+    try:
+        import data_provider as _dp
+        if not _dp.nse_market_open():
+            return
+        ok, why = tunnel_status()
+        if not ok and _tunnel_last_ok is not False:
+            send_telegram(
+                "🔴 <b>S4 ALERT PATH DOWN</b>\n"
+                f"{why}.\nTradingView webhooks will FAIL and are never retried. "
+                "Run START_ALERT_REVIEWER.bat (close the old ngrok / receiver window first), "
+                "then REVIEW any alert you missed."
+            )
+            logger.warning("Tunnel check: DOWN - %s", why)
+        elif ok and _tunnel_last_ok is False:
+            send_telegram("🟢 <b>S4 alert path recovered</b> - ngrok + receiver answering.")
+            logger.info("Tunnel check: RECOVERED")
+        _tunnel_last_ok = ok
+    except Exception as exc:
+        logger.warning("Tunnel check failed: %s", exc)
+
+
 def job_daily_pnl_alarm() -> None:
     """Every 15 min in market hours — book unrealised-PnL drawdown guard. Computes
     portfolio P&L from the live Dhan holdings; if drawdown breaches PNL_DD_ALARM_PCT
@@ -548,6 +617,7 @@ def start_scheduler() -> BackgroundScheduler:
       - exit_scan        : 16:00 IST Mon–Fri
       - stale_feed_check : every 15 min 09:15–15:30 IST Mon–Fri  (feed heartbeat, 1C)
       - daily_pnl_alarm  : every 15 min 09:15–15:30 IST Mon–Fri  (book DD alarm, 1C)
+      - tunnel_check     : every 15 min 09:15–15:30 IST Mon–Fri  (ngrok + receiver for S4 alerts)
 
     Returns:
         A running BackgroundScheduler instance.
@@ -712,6 +782,15 @@ def start_scheduler() -> BackgroundScheduler:
         CronTrigger(hour="9-15", minute="0,15,30,45", day_of_week="mon-fri", timezone=IST),
         id="daily_pnl_alarm",
         name="Daily-PnL Drawdown Alarm",
+        replace_existing=True,
+    )
+
+    # S4 alert path: ngrok tunnel + receiver, every 15 min in market hours (9-Oct-2026).
+    scheduler.add_job(
+        job_tunnel_check,
+        CronTrigger(hour="9-15", minute="0,15,30,45", day_of_week="mon-fri", timezone=IST),
+        id="tunnel_check",
+        name="S4 Alert-Path Check",
         replace_existing=True,
     )
 

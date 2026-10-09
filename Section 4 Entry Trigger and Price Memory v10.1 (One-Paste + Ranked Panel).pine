@@ -856,7 +856,7 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.22"
+string S4_VER      = "v11.23"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -4771,6 +4771,9 @@ PA_LAST_COL = 17
 // and merges the full height, and when that was hardcoded to the old 43-row table it
 // wrote row 41 into a 41-row table -- RE10040 at runtime, not at compile. Derive both
 // from here so a future reorder cannot separate them again.
+// v11.23 (9-Oct-2026, Jay: panel cut off top and bottom): the SUMMARY column, merged down
+// the full height, was TALLER than the rows beside it, so it set the panel height. Section
+// headers now inline (~9 lines) and PORTFOLIO's two cells one line each (~5 lines).
 int PANEL_ROWS = 40   // v11.22: 43 -> 40, PORTFOLIO moved under SUMMARY (col PA_LAST_COL+1, rows 37-39). Was: 42 +1: SETUP got its own row above PA (4-Sep). Ids 26+ all
                       // shifted +1 - row 22 is the SECTION III HEADER, not a free slot.
 int PANEL_LAST = PANEL_ROWS - 1
@@ -4836,15 +4839,6 @@ f_rankRow(string[] nm, int[] st, int[] wt) =>
         int _s = array.get(st, j)
         o := o + (_s > 0 ? "🟢" : _s < 0 ? "▫" : "⚪") + array.get(nm, j) + (array.get(wt, j) == 1 ? "" : array.get(wt, j) == 0 ? "·0" : str.tostring(array.get(wt, j))) + "  "
     o
-f_sumHdr(string t) =>
-    string o = str.replace_all(t, "QUALITY · ", "QUALITY\n")
-    o := str.replace_all(o, "TREND · ", "TREND\n")
-    o := str.replace_all(o, "LEADERSHIP · ", "LEADERSHIP\n")
-    o := str.replace_all(o, "LOCATION · ", "LOCATION\n")
-    o := str.replace_all(o, "LEVELS · ", "LEVELS\n")
-    o := str.replace_all(o, "PARTICIPATION · ", "PARTICIPATION\n")
-    o := str.replace_all(o, "GEOMETRY · ", "GEOMETRY\n")
-    str.replace_all(o, "DIRECTION · ", "DIRECTION\n")
 f_row(int r, string k, string vv, color vc) =>
     color _bg = f_softBg(vc)
     // #align (30-Jul, Jay): swapped so both columns hug the centre divider — label
@@ -6216,7 +6210,7 @@ if show_panel and d_panel and barstate.islast
              str.contains(_mkt, "regime Bear"))
         // v11.22: the reference levels read as their own LEVELS section, between LOCATION
         // and PARTICIPATION (core.refLevelsRead; empty when none is known).
-        string _sumRaw = core.summarySplice(_sumRaw0, v22_lvls, _mkt)   // LEVELS + EXPOSURE (6-Oct-2026)
+        string _sumRaw = str.replace(core.summarySplice(_sumRaw0, v22_lvls, _mkt), "EXPOSURE\n", "EXPOSURE · ", 0)   // LEVELS + EXPOSURE (6-Oct-2026)
         // Every cell of the column has to EXIST before it can be merged, so blank the
         // range first, write the text into the top-left cell, then merge. Skipping the
         // blanking pass is the usual reason a vertical merge silently does nothing.
@@ -6224,7 +6218,7 @@ if show_panel and d_panel and barstate.islast
         for _r = 0 to PANEL_LAST
             table.cell(pnl, _sc, _r, "", bgcolor=f_softBg(C_INFO))
         table.cell(pnl, _sc, 0,
-             "SUMMARY\n\n" + core.wrapText(f_sumHdr(str.replace_all(
+             "SUMMARY\n" + core.wrapText((str.replace_all(
                   ((ctx_reject and not is_held) ? "REJECTED — first test failed (Stage 3/4 or weekly trend DOWN, see VERDICT). No further analysis." : core.qualityRead(_isEtf, _fundHave, fund_raw[_so], fund_ok[_so], syminfo.type == "index")
                   + "\n" + _sumRaw), "\n", "\n\n")), summary_wrap),
              text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(C_INFO),
@@ -6442,8 +6436,8 @@ if show_panel and d_panel and barstate.islast
 // PORTFOLIO cells in the SUMMARY column (v11.22) - own block, see the v22 note above.
 if show_panel and d_panel and barstate.islast and pfOn
     table.cell(pnl, PA_LAST_COL + 1, PANEL_LAST - 2, "VI · PORTFOLIO — what do I own here, and what does the ladder say?", text_size=_pSize, text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_left)
-    table.cell(pnl, PA_LAST_COL + 1, PANEL_LAST - 1, core.wrapText(pfMy, summary_wrap), text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(pfMyC), text_halign=text.align_left, text_valign=text.align_top)
-    table.cell(pnl, PA_LAST_COL + 1, PANEL_LAST, core.wrapText(pfPos, summary_wrap), text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(pfPosC), text_halign=text.align_left, text_valign=text.align_top)
+    table.cell(pnl, PA_LAST_COL + 1, PANEL_LAST - 1, core.wrapText(str.replace_all(pfMy, "\n", "  │  "), summary_wrap), text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(pfMyC), text_halign=text.align_left, text_valign=text.align_top)
+    table.cell(pnl, PA_LAST_COL + 1, PANEL_LAST, core.wrapText(str.replace_all(pfPos, "\n", "  │  "), summary_wrap), text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(pfPosC), text_halign=text.align_left, text_valign=text.align_top)
 plot(locSrc, "S4 loc src", display=display.none)
 alertcondition(go and (not use_closed_candle or barstate.isconfirmed),            title="S4 GO (PA + Location + Volume + Bar + Funda)", message="{{ticker}} S4 GO {{interval}} - bar {{time}} - close {{close}} - loc-src {{plot(\"S4 loc src\")}} (1=zone 2=lvl 4=AVWAP 8=EMA20 16=S/R 32=VP; sums, and 4/8 MOVE every bar). All five gates were true on that bar - an alert cannot fire otherwise - so if the panel now reads L· the location has EXPIRED, not misfired. A loc-src of 4, 8 or 12 is the fragile case: nothing static was under price. Open S4 and re-check the current bar before acting.")
 alertcondition(avwap_trig,    title="S4 AVWAP trigger",       message="{{ticker}} S4 AVWAP trigger - bounce / R2G>BO")

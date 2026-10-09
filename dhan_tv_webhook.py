@@ -100,6 +100,11 @@ def send_webhook_email_notification(status: str, ticker: str, qty: int, entry: f
     """
     send_email(subject=subject, body_text=f"GTT Order {status.upper()} for {ticker}. Details: {details}", html_content=html_content)
 
+@app.get("/health")
+async def health():
+    """Liveness for scheduler_daemon.job_tunnel_check (9-Oct-2026). No key, no side effects."""
+    return {"status": "ok"}
+
 @app.post("/s4-review")
 async def handle_s4_review(request: Request):
     """13-Sep-2026: alert-triggered AI review. Point the S4 GO alert's webhook at

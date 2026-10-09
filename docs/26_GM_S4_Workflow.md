@@ -227,6 +227,7 @@ Each of these has already cost a day or more.
 | GTT trail actually running | stops never ratchet | `logs/gtt_shield.log` |
 | Every position has a resting stop | naked exposure | Risk Shield · `--cover` |
 | Daily bars current after midnight | every daily read one session behind until Dhan's next-day publish (fixed 7 Oct: the intraday session-fill asked Dhan for `to_date` = the session, which Dhan treats as exclusive) | a Swing ↔ Positional `close` that matches the last session |
+| S4 alert path (ngrok + receiver) | TradingView alert reads "Webhook delivery failed — 404" (tunnel offline) or "502" (receiver down); the review never happens and TradingView does not retry | Telegram **S4 ALERT PATH DOWN** from the 15-min check (9:15 onward); then `START_ALERT_REVIEWER.bat` and `REVIEW SYMBOL TF` for anything missed |
 | Open risk inside budget | a book that loses far more than planned if the tape breaks | Risk Shield 🔥 Open risk card |
 
 ---

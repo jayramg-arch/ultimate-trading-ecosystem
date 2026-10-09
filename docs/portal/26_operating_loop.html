@@ -649,6 +649,7 @@ footer em{color:var(--ink-2)}
       <tr><td>GTT trail actually running</td><td>stops never ratchet</td></tr>
       <tr><td>Every position has a resting stop</td><td>naked exposure</td></tr>
       <tr><td>Daily bars current after midnight</td><td>every daily read one session behind until Dhan's next-day publish &mdash; fixed 7 Oct (the intraday session-fill asked for <span class="m">to_date</span> = the session, which Dhan treats as exclusive)</td></tr>
+      <tr><td>S4 alert path (ngrok + receiver)</td><td>TradingView reads &ldquo;Webhook delivery failed &mdash; 404&rdquo; (tunnel offline) or 502 (receiver down) and never retries. A check every 15 minutes from 9:15 sends <b>S4 ALERT PATH DOWN</b> on Telegram; run <span class="m">START_ALERT_REVIEWER.bat</span>, then <span class="m">REVIEW SYMBOL TF</span> for anything missed</td></tr>
       <tr><td>Open risk inside budget</td><td>a book that loses far more than planned if the tape breaks &mdash; Risk Shield 🔥 Open risk card</td></tr>
       <tr><td>Both bundles pasted into S4</td><td>F reads blank and the Options OI row says "no options" on names that have them &mdash; looks like weak fundamentals, is a missing paste</td></tr>
       <tr><td>A 5/5 tagged <span class="m">F?</span></td><td>the books were never scored &mdash; the fifth gate passed by default, and the chart will show a blank F for the same reason</td></tr>
