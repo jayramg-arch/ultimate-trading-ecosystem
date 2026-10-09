@@ -856,7 +856,7 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.23"
+string S4_VER      = "v11.24"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -4808,6 +4808,27 @@ C_BADGE_TXT = color.new(#FFFFFF, 0)
 f_sec(int r, string t) =>
     table.cell(pnl, 0, r, t, text_size=_pSize, text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_left)
     table.merge_cells(pnl, 0, r, PA_LAST_COL, r)
+// v11.24 (9-Oct-2026, Jay: top rows still cut; the MACRO header wrapped at 110 chars with
+// the right half of the row empty). The header carried the whole MKT line (~460 chars ->
+// ~5 lines) incl. EXPOSURE, which the SUMMARY prints in full as its own section. Header now
+// = regime + breadth, wrapped at 140 (+ the ~38-char section prefix on line 1), EXPOSURE named
+// as a pointer only.
+f_mktHead(string m) =>
+    int p = str.pos(m, " · EXPOSURE (")
+    string h = na(p) ? m : str.substring(m, 0, p) + " · EXPOSURE → see SUMMARY"
+    core.wrapText(h, 140)
+// Futures OI's third line ("Basis is ABOVE/BELOW price → ...") restated as a short tag on
+// line 1 - the SUMMARY's PARTICIPATION already says it in prose. One line saved.
+f_oiCompact(string m) =>
+    int p = str.pos(m, "\nBasis is ")
+    string o = m
+    if not na(p)
+        string tail = str.substring(m, p)
+        string tag = (str.contains(tail, "ABOVE") ? "basis ABOVE price → resistance" : "basis BELOW price → support") + (str.contains(tail, "stale") ? " (stale)" : "")
+        string head = str.substring(m, 0, p)
+        int q = str.pos(head, "\n")
+        o := na(q) ? head + "  │  " + tag : str.substring(head, 0, q) + "  │  " + tag + str.substring(head, q)
+    o
 // #15 (25-Aug-2026): each summary section starts "HEADER · prose". Break after the
 // header so it stands on its own line. Jay asked for BOLD headers; a Pine table cell
 // has ONE text style and no inline markup, so bold is not available at any price --
@@ -5071,7 +5092,7 @@ if show_panel and d_panel and barstate.islast
     // MARKET CONTEXT (2-Oct-2026, Jay): the regime + Nifty 500 breadth + McClellan line the
     // reviewer gets, carried in the bundle's MKT section (market_context.py). Display only.
     string _mkt = core.bundleSection(gm_bundle, "MKT")
-    f_sec(1,  "  I · MACRO & CONTEXT      —  " + (str.length(_mkt) > 0 ? "MARKET: " + core.wrapText(_mkt, 110) : "What is the underlying regime and environment?"))
+    f_sec(1,  "  I · MACRO & CONTEXT      —  " + (str.length(_mkt) > 0 ? "MARKET: " + f_mktHead(_mkt) : "What is the underlying regime and environment?"))
     f_sec(13,  "  II · LOCATION, VALUE & ROOM —  Are we at value, and is there room to trade?")
     f_sec(22, "  III · EXECUTION & TIMING  —  Are the intraday triggers and PA patterns firing?")
     f_sec(32, "  IV · DECISION SYNTHESIS   —  What is the final ruling of the engine?")
@@ -5831,7 +5852,7 @@ if show_panel and d_panel and barstate.islast
     // FUTURES OI — the state is only meaningful against the PRICE direction, so it is
     // derived from both and reported as guidance rather than as a label to look up.
     [_mac, _oiC, _optTxt, _optCol] = f_foldOI(_okOi, _so)
-    f_row(9, "Futures OI", _mac, _oiC)
+    f_row(9, "Futures OI", f_oiCompact(_mac), _oiC)
     // OPTIONS OI (1-Sep) - its own row, directly under futures, paid for by merging
     // Sector Stage into the RS row and Trendlines into the S/R row.
     // "no options" rather than five em-dashes on a cash-only name: absent and empty are
