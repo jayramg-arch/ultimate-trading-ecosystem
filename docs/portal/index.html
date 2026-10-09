@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 9 Oct · 47 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 9 Oct · 50 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,33 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">9 Oct<br>board sweep</td>
+        <td><b>All 49 board names read on S4 and checked against the board.</b> Stage, plan levels, bindings, GM rank and
+        options data agreed on every name. Two faults: after the close the <b>Daily panel judged yesterday's candle</b>
+        (TradingView keeps the daily bar unconfirmed after 15:30), and <b>holdings had no path from the board</b>, so S4
+        guessed Bull or Recovery and checked the wrong fundamentals (CUMMINSIND blocked on BFF while the board reads it on
+        RFF 6/6). Both fixed in S4 v11.27–v11.28 on S4Core/71: a bar past its close time counts as closed, and holdings now
+        travel on the REC list or a new path-only BUL list.</td>
+        <td class="af">22</td>
+      </tr>
+      <tr>
+        <td class="dt">9 Oct<br>unscored books</td>
+        <td><b>A name whose books cannot be scored no longer fails the F gate on S4.</b> The board read BAJFINANCE, AUBANK
+        and NESTLEIND as <code>F?</code> (RFF INSUFFICIENT — a lender has no free cash flow, interest cover or current
+        ratio), but the bundle sent S4 a score of 0, so S4 blocked all three. The bundle now sends them as unscored, and
+        S4's QUALITY line says "Not scored" rather than "the books clear the floor".</td>
+        <td class="af">22</td>
+      </tr>
+      <tr>
+        <td class="dt">9 Oct<br>panel width</td>
+        <td><b>The S4 panel fits the screen, with every row the same width.</b> A Pine table cell never wraps by itself,
+        and each row had been wrapped its own way, so lines stopped short and the panel ran off the top. Every row now
+        wraps at 168 characters, the measured width of the Confluence row; two pairs of rows were merged (Zones + Support,
+        Intraday + Pattern); the Macro header points EXPOSURE to SUMMARY; the Entry row no longer repeats "wait for GO".
+        Futures OI keeps all three lines.</td>
+        <td class="af">22</td>
+      </tr>
       <tr>
         <td class="dt">9 Oct<br>S4 v11.23</td>
         <td><b>The S4 panel fits the screen again.</b> The SUMMARY column, merged down the full height, was taller than the

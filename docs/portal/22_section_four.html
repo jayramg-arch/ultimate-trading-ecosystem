@@ -323,12 +323,14 @@ footer a{color:var(--acc)}
 
 <section id="since">
   <h2><span class="n">02b</span>What changed since 1 September</h2>
-  <p>The panel is <b>S4 v11.20 on S4Core/67</b> (file title v10.13; v11.21 waits on the next S4Core publish). Five things moved on 8–9 September, one
+  <p>The panel is <b>S4 v11.28 on S4Core/71</b> (file title v10.13), compiled 9 October. Five things moved on 8–9 September, one
   measurement changed how a row should be read, the 12–15 September batch put the derivatives into
   the ladders, and the 20 September audit batch closed three parity drifts and latched the stop.</p>
   <div class="tw"><table>
     <thead><tr><th>Date</th><th>Change</th><th>Where on the panel</th></tr></thead>
     <tbody>
+      <tr><td class="m">9 Oct</td><td><b>S4 v11.28 on S4Core/71 — from a sweep of all 49 board names.</b> <b>Holdings take the board's path.</b> A holding is tagged only <i>Held</i> on the board, so it was on neither of the two lists S4 uses to pick Bull or Recovery, and S4's own drawdown rule guessed: CUMMINSIND (board: Recovery, RFF 6/6) went to Bull and was blocked on BFF 3/5; CAPLIPOINT, GLAXO, NETWEB and M&amp;MFIN (board: Bull) went to Recovery with no RFF score, so F passed unchecked. Recovery holdings now join the REC list; Bull holdings go on a new path-only <code>BUL</code> list (the PB list was not used because it also lowers the volume floor). <b>QUALITY on an unscored name</b> now reads <i>"Not scored…"</i> instead of "The books clear the floor". The header expects 17 bundle sections</td><td>Path · QUALITY · header</td></tr>
+      <tr><td class="m">9 Oct</td><td><b>S4 v11.27 — two fundamentals faults and the Daily candle.</b> <b>An unscored RFF no longer fails F.</b> When the books cannot be scored (RFF INSUFFICIENT — a bank or NBFC has no free cash flow, interest cover or current ratio), the board read <code>F?</code> but the bundle sent S4 a score of 0 with every check failed, so BAJFINANCE, AUBANK and NESTLEIND were blocked on fundamentals (NI&gt;0 red on a profitable lender). They now read <code>?F</code> like the board. On the Recovery path the Structure basis row had printed the RFF tally under the <b>BFF</b> label. <b>After the close, the Daily panel judged yesterday's candle</b>: TradingView keeps the day's daily bar unconfirmed after 15:30, so the closed-candle rule stepped back a day (VIJAYA read 8 October while the board read 9 October). A bar whose close time has passed now counts as closed; 75m and 125m were not affected</td><td>F gate · Structure basis · Daily charts</td></tr>
       <tr><td class="m">9 Oct</td><td><b>S4 v11.26 — one wrap width for every row.</b> A table cell never wraps by itself, and each row had been wrapped its own way (96, 110, 140 characters or not at all), so lines stopped short and rows stood taller than needed. Every value cell now wraps at <b>168 characters</b>, the width of the Confluence row, the widest on the panel (measured: ~686 px at ~4.0 px per character of prose; Confluence is only 130 characters because its emoji are twice as wide). Line breaks inside a row become <code>│</code> so each line fills to the edge; Futures OI, Options OI and Confluence keep their own breaks. VERDICT and the MACRO header use the same width. Raise or lower <code>PANEL_ROW_WRAP</code> in the source if the rows stop short or the panel widens</td><td>All rows · VERDICT · MACRO header</td></tr>
       <tr><td class="m">9 Oct</td><td><b>S4 v11.25 — rows merged instead.</b> Futures OI is back to its three lines (no detail lost). Two pairs of rows are now one each, so the panel is 38 rows: <b>Zones (MTF) · Support</b> (the zone read, then <code>Support: DZ │ D:… W:…</code>) and <b>Intraday │ Pattern</b> (the 10-EMA/squeeze state, then the pattern flag and any ★ combo). <b>Entry · SL · T1 · T2 no longer repeats <code>wait for GO</code></b> — the Plan row says it</td><td>Zones · Support · Intraday · Pattern · Entry</td></tr>
       <tr><td class="m">9 Oct</td><td><b>S4 v11.24 — four more lines off.</b> Once SUMMARY was shorter, the left rows set the height. The MACRO &amp; CONTEXT header carried the whole market line (about 460 characters, wrapped at 110, so five lines with the right of the row empty), EXPOSURE included, which SUMMARY prints in full. The header now shows regime and breadth, wrapped at 140, ending <code>EXPOSURE → see SUMMARY</code> (two lines). Futures OI's third line (<code>Basis is ABOVE/BELOW price → …</code>) is now a tag on its first line, three lines to two</td><td>MACRO header · Futures OI</td></tr>
@@ -1271,9 +1273,9 @@ R   RRG        chipped, measured, and deliberately off
   <h2><span class="n">15</span>Band I — Macro &amp; context, every row</h2>
   <p>Whether the name deserves your attention today. Almost entirely <b>weekly</b> information,
   because the framework underneath is Weinstein stage analysis and a stage is a weekly fact.
-  Row 0 is the header — <code>S4 v11.10 │ core/60 │ 10511ch·15/15</code>. Check it after every
-  recompile: a version mismatch means the library did not publish; a section count under 14 means
-  the paste was short.</p>
+  Row 0 is the header — <code>S4 v11.28 │ core/71 │ 11896ch·17/17</code>. Check it after every
+  recompile: a version mismatch means the library did not publish; a section count under 17 means
+  the bundle was short.</p>
 
   <h3>Row 2 · Structure basis</h3>
   <p class="m">Stage 2 (14w leg/38w macro) │ &gt;30WMA ↑ &gt;50 ↑ &gt;200 uptrend │ RFF 5 🟢 │ BFF 4 🟢</p>
