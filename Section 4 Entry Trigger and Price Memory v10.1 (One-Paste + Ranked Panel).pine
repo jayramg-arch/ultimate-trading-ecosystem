@@ -856,7 +856,7 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.28"
+string S4_VER      = "v11.29"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -5339,7 +5339,10 @@ if show_panel and d_panel and barstate.islast
         [_ovh2D, _ovh2SrcD] = core.derivCeiling(_ovh2, _ovhMin, opt_ceK, opt_mp, oi_basis)
         _ovh2 := _ovh2D
         _ovh2Src := _ovh2SrcD
-    float _rf_entry = not na(_dzprox) ? _dzprox : _cl_r
+    // v11.29 (9-Oct-2026, TVSMOTOR 75m read "-0.5×zone"): measured from the zone TOP even with
+    // price INSIDE the zone, so an obstacle between price and the top gave negative room. Inside
+    // the zone the buy is at price; above it, the zone top is still the buy-back level.
+    float _rf_entry = not na(_dzprox) ? math.min(_dzprox, _cl_r) : _cl_r
     // Risk floor: a hairline zone must not print unlimited R. Without it a 0.1%-wide
     // zone drove _roomR toward infinity and painted "38R" in green.
     float _rf_risk  = (not na(_dzW) and _dzW > 0) ? math.max(_dzW, _atr_r * 0.5) : _atr_r * 2.5
