@@ -4260,7 +4260,11 @@ f_fold3889() =>
     float vol_disc = dyn_atr_pct > 3.0 ? math.min(3.0 / dyn_atr_pct, 1.0) : 1.0
     float regime_risk = mkt_health ? _szb : math.max(_szb - 0.25, 0.25 * _szb)
     float active_risk = use_dyn_risk ? math.max(regime_risk * math.max(vol_disc * kelly_mult, 0.75), 0.25 * _szb) : _szb
-    int   _so        = (use_closed_candle and barstate.islast and not barstate.isconfirmed) ? 1 : 0
+    // v11.27 (9-Oct-2026, board sweep): after 15:30 TradingView still marks the day's DAILY bar
+    // unconfirmed, so the panel read YESTERDAY's bar all evening (VIJAYA D: 'red, 26% up its
+    // range' = the 8-Oct bar) while the board judged today's. A bar whose close time has
+    // passed is closed, confirmed or not. Intraday bars are unaffected (they confirm on time).
+    int   _so        = (use_closed_candle and barstate.islast and not barstate.isconfirmed and (na(time_close) or timenow < time_close)) ? 1 : 0
     [mkt_health, kelly_mult, vol_disc, active_risk, _so]
 [mkt_health, kelly_mult, vol_disc, active_risk, _so] = f_fold3889()
 

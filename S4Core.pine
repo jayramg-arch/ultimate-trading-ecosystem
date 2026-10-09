@@ -1337,13 +1337,20 @@ export avwapIntradayTrigger(float nearest_sup, float avwap_low, float avwap_bo, 
 // str.replace_all / str.contains both accept series, and this already ran per bar.
 export pathResolve(simple bool stage_gate, int stage_n, simple bool use_dd_recovery, float dd60,
      simple float rec_dd_min, simple float rec_dd_max, string gm_rec_list,
-     string gm_pb_list, float d_bel200, simple string mode) =>
+     string gm_pb_list, float d_bel200, simple string mode, string gm_bull_list = "") =>
     bool stage_skip = stage_gate and stage_n >= 3
     bool rec_dd  = use_dd_recovery and not na(dd60) and dd60 >= rec_dd_min and dd60 <= rec_dd_max
     string _gmL = str.replace_all(str.replace_all(str.replace_all(str.replace_all(str.upper(gm_rec_list), "NSE:", ""), ";", ","), " ", ""), "\n", ",")
     bool gm_rec = str.length(_gmL) > 0 and str.contains("," + _gmL + ",", "," + str.upper(syminfo.ticker) + ",")
     string _gmP = str.replace_all(str.replace_all(str.replace_all(str.replace_all(str.upper(gm_pb_list), "NSE:", ""), ";", ","), " ", ""), "\n", ",")
     bool gm_pb = str.length(_gmP) > 0 and str.contains("," + _gmP + ",", "," + str.upper(syminfo.ticker) + ",")
+    // gm_bull_list (9-Oct-2026), appended LAST with a default: HOLDINGS the board reads on the
+    // Bull path (bundle section BUL). A holding carries only the Held archetype, so it was on
+    // neither REC nor PB and the drawdown rule below decided it - CAPLIPOINT / GLAXO / NETWEB /
+    // M&MFIN went to Recovery with no RFF score. Path only: PB also means "pullback" to the
+    // volume gate, BUL does not.
+    string _gmB = str.replace_all(str.replace_all(str.upper(gm_bull_list), "NSE:", ""), " ", "")
+    bool gm_bull = str.length(_gmB) > 0 and str.contains("," + _gmB + ",", "," + str.upper(syminfo.ticker) + ",")
     bool _bel200path = nz(d_bel200, 0.0) > 0.5
     // THE GM's EXPLICIT PATH WINS (25-Sep-2026, RRKABEL). The drawdown route overrode the
     // GM's Pullback list: RRKABEL - Stage 2, 18% above a rising 30WMA, on the GM's PB list -
@@ -1351,7 +1358,7 @@ export pathResolve(simple bool stage_gate, int stage_n, simple bool use_dd_recov
     // asked for an RFF score the GM never computes for a Bull name, and would flip path tick
     // by tick around 15%. The drawdown and stage routes now decide only names the GM has
     // not classified; a name on the GM's REC list is Recovery, on its PB list is Bull.
-    bool auto_rec = gm_rec or (not gm_pb and (rec_dd or (stage_n == 1 and _bel200path)))
+    bool auto_rec = gm_rec or (not gm_pb and not gm_bull and (rec_dd or (stage_n == 1 and _bel200path)))
     bool is_rec   = mode == "Recovery" or (mode == "Auto" and auto_rec)
     [stage_skip, gm_rec, gm_pb, is_rec]
 
@@ -2916,10 +2923,14 @@ export summarySplice(string sumRaw, string levels, string mkt) =>
 // the case worth spelling out and the one nothing else on the panel says.
 // isIdx (4-Oct-2026), appended LAST with a default: an index has no books, so the
 // "clear the floor" line read as a claim about accounts that do not exist (Phase-1 tab).
-export qualityRead(bool isEtf, bool have, bool raw, bool ok, bool isIdx = false) =>
+// unscored (9-Oct-2026, BAJFINANCE), appended LAST with a default: the GM could not score
+// the books (RFF INSUFFICIENT - a lender has no FCF/ICR/current ratio), the gate lets it
+// through as F?, and this read had said "The books clear the floor" about books nobody scored.
+export qualityRead(bool isEtf, bool have, bool raw, bool ok, bool isIdx = false, bool unscored = false) =>
     isIdx ? "QUALITY · n/a - an index has no company books. Quality is judged on the stocks or the ETF you actually trade off this read, not here."
      : isEtf ? "QUALITY · There are no company books to judge here. An ETF's quality read is its LIQUIDITY and its PREMIUM TO NAV, both on the rows above - and the premium is the only thing on this panel that can make a technically perfect chart the wrong trade, because that loss is booked on entry whatever the index does next."
      : not have ? "QUALITY · Nothing has vouched for the books. The Golden Matcher has not scored this name, so the fundamental gate is inert and everything below is a purely technical case. Fine for a chart you are studying; thin ground for a position."
+     : unscored ? "QUALITY · Not scored. The Golden Matcher could not score these books - too little data (a bank or NBFC has no free cash flow, interest cover or current ratio) - so the fundamental gate lets the name through as F? rather than passing it. The technical read below is carrying the case on its own: check the books by hand before sizing it as a position."
      : raw ? "QUALITY · The books clear the Golden Matcher's floor, so the technical read below is not carrying this trade on its own. It is a SUBSET of the GM's verdict rather than the whole of it - return on equity, leverage and the size/pledge floor are not carried onto this chart, so the board can still reject a name that passes here."
      : ok ? "QUALITY · The books are BELOW the floor and the gate is set to Warn, so nothing is being blocked. Everything below is a technical case for a name the Golden Matcher scores as fundamentally weak: take it as a trade if you must, never as a position, and size it as the former."
      : "QUALITY · Blocked on the books, and that outranks every technical line below. No amount of waiting for volume or a better bar fixes it - the Golden Matcher scores this name under the fundamental floor, and the chart is not the thing that is wrong."

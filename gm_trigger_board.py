@@ -2170,6 +2170,39 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     }
 
 
+def _held_paths() -> dict:
+    """{SYM: "Bull"|"Recovery"} for HOLDINGS, from the board caches (Daily first).
+
+    9-Oct-2026 board sweep: a holding carries only the `Held` archetype, so it was on
+    neither the REC nor the PB list and S4 fell back to its own drawdown rule - which put
+    CUMMINSIND (board: Recovery, RFF 6/6) on Bull and blocked it on BFF 3/5, and put
+    CAPLIPOINT / GLAXO / NETWEB / M&MFIN (board: Bull) on Recovery with no RFF score. The
+    board's path for a holding is gm_evaluate's answer; this hands it to S4."""
+    out = {}
+    for tf in ("Daily", "125m", "75m"):
+        try:
+            df, _ = load_board_cache(max_age_hours=24.0, tf=tf)
+        except Exception as e:
+            _log.warning(f"_held_paths: {tf} cache unreadable: {e}")
+            continue
+        if df is None or getattr(df, "empty", True) or "Path" not in df.columns:
+            continue
+        for _, r in df.iterrows():
+            if "Held" not in str(r.get("Archetype") or ""):
+                continue
+            pth = str(r.get("Path") or "")
+            if pth in ("Bull", "Recovery"):
+                out.setdefault(str(r.get("Symbol")).upper().strip(), pth)
+    return out
+
+
+def s4_bull_path_list() -> str:
+    """Holdings the board reads on the BULL path, for S4's `BUL` section (9-Oct-2026).
+    Path only - unlike PB it does not mark the name a pullback (PB lowers S4's volume
+    floor), so a breakout holding is not graded as a pullback by being listed here."""
+    return ",".join(sorted(k for k, v in _held_paths().items() if v == "Bull"))
+
+
 def s4_recovery_list(uni: dict | None = None) -> str:
     """The GM's Bull-vs-Recovery answer, as a comma-separated string to paste into S4's
     "Auto: GM Recovery list" input.
@@ -2202,6 +2235,8 @@ def s4_recovery_list(uni: dict | None = None) -> str:
             continue
         if (arche & RECOVERY_ARCHETYPES) and not (arche & BULL_ARCHETYPES):
             out.append(str(sym).upper().strip())
+    # holdings the board reads on the Recovery path (see _held_paths)
+    out += [k for k, v in _held_paths().items() if v == "Recovery"]
     return ",".join(sorted(set(out)))
 
 
@@ -2766,6 +2801,9 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
     parts = [
         ("REC",  _safe(s4_recovery_list, uni)),
         ("PB",   _safe(s4_pullback_list, uni)),
+        # BUL (9-Oct-2026): holdings on the board's Bull path - path only, read by
+        # S4Core.pathResolve from S4 v11.28 (older S4 ignores an unknown section).
+        ("BUL",  _safe(s4_bull_path_list)),
         # ACC sits with REC and PB because it is the same axis: which playbook is this.
         # Small by construction (a handful of accumulating names), so it costs little
         # against the length cap, and it is placed ABOVE the fundamentals for the same
