@@ -856,7 +856,7 @@
 indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.27"
+string S4_VER      = "v11.28"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -872,7 +872,7 @@ string S4_VER      = "v11.27"
 // twice the width of a letter - which is why its char count is NOT the wrap count.
 // Raise it if rows stop short of Confluence's edge; lower it if the panel widens.
 int PANEL_ROW_WRAP = 168
-string S4_CORE_VER = "70"
+string S4_CORE_VER = "71"
 // S4Core/27 (29-Aug-2026) takes the VP gate as a PARAMETER. A function that indexes its
 // series params must be CALLED on every calculation, or Pine warns that it should be
 // extracted from the scope; so the call sits in global scope and the loop stays behind
@@ -882,7 +882,7 @@ string S4_CORE_VER = "70"
 // fundStr() and bitsRow(), which the two FUNDAMENTALS rows need. Keep S4_CORE_VER above
 // in step with this number -- the panel header prints it, and it had already drifted to
 // 23 while the import was on 24.
-import jayramg/S4Core/70 as core   // bump S4_CORE_VER (line ~860) with this - the panel stamp is hand-kept and Pine cannot read a library version at runtime
+import jayramg/S4Core/71 as core   // bump S4_CORE_VER (line ~860) with this - the panel stamp is hand-kept and Pine cannot read a library version at runtime
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
@@ -3227,7 +3227,7 @@ else
 // loses its type through a tuple), or when passed to core.*/ta.*/request.*,
 // which want `simple` — a function return is always `series`.
 // f_fold2949 MOVED to S4Core.pathResolve (pure; reads became parameters).
-[stage_skip, gm_rec, gm_pb, is_rec] = core.pathResolve(stage_gate, stage_n, use_dd_recovery, dd60, rec_dd_min, rec_dd_max, _gmRec, _gmPb, d_bel200, mode)
+[stage_skip, gm_rec, gm_pb, is_rec] = core.pathResolve(stage_gate, stage_n, use_dd_recovery, dd60, rec_dd_min, rec_dd_max, _gmRec, _gmPb, d_bel200, mode, core.bundleSection(gm_bundle, "BUL"))
 // FIRST TEST (26-Sep): Stage 3/4 and/or weekly trend DOWN rejects the trade outright -
 // no GO, no alert, a one-line verdict. _zzWsel/_zzWok are the Stage tie-break's weekly read.
 bool ctx_reject = stage_skip or (stage_gate and _zzWok and _zzWsel < -0.5)
@@ -5080,7 +5080,7 @@ if show_panel and d_panel and barstate.islast
     // the split size (core.bundleSection needs a simple-string tag, so no loop over tags).
     int _bTags  = str.length(gm_bundle) == 0 ? 0 : array.size(str.split(gm_bundle, "|"))
     bool   _b2ok   = str.length(gm_bundle2) == 0 or str.pos(gm_bundle2, "OPT=") >= 0
-    string _bNote  = str.length(gm_bundle) == 0 ? "no bundle" : (str.tostring(str.length(gm_bundle)) + "ch·" + str.tostring(_bTags) + "/16" + (_bTags < 16 ? " ⚠tail?" : "") + (_b2ok ? "" : " ⚠b2"))
+    string _bNote  = str.length(gm_bundle) == 0 ? "no bundle" : (str.tostring(str.length(gm_bundle)) + "ch·" + str.tostring(_bTags) + "/17" + (_bTags < 17 ? " ⚠tail?" : "") + (_b2ok ? "" : " ⚠b2"))
     table.cell(pnl, 0, 0, "S4 " + S4_VER + "  │  core/" + S4_CORE_VER + "  │  " + _bNote, text_size=_pSize, text_color=color.white, bgcolor=C_REC, text_halign=text.align_right)
     table.merge_cells(pnl, 1, 0, PA_LAST_COL, 0)
     // Each banner states the QUESTION its block answers. The panel is read under time
@@ -6238,7 +6238,7 @@ if show_panel and d_panel and barstate.islast
             table.cell(pnl, _sc, _r, "", bgcolor=f_softBg(C_INFO))
         table.cell(pnl, _sc, 0,
              "SUMMARY\n" + core.wrapText((str.replace_all(
-                  ((ctx_reject and not is_held) ? "REJECTED — first test failed (Stage 3/4 or weekly trend DOWN, see VERDICT). No further analysis." : core.qualityRead(_isEtf, _fundHave, fund_raw[_so], fund_ok[_so], syminfo.type == "index")
+                  ((ctx_reject and not is_held) ? "REJECTED — first test failed (Stage 3/4 or weekly trend DOWN, see VERDICT). No further analysis." : core.qualityRead(_isEtf, _fundHave, fund_raw[_so], fund_ok[_so], syminfo.type == "index", fundChip[_so] == "?")
                   + "\n" + _sumRaw), "\n", "\n\n")), summary_wrap),
              text_size=_pSize, text_color=C_SOFTTXT, bgcolor=f_softBg(C_INFO),
              text_halign=text.align_left, text_valign=text.align_top)
