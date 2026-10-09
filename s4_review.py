@@ -1127,9 +1127,14 @@ def level_check(read_txt: str, review: str = "") -> tuple[str, str]:
                          "takes you out before the level that is actually held" % (stop, pw))
             flags.append("consider the stop just BELOW the put wall %.2f if structure allows "
                          "(it widens risk — resize, do not just move it)" % pw)
-        elif stop <= pw:
+        elif stop <= pw <= entry:
             lines.append("  stop %.2f is below the put wall %.2f — the defended floor is inside the trade ✓"
                          % (stop, pw))
+        elif pw > entry:
+            # 9-Oct-2026 (AUBANK): a put wall ABOVE the entry is not a floor under this trade -
+            # it was printed as "the defended floor is inside the trade ✓".
+            lines.append("  the put wall %.2f is ABOVE the entry %.2f — it is not a floor under this trade"
+                         % (pw, entry))
 
     # ── max pain between entry and T1 ─────────────────────────────────────────────────
     if entry and t1 and mp and entry < mp < t1:
@@ -1427,6 +1432,12 @@ def lv_audit(review: str) -> str:
     nonum = [tag for tag in ("ENTRY", "STOP", "T1", "T2") if tag not in missing
              and not re.search(r"(?im)^\s*[-*•]?\s*\**\s*" + tag + r"\b[^\n]*\d", body)]
     out = []
+    # 9-Oct-2026 (CUB): the model copied the answer TEMPLATE's placeholders verbatim
+    # ("RULING: WAIT for <specific bar/level/event>", "DECIDING FACTOR (one sentence)").
+    _ph = [t for t in ("<specific bar/level/event>", "(one sentence)") if t in (review or "")]
+    if _ph:
+        out.append("the model echoed the template placeholder " + " and ".join('"%s"' % t for t in _ph)
+                   + " - the ruling is not filled in; re-run the review")
     if missing:
         out.append("no line for " + ", ".join(missing))
     if nonum:
