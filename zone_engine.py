@@ -1273,11 +1273,15 @@ def avwap_support(df: pd.DataFrame, price: float | None = None, **kw) -> dict:
     hlc3 = (h + l + c) / 3.0
     prev_c = np.concatenate(([np.nan], c[:-1]))
     anchors = {}
-    # Low anchor — most recent bar whose low is the trailing-low_look minimum.
-    rmin = pd.Series(l).rolling(low_look, min_periods=1).min().to_numpy()
-    idx = np.where(l <= rmin + 1e-9)[0]
-    if len(idx):
-        anchors["low"] = int(idx[-1])
+    # Low anchor — the bar of the LOWEST LOW WITHIN the last low_look bars (latest if tied).
+    # 9-Oct-2026 (= S4Core/72 avwapAnchors): was "the last bar that SET a fresh low_look-bar
+    # low", which on a long-running leader is years old (TVSMOTOR: 7 Mar 2022, Rs 513) and so
+    # put the L AVWAP at a multi-year average with nothing to say about this year's trade.
+    _s = max(0, n - low_look)
+    _w = l[_s:]
+    if len(_w) and np.isfinite(_w).any():
+        _m = np.nanmin(_w)
+        anchors["low"] = int(_s + np.where(_w <= _m + 1e-9)[0][-1])
     # BO anchor — close crosses over the prior bo_look-bar high.
     lvl = pd.Series(h).rolling(bo_look).max().shift(1).to_numpy()
     prev_lvl = np.concatenate(([np.nan], lvl[:-1]))

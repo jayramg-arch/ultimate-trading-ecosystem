@@ -1549,8 +1549,28 @@ export fibZone(float fibHi, float fibLo, int fibLoAgo, simple float tol) =>
 // is unreliable inside request.security and produced na anchors when it was tried.
 export avwapAnchors(simple int lowLook, simple int boLook, simple float gapPct,
      simple float gapVolX) =>
-    bool  isLow    = low <= ta.lowest(low, lowLook)
-    float aLow     = ta.valuewhen(isLow, time, 0)
+    // L anchor (9-Oct-2026): the bar of the LOWEST LOW WITHIN the last lowLook bars, latest if
+    // tied. Was "the last bar that SET a fresh lowLook low" - on a long-running leader that is
+    // years old (TVSMOTOR: 7 Mar 2022), and on 75m/125m TradingView's intraday history cut the
+    // accumulation short, so L read 1218 on 75m against ~1997 on the Daily. A rolling-minimum
+    // deque gives the window's low bar on EVERY bar (needed: f_avwap accumulates over history)
+    // without dynamic history indexing, which is unreliable inside request.security.
+    var array<float> dqL = array.new<float>()
+    var array<int>   dqT = array.new<int>()
+    var array<int>   dqB = array.new<int>()
+    if not na(low)
+        while array.size(dqL) > 0 and array.get(dqL, array.size(dqL) - 1) >= low
+            array.pop(dqL)
+            array.pop(dqT)
+            array.pop(dqB)
+        array.push(dqL, low)
+        array.push(dqT, time)
+        array.push(dqB, bar_index)
+        while array.size(dqB) > 1 and array.get(dqB, 0) <= bar_index - lowLook
+            array.shift(dqL)
+            array.shift(dqT)
+            array.shift(dqB)
+    float aLow     = array.size(dqT) > 0 ? array.get(dqT, 0) : na
     bool  boCross  = ta.crossover(close, ta.highest(high, boLook)[1])
     float aBo      = ta.valuewhen(boCross, time, 0)
     float volSma   = ta.sma(volume, 50)
