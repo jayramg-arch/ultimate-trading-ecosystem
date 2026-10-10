@@ -8,6 +8,7 @@ REM    2. Web Commander (:8501)                            LAUNCH_COMMANDER.bat
 REM    3. S4 alert reviewer + ngrok tunnel (:8000/:4040)  START_ALERT_REVIEWER.bat
 REM    4. Reviewer banner (the always-on-top strip)       REVIEWER_BANNER.bat
 REM    5. Commander Portal for phone/tablet (:8502)       SERVE_PORTAL.bat
+REM    6. File Browser for phone/tablet (:8503, Tailscale) START_FILEBROWSER.bat
 REM
 REM  NOT here, on purpose:
 REM    BIND_S4_SOURCES.bat - only after an S4 compile (bindings live in the layout
@@ -58,6 +59,13 @@ call :listening 8502
 if %errorlevel%==0 (echo   [ok]    Commander Portal :8502 already up) else (
     echo   [start] Commander Portal...
     start "Commander Portal :8502" cmd /c "SERVE_PORTAL.bat"
+)
+
+REM 6. File Browser (127.0.0.1:8503, published to the tailnet as http://jaynuc:8503)
+call :listening 8503
+if %errorlevel%==0 (echo   [ok]    File Browser :8503 already up) else (
+    echo   [start] File Browser...
+    start "File Browser starter" /min cmd /c "START_FILEBROWSER.bat"
 )
 
 echo.
