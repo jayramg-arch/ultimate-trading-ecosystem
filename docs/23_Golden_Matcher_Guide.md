@@ -332,6 +332,8 @@ Consequences worth internalising:
 | **Room** | Distance to the **first obstacle overhead**, in R — `clear`, or `0.22R · S/R·D`, or blank. Blank means **unknown**, never clear. |
 | **bell / Armed** | Armed checkbox, and the age + trigger level as armed. |
 | **Pos** | For Pyramid rows: what you already hold and the add's plan. |
+| **ΔBets** | (11 Oct) Independent bets the name would ADD to the current book: participation ratio of the holdings' correlation matrix with it, minus without it (`book_factors.py`, 250 daily returns). Positive diversifies; near zero is more of what you own; blank on held names. Use it to choose AMONG names that pass the gates — it is not an alpha score (Doc 36). |
+| **Fit** | β to the Nifty 500 · correlation with the book's market factor · the holding it moves with most, and `⚠ joins crowded cluster` when it correlates ≥ 0.40 with the book's second component. `held` on names you own. Display only. |
 | **Loc / Entry / SL / T1 / R:R** | The live plan, recomputed this rebuild. |
 
 #### S4-GO — the complete grammar (`gm_trigger_board.s4go_status`)

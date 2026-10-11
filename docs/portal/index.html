@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 11 Oct · 52 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 11 Oct · 53 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -262,7 +262,15 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         <td><b>New page: Market Regime (HMM).</b> A hidden Markov model on daily index returns says whether the
         market is calm or volatile, using only data up to each close. Under State of Market. It measures how wide
         the swings are, not direction.</td>
-        <td class="af">—</td>
+        <td class="af">26 · 35</td>
+      </tr>
+      <tr>
+        <td class="dt">10 Oct<br>remote access</td>
+        <td><b>The desk from a phone or tablet, over Tailscale only.</b> Remote Desktop to <code>jaynuc</code> (firewall
+        scoped to the tailnet) runs any job — disconnect, never sign out. File Browser on :8503 (started by MORNING,
+        published only on the tailnet; the project is archived upstream, so keep uploads small).
+        <code>REMOTE_ADMIN_SETUP.bat</code> repairs a wedged Tailscale.</td>
+        <td class="af">26 · 35</td>
       </tr>
       <tr>
         <td class="dt">9 Oct<br>board sweep</td>
@@ -801,6 +809,20 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
     </a>
 
     <a class="card" style="--spine:var(--doctrine)"
+       href="36_pca_study.html">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 36 · Research</p>
+        <p class="card-t">PCA Study</p>
+        <p class="card-d">Twenty entry metrics carry about five independent pieces of information, and none ranks
+        names by future return within a family. So the board gets portfolio-construction columns (ΔBets, Fit)
+        instead of an alpha score, and Risk Shield reads the book as factors: independent bets, market-factor share,
+        beta, the crowded cluster.</p>
+        <div class="card-m"><span>Why there is no ranking score</span><span class="go">Open →</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--doctrine)"
        href="26_operating_loop.html">
       <div class="spine"></div>
       <div class="card-b">
@@ -1201,6 +1223,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         <tr><td class="id">23</td><td class="nm"><a href="23_golden_matcher.html">The Golden Matcher</a></td><td>The board, the six-step path, the S4-GO grammar</td><td class="st"><span class="pill page gm">Page</span></td></tr>
         <tr><td class="id">22</td><td class="nm"><a href="22_section_four.html">Section Four</a></td><td>The five-gate GO, the verdict ladder, aged S/R, the Setup row</td><td class="st"><span class="pill page s4">Page</span></td></tr>
         <tr><td class="id">32</td><td class="nm"><a href="32_the_reviewer.html">The Reviewer</a></td><td>How the AI review works, runs, checks itself, and is scored</td><td class="st"><span class="pill page s4">Page</span></td></tr>
+        <tr><td class="id">36</td><td class="nm"><a href="36_pca_study.html">PCA Study</a></td><td>What the metrics can and cannot rank; the book as factors</td><td class="st"><span class="pill page ev">Page</span></td></tr>
         <tr><td class="id">35</td><td class="nm"><a href="35_daily_regime.html">Daily Regime</a></td><td>The trading day and the weekend, step by step, with the pages to open</td><td class="st"><span class="pill page gm">Page</span></td></tr>
         <tr><td class="id">34</td><td class="nm"><a href="34_trade_log.html">The Trade Log</a></td><td>TAKE reviews vs the trades actually taken</td><td class="st"><span class="pill page ev">Page</span></td></tr>
         <tr><td class="id">33</td><td class="nm"><a href="33_live_record.html">The Live Record</a></td><td>The Log as the backtest: features × outcomes per tier</td><td class="st"><span class="pill page ev">Page</span></td></tr>

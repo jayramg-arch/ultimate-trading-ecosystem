@@ -183,7 +183,7 @@ ul.how li{font-size:15px;color:var(--ink-2);margin:0 0 5px;max-width:64ch}
       <div class="clk">08:45</div>
       <div class="bd">
         <p class="t">Start the desk — MORNING.bat (one click)<span class="who">you</span></p>
-        <ul class="how"><li>Double-click Morning on the desktop. It starts, in order and only what is not running: TradingView with the CDP port, Web Commander, the alert receiver + ngrok, the reviewer banner, the Library server.</li><li>Check the window &quot;S4 webhook receiver :8000&quot; is open — closing it is the only way alerts stop being reviewed.</li><li>Check TradingView has its six tabs open: S4 Phase-2 and S5 Layout (yours), S4 Reviewer and S5 Reviewer, Phase-1 and Panel Layout. If the reviewer tabs are missing, reviews FAIL loudly; they never borrow yours.</li><li>Banner green = reviewer idle.</li></ul>
+        <ul class="how"><li>Double-click Morning on the desktop. It starts, in order and only what is not running: TradingView with the CDP port, Web Commander, the alert receiver + ngrok, the reviewer banner, the Library server, File Browser (:8503).</li><li>Check the window &quot;S4 webhook receiver :8000&quot; is open — closing it is the only way alerts stop being reviewed.</li><li>Check TradingView has its six tabs open: S4 Phase-2 and S5 Layout (yours), S4 Reviewer and S5 Reviewer, Phase-1 and Panel Layout. If the reviewer tabs are missing, reviews FAIL loudly; they never borrow yours.</li><li>Banner green = reviewer idle.</li></ul>
         <div class="lk"><a href="http://localhost:8501/?p=DASHBOARD">Web Commander · Dashboard</a></div>
       </div>
     </div>
@@ -198,7 +198,7 @@ ul.how li{font-size:15px;color:var(--ink-2);margin:0 0 5px;max-width:64ch}
       <div class="clk">08:55</div>
       <div class="bd">
         <p class="t">Risk Shield — stops, open risk, class<span class="who">you</span></p>
-        <ul class="how"><li>Banners first: &#x27;Stops disagree&#x27; or &#x27;Partly covered&#x27; → fix on Dhan before 09:15: ONE stop price per holding, covering the full quantity, limit price below the trigger.</li><li>🔥 Open risk card: if OVER budget, the expander lists the shares to sell with the stops left in place. Those trims are today&#x27;s first orders (Doc 25 Part 7c).</li><li>🔁 Swing ↔ Positional tab: any EXIT REVIEW name is decided like an exit above.</li></ul>
+        <ul class="how"><li>Banners first: &#x27;Stops disagree&#x27; or &#x27;Partly covered&#x27; → fix on Dhan before 09:15: ONE stop price per holding, covering the full quantity, limit price below the trigger.</li><li>🔥 Open risk card: if OVER budget, the expander lists the shares to sell with the stops left in place. Those trims are today&#x27;s first orders (Doc 25 Part 7c). The factor line under it says how many independent bets the book really is and how much of it is the market factor.</li><li>🔁 Swing ↔ Positional tab: any EXIT REVIEW name is decided like an exit above.</li></ul>
         <div class="lk"><a href="http://localhost:8501/?p=RISK%20SHIELD">Risk Shield (🔥 Open risk card · 🔁 Swing ↔ Positional tab · warnings)</a><a href="http://localhost:8502/docs/portal/25_golden_rules.html#p7c">Doc 25 Part 7c · open-risk budget</a><a href="https://web.dhan.co">Dhan web (orders · positions · forever orders)</a></div>
       </div>
     </div>
@@ -206,8 +206,8 @@ ul.how li{font-size:15px;color:var(--ink-2);margin:0 0 5px;max-width:64ch}
       <div class="clk">09:00</div>
       <div class="bd">
         <p class="t">Read the tape and the exposure rule<span class="who">you</span></p>
-        <ul class="how"><li>Pre-Market page and the MACRO regime. The S4 Section I header (and the SUMMARY&#x27;s EXPOSURE section) says the tier: BEAR or circuit breaker = no new entries today — a management-only day. NEUTRAL = half risk, at most 3 new entries a week. A follow-through day or breadth thrust unlocks 2 half-risk pilots.</li><li>This one line decides whether any alert today can become a trade.</li></ul>
-        <div class="lk"><a href="http://localhost:8501/?p=PRE-MARKET">Pre-Market</a><a href="http://localhost:8501/?p=MACRO">Macro (regime, sectors)</a></div>
+        <ul class="how"><li>Pre-Market page and the MACRO regime. The S4 Section I header (and the SUMMARY&#x27;s EXPOSURE section) says the tier: BEAR or circuit breaker = no new entries today — a management-only day. NEUTRAL = half risk, at most 3 new entries a week. A follow-through day or breadth thrust unlocks 2 half-risk pilots.</li><li>This one line decides whether any alert today can become a trade.</li><li>REGIME HMM: CALM or VOLATILE — how wide daily swings are. It shapes stop distance and patience, never the tier.</li></ul>
+        <div class="lk"><a href="http://localhost:8501/?p=PRE-MARKET">Pre-Market</a><a href="http://localhost:8501/?p=MACRO">Macro (regime, sectors)</a><a href="http://localhost:8501/?p=HMM">Market Regime · HMM (calm vs volatile)</a></div>
       </div>
     </div>
   </div>
@@ -317,8 +317,8 @@ ul.how li{font-size:15px;color:var(--ink-2);margin:0 0 5px;max-width:64ch}
       <div class="clk">17:45</div>
       <div class="bd">
         <p class="t">Tomorrow&#x27;s candidates — the boards<span class="who">you</span></p>
-        <ul class="how"><li>Daily board: the 5/5 positional names are tomorrow&#x27;s Daily-close candidates. 125m/75m boards: swing names the alerts will time. Open each worth attention in the Golden Matcher and read the decision path.</li><li>ARM what you intend to stalk — an armed name stays in tomorrow&#x27;s union even if it stops qualifying.</li></ul>
-        <div class="lk"><a href="http://localhost:8501/?view=gm_board_maximized&amp;tf=Daily">GM board · Daily (positional)</a><a href="http://localhost:8501/?view=gm_board_maximized&amp;tf=125m">GM board · 125m (swing)</a><a href="http://localhost:8501/?view=gm_board_maximized&amp;tf=75m">GM board · 75m (swing)</a><a href="http://localhost:8501/?view=gm_window">Golden Matcher (own window)</a></div>
+        <ul class="how"><li>Daily board: the 5/5 positional names are tomorrow&#x27;s Daily-close candidates. 125m/75m boards: swing names the alerts will time. Open each worth attention in the Golden Matcher and read the decision path.</li><li>ARM what you intend to stalk — an armed name stays in tomorrow&#x27;s union even if it stops qualifying.</li><li>Among names that pass the gates, prefer the one with the higher ΔBets (adds an independent bet) and no &#x27;⚠ joins crowded cluster&#x27; in Fit. Not an alpha score — a portfolio-construction tiebreak (Doc 36).</li></ul>
+        <div class="lk"><a href="http://localhost:8501/?view=gm_board_maximized&amp;tf=Daily">GM board · Daily (positional)</a><a href="http://localhost:8501/?view=gm_board_maximized&amp;tf=125m">GM board · 125m (swing)</a><a href="http://localhost:8501/?view=gm_board_maximized&amp;tf=75m">GM board · 75m (swing)</a><a href="http://localhost:8501/?view=gm_window">Golden Matcher (own window)</a><a href="http://localhost:8502/docs/portal/36_pca_study.html">PCA Study (Doc 36) · ΔBets, Fit, the factor line</a></div>
       </div>
     </div>
     <div class="ev you">
@@ -356,7 +356,7 @@ ul.how li{font-size:15px;color:var(--ink-2);margin:0 0 5px;max-width:64ch}
       <div class="bd">
         <p class="t">The market&#x27;s stage before the stock&#x27;s<span class="who">you</span></p>
         <ul class="how"><li>MACRO and BREADTH: regime score, % of stocks above the 50/200-DMA, new highs vs lows, Stage-2 share, McClellan. Write one line: what tier Monday is likely to start in, and what would unlock pilots.</li><li>Sector rotation: the RRG (START_RRG_STUDIO.bat — it uses :8502, so stop the Library server first).</li></ul>
-        <div class="lk"><a href="http://localhost:8501/?p=MACRO">Macro (regime, sectors)</a><a href="http://localhost:8501/?p=BREADTH">Breadth (McClellan, % above MAs)</a></div>
+        <div class="lk"><a href="http://localhost:8501/?p=MACRO">Macro (regime, sectors)</a><a href="http://localhost:8501/?p=BREADTH">Breadth (McClellan, % above MAs)</a><a href="http://localhost:8501/?p=HMM">Market Regime · HMM (calm vs volatile)</a></div>
       </div>
     </div>
     <div class="ev you">
@@ -386,8 +386,8 @@ ul.how li{font-size:15px;color:var(--ink-2);margin:0 0 5px;max-width:64ch}
       <div class="clk">any time</div>
       <div class="bd">
         <p class="t">System work<span class="who">you</span></p>
-        <ul class="how"><li>Code changes, compiles and restarts belong here or after 15:30. After an S4 / v67 compile: AFTER_COMPILE.bat. Before Monday: Web Commander restarted on the latest code, and MORNING.bat on Monday morning.</li></ul>
-        <div class="lk"><a href="http://localhost:8502/docs/portal/index.html">The Library</a></div>
+        <ul class="how"><li>Code changes, compiles and restarts belong here or after 15:30. After an S4 / v67 compile: AFTER_COMPILE.bat. Before Monday: Web Commander restarted on the latest code, and MORNING.bat on Monday morning.</li><li>Away from the desk: Remote Desktop to jaynuc (Tailscale only) runs any job; DISCONNECT, never sign out (sign-out closes TradingView, the receiver and Web Commander). Files at :8503. If nothing answers, Tailscale is wedged — REMOTE_ADMIN_SETUP.bat as administrator (Doc 26).</li></ul>
+        <div class="lk"><a href="http://localhost:8502/docs/portal/index.html">The Library</a><a href="http://localhost:8503">File Browser (tailnet only)</a></div>
       </div>
     </div>
   </div>

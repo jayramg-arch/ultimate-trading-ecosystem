@@ -65,6 +65,9 @@ def links(host: str = "localhost") -> dict:
         "loop": (f"{lib}/26_operating_loop.html", "Operating Loop (Doc 26)"),
         "s4doc": (f"{lib}/22_section_four.html", "Section Four (Doc 22)"),
         "regime_doc": (f"{lib}/35_daily_regime.html", "Daily Regime (Doc 35)"),
+        "hmm": (page("HMM"), "Market Regime · HMM (calm vs volatile)"),
+        "pca": (f"{lib}/36_pca_study.html", "PCA Study (Doc 36) · ΔBets, Fit, the factor line"),
+        "files": (f"http://{host}:8503", "File Browser (tailnet only)"),
         "dhan": ("https://web.dhan.co", "Dhan web (orders · positions · forever orders)"),
     }
 
@@ -85,7 +88,7 @@ PHASES = [
          "how": ["Morning_Digest: holdings at or below their Chandelier, results within 7 days, the market line."]},
         {"t": "08:45", "who": "you", "title": "Start the desk — MORNING.bat (one click)",
          "how": ["Double-click Morning on the desktop. It starts, in order and only what is not running: TradingView with "
-                 "the CDP port, Web Commander, the alert receiver + ngrok, the reviewer banner, the Library server.",
+                 "the CDP port, Web Commander, the alert receiver + ngrok, the reviewer banner, the Library server, File Browser (:8503).",
                  "Check the window \"S4 webhook receiver :8000\" is open — closing it is the only way alerts stop being reviewed.",
                  "Check TradingView has its six tabs open: S4 Phase-2 and S5 Layout (yours), S4 Reviewer and S5 Reviewer, "
                  "Phase-1 and Panel Layout. If the reviewer tabs are missing, reviews FAIL loudly; they never borrow yours.",
@@ -99,15 +102,18 @@ PHASES = [
          "how": ["Banners first: 'Stops disagree' or 'Partly covered' → fix on Dhan before 09:15: ONE stop price per holding, "
                  "covering the full quantity, limit price below the trigger.",
                  "🔥 Open risk card: if OVER budget, the expander lists the shares to sell with the stops left in place. "
-                 "Those trims are today's first orders (Doc 25 Part 7c).",
+                 "Those trims are today's first orders (Doc 25 Part 7c). The factor line under it says how many "
+                 "independent bets the book really is and how much of it is the market factor.",
                  "🔁 Swing ↔ Positional tab: any EXIT REVIEW name is decided like an exit above."],
          "links": ["risk", "rules7c", "dhan"]},
         {"t": "09:00", "who": "you", "title": "Read the tape and the exposure rule",
          "how": ["Pre-Market page and the MACRO regime. The S4 Section I header (and the SUMMARY's EXPOSURE section) says "
                  "the tier: BEAR or circuit breaker = no new entries today — a management-only day. NEUTRAL = half risk, "
                  "at most 3 new entries a week. A follow-through day or breadth thrust unlocks 2 half-risk pilots.",
-                 "This one line decides whether any alert today can become a trade."],
-         "links": ["premarket", "macro"]},
+                 "This one line decides whether any alert today can become a trade.",
+                 "REGIME HMM: CALM or VOLATILE — how wide daily swings are. It shapes stop distance and patience, "
+                 "never the tier."],
+         "links": ["premarket", "macro", "hmm"]},
      ]},
     {"key": "session", "title": "During market hours", "when": "Trading days · 09:15 – 15:30",
      "lede": "The alerts watch the session, the reviewer reads the chart, and you act only when a review "
@@ -176,8 +182,10 @@ PHASES = [
         {"t": "17:45", "who": "you", "title": "Tomorrow's candidates — the boards",
          "how": ["Daily board: the 5/5 positional names are tomorrow's Daily-close candidates. 125m/75m boards: swing names "
                  "the alerts will time. Open each worth attention in the Golden Matcher and read the decision path.",
-                 "ARM what you intend to stalk — an armed name stays in tomorrow's union even if it stops qualifying."],
-         "links": ["gm_daily", "gm_125", "gm_75", "gm"]},
+                 "ARM what you intend to stalk — an armed name stays in tomorrow's union even if it stops qualifying.",
+                 "Among names that pass the gates, prefer the one with the higher ΔBets (adds an independent bet) and no "
+                 "'⚠ joins crowded cluster' in Fit. Not an alpha score — a portfolio-construction tiebreak (Doc 36)."],
+         "links": ["gm_daily", "gm_125", "gm_75", "gm", "pca"]},
         {"t": "18:00", "who": "you", "title": "Read the record",
          "how": ["Reviewer Log: today's rulings. Trade Log: TAKE vs what you bought. Live Record: the system's numbers."],
          "links": ["log", "tradelog", "live"]},
@@ -198,7 +206,7 @@ PHASES = [
          "how": ["MACRO and BREADTH: regime score, % of stocks above the 50/200-DMA, new highs vs lows, Stage-2 share, "
                  "McClellan. Write one line: what tier Monday is likely to start in, and what would unlock pilots.",
                  "Sector rotation: the RRG (START_RRG_STUDIO.bat — it uses :8502, so stop the Library server first)."],
-         "links": ["macro", "breadth"]},
+         "links": ["macro", "breadth", "hmm"]},
         {"t": "Sat", "who": "you", "title": "Strategic planning — fresh Stage-2 names",
          "how": ["HUNTER and the Golden Matcher Daily board: Hunter / EarlyBird picks, fresh Stage-2 breakouts. Weekly charts "
                  "on TradingView for the GM_Positional list; mark Daily+ demand zones by hand where the engine has none.",
@@ -213,8 +221,11 @@ PHASES = [
          "how": ["Weekly_Report goes to Telegram."]},
         {"t": "any time", "who": "you", "title": "System work",
          "how": ["Code changes, compiles and restarts belong here or after 15:30. After an S4 / v67 compile: AFTER_COMPILE.bat. "
-                 "Before Monday: Web Commander restarted on the latest code, and MORNING.bat on Monday morning."],
-         "links": ["library"]},
+                 "Before Monday: Web Commander restarted on the latest code, and MORNING.bat on Monday morning.",
+                 "Away from the desk: Remote Desktop to jaynuc (Tailscale only) runs any job; DISCONNECT, never sign out "
+                 "(sign-out closes TradingView, the receiver and Web Commander). Files at :8503. If nothing answers, "
+                 "Tailscale is wedged — REMOTE_ADMIN_SETUP.bat as administrator (Doc 26)."],
+         "links": ["library", "files"]},
      ]},
 ]
 

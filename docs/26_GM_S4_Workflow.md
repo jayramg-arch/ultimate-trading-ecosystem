@@ -230,6 +230,30 @@ Each of these has already cost a day or more.
 | S4 alert path (ngrok + receiver) | TradingView alert reads "Webhook delivery failed — 404" (tunnel offline) or "502" (receiver down); the review never happens and TradingView does not retry | Telegram **S4 ALERT PATH DOWN** from the 15-min check (9:15 onward); then `START_ALERT_REVIEWER.bat` and `REVIEW SYMBOL TF` for anything missed |
 | Open risk inside budget | a book that loses far more than planned if the tape breaks | Risk Shield 🔥 Open risk card |
 
+## 6b. AWAY FROM THE DESK (10–11 Oct 2026)
+
+Everything runs on the PC; phone and tablet reach it over **Tailscale only** (nothing on a
+public tunnel except the ngrok webhook).
+
+| What | Address | Notes |
+|---|---|---|
+| Web Commander | `http://jaynuc:8501` | `?view=gm_window&mobile=1` for the GM |
+| Library / Reviewer Log | `http://jaynuc:8502/docs/portal/index.html` | `SERVE_PORTAL.bat` |
+| Files | `http://jaynuc:8503` | File Browser, `START_FILEBROWSER.bat` (MORNING step 6); 127.0.0.1 + `tailscale serve`; full access, command exec off |
+| The desktop | Remote Desktop to `jaynuc` | RDP firewall scoped to 100.64.0.0/10. **Disconnect, never sign out.** Jobs are run this way |
+
+`REMOTE_ADMIN_SETUP.bat` (admin): 1 restart Tailscale · 2 reset state + re-login (node back to
+`jaynuc`) · 3 RDP firewall to the tailnet · 4 status · 5 publish File Browser. If the daemon is in
+`NoState`, nothing is reachable — update or reinstall Tailscale.
+File Browser was archived upstream on 1 Sep 2026 (no security fixes; an upload failure can
+delete a directory recursively) — keep uploads small, change the initial password and delete
+`RemoteAccess\config\INITIAL_LOGIN.txt`.
+
+**Market Regime page (11 Oct)** — Web Commander → STATE OF MARKET → 🎲 REGIME HMM: a 2-state
+Gaussian HMM on daily index returns says CALM or VOLATILE (filtered probability = knowable at
+that close). It describes how wide daily swings are — for stop distance and patience. It does
+not replace the exposure rule and it is not a direction signal.
+
 ---
 
 ## 7. THE WHOLE LOOP, COMPRESSED

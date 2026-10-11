@@ -394,6 +394,15 @@ and VIJAYA, NETWEB, SYRMA, GLAXO are untouched.
 
 ---
 
+
+**The factor line (11 Oct).** Under the rupee figure the card prints the book as factors
+(`book_factors.book_line`, PCA on 250 daily returns of the holdings): independent bets,
+the market factor's share of the book's moves, book beta, beta-weighted exposure (₹ and %
+of capital) and the crowded cluster. First reading: 18 holdings ≈ 9.4 independent bets,
+market factor 26%, book beta 0.85, beta-weighted exposure ₹16,74,936 (56% of capital),
+cluster = pharma. Rupee risk says how much a broken tape costs; the factor line says how
+much of it is one bet. Display only — the budget is still measured in rupees (Doc 36).
+
 ## PART 7d — THE LADDER GRACE PERIOD FOR NEW POSITIONS (7 Oct 2026)
 
 *Why.* Risk Shield's pyramid ladder (EXIT → TRIM → REDUCE → ADD → HOLD) was calling REDUCE or

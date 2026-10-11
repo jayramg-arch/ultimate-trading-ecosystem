@@ -316,6 +316,8 @@ footer a{color:var(--acc)}
       <tr><td class="k">Room</td><td>Distance to the <b>first obstacle overhead</b>, in R. <b>Blank means unknown, never clear.</b> Since 9 September a Daily/Weekly/Monthly S/R level past its lifespan is dropped from the ceiling (the same clock S4 uses), and since 11 September the number is <b>information, not a gate</b>: measured on 331 GO-timed trades, 77% had under 1R and did not do worse, and the obstacle was broken 63–77% of the time. Use it to place T1 and a partial</td></tr>
       <tr><td class="k">Armed</td><td>The bell checkbox, plus how long it has been armed and at what trigger</td></tr>
       <tr><td class="k">Pos</td><td>On pyramid rows: what you already hold, and the add's plan. On every other held name: quantity, average and the ladder rung</td></tr>
+      <tr><td class="k">ΔBets</td><td>11 Oct. Independent bets the name would <b>add</b> to the current book (PCA on 250 daily returns of the holdings, with it minus without it). Positive diversifies; near zero is more of what you own; blank on held names. For choosing among names that pass the gates — not an alpha score (<a href="36_pca_study.html">Doc 36</a>)</td></tr>
+      <tr><td class="k">Fit</td><td>Beta to the Nifty 500 · correlation with the book's market factor · the holding it moves with most, and <b>⚠ joins crowded cluster</b> when it correlates ≥ 0.40 with the book's second component. <i>held</i> on names you own. Display only</td></tr>
       <tr><td class="k">Loc</td><td>Not a tick — <b>it names the state and the kind of evidence</b>.
       <code>AT pattern D</code> · <code>REACTING off pattern D</code> · <code>AT pivot+conf</code> ·
       <code>pivot only ✗</code> · <code>APPROACHING pattern D −0.5%</code> · <code>−2.3% → pattern D</code>.
