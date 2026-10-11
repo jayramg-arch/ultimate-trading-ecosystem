@@ -173,6 +173,15 @@ def render(st, sell_gtts_by_symbol, single_sells, ltps, inr) -> None:
         f"(the rest is open profit the stops would give back). Budget OPEN 6% · NEUTRAL 3% · BEAR 3% of the "
         f"sizing capital (house_policy.HEAT_BUDGET_PCT).</span></div>",
         unsafe_allow_html=True)
+    # FACTOR VIEW (11-Oct-2026, docs/36_PCA_Study.md rec. 4): rupee risk per name misses that
+    # most of a book moves with ONE factor. PCA on a year of daily returns says how many
+    # independent bets the book really is, how much of it is the market, and its beta.
+    try:
+        import book_factors as _bkf
+        st.markdown("<div style='font-size:0.82rem;color:var(--muted);margin:-2px 0 8px;'>📐 "
+                    + _bkf.book_line(b.get("capital")) + "</div>", unsafe_allow_html=True)
+    except Exception as e:
+        st.caption(f"📐 factor view unavailable ({e})")
     if s["uncovered"]:
         st.error("Shares with NO resting stop (risk unbounded, not in the total): " + ", ".join(s["uncovered"]))
     if s["no_ltp"]:

@@ -91,3 +91,21 @@ PCA on one year of daily returns of the 18 open positions:
    triggers spanning more than one regime, run `pca_study.py`'s method **within family**, with
    the rules above fixed in advance. Condition on the HMM regime (calm vs volatile, see the
    REGIME HMM page) as one pre-declared split, not as a search.
+
+## Implemented (11 Oct 2026) — recommendations 3 and 4
+- **`book_factors.py`** — the book's factor model: PCA on the last 250 daily returns of the open
+  holdings (cash-park excluded), cached an hour. Display only; nothing gates an order.
+- **Board columns `ΔBets` and `Fit`** (beside `Pos`, on all three boards). `ΔBets` = how many
+  independent bets the book would have WITH the name minus without it — positive diversifies,
+  near zero is more of what you own. `Fit` = beta to the Nifty 500 · correlation with the
+  book's market factor · the holding it moves with most, and `⚠ joins crowded cluster` when it
+  correlates ≥ 0.40 with the book's second component. Held names read `held`. Sort GO rows by
+  ΔBets to pick among names that pass the gates.
+- **Risk Shield, open-risk card** — one factor line under the rupee figure: independent bets,
+  market-factor share, book beta, beta-weighted exposure (₹ and % of capital), and the
+  crowded cluster. First reading: 18 holdings ≈ 9.4 independent bets, market factor 26%,
+  book beta 0.85, beta-weighted exposure 56% of capital, crowded cluster = pharma
+  (PHARMABEES, LAURUSLABS, CAPLIPOINT, SAILIFE, GLAXO).
+- Note the window: on 250 sessions the second component is the pharma cluster; on the longer
+  447-day sample used in the study above it was the financials/consumer group. The cluster
+  moves with the window — read the line, not a fixed label.

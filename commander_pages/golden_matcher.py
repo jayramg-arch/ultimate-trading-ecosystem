@@ -738,6 +738,14 @@ if True:
             if _prog is not None:
                 _prog.empty()
             _bdf_new = pd.DataFrame(_rows)
+            # BOOK FIT (11-Oct-2026, docs/36_PCA_Study.md rec. 3): ΔBets = independent bets the
+            # name would ADD to the current book; Fit = beta · market-factor r · closest holding.
+            # Portfolio construction, not alpha. Display only; a failure leaves the board as is.
+            try:
+                import book_factors as _bkf
+                _bdf_new = _bkf.annotate_board(_bdf_new)
+            except Exception as e:
+                _gm_logger.warning(f"board build: book_factors failed (ΔBets/Fit hidden): {e}")
             if not _bdf_new.empty and "Overall" in _bdf_new.columns:
                 _bdf_new = _bdf_new.sort_values("Overall", ascending=False, na_position="last").reset_index(drop=True)
             st.session_state["gm_board_df"] = _bdf_new
@@ -1444,7 +1452,7 @@ if True:
                     # a CSV round-trip (disk cache reload) can leave them as object.
                     for _nc in ("Overall", "Alpha", "RS", "Conviction", "Combined", "ΣPA",
                                 "R:R", "CMP", "Chg%", "52WH%", "SL%", "MLProb%",
-                                "Entry", "SL", "T1", "P/E"):
+                                "Entry", "SL", "T1", "P/E", "ΔBets"):
                         if _nc in _v.columns:
                             _v[_nc] = pd.to_numeric(_v[_nc], errors="coerce")
                     # Column order (item 14): decision columns first, then group the
@@ -1453,7 +1461,7 @@ if True:
                     # "Pos" sits beside Archetype: on a Pyramid row it says what is already
                     # held and what the add would be, and is blank on every other row.
                     _front = ["Symbol", "★", "Overall", "Category", "S4-GO", "Plan", "Trend", "Archetype",
-                              "Pos", "Loc", "Path", "RRG", "RS", "Stage", "Catalyst", "ΣPA",
+                              "Pos", "ΔBets", "Fit", "Loc", "Path", "RRG", "RS", "Stage", "Catalyst", "ΣPA",
                               "BFF", "RFF"]
                     _ordered = ([c for c in _front if c in _v.columns]
                                 + [c for c in _v.columns if c not in _front])
@@ -1473,7 +1481,7 @@ if True:
                     # AG-Grid otherwise treats them as text (lexicographic) when the
                     # pandas dtype is object. Explicit for the key decision numbers.
                     for _nc in ("Overall", "Alpha", "RS", "Conviction", "Combined", "ΣPA",
-                                "R:R", "CMP", "Chg%", "52WH%", "SL%", "MLProb%"):
+                                "R:R", "CMP", "Chg%", "52WH%", "SL%", "MLProb%", "ΔBets"):
                         if _nc in _v.columns:
                             # sortingOrder desc-FIRST (21-Aug): AG-Grid's default cycle is
                             # asc -> desc -> none, so on a ranked number the first click
