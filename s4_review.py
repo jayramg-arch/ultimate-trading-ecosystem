@@ -678,11 +678,11 @@ WHERE S4 IS TOO BLUNT   (what its mechanical ruling gets wrong or misses, and wh
    version of this setup would look like vs how close this one is)
 
 RECOMMENDATION
-RULING   (write the line as "RULING: " then ONE of: TAKE · TAKE · reduced size · WAIT · PASS ·
-   NO TRADE (stage). A WAIT must say what it waits for, in your own words and with its
-   number - a bar close, a level, an event - e.g. a Daily close back above the zone top on
-   volume. Never write a placeholder or angle brackets; a ruling with nothing filled in is
-   not a ruling.)
+(The ruling line comes next. Begin it with "RULING:" and then ONE of: TAKE · TAKE · reduced
+   size · WAIT · PASS · NO TRADE (stage). A WAIT must say what it waits for, in your own words
+   and with its number - a bar close, a level, an event - e.g. a Daily close back above the
+   zone top on volume. Never write a placeholder or angle brackets, and do not copy this note.)
+RULING:
 DECIDING FACTOR   (the single fact that decided it, written out as a full sentence)
 LEVEL VALIDATION   (EXACTLY four lines, one per level, in this order — ENTRY, STOP, T1, T2.
    Each line: the level you are proposing, then "supported by" a named fact with its NUMBER,
@@ -1537,7 +1537,13 @@ def _ruling_line(review: str) -> str:
         # string also lands in ai_review_log.csv, which is the scoring file.
         t = ln.replace("*", "").strip().lstrip("#• ").strip()
         if t.upper().startswith("RULING"):
-            return t.strip()[:160]
+            rest = t[len("RULING"):].lstrip(" :").strip()
+            # 11-Oct-2026 (CUB): the model copied the template's instruction line
+            # ("RULING   (write the line as ...") above its real ruling - skip it.
+            if not rest or rest.startswith("("):
+                continue
+            # "RULING   WAIT ..." (no colon, ACUTAAS) reads the same as "RULING: WAIT ..."
+            return ("RULING: " + rest)[:160]
     return ""
 
 

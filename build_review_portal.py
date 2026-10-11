@@ -130,7 +130,10 @@ def load_reviews() -> list[dict]:
         panel = panel.strip().strip("`").strip()
         r = meta.get(fn, {})
         ruling = ""
-        mm = re.search(r"\*{0,2}RULING:?\*{0,2}:?\s*\*{0,2}\s*([^\n]+)", body)
+        # First RULING line that carries a ruling - not an echoed template note
+        # ("RULING   (write the line as ...", CUB 11-Oct-2026).
+        mm = next((m for m in re.finditer(r"\*{0,2}RULING:?\*{0,2}:?[ \t]*\*{0,2}[ \t]*([^\n]+)", body)
+                   if not m.group(1).strip("* ").startswith("(")), None)
         if mm:
             ruling = mm.group(1).strip("* ")
         elif r.get("ai_ruling"):
