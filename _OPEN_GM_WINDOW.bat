@@ -30,7 +30,9 @@ REM is exactly how a spawned/scripted launch runs it.
 REM Wait up to ~60s for Streamlit to bind the port. It usually takes 3-8s cold.
 set /a TRIES=0
 :wait
-netstat -ano | findstr /r /c:":%PORT% .*LISTENING" >nul 2>&1
+REM Ask the app itself (11-Oct): a bound port is not a served page, and the
+REM port check could also be fooled by an old server still on 8501.
+curl.exe -s -m 2 http://localhost:%PORT%/_stcore/health 2>nul | findstr /c:"ok" >nul
 if %errorlevel%==0 goto up
 set /a TRIES+=1
 if %TRIES% GEQ 60 (
@@ -44,7 +46,9 @@ goto wait
 :up
 REM The port is bound a moment before the app can actually serve a page; without
 REM this the new tab lands on a connection error and has to be reloaded.
-ping -n 4 127.0.0.1 >nul
+REM ~5 s: lets Streamlit open its own dashboard tab first, so the two Chrome
+REM launches do not race (a URL handed to Chrome while it is still starting can be dropped).
+ping -n 6 127.0.0.1 >nul
 
 REM A TAB in the Chrome window that is already open, beside the Commander tab
 REM Streamlit opened - NOT a separate window (22-Sep, Jay). Chrome with a bare

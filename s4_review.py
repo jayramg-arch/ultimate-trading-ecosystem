@@ -678,8 +678,12 @@ WHERE S4 IS TOO BLUNT   (what its mechanical ruling gets wrong or misses, and wh
    version of this setup would look like vs how close this one is)
 
 RECOMMENDATION
-RULING: TAKE | TAKE · reduced size | WAIT for <specific bar/level/event> | PASS | NO TRADE (stage)
-DECIDING FACTOR   (one sentence)
+RULING   (write the line as "RULING: " then ONE of: TAKE · TAKE · reduced size · WAIT · PASS ·
+   NO TRADE (stage). A WAIT must say what it waits for, in your own words and with its
+   number - a bar close, a level, an event - e.g. a Daily close back above the zone top on
+   volume. Never write a placeholder or angle brackets; a ruling with nothing filled in is
+   not a ruling.)
+DECIDING FACTOR   (the single fact that decided it, written out as a full sentence)
 LEVEL VALIDATION   (EXACTLY four lines, one per level, in this order — ENTRY, STOP, T1, T2.
    Each line: the level you are proposing, then "supported by" a named fact with its NUMBER,
    then "against" a named fact with its NUMBER, then "flips if" the one observation that
@@ -698,7 +702,7 @@ PLAN   (state the TRADE TYPE first, then entry method · stop · T1/T2 with R �
    canon follows the trade type: positional 3R/5R, swing 2R/4R; never write a 2R T1 on a
    positional plan. Take levels from the panel, correct them only if you say why. Do not
    label an R you have not computed from entry and stop.)
-FLIPS IF   (one sentence)
+FLIPS IF   (the one observation that would change the ruling, written out as a full sentence)
 
 Write PLAIN TEXT. No LaTeX and no math markup: no dollar-sign math, no backslash commands.
 Write RV 1.07, Σ+6, 0.0× ATR, +0.8%, ≥ 2R as plain characters.
@@ -1415,6 +1419,15 @@ def r_check(review: str, min_r: float = 2.0) -> str:
 # ---------------------------------------------------------------------------------------
 # Logging / notify
 # ---------------------------------------------------------------------------------------
+_PLACEHOLDERS = ("<specific bar/level/event>", "(one sentence)")
+
+
+def _placeholder_echo(review: str) -> bool:
+    """True when the model copied the answer template instead of filling it in."""
+    r = review or ""
+    return any(t in r for t in _PLACEHOLDERS) or bool(re.search(r"RULING:?\**:?\s*\**\s*WAIT for <", r))
+
+
 def lv_audit(review: str) -> str:
     """Did the model actually RULE on the four levels? (22-Sep-2026, P2.)
 
@@ -1434,7 +1447,7 @@ def lv_audit(review: str) -> str:
     out = []
     # 9-Oct-2026 (CUB): the model copied the answer TEMPLATE's placeholders verbatim
     # ("RULING: WAIT for <specific bar/level/event>", "DECIDING FACTOR (one sentence)").
-    _ph = [t for t in ("<specific bar/level/event>", "(one sentence)") if t in (review or "")]
+    _ph = [t for t in _PLACEHOLDERS if t in (review or "")]
     if _ph:
         out.append("the model echoed the template placeholder " + " and ".join('"%s"' % t for t in _ph)
                    + " - the ruling is not filled in; re-run the review")
@@ -1692,7 +1705,16 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
         LAST_RESULT = {"rc": 0, "review": review, "path": path, "head": head, "symbol": d["symbol"], "tf": tf_lbl}
         return 0
     pos_txt = position_context(d["symbol"])
-    review, prov = deliberate(build_prompt(read_txt, pos_txt), args.provider)
+    _prompt = build_prompt(read_txt, pos_txt)
+    review, prov = deliberate(_prompt, args.provider)
+    # 11-Oct-2026: CUB and ACUTAAS (Daily) both came back "RULING: WAIT for <specific
+    # bar/level/event>" - the template text copied, nothing decided. Ask ONCE more,
+    # naming the fault; if it still echoes, lv_audit flags it as before.
+    if _placeholder_echo(review):
+        print("  [retry] the ruling echoed the template placeholder - asking once more")
+        review, prov = deliberate(_prompt + "\n\nYOUR PREVIOUS ANSWER COPIED THE TEMPLATE TEXT INTO "
+                                  "THE RULING INSTEAD OF DECIDING. Write the ruling out in full, "
+                                  "with the specific bar, level or event and its number.", args.provider)
     rc_txt = r_check(review)
     _, oi_txt = oi_digest(read_txt)
     _, lv_txt = level_check(read_txt, review)

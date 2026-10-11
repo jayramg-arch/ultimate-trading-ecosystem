@@ -58,20 +58,24 @@ IF ERRORLEVEL 1 (
 )
 :preflight_done
 
-:: Start Streamlit in the background
-:: We remove the hardcoded port 8501 to allow auto-fallback if another instance is running
 echo 🚀 Launching Mission Control...
 
 :: ---- second tab: the Golden Matcher, on the Trigger Board -----------------
 :: See _OPEN_GM_WINDOW.bat. Spawned before Streamlit takes the console; it polls
-:: the port and opens when the server answers. Skipped if :8501 is already held
-:: (Streamlit would fall back to another port, so 8501 would be someone else's
-:: page - usually an orphaned server; STOP_COMMANDER.bat clears it).
-netstat -ano | findstr /r /c:":8501 .*LISTENING" >nul 2>&1
+:: the port and opens when the server answers. The port is pinned to 8501
+:: (--server.port) so Streamlit fails loudly rather than moving elsewhere.
+:: ---- a restart REPLACES the old server -------------------------------------
+:: Closing the Commander console does not always kill the server (the venv's
+:: python starts a second python that does the serving, and it can outlive the
+:: console). The old check here found :8501 busy, skipped the Golden Matcher
+:: tab, and Streamlit moved to another port - only the dashboard opened (11-Oct).
+:: So stop any old Commander server first; anything else on 8501 is left alone.
+powershell -NoProfile -ExecutionPolicy Bypass -File "%ROOT_DIR%stop_commander.ps1"
 IF ERRORLEVEL 1 (
-    start "GM tab" /MIN cmd /c ""%ROOT_DIR%_OPEN_GM_WINDOW.bat" 8501"
+    echo   [note] :8501 is held by something that is not the Commander.
+    echo          Close it, or Streamlit will refuse to start on 8501.
 ) ELSE (
-    echo   [note] :8501 is already in use - skipping the Golden Matcher tab.
+    start "GM tab" /MIN cmd /c ""%ROOT_DIR%_OPEN_GM_WINDOW.bat" 8501"
 )
 :: RUN IN THE FOREGROUND. This was:
 ::     start "Commander Server" /B "%PYTHON_EXE%" -m streamlit run ...
@@ -85,7 +89,7 @@ IF ERRORLEVEL 1 (
 :: Foreground means the console owns the process: Ctrl+C reaches Streamlit, it
 :: shuts down, the batch ends and the window closes. Streamlit on Windows
 :: sometimes wants a second Ctrl+C — that is normal.
-"%PYTHON_EXE%" -m streamlit run "%APP_SCRIPT%" --server.headless=false
+"%PYTHON_EXE%" -m streamlit run "%APP_SCRIPT%" --server.headless=false --server.port 8501
 
 :: Only hold the window open if it FAILED, so the error is readable. A clean
 :: Ctrl+C exits quietly instead of demanding a keypress.
