@@ -1375,6 +1375,7 @@ with st.sidebar:
         ("🩺  STATE OF MARKET", [
             ("🌐 MACRO",       "MACRO"),
             ("📈 BREADTH",     "BREADTH"),
+            ("🎲 REGIME HMM",  "HMM"),
             ("📰 NEWS",        "NEWS"),
         ]),
         ("📅  DAILY INTEL", [
@@ -4248,6 +4249,12 @@ elif page == 'POST-MARKET':
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == 'BREADTH':
     commander_pages.run("breadth", globals())   # page body: commander_pages/breadth.py
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  11-Oct-2026 — MARKET REGIME (Hidden Markov Model: calm vs volatile)
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == 'HMM':
+    commander_pages.run("market_hmm", globals())   # page body: commander_pages/market_hmm.py
 
 
 # ══════════════════════════════════════════════════════════════════════════════
