@@ -1508,6 +1508,11 @@ if True:
                             # size through a rebuild without any manual re-widening.
                             _gb.configure_column(_pc, pinned=(None if MOBILE_VIEW else "left"),
                                                  width=_pw, minWidth=_pw, suppressSizeToFit=True)
+                    # Book-fit columns (11-Oct-2026): not pinned, but wide enough to read - the
+                    # 120px default floor cut Fit's text ("β1.20 · mkt r0.41 · most like ...").
+                    for _bc, _bw in (("ΔBets", 90), ("Fit", 360)):
+                        if _bc in _v.columns:
+                            _gb.configure_column(_bc, width=_bw, minWidth=_bw, suppressSizeToFit=True)
                     # Grid-level sort indicator, matching the dataframe order applied in
                     # _board_apply_filters, so the header arrow agrees with what is on
                     # screen. The maximized board keeps S4-GO primary (it is a GO monitor);
