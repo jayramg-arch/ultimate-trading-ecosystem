@@ -4,6 +4,14 @@
 
 ---
 
+
+> **v67.4.27 (12 Oct 2026) — the panel is retired.** You read the S4 panel, so v67's table
+> (both views), its row helpers and the retired ML win-probability model are gone; what only
+> they used is dead code that Pine drops. Kept: every value S4 binds from v67, everything drawn
+> on the chart, and all inputs (so saved settings do not shift). New: the two-tier stop draws a
+> dashed thesis line and labels the slot stop "Disaster SL · Dhan" (Doc 25 Part 7e). Sections
+> below that describe panel rows are history.
+
 ## ⚡ June 2026 — PURE PRICE-ACTION SYNC (read first; supersedes the Alpha-Score / catalyst gates below)
 
 The Dashboard's **Alpha Score (`f_calc_alpha_score`) and its catalyst gates were converted to pure price action** to match `bull_screener.py` and the Unified Ecosystem. **Recompile in TradingView.** Same conversions as the Unified Ecosystem (see that guide §⚡ or Bull Screener §0):

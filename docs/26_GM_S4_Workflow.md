@@ -230,6 +230,7 @@ Each of these has already cost a day or more.
 | S4 alert path (ngrok + receiver) | TradingView alert reads "Webhook delivery failed — 404" (tunnel offline) or "502" (receiver down); the review never happens and TradingView does not retry | Telegram **S4 ALERT PATH DOWN** from the 15-min check (9:15 onward); then `START_ALERT_REVIEWER.bat` and `REVIEW SYMBOL TF` for anything missed |
 | Open risk inside budget | a book that loses far more than planned if the tape breaks | Risk Shield 🔥 Open risk card |
 | Thesis alerts set (two-tier stop) | a close below a holding's thesis passes unnoticed; only the farther Dhan disaster stop is left | auto-pilot Phase 12b4 line in the evening digest; `python tv_thesis_alerts.py --dry-run`; the receiver must be up (`/thesis-alert`) |
+| S5 footprint rows fit the stock | S5's order-flow rows read "ROWS TOO COARSE" and say nothing | the reviewer fits its own tab; on yours click `Set S5 Rows` (SET_S5_ROWS.bat) after changing symbol |
 
 ## 6b. AWAY FROM THE DESK (10–11 Oct 2026)
 

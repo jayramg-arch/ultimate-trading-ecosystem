@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 12 Oct · 58 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 12 Oct · 61 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,27 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">12 Oct<br>v67 panel retired</td>
+        <td><b>v67.4.27: the panel is gone; v67 is the chart and S4's data feed.</b> You read S4, and the first
+        v67.4.27 build was 99 tokens over the ceiling — the panel was the cost. Removed: the table, both views and the
+        retired ML win-probability model. Kept: every value S4 binds, every chart drawing, every input. The reviewer's
+        v67 OI cross-check now reads S4's row, which carries the same OI.</td>
+        <td class="af">08 · 18 · 32</td>
+      </tr>
+      <tr>
+        <td class="dt">12 Oct<br>S5 rows fit</td>
+        <td><b>S5's footprint rows are sized to the stock.</b> At 200 ticks a TVSMOTOR 125m bar spanned 3 rows, so the
+        order-flow read could say nothing. Rows are now ATR ÷ 10 ÷ tick size (tick from Dhan's scrip master). The
+        reviewer fits its own S5 tab before every read; <b>Set S5 Rows</b> does yours after a symbol change.</td>
+        <td class="af">26 · 30</td>
+      </tr>
+      <tr>
+        <td class="dt">12 Oct<br>board label</td>
+        <td><b>"4/5 · recent PA", not "no funda".</b> A row that passes every gate on a pattern a few bars old is capped
+        at 4/5 (S4 reads the current bar); the label had fallen through to "no funda" — MOREALTY 75m, an ETF.</td>
+        <td class="af">23</td>
+      </tr>
       <tr>
         <td class="dt">12 Oct<br>two-tier stop</td>
         <td><b>A thesis level beside the Dhan stop.</b> Measured: 3 of 8 stop-outs were wick sweeps that closed back

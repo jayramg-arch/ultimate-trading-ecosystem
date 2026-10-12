@@ -213,6 +213,22 @@ footer a{color:var(--acc)}
 <main>
 
 <div class="note warn">
+  <span class="tag">v67.4.27 (12 Oct) — the panel is retired; v67 is now the chart and S4's data feed</span>
+  <p>You read the <b>S4 panel</b> now, so v67's own table is gone: the table, its row helpers and both views
+  (Decision Mode and Detailed). The first v67.4.27 build was 99 tokens over the 100,256 ceiling, and the panel was
+  the cost. Everything only the panel used is now dead code, which Pine drops. The retired <b>ML win probability</b>
+  went with it (S4 stopped reading it on 21 Sep).</p>
+  <p><b>Kept, unchanged:</b> every value S4 binds from v67 (RS/RRG, sector stage, stage weeks, slope, futures OI
+  and price, the pyramid fields — S4's MY TRADE and POSITION rows), and everything drawn on the chart: the slot
+  lines, the Chandelier trail, the 30/40-week MAs, the AVWAP, the stage ribbon, the pyramid band and the signal
+  markers. <b>All inputs are kept</b>, the panel's own included, so saved settings do not shift.</p>
+  <p><b>New: the two-tier stop.</b> When a holding's thesis sits above its resting Dhan stop, v67 draws the thesis
+  as a dashed orange line (“Thesis SL · close below = exit”) and labels the slot stop “Disaster SL · Dhan”. The
+  thesis rides the nightly Chandelier book, so nothing is typed in (Doc 25 Part 7e).</p>
+  <p>The sections below that describe panel rows are history; the rows no longer render.</p>
+</div>
+
+<div class="note warn">
   <span class="tag">v67.4.26 (4 Oct) — the Chandelier line is Risk Shield's number</span>
   <p>You trail stops off v67's <b>ALGO Chandelier TSL</b>, so it now draws exactly what Risk Shield shows.
   v67 cannot see the journal, so it used to guess the trade type from the chart: on the six swing holdings it drew
@@ -463,7 +479,7 @@ footer a{color:var(--acc)}
     finite</b>: this file uses <b>41</b> of its 64, and the exports account for <b>26</b> of them &mdash; the twenty-sixth was added on 1 September so Section Four could show the stock-versus-<em>sector</em> rotation as well as the index one.</p>
   </div>
 
-  <h3>The ML win probability — computed here, read elsewhere</h3>
+  <h3>The ML win probability — REMOVED in v67.4.27 (12 Oct); S4's base-rate row replaced it on 21 Sep</h3>
   <p>A logistic scorer over six inputs — daily RSI, ATR as a percent of price, Bollinger width,
   relative strength against the index, the asset-quality score and the drawdown from the 52-week
   high. It is <b>computed on this surface and bound across</b> to Section Four's panel.</p>

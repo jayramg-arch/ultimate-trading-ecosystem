@@ -26,6 +26,7 @@ Arrive with the book already decided: stops covered, the day's trims known, and 
 - Check the window "S4 webhook receiver :8000" is open — closing it is the only way alerts stop being reviewed.
 - Check TradingView has its six tabs open: S4 Phase-2 and S5 Layout (yours), S4 Reviewer and S5 Reviewer, Phase-1 and Panel Layout. If the reviewer tabs are missing, reviews FAIL loudly; they never borrow yours.
 - Banner green = reviewer idle.
+- On your S5 tab, after any symbol change: click Set S5 Rows (fits the footprint rows to the stock; the reviewer fits its own tab by itself).
 - Open: [Web Commander · Dashboard](http://localhost:8501/?p=DASHBOARD)
 
 ### 08:50 · Read the morning digest, then decide the exits (YOU)
