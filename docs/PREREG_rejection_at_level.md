@@ -56,3 +56,31 @@ no gate.
 - Bootstrap **by symbol**, 10,000 resamples.
 - The definition (10% tolerance, upper-half close, the level set) is not tuned before the
   run. A failed result is recorded as failed, not re-sliced.
+
+## Amendment 1 — H2: weak latest bar (registered 12 Oct 2026, ~22:45 IST, ledger rows: 0)
+
+**Source:** Jay, 12 Oct 2026: the B gate passes a green bar with a long top wick (green OR
+upper-half close), and he reads the latest closed bar by eye before ordering. Tightening B
+was measured and rejected three times in Aug (fills 314 → 241, removed trades were net
+winners), so this is registered as a read to be measured, not a gate.
+
+**Definition (fixed — `gm_trigger_board.bar_grade`, same constants in
+`Latest_Bar_Read_v1.0.pine`):** on the same trigger bar the ledger already records
+(o, h, l, c),
+- **weak** = close in the lower third of the range, OR upper wick ≥ 50% of the range;
+- **strong** = close in the upper third AND upper wick < 25%;
+- **neutral** = otherwise. Zero-range bars are excluded and counted.
+
+**H2:** mean R10 of NOT-weak rows (strong + neutral) exceeds weak rows by **≥ +0.25R**, the
+median R10 of weak rows is **≤** the not-weak median, and the symbol-bootstrap 95% CI of
+the mean difference excludes zero on the positive side.
+
+Same population, entry, stop, R10 definition, per-plan-type judgement, bootstrap and
+run-once rule as H1. Threshold: **≥ 30 weak and ≥ 30 not-weak rows** in a plan-type cell.
+H1 and H2 are run together, once each cell is ready for its own hypothesis; one passing
+does not rescue the other.
+
+**If H2 passes:** a proposal (with Jay, after a second look at double the sample) to make
+the weak read change the ENTRY — e.g. a buy-stop above a weak trigger bar instead of the
+retest limit — not to suppress the alert. **If it fails:** the Bar column and the
+indicator stay display reads, and the manual check can be dropped with a clear conscience.

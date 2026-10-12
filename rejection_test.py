@@ -3,6 +3,8 @@
 
     python rejection_test.py          counts only (the default until the threshold is met)
     python rejection_test.py --run    run the registered test once - refuses below threshold
+
+H1 rejection at the level; H2 (amendment 1) weak latest bar. See the pre-registration.
 """
 from __future__ import annotations
 
@@ -65,40 +67,65 @@ def _boot(a: pd.DataFrame, b: pd.DataFrame, rng) -> tuple[float, float]:
     return float(np.percentile(diffs, 2.5)), float(np.percentile(diffs, 97.5))
 
 
+def _weak(row) -> float:
+    """H2 label: 1 weak, 0 not weak, nan for a zero-range bar (excluded and counted)."""
+    from gm_trigger_board import bar_grade
+    r = bar_grade(row.get("o"), row.get("h"), row.get("l"), row.get("c"))
+    return np.nan if r is None else float(r[0] == "weak")
+
+
+def _test(name, g, col, pos, neg, rng) -> None:
+    """One registered hypothesis on one plan-type cell: mean(pos) - mean(neg) >= H_MARGIN,
+    median(pos) >= median(neg), symbol-bootstrap CI lower bound > 0."""
+    a, b = g[g[col] == pos], g[g[col] == neg]
+    diff = a["R"].mean() - b["R"].mean()
+    med_ok = a["R"].median() >= b["R"].median()
+    lo, hi = _boot(a, b, rng)
+    passed = diff >= H_MARGIN and med_ok and lo > 0
+    print("  %s: %.2fR (n %d) vs %.2fR (n %d) · diff %+.2fR · CI [%.2f, %.2f] · median %s · %s" % (
+        name, a["R"].mean(), len(a), b["R"].mean(), len(b), diff, lo, hi,
+        "ok" if med_ok else "worse", "PASSES" if passed else "FAILS"))
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--run", action="store_true")
     a = ap.parse_args()
     d = load()
-    print("Rejection-at-level test (pre-registered 12-Oct-2026) - ledger rows after registration: %d" % len(d))
+    print("Rejection-at-level test (pre-registered 12-Oct-2026; H2 weak bar, amendment 1) - "
+          "ledger rows after registration: %d" % len(d))
     if d.empty:
         print("  no rows yet - the board writes one per 5/5 row on every rebuild")
         return 0
     d["R"] = [outcome(r, 10) for _, r in d.iterrows()]
+    d["weak"] = [_weak(r) for _, r in d.iterrows()]
     ok = d[d["R"].notna()]
-    print("  with R10 elapsed: %d · excluded / pending: %d" % (len(ok), len(d) - len(ok)))
-    cells = {}
+    print("  with R10 elapsed: %d · excluded / pending: %d · zero-range bars (H2 only): %d"
+          % (len(ok), len(d) - len(ok), int(ok["weak"].isna().sum())))
+    ready1, ready2 = {}, {}
     for pt, g in ok.groupby("plan"):
         nr, nn = int((g["rej"] == 1).sum()), int((g["rej"] == 0).sum())
-        cells[pt] = (g, nr, nn)
-        print("  %-11s rejection %3d · other %3d %s" % (pt, nr, nn,
-              "(ready)" if nr >= MIN_N and nn >= MIN_N else "(need %d each)" % MIN_N))
+        nw, ns = int((g["weak"] == 1).sum()), int((g["weak"] == 0).sum())
+        r1, r2 = nr >= MIN_N and nn >= MIN_N, nw >= MIN_N and ns >= MIN_N
+        print("  %-11s H1 rejection %3d · other %3d %s   H2 weak %3d · not-weak %3d %s" % (
+            pt, nr, nn, "(ready)" if r1 else "(need %d each)" % MIN_N,
+            nw, ns, "(ready)" if r2 else "(need %d each)" % MIN_N))
+        if r1:
+            ready1[pt] = g
+        if r2:
+            ready2[pt] = g
     if not a.run:
         return 0
-    ready = {pt: v for pt, v in cells.items() if v[1] >= MIN_N and v[2] >= MIN_N}
-    if not ready:
-        print("REFUSED: no plan-type cell has %d rejection AND %d other rows yet." % (MIN_N, MIN_N))
+    if not ready1 and not ready2:
+        print("REFUSED: no plan-type cell has %d + %d rows for either hypothesis yet." % (MIN_N, MIN_N))
         return 1
     rng = np.random.default_rng(12102026)
-    for pt, (g, nr, nn) in ready.items():
-        rj, ot = g[g["rej"] == 1], g[g["rej"] == 0]
-        diff = rj["R"].mean() - ot["R"].mean()
-        med_ok = rj["R"].median() >= ot["R"].median()
-        lo, hi = _boot(rj, ot, rng)
-        passed = diff >= H_MARGIN and med_ok and lo > 0
-        print("\n%s: rejection mean %.2fR (n %d) vs other %.2fR (n %d) · diff %+.2fR · CI [%.2f, %.2f] · "
-              "median %s · H %s" % (pt, rj["R"].mean(), nr, ot["R"].mean(), nn, diff, lo, hi,
-                                     "ok" if med_ok else "worse", "PASSES" if passed else "FAILS"))
+    for pt, g in ready1.items():
+        print("\n%s" % pt)
+        _test("H1 rejection vs other", g, "rej", 1, 0, rng)
+    for pt, g in ready2.items():
+        print("\n%s" % pt)
+        _test("H2 not-weak vs weak", g, "weak", 0.0, 1.0, rng)
     return 0
 
 

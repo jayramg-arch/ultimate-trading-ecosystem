@@ -659,6 +659,13 @@ footer em{color:var(--ink-2)}
   rule on instinct: the board's <b>Rej</b> column marks real rejections, every GO row is logged, and
   <code>docs/PREREG_rejection_at_level.md</code> decides — once, at 30 + 30 rows per plan type — whether rejections
   beat the other GOs by at least 0.25R. Until then, read it with your eye; it moves no gate.</p>
+  <h4>The latest bar — read it, and let the read be measured (12 Oct)</h4>
+  <p>The B gate passes a green bar with a long top wick, on purpose: tightening it cost winners every time it
+  was tried. So the bar is read before the order, not at the alert. The board's <b>Bar</b> column and the
+  <b>Latest Bar Read</b> indicator (<code>Latest_Bar_Read_v1.0.pine</code>, a separate indicator, no S4
+  compile) show the same grade: <b>weak</b> = close in the lower third or a top wick of at least half the
+  range. Whether a weak bar returns less is H2 of the same pre-registration, from the same ledger. If it
+  passes, it changes the <i>entry</i> (a buy-stop above a weak bar), never the alert.</p>
 </section>
 
 

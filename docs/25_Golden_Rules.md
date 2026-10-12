@@ -482,6 +482,8 @@ morning and evening digests list any holding that closed below its thesis.
 
 **Rejection at the level (12 Oct) — measured before it is ruled.** The GO requires price AT a level, not a bar that probed it and was pushed back. The board's **Rej** column marks real rejections; every GO row is logged; `docs/PREREG_rejection_at_level.md` decides once, at 30 + 30 rows per plan type, whether they beat the other GOs by ≥ 0.25R. Until then it moves no gate.
 
+**The latest bar (12 Oct) — read it, and let the read be measured.** The B gate passes a green bar with a long top wick on purpose. The board's **Bar** column and the **Latest Bar Read** indicator (`Latest_Bar_Read_v1.0.pine`, separate from S4) grade the last closed bar: weak = close in the lower third or a top wick ≥ half the range. H2 of the same pre-registration measures it; if it passes it changes the entry (buy-stop above a weak bar), never the alert.
+
 ## PART 8 — THE CHECKLIST (use this at the moment of the trade)
 
 Run it in order. **Stop at the first NO.**

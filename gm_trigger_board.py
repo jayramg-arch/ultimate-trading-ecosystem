@@ -1103,6 +1103,49 @@ def rejection_read(ctx: dict) -> tuple[bool, str, float | None]:
     return True, "✓ %s %s" % (tg, f"{p:,.2f}"), p
 
 
+# LATEST-BAR READ (12-Oct-2026, Jay). The B gate passes a bar that closed green OR in the
+# upper half, so a green bar with a long top wick passes - kept loose on purpose (the alert
+# is a trigger; tightening it was measured three times in Aug and cost winners). Jay reads
+# the latest closed bar by eye before ordering; this names that read. DISPLAY ONLY.
+# The SAME four numbers are constants in Latest_Bar_Read_v1.0.pine (a test checks it).
+BAR_WEAK_CLOSE_POS   = 1 / 3    # close in the lower third of the range  -> weak
+BAR_WEAK_TOP_WICK    = 0.50     # upper wick >= half the range           -> weak
+BAR_STRONG_CLOSE_POS = 2 / 3    # close in the upper third ...
+BAR_STRONG_TOP_WICK  = 0.25     # ... and upper wick under a quarter      -> strong
+
+
+def bar_grade(o, h, l, c):
+    """('weak'|'neutral'|'strong', close position 0-1, upper wick share 0-1), or None for a
+    zero-range / unreadable bar."""
+    try:
+        o, h, l, c = float(o), float(h), float(l), float(c)
+    except (TypeError, ValueError):
+        return None
+    rng = h - l
+    if not rng > 0:
+        return None
+    cpos = (c - l) / rng
+    wick = (h - max(o, c)) / rng
+    if cpos < BAR_WEAK_CLOSE_POS or wick >= BAR_WEAK_TOP_WICK:
+        g = "weak"
+    elif cpos >= BAR_STRONG_CLOSE_POS and wick < BAR_STRONG_TOP_WICK:
+        g = "strong"
+    else:
+        g = "neutral"
+    return g, cpos, wick
+
+
+def bar_read(ctx: dict) -> str:
+    """Board text for the last closed trigger bar, e.g. 'weak · close 28% · top wick 61%'.
+    '' when the bar is unknown - never a guess."""
+    b = (ctx or {}).get("bar") or {}
+    r = bar_grade(b.get("o"), b.get("h"), b.get("l"), b.get("c"))
+    if r is None:
+        return ""
+    g, cpos, wick = r
+    return "%s · close %d%% · top wick %d%%" % (g, round(cpos * 100), round(wick * 100))
+
+
 REJ_LEDGER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                           "logs", "rejection_ledger.csv")
 _REJ_LOCK = threading.Lock()
@@ -2167,6 +2210,9 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         # Rejection at the level (12-Oct-2026): did the trigger bar probe a level that passed
         # location and close back above it, upper half? Display only - see rejection_read.
         "Rej":           _rej_txt,
+        # Latest-bar read (12-Oct-2026): weak / neutral / strong on the last closed trigger bar.
+        # Display only - see bar_grade. Pre-registered as H2 in PREREG_rejection_at_level.md.
+        "Bar":           bar_read(ctx),
         # Trend alignment grade (2-Oct-2026, Jay): W macro · D location · trigger-TF shift.
         # DISPLAY ONLY - never gates; commander_core.trend_grade / S4Core.trendGrade.
         "Trend":         (str(ctx.get("trend_grade") or "") + (f" · {ctx.get('trend_grade_why')}" if ctx.get("trend_grade_why") else "")),
