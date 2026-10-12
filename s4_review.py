@@ -588,6 +588,25 @@ PARTICIPATION — use these ACTIVELY, they are where the panel earns its keep, n
   trend of participation; a delta divergence at a new low/high is a reversal tell. Use delta
   to BREAK TIES the price gates leave open (RV borderline, tested vs fresh zone) — it is a
   bar-level proxy, so it grades, it does not veto on its own.
+- ORDER FLOW AT THE LEVEL (S5 Participation: "At the level" + "ORDER-FLOW READ"). S5 reads
+  the footprint of the last 3 closed bars against its S/R ladder and names ONE verdict:
+    DEFENDED (support)          sellers absorbed or trapped at the level, or a large passive
+                                buyer inferred -> supports a long here; void on a close below it.
+    BREAKING (support)          stacked sell imbalances closed it through -> no long; the level
+                                is now overhead.
+    RESPONSIVE BUYING (support) buyers stepped in off it -> confirms a bounce.
+    CAPPED (resistance)         buying absorbed -> do not buy the breakout until a bar closes
+                                above it on buy imbalances; it is the first test, not the target.
+    FAILED BREAKOUT (resistance) buyers trapped back under it -> no breakout entry; re-arms on a
+                                close back above with stacked buy imbalances.
+    INITIATIVE BREAKOUT (resist.) real buyers took it -> confirms the breakout.
+    NO LEVEL / none             low information.
+  Tie it to the PLAN's levels: a CAPPED/FAILED level between entry and T1 is the first test;
+  a DEFENDED level between stop and entry means a close below it breaks the thesis before the
+  stop. These GRADE and never gate, and they are UNVALIDATED (TradingView-only, cannot be
+  backtested) - with ONE exception the system enforces itself: FLOW-GATE turns a TAKE on a
+  breakout entry into WAIT after a FAILED BREAKOUT at that entry level. "Big passive order" is
+  an inference from executed volume, never a sighting of the order book.
 - Read participation as ONE story: e.g. short build-up + absorption at VAL + AVWAP-Low
   holding = trapped shorts on a defended floor (strong long); long build-up + bleeding
   delta above VAH = late longs being distributed to (fade the GO).
@@ -1329,7 +1348,11 @@ def _first_num(txt: str):
 
 def r_check(review: str, min_r: float = 2.0) -> str:
     import re
-    m = re.search(r"(?ims)^\W*PLAN\W*$(.*?)(?=^\W*FLIPS IF|\Z)", review)
+    # The plan may sit ON the PLAN line (12-Oct-2026). The old pattern demanded "PLAN"
+    # alone on its line; since the template change the model writes "PLAN   SWING ·
+    # Buy-limit 52.47 ...", nothing matched, and R-CHECK silently printed nothing on
+    # every review that day (AEGISLOG, MOMENTUM50, DIVISLAB ...).
+    m = re.search(r"(?ims)^\W*PLAN\b(?!\s*COHERENCE)[ \t:]*(.*?)(?=^\W*FLIPS IF|\Z)", review)
     if not m:
         return ""
     plan = m.group(1)
@@ -1599,12 +1622,146 @@ def deriv_fields(read_txt: str) -> dict:
     # S5 PARTICIPATION — the reviewer merges the S5 tab, so the footprint lands here too
     take(read_txt, r"([+\-][\d.]+K?)\s+(?:buyers|sellers)", "fp_delta")
     take(read_txt, r"cum\s+\d+b\s+([+\-][\d.]+K?)", "fp_cum")
-    take(read_txt, r"(bearish divergence|bullish divergence|none - price and flow point the same way)", "fp_div")
+    # S5 prints "BEARISH - new 10b high on WEAKER flow" - the old pattern looked for
+    # "bearish divergence", which S5 never writes, so the field never recorded one.
+    take(read_txt, r"Divergence[^|]*\|\s*(BEARISH|BULLISH)\s*-\s*new", "fp_div")
+    if not d["fp_div"]:
+        take(read_txt, r"(none - price and flow point the same way)", "fp_div")
+    d["fp_div"] = d["fp_div"].lower()
     return d
 
 
+# ---------------------------------------------------------------------------------------
+# ORDER FLOW AT LEVELS (12-Oct-2026). S5's Participation section reads the footprint of the
+# last 3 closed bars against its S/R ladder and prints ONE verdict:
+#   at support    DEFENDED · BREAKING · RESPONSIVE BUYING
+#   at resistance CAPPED · FAILED BREAKOUT · INITIATIVE BREAKOUT    (else NO LEVEL / none)
+# Unvalidated by construction (TradingView-only, bar by bar): it GRADES. The one exception
+# is FLOW-GATE below, pre-registered in docs/PREREG_flow_gate.md.
+FLOW_FIELDS = ["of_verdict", "of_level", "of_tf", "of_age", "flow_gate"]
+_OF_VERDICTS = ("FAILED BREAKOUT", "INITIATIVE BREAKOUT", "RESPONSIVE BUYING",
+                "DEFENDED", "BREAKING", "CAPPED", "NO LEVEL")
+
+
+def flow_read(read_txt: str) -> dict:
+    """S5's ORDER-FLOW READ row -> verdict / side / level / tf / age. {} when absent."""
+    m = re.search(r"ORDER-FLOW READ\s*\|([^\n]*)", read_txt or "")
+    if not m:
+        return {}
+    row = m.group(1)
+    vd = next((v for v in _OF_VERDICTS if v in row), "")
+    if not vd:
+        return {}
+    out = {"verdict": vd, "side": "", "level": None, "tf": "", "age": None}
+    lm = re.search(r"(support|resistance)\s+([\d,]+(?:\.\d+)?)\s*\u00b7\s*([DWM])\s*\u00b7\s*"
+                   r"(last closed bar|(\d+) bars? ago)", row)
+    if lm:
+        out.update(side=lm.group(1), level=float(lm.group(2).replace(",", "")), tf=lm.group(3),
+                   age=0 if lm.group(4).startswith("last") else int(lm.group(5)))
+    return out
+
+
+def _plan_levels(read_txt: str, review: str) -> dict:
+    """The plan being judged: the model's own levels if it wrote them, else the panel's."""
+    ml = _model_levels(review) or {}
+    dv = deriv_fields(read_txt)
+    out = {}
+    for k in ("entry", "stop", "t1", "t2"):
+        v = ml.get(k)
+        if v is None:
+            try:
+                v = float(str(dv.get(k) or "").replace(",", "")) if dv.get(k) else None
+            except ValueError:
+                v = None
+        out[k] = v
+    return out
+
+
+def _chart_atr(read_txt: str):
+    """S4's title row prints 'ATR(<chart TF>) x' first - the trigger chart's ATR."""
+    m = re.search(r"ATR\((\w+)\)\s*([\d,]+(?:\.\d+)?)", read_txt or "")
+    return float(m.group(2).replace(",", "")) if m else None
+
+
+def flow_check(read_txt: str, review: str) -> tuple[dict, str]:
+    """FLOW-CHECK: S5's order-flow verdict set against the plan's entry / stop / T1.
+    Deterministic, printed after the deliberation like LEVEL CHECK. Grades, never gates."""
+    fr = flow_read(read_txt)
+    if not fr or fr["verdict"] == "NO LEVEL" or fr.get("level") is None:
+        return fr, ""
+    lv, vd = fr["level"], fr["verdict"]
+    pl = _plan_levels(read_txt, review)
+    e, st, t1 = pl.get("entry"), pl.get("stop"), pl.get("t1")
+    age = "last closed bar" if fr["age"] == 0 else "%s bar%s ago" % (fr["age"], "" if fr["age"] == 1 else "s")
+    lines = ["FLOW-CHECK · S5 order flow at the level (grades, never gates - unvalidated): "
+             "%s at %s %s ·%s, %s" % (vd, fr["side"], f"{lv:,.2f}", fr["tf"], age)]
+    if vd in ("CAPPED", "FAILED BREAKOUT"):
+        if e and t1 and e < lv < t1:
+            lines.append("  between entry %s and T1 %s: the first test on the way, not the target - scale before it"
+                         % (f"{e:,.2f}", f"{t1:,.2f}"))
+        if e and abs(lv - e) / e <= 0.01:
+            lines.append("  the entry sits AT this level - a breakout entry needs a close above %s first" % f"{lv:,.2f}")
+    elif vd in ("DEFENDED", "RESPONSIVE BUYING"):
+        if e and st and st < lv < e:
+            lines.append("  the defended level sits between stop %s and entry: a CLOSE below %s breaks the thesis "
+                         "before the stop fills" % (f"{st:,.2f}", f"{lv:,.2f}"))
+        elif st and lv < st:
+            lines.append("  the stop %s sits ABOVE the defended level - a wash down to %s would take you out first"
+                         % (f"{st:,.2f}", f"{lv:,.2f}"))
+        else:
+            lines.append("  supports a long at this level; void on a close below %s" % f"{lv:,.2f}")
+    elif vd == "BREAKING":
+        if e and st and st <= lv <= e:
+            lines.append("  a level INSIDE your risk is breaking - the floor under the plan is giving way")
+        else:
+            lines.append("  %s is overhead until a close back above it" % f"{lv:,.2f}")
+    elif vd == "INITIATIVE BREAKOUT":
+        lines.append("  confirms a breakout entry above %s; void on a close back below it" % f"{lv:,.2f}")
+    return fr, "\n".join(lines)
+
+
+def _breakout_entry(read_txt: str, review: str) -> bool:
+    """Is this a breakout-type entry? Breakout archetype / POS-BO / SWG-BO on the panel,
+    or a buy-STOP above a level in the panel's plan or the model's."""
+    txt = (read_txt or "") + "\n" + (review or "")
+    if re.search(r"\b(POS-BO|SWG-BO)\b", txt):
+        return True
+    if re.search(r"(?im)^(Setup|Archetype)[^|]*\|[^\n]*\bBreakout\b", read_txt or ""):
+        return True
+    return bool(re.search(r"(?i)buy[- ]?stop", txt))
+
+
+def flow_gate(read_txt: str, review: str, held: bool) -> tuple[bool, str, str]:
+    """FLOW-GATE (Jay, 12-Oct-2026) - the ONE place order flow changes a ruling.
+    A model TAKE becomes WAIT only when ALL hold: S5 reads FAILED BREAKOUT, within the last
+    2 closed bars, the entry is breakout-type, the failed level is within 0.5 x ATR of the
+    plan entry, and the name is NOT held (holdings are untouched). Never PASS - the setup is
+    not wrong, this attempt failed. Every firing is logged (flow_gate column) for the
+    pre-registered check in docs/PREREG_flow_gate.md; if overruled names do no worse than
+    untouched TAKEs, the gate comes out.
+    Returns (fired, printed line, log value)."""
+    if held or not re.search(r"RULING:?\**:?\s*\**\s*TAKE", review or ""):
+        return False, "", ""
+    fr = flow_read(read_txt)
+    if fr.get("verdict") != "FAILED BREAKOUT" or fr.get("level") is None or fr.get("age") is None:
+        return False, "", ""
+    if fr["age"] > 1 or not _breakout_entry(read_txt, review):
+        return False, "", ""
+    e = _plan_levels(read_txt, review).get("entry")
+    atr = _chart_atr(read_txt)
+    if not e or not atr or abs(fr["level"] - e) > 0.5 * atr:
+        return False, "", ""
+    lv = f"{fr['level']:,.2f}"
+    return (True,
+            "FLOW-GATE: S5 reads FAILED BREAKOUT at %s (%s) - buyers who took this level are trapped "
+            "back under it, and the plan is a breakout entry at that level.\n  ⚠ the model ruled TAKE — "
+            "OVERRULED: WAIT for a close back above %s on stacked buy imbalances (INITIATIVE BREAKOUT)"
+            % (lv, "last closed bar" if fr["age"] == 0 else "1 bar ago", lv),
+            "TAKE->WAIT @ %s" % lv)
+
+
 def save_review(symbol: str, tf: str, read_txt: str, review: str, provider: str, s4v: str,
-                source: str = "cli") -> str:
+                source: str = "cli", flow_gate_val: str = "") -> str:
     os.makedirs(LOG_DIR, exist_ok=True)
     ts = datetime.now()
     sym = symbol.split(":")[-1]
@@ -1616,7 +1773,7 @@ def save_review(symbol: str, tf: str, read_txt: str, review: str, provider: str,
     # manual (REVIEW.bat), board (s4_review --board, the Python board's GO rows) or cli.
     # Appended LAST so the self-healing header below still pads older rows.
     header = ["ts", "symbol", "tf", "s4_verdict", "ai_ruling", "provider", "file",
-              "my_call", "agreed"] + DERIV_FIELDS + ["source"]
+              "my_call", "agreed"] + DERIV_FIELDS + ["source"] + FLOW_FIELDS
     new = not os.path.exists(LOG_CSV)
     if not new:
         # SELF-HEAL THE HEADER (25-Sep-2026). The 16 derivative columns were added to the
@@ -1636,8 +1793,11 @@ def save_review(symbol: str, tf: str, read_txt: str, review: str, provider: str,
         if new:
             w.writerow(header)
         dv = deriv_fields(read_txt)
+        _of = flow_read(read_txt)
         w.writerow([ts.strftime("%Y-%m-%d %H:%M"), sym, tf, s4v, _ruling_line(review), provider,
-                    os.path.relpath(path, HERE), "", ""] + [dv[k] for k in DERIV_FIELDS] + [source])
+                    os.path.relpath(path, HERE), "", ""] + [dv[k] for k in DERIV_FIELDS] + [source]
+                   + [_of.get("verdict", ""), "" if _of.get("level") is None else _of["level"],
+                      _of.get("tf", ""), "" if _of.get("age") is None else _of["age"], flow_gate_val])
     return path
 
 
@@ -1721,6 +1881,16 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
         review, prov = deliberate(_prompt + "\n\nYOUR PREVIOUS ANSWER COPIED THE TEMPLATE TEXT INTO "
                                   "THE RULING INSTEAD OF DECIDING. Write the ruling out in full, "
                                   "with the specific bar, level or event and its number.", args.provider)
+    # FLOW-GATE runs on the MODEL's own ruling, before the house gates rewrite it, so a
+    # firing is recorded even when the exposure or index rule would also have stopped it -
+    # otherwise a Bear tier would leave the pre-registered check with no data at all.
+    _held = bool(pos_txt and pos_txt.startswith("HELD"))
+    fg_fired, fg_txt, fg_log = flow_gate(read_txt, review, _held)
+    if fg_fired:
+        review = re.sub(r"(RULING:?\**:?\s*\**\s*)TAKE[^\n]*",
+                        r"\g<1>WAIT — FLOW-GATE: failed breakout at the entry level (house rule; model had ruled TAKE)",
+                        review, count=1)
+    _, fc_txt = flow_check(read_txt, review)
     rc_txt = r_check(review)
     _, oi_txt = oi_digest(read_txt)
     _, lv_txt = level_check(read_txt, review)
@@ -1744,12 +1914,12 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
                         review, count=1)
     lva_txt = lv_audit(review)
     za_txt = zone_audit(read_txt, review)
-    for extra in (rc_txt, lv_txt, lva_txt, za_txt, oi_txt, ig_txt, hg_txt, xg_txt):
+    for extra in (rc_txt, lv_txt, lva_txt, za_txt, fc_txt, fg_txt, oi_txt, ig_txt, hg_txt, xg_txt):
         if extra:
             review = review.rstrip() + "\n\n" + extra
     tf_lbl = d["res"]
     path = save_review(d["symbol"], tf_lbl, read_txt, review, prov, s4_verdict_line(d),
-                       getattr(args, "source", "cli"))
+                       getattr(args, "source", "cli"), fg_log)
     head = "%s · %s · %s" % (d["symbol"], tf_lbl, prov)
     print("\n" + head + "\n" + "-" * len(head) + "\n" + review + "\n\nsaved " + os.path.relpath(path, HERE))
     if args.telegram:

@@ -370,6 +370,48 @@ footer a{color:var(--acc)}
     absorption at VAL plus the low-anchor holding is trapped shorts on a defended floor. It grades.
     It does not veto on its own.</p>
   </div>
+  <h4>Order flow at the level — new in v1.6 (12 Oct)</h4>
+  <p>Two rows added under Divergence · VA. They answer Jay's question: <em>what do absorption, trapped
+  traders, aggressive traders and big orders mean <b>at an S/R level</b></em>. S5 summarises the footprint
+  rows of the <b>last 3 closed bars</b> and places each signal against its own S/R ladder (the nearest two
+  levels each side on Daily, Weekly and Monthly — the same clustering engine as S4's S/R rows; S4's demand
+  and supply zones are not visible on this chart). A level counts when the bar's low or high came within
+  0.5 × ATR of it, or pierced it and closed back.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Signal</th><th>How it is read from the footprint</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Aggressive traders</td><td><b>Stacked imbalances</b>: 3 or more consecutive rows imbalanced on one side</td></tr>
+      <tr><td class="k">Absorption</td><td>The bar's extreme 25% carries ≥ 40% of its volume, delta pushes <em>into</em> the extreme, and the close pulls at least halfway away from it — aggression met a wall</td></tr>
+      <tr><td class="k">Trapped traders</td><td>One-sided aggression in the extreme rows (≥ 30% net delta), then within 2 bars a close back through the zone they traded in</td></tr>
+      <tr><td class="k">Big passive order</td><td>A row ≥ 3 × the bar's median row volume where the bar reversed. An <b>inference</b> from executed volume — Pine cannot see the order book</td></tr>
+      <tr><td class="k">Divergence</td><td>As before; it now strengthens the verdict when it agrees</td></tr>
+    </tbody>
+  </table></div>
+  <div class="tw"><table>
+    <thead><tr><th>ORDER-FLOW READ</th><th>Where</th><th>What it means for a long</th></tr></thead>
+    <tbody>
+      <tr><td class="k">DEFENDED</td><td>support</td><td>Sellers absorbed or trapped at the level, or a large passive buyer inferred. Supports a long; void on a close below the level</td></tr>
+      <tr><td class="k">BREAKING</td><td>support</td><td>Stacked sell imbalances closed it through. No long; the level is overhead until reclaimed</td></tr>
+      <tr><td class="k">RESPONSIVE BUYING</td><td>support</td><td>Buyers stepped in off the level. Confirms a bounce</td></tr>
+      <tr><td class="k">CAPPED</td><td>resistance</td><td>Buying absorbed. Don't buy the breakout until a bar closes above it on buy imbalances — it is the first test, not the target</td></tr>
+      <tr><td class="k">FAILED BREAKOUT</td><td>resistance</td><td>Buyers who took the break are trapped back under it. No breakout entry; re-arms on a close back above with stacked buy imbalances</td></tr>
+      <tr><td class="k">INITIATIVE BREAKOUT</td><td>resistance</td><td>Real buyers took the level. Confirms the breakout</td></tr>
+      <tr><td class="k">NO LEVEL / none</td><td>—</td><td>An event away from any level, or nothing — low information</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>At the level</b> prints the facts with prices (the bar, its H/L/C, the zone share and delta, stacked
+  rows, the later close that trapped someone, the big row). <b>ORDER-FLOW READ</b> prints the verdict, the
+  level and its timeframe, how many bars ago, what it means and what voids it. If the footprint rows are too
+  coarse for stacking to exist (fewer than 6 rows on the last bar), the row says so and suggests a
+  <i>Ticks per volume row</i> value — row height is fixed per chart, because Pine needs a compile-time value.</p>
+  <div class="note">
+    <span class="tag">Grades, never gates — with one exception</span>
+    <p>None of this can be backtested (TradingView-only, bar by bar), so it never moves GO, size or a stop,
+    and holdings are untouched. The one exception lives in the reviewer: <b>FLOW-GATE</b> turns a model TAKE
+    on a <em>breakout</em> entry into WAIT after a FAILED BREAKOUT at that entry level, within the last
+    2 bars, on a name you don't hold. It is pre-registered (<code>docs/PREREG_flow_gate.md</code>) and comes
+    out if the names it held back do no worse than the TAKEs it left alone.</p>
+  </div>
 </section>
 
 <section id="setups">

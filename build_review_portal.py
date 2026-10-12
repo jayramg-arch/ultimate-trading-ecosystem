@@ -86,7 +86,7 @@ def md_to_html(md: str) -> str:
             if not in_list:
                 out.append("<ul>"); in_list = True
             out.append("<li>%s</li>" % _md_inline(re.sub(r"^\s*(?:[-*•]|\d+\.)\s+", "", line)))
-        elif re.match(r"^(R-CHECK|LEVEL CHECK|LV-AUDIT|OI-CHECK|OPTIONS|INDEX-CHECK|HELD-CHECK|ZONE-AUDIT)", line) or line.startswith("  "):
+        elif re.match(r"^(R-CHECK|LEVEL CHECK|LV-AUDIT|OI-CHECK|OPTIONS|INDEX-CHECK|HELD-CHECK|ZONE-AUDIT|FLOW-CHECK|FLOW-GATE|EXPOSURE-CHECK)", line) or line.startswith("  "):
             flush()
             if in_list:
                 out.append("</ul>"); in_list = False
@@ -142,7 +142,7 @@ def load_reviews() -> list[dict]:
         # 22-Sep-2026: the derivative blocks are checks too - a compact (older) row that omits
         # them hides the one part of the review that validates the levels.
         checks = [l for l in body.splitlines()
-                  if re.match(r"^(R-CHECK|LEVEL CHECK|LV-AUDIT|OI-CHECK|INDEX-CHECK|HELD-CHECK|ZONE-AUDIT)", l)
+                  if re.match(r"^(R-CHECK|LEVEL CHECK|LV-AUDIT|OI-CHECK|INDEX-CHECK|HELD-CHECK|ZONE-AUDIT|FLOW-CHECK|FLOW-GATE|EXPOSURE-CHECK)", l)
                   or re.match(r"^\s+⚠", l)]
         warn = any("⚠" in l for l in body.splitlines() if l.startswith("  "))
         phase1 = "PHASE-1 · UNDERLYING INDEX of" in panel and "index panels NOT read" not in panel
@@ -158,6 +158,9 @@ def load_reviews() -> list[dict]:
             "provider": (r.get("provider") or "").replace("gemini:", ""),
             "my_call": (r.get("my_call") or "").strip(), "agreed": (r.get("agreed") or "").strip(),
             "checks": checks, "warn": warn, "phase1": phase1,
+            # FLOW-GATE (12-Oct-2026): the model ruled TAKE and S5's FAILED BREAKOUT at the
+            # entry level overruled it - logged for the pre-registered check.
+            "flowgate": (r.get("flow_gate") or "").strip(),
             "body_html": md_to_html(body), "panel": panel,
         })
     items.sort(key=lambda x: (x["date"], x["time"], x["file"]), reverse=True)
@@ -286,6 +289,8 @@ def render(items: list[dict]) -> str:
             hay = html.escape(" ".join([it["symbol"], it["tf"], it["ruling"], it["date"], it["s4"], it["my_call"]]).lower(), quote=True)
             mine = ('<span class="pill mine">%s%s</span>' % (html.escape(it["my_call"]), (" · " + ("agreed" if it["agreed"].lower() in ("y", "yes", "1", "true") else "disagreed")) if it["agreed"] else "")) if (it["my_call"] or it["agreed"]) else ""
             p1 = '<span class="pill other" title="ETF: the underlying index was read first (INDEX ARM = ETF WAIT)">ETF · index first</span>' if it["phase1"] else ""
+            if it.get("flowgate"):
+                p1 += '<span class="pill wait" title="FLOW-GATE: a TAKE on a breakout entry overruled to WAIT after a FAILED BREAKOUT at that level (%s)">FLOW-GATE</span>' % html.escape(it["flowgate"])
             _srcl = {"s4-alert": "S4 alert", "manual": "manual", "board": "board", "cli": "cli"}.get(it["source"], it["source"])
             _srcp = ('<span class="pill %s" title="what started this review">%s</span>'
                      % ("take" if it["source"] == "s4-alert" else "other", html.escape(_srcl)))

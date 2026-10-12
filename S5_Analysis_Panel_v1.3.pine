@@ -96,7 +96,7 @@
 // while capping what footprint can hoard. IF THE CHART EVER REPORTS "Memory limits
 // exceeded": drop this first (800, then 400), and turn show_fp off second.
 // The D/W/M security calls have their own contexts and are unaffected by it.
-indicator("S5 Analysis Panel v1.5", shorttitle="S5", overlay=true, max_lines_count=250, max_labels_count=500, max_boxes_count=100, max_bars_back=300, calc_bars_count=1500)
+indicator("S5 Analysis Panel v1.6", shorttitle="S5", overlay=true, max_lines_count=250, max_labels_count=500, max_boxes_count=100, max_bars_back=300, calc_bars_count=1500)
 
 grpLab = "LAB -- which engine to test"
 d_sr = input.bool(true, "S/R levels engine", group=grpLab, tooltip="Master switch for the horizontal-level engine (auto clustering + your manual levels). Turn OFF to study trendlines alone on a clean chart.")
@@ -1030,6 +1030,15 @@ float _mA1 = _okM ? srM.a1 : na
 float _mB1 = _okM ? srM.b1 : na
 int   _mA1t = _okM ? srM.a1t : na
 int   _mB1t = _okM ? srM.b1t : na
+// second-nearest levels each side (12-Oct-2026): the order-flow read places a signal
+// against ANY nearby level, and the bar that tested a level is often one level away
+// from where price sits now.
+float _dA2 = _okD ? srD.a2 : na
+float _dB2 = _okD ? srD.b2 : na
+float _wA2 = _okW ? srW.a2 : na
+float _wB2 = _okW ? srW.b2 : na
+float _mA2 = _okM ? srM.a2 : na
+float _mB2 = _okM ? srM.b2 : na
 
 // ============================================================================
 // GEOMETRY — 5/5 PIVOT POOL  (TradingView-documented)
@@ -1509,6 +1518,142 @@ if fpKnown and (barstate.islastconfirmedhistory or (barstate.isrealtime and bars
                 fpImbSell += 1
 
 // ============================================================================
+// ORDER FLOW AT LEVELS  (12-Oct-2026)
+// ============================================================================
+// Jay: absorption, trapped traders, aggressive traders and big limit orders matter most
+// AT S/R LEVELS, and measuring them is not enough - the panel has to say what they MEAN.
+// So the footprint rows of the last 3 CLOSED bars are summarised, each signal is placed
+// against S5's own S/R ladder (D/W/M - the same clustering engine as S4's S/R rows; S4's
+// demand/supply zones are not visible on this chart), and ONE verdict is read for a long:
+//   at support     DEFENDED · BREAKING · RESPONSIVE BUYING
+//   at resistance  CAPPED · FAILED BREAKOUT · INITIATIVE BREAKOUT
+//   elsewhere      NO LEVEL (reported, low information)
+// UNVALIDATED BY CONSTRUCTION: the footprint exists only on TradingView, bar by bar, so
+// none of this can be backtested. It GRADES the read; it never gates GO, size or a stop.
+// The one exception is in the REVIEWER, not here: FLOW-GATE turns a model TAKE on a
+// breakout entry into WAIT after a FAILED BREAKOUT at that level - pre-registered in
+// docs/PREREG_flow_gate.md and removed if it does not earn its place.
+// "Big passive order" is an INFERENCE from executed volume. Pine cannot see the order
+// book, and the panel says so.
+grpOF = "Order flow at levels"
+of_on     = input.bool(true, "Read order flow at S/R levels", group=grpOF, tooltip="Summarises the footprint rows of the last 3 closed bars and reads them against the S/R ladder. Needs 'Read the footprint' ON. Display only - never gates anything.")
+of_zone   = input.float(25.0, "Extreme zone (% of bar range)", group=grpOF, minval=10.0, maxval=50.0, step=5.0, tooltip="The top / bottom slice of each bar that counts as its extreme. Absorption and trapped traders are read inside it.")
+of_absShr = input.float(40.0, "Absorption: extreme-zone share of bar volume (%)", group=grpOF, minval=20.0, maxval=90.0, step=5.0, tooltip="An even spread would put ~25% of volume in a 25% zone. Absorption needs the extreme to carry clearly more than that.")
+of_pull   = input.float(50.0, "Absorption: close at least this far from the extreme (% of range)", group=grpOF, minval=20.0, maxval=90.0, step=5.0, tooltip="Aggression met a wall: the bar must close away from the extreme it was pushing into.")
+of_dom    = input.float(30.0, "Aggression: one-sided delta in the zone (% of zone volume)", group=grpOF, minval=10.0, maxval=90.0, step=5.0, tooltip="How one-sided the extreme rows must be to count as aggressive buying or selling.")
+of_stackN = input.int(3, "Stacked imbalances: consecutive rows", group=grpOF, minval=2, maxval=8, tooltip="Rows in a row imbalanced on the same side (at the footprint's Imbalance %). The usual read of initiative.")
+of_bigX   = input.float(3.0, "Big row: x median row volume", group=grpOF, minval=1.5, maxval=10.0, step=0.5, tooltip="One price row this much larger than the bar's median row, at a price where the bar reversed, is read as a large PASSIVE order. An inference - the order book is not visible.")
+of_lvlAtr = input.float(0.5, "At the level: within x ATR of the bar's extreme", group=grpOF, minval=0.1, maxval=2.0, step=0.1, tooltip="A level counts if the bar's low (support) or high (resistance) came within this distance of it, or pierced it and closed back.")
+of_minRows = input.int(6, "Rows per bar needed for a read", group=grpOF, minval=3, maxval=30, tooltip="Too few footprint rows per bar and stacking cannot exist. Below this the panel warns and suggests a smaller 'Ticks per volume row'. Row height is fixed per chart (Pine needs a compile-time value), so it cannot follow price on its own.")
+
+type FlowBar
+    int   bi
+    float hi
+    float lo
+    float cl
+    float atr
+    int   nRows
+    float totV
+    float botV
+    float botD
+    float topV
+    float topD
+    int   stB
+    float stBlo
+    float stBhi
+    int   stS
+    float stSlo
+    float stShi
+    float bigV
+    float bigPx
+    float medV
+
+var array<FlowBar> ofBars = array.new<FlowBar>()
+
+// A bar counts once it has CLOSED. The last intraday bar after the session ends stays
+// unconfirmed on TradingView, so it also counts once its close time has passed.
+bool _ofClosed = barstate.isconfirmed or (barstate.islast and timenow >= time_close)
+// Only the last few bars are summarised, and only once each - the row loop must not run
+// over the whole history (memory) or on every realtime tick (the 20 s limit).
+if show_fp and of_on and fpKnown and _ofClosed and bar_index >= last_bar_index - 6
+    _ofRows = _fp.rows()
+    int _ofN = array.size(_ofRows)
+    if _ofN > 0
+        float _ofRng = math.max(high - low, syminfo.mintick)
+        float _ofZ = _ofRng * of_zone / 100.0
+        array<float> _ofPx = array.new<float>()
+        array<float> _ofVl = array.new<float>()
+        array<float> _ofDl = array.new<float>()
+        array<int>   _ofIm = array.new<int>()
+        for _vr in _ofRows
+            array.push(_ofPx, (_vr.up_price() + _vr.down_price()) / 2.0)
+            array.push(_ofVl, _vr.total_volume())
+            array.push(_ofDl, _vr.delta())
+            array.push(_ofIm, _vr.has_buy_imbalance() ? 1 : _vr.has_sell_imbalance() ? -1 : 0)
+        array<int> _ofOrd = array.sort_indices(_ofPx, order.ascending)
+        float _tot = 0.0
+        float _bV = 0.0
+        float _bD = 0.0
+        float _tV = 0.0
+        float _tD = 0.0
+        float _bigV = 0.0
+        float _bigPx = na
+        int _cB = 0
+        int _cS = 0
+        int _sB = 0
+        int _sS = 0
+        float _rBlo = na
+        float _rSlo = na
+        float _sBlo = na
+        float _sBhi = na
+        float _sSlo = na
+        float _sShi = na
+        for _k = 0 to _ofN - 1
+            int _i = array.get(_ofOrd, _k)
+            float _p = array.get(_ofPx, _i)
+            float _v = array.get(_ofVl, _i)
+            float _d = array.get(_ofDl, _i)
+            int _m = array.get(_ofIm, _i)
+            _tot += _v
+            if _p <= low + _ofZ
+                _bV += _v
+                _bD += _d
+            if _p >= high - _ofZ
+                _tV += _v
+                _tD += _d
+            if _v > _bigV
+                _bigV := _v
+                _bigPx := _p
+            if _m == 1
+                _cB += 1
+                if _cB == 1
+                    _rBlo := _p
+                if _cB > _sB
+                    _sB := _cB
+                    _sBlo := _rBlo
+                    _sBhi := _p
+            else
+                _cB := 0
+            if _m == -1
+                _cS += 1
+                if _cS == 1
+                    _rSlo := _p
+                if _cS > _sS
+                    _sS := _cS
+                    _sSlo := _rSlo
+                    _sShi := _p
+            else
+                _cS := 0
+        FlowBar _fb = FlowBar.new(bar_index, high, low, close, chart_atr, _ofN, _tot, _bV, _bD, _tV, _tD, _sB, _sBlo, _sBhi, _sS, _sSlo, _sShi, _bigV, _bigPx, array.median(_ofVl))
+        int _ofSz = array.size(ofBars)
+        if _ofSz > 0 and array.get(ofBars, _ofSz - 1).bi == bar_index
+            array.set(ofBars, _ofSz - 1, _fb)
+        else
+            array.push(ofBars, _fb)
+            if array.size(ofBars) > 3
+                array.shift(ofBars)
+
+// ============================================================================
 // WYCKOFF — DISTRIBUTION EVENTS
 // ============================================================================
 // S4 collapsed PSY / BC / UT / LPSY into a single "DIST" tag to buy tokens. These are
@@ -1770,7 +1915,137 @@ f_pick(float d, float w, float m, bool above) =>
         _tf := "M"
     [_best, _tf]
 
-var table s5p = table.new(f_s5pos(), 2, 24, border_width=1, frame_width=1, frame_color=C_GRID, border_color=C_GRID)
+// ---- ORDER FLOW AT LEVELS: the read ---------------------------------------
+// Nearest level to a bar's extreme: within tol of it, or pierced by the bar and closed
+// back (ext and other bracket it). -1 = none.
+f_ofLvl(array<float> lvP, float ext, float other, float tol) =>
+    int _best = -1
+    float _bd = na
+    int _n = array.size(lvP)
+    if _n > 0 and not na(ext)
+        for _i = 0 to _n - 1
+            float _l = array.get(lvP, _i)
+            float _d = math.abs(_l - ext)
+            bool _hit = _d <= tol or (_l > math.min(ext, other) and _l < math.max(ext, other))
+            if _hit and (_best < 0 or _d < _bd)
+                _best := _i
+                _bd := _d
+    _best
+
+f_ofPush(array<float> p, array<string> t, float v, string tf) =>
+    if not na(v) and v > 0
+        array.push(p, v)
+        array.push(t, tf)
+    0
+
+f_ofAge(int a) =>
+    a <= 0 ? "last closed bar" : str.tostring(a) + (a == 1 ? " bar ago" : " bars ago")
+
+f_ofVol(float v) =>
+    na(v) ? "-" : (v >= 0 ? "+" : "") + str.tostring(v, format.volume)
+
+// The verdict, scanning the newest closed bar first. Returns
+// [verdict, level, level TF, age, facts, any-signal-away-from-a-level].
+f_ofRead(array<FlowBar> fbs, array<float> lvP, array<string> lvT, int lastBi, int so) =>
+    string _vd = ""
+    float _vl = na
+    string _vt = ""
+    int _va = na
+    string _vf = ""
+    string _any = ""
+    int _n = array.size(fbs)
+    if _n > 0
+        for _j = _n - 1 to 0
+            if _vd == ""
+                FlowBar _b = array.get(fbs, _j)
+                int _age = lastBi - _b.bi
+                float _rng = math.max(_b.hi - _b.lo, syminfo.mintick)
+                float _z = _rng * of_zone / 100.0
+                float _tol = of_lvlAtr * (na(_b.atr) ? _rng : _b.atr)
+                float _cp = (_b.cl - _b.lo) / _rng
+                bool _absBot = _b.totV > 0 and _b.botV / _b.totV * 100.0 >= of_absShr and _b.botD < 0 and _cp * 100.0 >= of_pull
+                bool _absTop = _b.totV > 0 and _b.topV / _b.totV * 100.0 >= of_absShr and _b.topD > 0 and (1.0 - _cp) * 100.0 >= of_pull
+                bool _aggS = _b.botV > 0 and _b.botD < 0 and -_b.botD / _b.botV * 100.0 >= of_dom and _cp < 0.5
+                bool _aggB = _b.topV > 0 and _b.topD > 0 and _b.topD / _b.topV * 100.0 >= of_dom and _cp > 0.5
+                // trapped: aggression in the extreme, then within 2 later bars a close back
+                // through the zone they traded in (and past the bar's own close)
+                bool _trS = false
+                bool _trB = false
+                float _later = na
+                if _age >= 1
+                    for _k = 1 to math.min(2, _age)
+                        float _c2 = close[so + _age - _k]
+                        if _aggS and _c2 > _b.lo + _z and _c2 > _b.cl
+                            _trS := true
+                            _later := _c2
+                        if _aggB and _c2 < _b.hi - _z and _c2 < _b.cl
+                            _trB := true
+                            _later := _c2
+                bool _stB = _b.stB >= of_stackN
+                bool _stS = _b.stS >= of_stackN
+                bool _big = _b.medV > 0 and _b.bigV >= of_bigX * _b.medV
+                bool _bigBuy = _big and _b.bigPx <= _b.lo + _rng * 0.5 and _cp >= 0.5
+                bool _bigSel = _big and _b.bigPx >= _b.lo + _rng * 0.5 and _cp <= 0.5
+                int _iS = f_ofLvl(lvP, _b.lo, _b.cl, _tol)
+                int _iR = f_ofLvl(lvP, _b.hi, _b.cl, _tol)
+                float _S = _iS >= 0 ? array.get(lvP, _iS) : na
+                float _R = _iR >= 0 ? array.get(lvP, _iR) : na
+                float _now = close[so]
+                // the facts, with prices
+                string _f = f_ofAge(_age) + ": H " + f_px(_b.hi) + " L " + f_px(_b.lo) + " C " + f_px(_b.cl)
+                if _absBot or _aggS
+                    _f += " · bottom " + str.tostring(of_zone, "0") + "% of the bar held " + str.tostring(_b.botV / _b.totV * 100.0, "0") + "% of its volume, Δ " + f_ofVol(_b.botD)
+                if _absTop or _aggB
+                    _f += " · top " + str.tostring(of_zone, "0") + "% held " + str.tostring(_b.topV / _b.totV * 100.0, "0") + "% of its volume, Δ " + f_ofVol(_b.topD)
+                if _stB
+                    _f += " · " + str.tostring(_b.stB) + " stacked BUY rows " + f_px(_b.stBlo) + "-" + f_px(_b.stBhi)
+                if _stS
+                    _f += " · " + str.tostring(_b.stS) + " stacked SELL rows " + f_px(_b.stSlo) + "-" + f_px(_b.stShi)
+                if _trS or _trB
+                    _f += " · then a close at " + f_px(_later) + (_trS ? " - sellers trapped" : " - buyers trapped")
+                if _bigBuy or _bigSel
+                    _f += " · big row at " + f_px(_b.bigPx) + " (" + str.tostring(_b.bigV / _b.medV, "0.0") + "x median, inferred large passive " + (_bigBuy ? "buyer" : "seller") + ")"
+                if not na(_R) and _trB and _now < _R
+                    _vd := "FAILED BREAKOUT"
+                    _vl := _R
+                    _vt := array.get(lvT, _iR)
+                else if not na(_S) and _stS and _b.cl < _S
+                    _vd := "BREAKING"
+                    _vl := _S
+                    _vt := array.get(lvT, _iS)
+                else if not na(_R) and _stB and _b.cl > _R
+                    _vd := "INITIATIVE BREAKOUT"
+                    _vl := _R
+                    _vt := array.get(lvT, _iR)
+                else if not na(_S) and (_absBot or _trS or _bigBuy) and _b.cl > _S
+                    _vd := "DEFENDED"
+                    _vl := _S
+                    _vt := array.get(lvT, _iS)
+                else if not na(_R) and (_absTop or _bigSel) and _b.cl < _R
+                    _vd := "CAPPED"
+                    _vl := _R
+                    _vt := array.get(lvT, _iR)
+                else if not na(_S) and _stB and _b.stBlo <= _b.lo + _rng * 0.5 and _b.cl > _S
+                    _vd := "RESPONSIVE BUYING"
+                    _vl := _S
+                    _vt := array.get(lvT, _iS)
+                if _vd != ""
+                    _va := _age
+                    _vf := _f
+                else if _any == "" and (_absBot or _absTop or _trS or _trB or _stB or _stS or _bigBuy or _bigSel)
+                    _any := _f
+    [_vd, _vl, _vt, _va, _vf, _any]
+
+f_ofText(string vd, float lv, string tf, int age, bool bearDiv, bool bullDiv) =>
+    string _at = f_px(lv) + " ·" + tf + " · " + f_ofAge(age)
+    string _t = vd == "DEFENDED" ? "DEFENDED · support " + _at + ": sellers met a wall at the level (absorbed, trapped, or a large passive buyer inferred). Supports a long here; void on a close below " + f_px(lv) + "." : vd == "BREAKING" ? "BREAKING · support " + _at + ": aggressive sellers closed it through the level. No long here - " + f_px(lv) + " is overhead until a close back above it." : vd == "RESPONSIVE BUYING" ? "RESPONSIVE BUYING · support " + _at + ": buyers stepped in off the level (stacked buy imbalances). Confirms a bounce; void on a close below " + f_px(lv) + "." : vd == "CAPPED" ? "CAPPED · resistance " + _at + ": buying was absorbed at the level. Do not buy the breakout until a bar closes above " + f_px(lv) + " on buy imbalances - it is the first test, not the target." : vd == "FAILED BREAKOUT" ? "FAILED BREAKOUT · resistance " + _at + ": buyers who took the break are trapped back under it. No breakout entry here; re-arms on a close back above " + f_px(lv) + " with stacked buy imbalances." : vd == "INITIATIVE BREAKOUT" ? "INITIATIVE BREAKOUT · resistance " + _at + ": real buyers took the level (stacked buy imbalances, close above). Confirms the breakout; void on a close back below " + f_px(lv) + "." : ""
+    if (vd == "CAPPED" or vd == "FAILED BREAKOUT") and bearDiv
+        _t += " Bearish divergence agrees."
+    if (vd == "DEFENDED" or vd == "RESPONSIVE BUYING") and bullDiv
+        _t += " Bullish divergence agrees."
+    _t + " Grades, never gates (unvalidated)."
+
+var table s5p = table.new(f_s5pos(), 2, 26, border_width=1, frame_width=1, frame_color=C_GRID, border_color=C_GRID)
 
 // S4's panel grammar: a numbered section band that says what the rows under it are
 // FOR, then right-aligned keys against left-aligned values. Same shape so the two
@@ -1807,7 +2082,7 @@ f_s5row(int r, string k, string v, color c) =>
     table.cell(s5p, 1, r, v, text_size=f_s5size(), text_color=C_SOFTTXT, bgcolor=_bg, text_halign=text.align_left)
 
 if show_s5p and barstate.islast
-    table.cell(s5p, 0, 0, "S5  v1.5", text_size=f_s5size(), text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_right)
+    table.cell(s5p, 0, 0, "S5  v1.6", text_size=f_s5size(), text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_right)
     table.cell(s5p, 1, 0, syminfo.ticker + "  ·  " + timeframe.period + "  ·  explain-surface for S4", text_size=f_s5size(), text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_left)
 
     f_s5sec(1, "  I · GEOMETRY            —  What shape is this, on TradingView criteria?")
@@ -1855,15 +2130,15 @@ if show_s5p and barstate.islast
 
     // 5. PIVOT FUNNEL — the diagnostic S4 gave up. A missing level is now self-explaining:
     //    no pivots is a different failure from pivots that clustered into nothing.
-    f_s5sec(17, "  V · DIAGNOSTICS       —  If something above is missing, this says why.")
-    f_s5row(18, "Pivot pools", "200-DMA " + (na(sma200D) ? "na" : str.tostring(sma200D, format.mintick)) + "   ·   chart len " + str.tostring(pv_chart) + "   ·   geometry " + str.tostring(geo_piv) + "/" + str.tostring(geo_piv) + " " + str.tostring(array.size(g5hy)) + "H / " + str.tostring(array.size(g5ly)) + "L   ·   zones " + str.tostring(array.size(gphy)) + "H / " + str.tostring(array.size(gply)) + "L   ·   trendline " + str.tostring(array.size(tlhy)) + "H / " + str.tostring(array.size(tlly)) + "L", (array.size(gphy) >= 2 and array.size(gply) >= 2) ? C_MUTE : C_WARN)
+    f_s5sec(19, "  V · DIAGNOSTICS       —  If something above is missing, this says why.")
+    f_s5row(20, "Pivot pools", "200-DMA " + (na(sma200D) ? "na" : str.tostring(sma200D, format.mintick)) + "   ·   chart len " + str.tostring(pv_chart) + "   ·   geometry " + str.tostring(geo_piv) + "/" + str.tostring(geo_piv) + " " + str.tostring(array.size(g5hy)) + "H / " + str.tostring(array.size(g5ly)) + "L   ·   zones " + str.tostring(array.size(gphy)) + "H / " + str.tostring(array.size(gply)) + "L   ·   trendline " + str.tostring(array.size(tlhy)) + "H / " + str.tostring(array.size(tlly)) + "L", (array.size(gphy) >= 2 and array.size(gply) >= 2) ? C_MUTE : C_WARN)
 
     // 6. LEVEL FUNNEL — per timeframe, whether the clusterer produced anything at all
     string _fn = ""
     _fn := _fn + "D " + (not _okD ? "-" : (na(_dA1) ? "0" : "1") + "/" + (na(_dB1) ? "0" : "1"))
     _fn := _fn + "   W " + (not _okW ? "-" : (na(_wA1) ? "0" : "1") + "/" + (na(_wB1) ? "0" : "1"))
     _fn := _fn + "   M " + (not _okM ? "-" : (na(_mA1) ? "0" : "1") + "/" + (na(_mB1) ? "0" : "1"))
-    f_s5row(19, "Level funnel", _fn + "   (above/below per TF)", C_MUTE)
+    f_s5row(21, "Level funnel", _fn + "   (above/below per TF)", C_MUTE)
 
     // 8. FOOTPRINT — the order-flow read S4 has no access to at all
     string _fpTxt = not show_fp ? "engine off" : not fpKnown ? "n/a - the feed has no footprint for this bar (ordinary on older history; NOT a delta of zero)" : (fpDelta >= 0 ? "+" : "") + str.tostring(fpDelta, format.volume) + (fpDelta > 0 ? " buyers" : fpDelta < 0 ? " sellers" : " flat") + "   ·   cum " + str.tostring(fpCumWin) + "b " + (nz(fpCum) >= 0 ? "+" : "") + str.tostring(fpCum, format.volume) + "   ·   " + str.tostring(fpBuy, format.volume) + " vs " + str.tostring(fpSell, format.volume)
@@ -1874,20 +2149,46 @@ if show_s5p and barstate.islast
     string _fpDv = not fpKnown ? "-" : fpBearDiv ? "BEARISH - new " + str.tostring(fpDivWin) + "b high on WEAKER flow (absorption into strength)" : fpBullDiv ? "BULLISH - new " + str.tostring(fpDivWin) + "b low on STRONGER flow" : (nz(fpCum, 0.0) > 0 and close > close[fpDivWin]) or (nz(fpCum, 0.0) < 0 and close < close[fpDivWin]) ? "none - price and flow point the same way" : "no divergence AT AN EXTREME - but flow and price are pointing opposite ways; this test only fires on a new " + str.tostring(fpDivWin) + "b high or low"
     f_s5row(12, "Divergence · VA", _fpDv + (na(fpPoc) ? "" : "   ·   this bar's footprint: POC " + f_px(fpPoc) + "  VAH " + f_px(fpVah) + "  VAL " + f_px(fpVal) + " (the profile of record is S4's)") + ((fpImbBuy == 0 and fpImbSell == 0) ? "" : "   ·   imb " + str.tostring(fpImbBuy) + "B/" + str.tostring(fpImbSell) + "S"), fpBearDiv ? C_NO : fpBullDiv ? C_OK : C_MUTE)
 
+    // 9b. ORDER FLOW AT THE LEVEL (12-Oct-2026) - what the footprint MEANS at S/R
+    array<float> _ofP = array.new<float>()
+    array<string> _ofT = array.new<string>()
+    f_ofPush(_ofP, _ofT, _dA1, "D")
+    f_ofPush(_ofP, _ofT, _dA2, "D")
+    f_ofPush(_ofP, _ofT, _dB1, "D")
+    f_ofPush(_ofP, _ofT, _dB2, "D")
+    f_ofPush(_ofP, _ofT, _wA1, "W")
+    f_ofPush(_ofP, _ofT, _wA2, "W")
+    f_ofPush(_ofP, _ofT, _wB1, "W")
+    f_ofPush(_ofP, _ofT, _wB2, "W")
+    f_ofPush(_ofP, _ofT, _mA1, "M")
+    f_ofPush(_ofP, _ofT, _mA2, "M")
+    f_ofPush(_ofP, _ofT, _mB1, "M")
+    f_ofPush(_ofP, _ofT, _mB2, "M")
+    int _ofSo = _ofClosed ? 0 : 1
+    [_ofV, _ofL, _ofTf, _ofAg, _ofF, _ofAny] = f_ofRead(ofBars, _ofP, _ofT, bar_index - _ofSo, _ofSo)
+    int _ofNs = array.size(ofBars)
+    int _ofRowsLast = _ofNs > 0 ? array.get(ofBars, _ofNs - 1).nRows : 0
+    string _ofCoarse = _ofNs > 0 and _ofRowsLast < of_minRows ? "ROWS TOO COARSE (" + str.tostring(_ofRowsLast) + " rows on the last bar) - set 'Ticks per volume row' to about " + str.tostring(math.max(1, math.round(chart_atr / 10.0 / syminfo.mintick))) + ". " : ""
+    string _ofFacts = not show_fp or not of_on ? "engine off" : _ofNs == 0 ? "no footprint on the last closed bars" : _ofV != "" ? _ofF : _ofAny != "" ? _ofAny : "no absorption, trap, stacked imbalance or big row on the last 3 closed bars"
+    string _ofRd = not show_fp or not of_on ? "engine off" : _ofNs == 0 ? "n/a - no footprint for the last closed bars" : _ofV != "" ? f_ofText(_ofV, _ofL, _ofTf, _ofAg, fpBearDiv, fpBullDiv) : _ofAny != "" ? "NO LEVEL · an order-flow event away from any S/R level - low information." : "none · no order-flow event at a level in the last 3 closed bars."
+    color _ofC = _ofV == "DEFENDED" or _ofV == "RESPONSIVE BUYING" or _ofV == "INITIATIVE BREAKOUT" ? C_OK : _ofV == "BREAKING" or _ofV == "FAILED BREAKOUT" ? C_NO : _ofV == "CAPPED" ? C_WARN : C_MUTE
+    f_s5row(13, "At the level", _ofFacts, _ofV != "" ? C_INFO : C_MUTE)
+    f_s5row(14, "ORDER-FLOW READ", _ofCoarse + _ofRd, _ofCoarse != "" ? C_WARN : _ofC)
+
     // 10. WYCKOFF — named, never gating (see the note on the detection block)
-    f_s5sec(13, "  IV · SETUPS           —  Is there a structure here? Named only; nothing here gates.")
-    f_s5row(14, "Wyckoff", not show_wy ? "engine off" : str.length(wyTxt) == 0 ? "no distribution event on this bar" : str.trim(wyTxt) + "   —   named, not gated: tested null as both veto and score", str.length(wyTxt) == 0 ? C_MUTE : C_WARN)
+    f_s5sec(15, "  IV · SETUPS           —  Is there a structure here? Named only; nothing here gates.")
+    f_s5row(16, "Wyckoff", not show_wy ? "engine off" : str.length(wyTxt) == 0 ? "no distribution event on this bar" : str.trim(wyTxt) + "   —   named, not gated: tested null as both veto and score", str.length(wyTxt) == 0 ? C_MUTE : C_WARN)
 
     // 7. READ — one synthesis line. Says what the SHAPE implies for the trade S4 is
     //    judging, and never restates a number printed above it.
     string _read = geom == "Range / rectangle" ? "A range. Both edges are levels, so the edges are the trade and the middle is noise - S4's room-to-obstacle will be small by construction here." : geom == "Ascending triangle" ? "Higher lows into a flat ceiling. Continuation shape: the base is doing the work, and the break is the event." : geom == "Descending triangle" ? "Lower highs into a flat floor. The mirror, and against a long - the floor is being tested more often than it is being defended." : geom == "Symmetrical triangle" ? "Both edges converging. Genuinely directionless until one breaks; anyone calling it now is guessing." : geom == "Bullish flag" ? "A bull flag: a strong up-move, then a shallow parallel drift against it. The most reliable continuation shape on the board - the correction is orderly and the pole is what pays. Target is the pole projected from the break of the upper rail." : geom == "Bearish flag" ? "A bear flag - the mirror, and against a long. The drift up is the correction, not the turn." : geom == "Bullish pennant" ? "A bull pennant: the same pole as a flag, but the correction COILS instead of drifting. Tighter, usually shorter, and it resolves in the direction of the pole." : geom == "Bearish pennant" ? "A bear pennant. Coiling after a down pole, and it resolves down more often than the coil suggests." : geom == "Rising wedge" ? "Rising, but NARROWING. A rising wedge resolves DOWN more often than its slope suggests - buyers are paying up for less and less range. The least attractive shape to buy into strength." : geom == "Rising channel" ? "Rising with parallel edges. A channel trades its EDGES: the lower rail is the entry and the upper rail is the exit, and buying the middle is paying for room you do not get." : geom == "Falling wedge" ? "Falling but narrowing - sellers are getting less range for their effort. The one converging shape that resolves UP more often, though it needs the upper edge to break before it means anything." : geom == "Falling channel" ? "Falling on parallel edges. Against a long until the upper rail gives way; the lower rail is where it bounces, not where it turns." : str.startswith(geom, "Broadening") ? "Broadening. Volatility expanding rather than coiling - the opposite of the compression a breakout entry wants, and stops placed inside it get hit." : "No shape yet. Nothing here argues for or against the trade; read the levels instead."
     // 10. SWP-RC — the structure and its arithmetic, never a plan
     string _s3 = not show_s3 ? "engine off" : na(s3_lvl) ? "no daily level below price yet" : not na(s3_since) and s3_since <= s3_reclaim_n ? ("swept " + f_px(s3_lvl) + " to " + f_px(s3_swpLo) + " (" + str.tostring((s3_lvl - s3_swpLo) / chart_atr, "0.0") + "x ATR), " + str.tostring(s3_since) + "b ago" + (s3_recl ? "  ·  RECLAIMED" : "  ·  not reclaimed") + (na(s3_rr) ? "" : "  ·  room " + str.tostring(s3_rr, "0.0") + "R") + (s3_fire ? "  ·  STRUCTURE COMPLETE" : not s3_recl ? "" : not s3_hasTgt ? "  ·  no ceiling found - nothing to target, so no trade thesis (not a near ceiling)" : "  ·  no trade: ceiling too close to pay") + (not s3_recl ? "" : not s3_ctxKnown ? "  ·  200-DMA unresolved, check context on S4" : s3_ctx ? "  ·  above the 200-DMA" : "  ·  NOTE: below the 200-DMA")) : "no sweep in the last " + str.tostring(s3_reclaim_n) + " bars"
-    f_s5row(15, "SWP-RC", _s3, s3_fire ? C_OK : s3_recl ? C_WARN : C_MUTE)
+    f_s5row(17, "SWP-RC", _s3, s3_fire ? C_OK : s3_recl ? C_WARN : C_MUTE)
 
     // 11. RNG-EDGE — location inside the range, and whether the edge pays
     string _s6 = not show_s6 ? "engine off" : geom != "Range / rectangle" ? "not a range - no edge to trade" : na(s6_rng) ? "range edges unresolved" : "range " + f_px(geoBot) + " to " + f_px(geoTop) + " (" + str.tostring(s6_rng / chart_atr, "0.1") + "x ATR)" + (s6_at ? "  ·  AT THE LOWER EDGE" : "  ·  mid-range, no trade here") + (not s6_at ? "" : (s6_rev ? "  ·  reversal bar" : "  ·  no reversal bar yet")) + (na(s6_rr) ? "" : "  ·  " + str.tostring(s6_rr, "0.0") + "R to the ceiling") + (s6_fire ? "  ·  ALL CONDITIONS MET" : (s6_at and s6_rev and nz(s6_rr, 0.0) < s6_min_rr) ? "  ·  blocked: ceiling too close to pay" : "")
-    f_s5row(16, "RNG-EDGE", _s6, s6_fire ? C_OK : s6_at ? C_WARN : C_MUTE)
+    f_s5row(18, "RNG-EDGE", _s6, s6_fire ? C_OK : s6_at ? C_WARN : C_MUTE)
 
-    f_s5sec(20, "  VI · READ               —  One line. What the structure implies for the trade S4 is judging.")
-    f_s5row(21, "READ", _read, C_MUTE)
+    f_s5sec(22, "  VI · READ               —  One line. What the structure implies for the trade S4 is judging.")
+    f_s5row(23, "READ", _read, C_MUTE)

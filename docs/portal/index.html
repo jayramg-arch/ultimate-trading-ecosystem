@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 12 Oct · 56 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 12 Oct · 57 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,17 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">12 Oct<br>order flow at levels</td>
+        <td><b>S5 v1.6 reads order flow at the S/R level and says what it means.</b> Absorption, trapped traders,
+        stacked (aggressive) imbalances and inferred big passive orders, from the last 3 closed bars, placed against
+        S5's S/R ladder: DEFENDED / BREAKING / RESPONSIVE BUYING at support, CAPPED / FAILED BREAKOUT / INITIATIVE
+        BREAKOUT at resistance. Display only. The reviewer adds <b>FLOW-CHECK</b> (the verdict against the plan's
+        levels) and <b>FLOW-GATE</b> (a breakout TAKE becomes WAIT after a failed breakout at that level; holdings
+        untouched; pre-registered). Also fixed: R-CHECK had stopped printing (the plan now sits on the PLAN line), and the
+        divergence field had never recorded one.</td>
+        <td class="af">30 · 32</td>
+      </tr>
       <tr>
         <td class="dt">12 Oct<br>remote access fixed</td>
         <td><b>The phone reaches the desk again, and stays able to.</b> Tailscale had been stuck because its tray app
