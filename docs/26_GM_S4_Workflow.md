@@ -240,7 +240,7 @@ public tunnel except the ngrok webhook).
 | Web Commander | `http://jaynuc:8501` | `?view=gm_window&mobile=1` for the GM |
 | Library / Reviewer Log | `http://jaynuc:8502/docs/portal/index.html` | `SERVE_PORTAL.bat` |
 | Files | `http://jaynuc:8503` | File Browser, `START_FILEBROWSER.bat` (MORNING step 6, Desktop shortcut); 127.0.0.1 + `tailscale serve`; root = profile folder, rules allow only Documents · Downloads · TradingData · OneDrive\Desktop (AppData etc. refused); command exec off; user `jay` |
-| The desktop | Remote Desktop to `jaynuc` | RDP firewall scoped to 100.64.0.0/10. **Disconnect, never sign out.** Jobs are run this way |
+| The desktop | Remote Desktop to `jaynuc` | RDP firewall scoped to 100.64.0.0/10. **Disconnect, never sign out.** Microsoft account email + password (not PIN). Prefer the Desktop shortcut *Hand Back to PC* (`HANDBACK_TO_CONSOLE.bat`): returns the session to the PC screen so the desk keeps a display (leaves the PC unlocked). Jobs are run this way |
 
 `REMOTE_ADMIN_SETUP.bat` (admin): 1 restart Tailscale · 2 reset state + re-login (node back to
 `jaynuc`) · 3 RDP firewall to the tailnet · 4 status · 5 publish File Browser. If the daemon is in
