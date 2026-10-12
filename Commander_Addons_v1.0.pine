@@ -80,8 +80,10 @@ if barstate.islast
         int gk = m1g[k]
         float cp = m1cpos[k]
         float wk = m1wick[k]
-        string name = na(gk) ? "n/a" : gk == -1 ? "WEAK" : gk == 1 ? "STRONG" : "NEUTRAL"
-        string txt = na(gk) ? "Bar n/a (zero range)" : "Bar " + name + " · close " + str.tostring(math.round(cp * 100)) + "% · top wick " + str.tostring(math.round(wk * 100)) + "%"
+        // Compact on purpose (Jay, 12 Oct): "Weak.C:36%.TW:64%" - C = close position in the
+        // bar's range, TW = top-wick share of the range.
+        string name = na(gk) ? "n/a" : gk == -1 ? "Weak" : gk == 1 ? "Strong" : "Neutral"
+        string txt = na(gk) ? "n/a" : name + ".C:" + str.tostring(math.round(cp * 100)) + "%.TW:" + str.tostring(math.round(wk * 100)) + "%"
         color bg = na(gk) ? color.gray : gk == -1 ? color.new(color.orange, 10) : gk == 1 ? color.new(color.teal, 10) : color.new(color.gray, 10)
         m1Lb := label.new(bar_index - k, high[k], txt, style = label.style_label_down, color = bg, textcolor = color.white, size = size.small)
 
