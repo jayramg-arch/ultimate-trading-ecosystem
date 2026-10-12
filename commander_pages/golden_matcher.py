@@ -2158,6 +2158,27 @@ if True:
                         + (f" · 🧢 **capped by Max ₹/trade {inr(_gm_maxalloc)}** — actual risk "
                            f"{inr(_eff_risk)} ({_eff_pct:.2f}% of capital), not {_act_pct:.2f}%"
                            if _cap_bound else ""))
+                    # TWO-TIER STOP (12-Oct-2026): the plan SL above is the THESIS - exit on a
+                    # CLOSE below it. The resting Dhan order is the DISASTER stop, further away,
+                    # and the size comes off THAT distance so the worst case stays inside the
+                    # risk rule. Advice only: nothing here places or moves an order.
+                    try:
+                        import commander_core as _cc2
+                        _ptype = _cc2.plan_type_ctx(ctx)
+                        _dis = _HP.disaster_stop(_pe, _psl, _g(ctx, "atr"), _ptype)
+                        if _dis is not None and _pe > _dis:
+                            _q2 = int(_risk_amt // (_pe - _dis))
+                            if _cap_qty is not None:
+                                _q2 = min(_q2, _cap_qty)
+                            st.caption(
+                                f"🪜 Two-tier stop ({_ptype}): **thesis {inr(_psl)}** - exit on a "
+                                f"{'Daily' if _ptype == 'positional' else '75m/125m'} CLOSE below it · "
+                                f"**disaster {inr(_dis)}** = the resting Dhan stop "
+                                f"(thesis − {_HP.THESIS_TO_DISASTER_ATR:g}×ATR(D), at least "
+                                f"{_HP.POS_STOP_FLOOR_ATR_D if _ptype == 'positional' else _HP.SWING_STOP_FLOOR_ATR_D:g}×ATR(D) "
+                                f"from entry) · sized off the disaster: **{_q2} shares**")
+                    except Exception as _tte:
+                        _gm_logger.warning(f"{symbol}: two-tier stop advice failed: {_tte}")
                 else:
                     st.caption("📏 Set your capital above to get an auto position size at the configured risk.")
 

@@ -2904,17 +2904,39 @@ if True:
                                 override_rows.append({
                                     "Symbol": sym,
                                     "Manual SL Override": float(r.get("Manual SL Override", 0)) if pd.notna(r.get("Manual SL Override")) and str(r.get("Manual SL Override")).strip() else None,
+                                    # TWO-TIER STOP (12-Oct-2026): the THESIS level, exited on a CLOSE
+                                    # below it; the Dhan stop beside it is the resting DISASTER order.
+                                    "Thesis SL": float(r.get("Thesis SL")) if pd.notna(r.get("Thesis SL")) and str(r.get("Thesis SL")).strip() else None,
+                                    "Dhan stop": float(r.get("StopLoss")) if pd.notna(r.get("StopLoss")) and str(r.get("StopLoss")).strip() else None,
                                     "Custom CE Mult": float(r.get("Custom CE Mult", 0)) if pd.notna(r.get("Custom CE Mult")) and str(r.get("Custom CE Mult")).strip() else None,
                                     "Pyramid Status": str(r.get("Pyramid Status", "")) if pd.notna(r.get("Pyramid Status")) else ""
                                 })
                         
                         if override_rows:
                             df_overrides = pd.DataFrame(override_rows)
+                            def _th_state(_r):
+                                _t, _d = _r.get("Thesis SL"), _r.get("Dhan stop")
+                                if _t is None or pd.isna(_t):
+                                    return "no thesis - close alert skipped"
+                                if _d is None or pd.isna(_d):
+                                    return "thesis set · no Dhan stop on record"
+                                if _t < _d:
+                                    return "superseded - the Dhan stop is above it"
+                                if abs(_t - _d) <= max(0.0005 * _d, 0.05):
+                                    return "thesis = Dhan stop (single tier)"
+                                return "two-tier · close below thesis = exit"
+                            df_overrides.insert(3, "Tier", df_overrides.apply(_th_state, axis=1))
                             edited_overrides = st.data_editor(
                                 df_overrides,
                                 column_config={
                                     "Symbol": st.column_config.TextColumn("Symbol", disabled=True),
                                     "Manual SL Override": st.column_config.NumberColumn("Manual SL Override (₹)", format="%.2f", step=0.05, min_value=0.0),
+                                    "Thesis SL": st.column_config.NumberColumn("Thesis SL (₹, close-basis)", format="%.2f", step=0.05, min_value=0.0,
+                                                                               help="Exit on a CLOSE below this, on the trade's own clock (Daily positional, 75m/125m swing). "
+                                                                                    "Drawn on v67 and alerted nightly. Not an order - the Dhan stop is the resting disaster stop."),
+                                    "Dhan stop": st.column_config.NumberColumn("Dhan stop (₹, resting)", format="%.2f", disabled=True,
+                                                                               help="The resting Dhan order, synced nightly - the DISASTER stop. Change it on Dhan."),
+                                    "Tier": st.column_config.TextColumn("Two-tier", disabled=True),
                                     # A4: 0/negative multipliers are invalid — enforce at input
                                     "Custom CE Mult": st.column_config.NumberColumn("Custom CE Multiplier", format="%.1f", step=0.1, min_value=0.5, max_value=8.0,
                                                                                      help="0.5–8.0. Leave blank to use the system/catalyst multiplier."),
@@ -2935,10 +2957,11 @@ if True:
                                     for _, _orow in edited_overrides.iterrows():
                                         _cur_ov.execute(
                                             "UPDATE journal SET manual_sl_override=?, custom_ce_mult=?, "
-                                            "pyramid_status=? WHERE symbol=? AND status='OPEN'",
+                                            "pyramid_status=?, thesis_sl=? WHERE symbol=? AND status='OPEN'",
                                             (float(_orow["Manual SL Override"]) if pd.notna(_orow["Manual SL Override"]) else None,
                                              float(_orow["Custom CE Mult"]) if pd.notna(_orow["Custom CE Mult"]) else None,
                                              str(_orow["Pyramid Status"]) if pd.notna(_orow["Pyramid Status"]) else "",
+                                             float(_orow["Thesis SL"]) if pd.notna(_orow["Thesis SL"]) else None,
                                              str(_orow["Symbol"])))
                                         _nsaved += _cur_ov.rowcount
                                     _conn_ov.commit(); _conn_ov.close()

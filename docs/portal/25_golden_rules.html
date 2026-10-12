@@ -199,6 +199,7 @@ footer em{color:var(--ink-2)}
     <li><a href="#p7b"><span>7b</span>Swing or positional</a></li>
     <li><a href="#p7c"><span>7c</span>Open-risk budget</a></li>
     <li><a href="#p7d"><span>7d</span>Ladder grace period</a></li>
+    <li><a href="#p7e"><span>7e</span>Two-tier stop</a></li>
     <li><a href="#p8"><span>08</span>The checklist</a></li>
     <li><a href="#p9"><span>09</span>Reading the panel</a></li>
     <li><a href="#p10"><span>10</span>Reading evidence</a></li>
@@ -627,6 +628,34 @@ footer em{color:var(--ink-2)}
   own highs (source tag <span class="m">·entry</span>). v67 draws the same line — the nightly book sends the entry-anchored
   level as an Exact floor while the position is young, so no Pine compile was needed.</p>
 </section>
+
+<section id="p7e">
+  <p class="pt">Part 7e · 12 Oct 2026</p>
+  <h2>The two-tier stop: thesis and disaster</h2>
+  <p>Measured on your own exits: of the 8 stop-outs that matched the journal stop, <b>3 were wick
+  sweeps</b> — the day closed back ≥ 0.5 × ATR above the fill (TRITURBINE, RRKABEL, ASTERDM) — and
+  <b>half of the sweeps filled at 09:15–09:18</b>. The other 5 were real breaks the stop rightly took.
+  A resting stop at the level is exactly where a sweep aims.</p>
+  <div class="tw"><table>
+    <thead><tr><th></th><th>Thesis SL</th><th>Disaster SL</th></tr></thead>
+    <tbody>
+      <tr><td>What</td><td>The level that proves the idea wrong</td><td>The resting Dhan stop order</td></tr>
+      <tr><td>Exit</td><td>Only on a <b>close</b> below it, on the trade's own clock (Daily positional, 75m/125m swing) — at the next bar, your order</td><td>Automatically, on a trade through it</td></tr>
+      <tr><td>Where</td><td>S4's <b>INVAL</b> (the Entry row's close-basis level), copied into the journal at entry</td><td>thesis − 1 × ATR(D), but at least <b>1.5 × ATR(D)</b> from entry for a swing and <b>4 × ATR(D)</b> for a positional</td></tr>
+    </tbody>
+  </table></div>
+  <p><code>disaster = min(thesis − 1×ATR(D), entry − floor×ATR(D))</code> — <b>size off the disaster distance</b>,
+  so the worst case stays inside the risk rule.</p>
+  <p><b>Existing holdings:</b> their thesis was set to today's Dhan stop, so nothing moved — single tier,
+  as before. The rule applies to new trades. A thesis at or below the Dhan stop is superseded and gets no alert.</p>
+  <p><b>Where you see it:</b> S4's INVAL; <code>s4_take</code> records it and prints the disaster stop; the GM
+  sizer shows both and the size; Risk Shield → Settings &amp; Overrides edits the thesis beside the Dhan stop;
+  v67 draws the thesis dashed and names the slot stop "Disaster SL · Dhan"; a <b>close-below-thesis alert</b>
+  per two-tier holding Telegrams you; both digests list holdings that closed below their thesis.
+  Nothing places or moves a Dhan order.</p>
+</section>
+
+
 
 <section id="p8">
   <p class="pt">Part 8</p>

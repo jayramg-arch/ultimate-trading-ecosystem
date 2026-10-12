@@ -58,6 +58,11 @@ def build() -> str:
         L.append("  CE = catalyst-aware Chandelier; % = LTP vs CE. Review each: exit, or tighten the stop.")
     else:
         L.append("EXIT REVIEW: no holding is below its Chandelier.")
+    try:
+        from digest_common import thesis_lines
+        L += [""] + thesis_lines()
+    except Exception as e:
+        L += ["", "THESIS: failed (%s)" % str(e)[:80]]
     es = earnings_soon()
     if es:
         L += ["", "EARNINGS within 7 days (size, not direction):"] + es

@@ -237,6 +237,7 @@ def init_db():
             entry_conviction REAL,
             snapshot_meta TEXT,
             manual_sl_override REAL,
+            thesis_sl REAL,
             custom_ce_mult REAL,
             pyramid_status TEXT,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -264,6 +265,7 @@ def load_db():
         'entry_alpha': 'EntryAlpha', 'entry_rs': 'EntryRS',
         'entry_conviction': 'EntryConviction', 'snapshot_meta': 'SnapshotMeta',
         'manual_sl_override': 'Manual SL Override',
+        'thesis_sl': 'Thesis SL',
         'custom_ce_mult': 'Custom CE Mult',
         'pyramid_status': 'Pyramid Status'
     }
@@ -285,6 +287,7 @@ def upsert_trade(entry):
         'PlannedRR': 'planned_rr', 'AI Analysis': 'ai_analysis',
         'AI_Analysis': 'ai_analysis',
         'Manual SL Override': 'manual_sl_override',
+        'Thesis SL': 'thesis_sl',
         'Custom CE Mult': 'custom_ce_mult',
         'Pyramid Status': 'pyramid_status'
     }
@@ -406,7 +409,7 @@ def migrate_db():
                             ('entry_alpha','INTEGER'), ('entry_rs','REAL'),
                             ('entry_conviction','REAL'), ('snapshot_meta','TEXT'),
                             ('manual_sl_override','REAL'), ('custom_ce_mult','REAL'),
-                            ('pyramid_status','TEXT')):
+                            ('pyramid_status','TEXT'), ('thesis_sl','REAL')):
             if _col not in cols:
                 c.execute(f"ALTER TABLE journal ADD COLUMN {_col} {_type}")
             

@@ -31,6 +31,7 @@ Arrive with the book already decided: stops covered, the day's trims known, and 
 ### 08:50 · Read the morning digest, then decide the exits (YOU)
 - Every name listed as at/below its Chandelier: decide now — exit at the open, or hold because the resting stop already handles it. Write the decision down; do not decide it in the first minute of trade.
 - Results within 3 days on a held name: decide the size (trim or hold), never the direction, from the result risk.
+- THESIS BROKEN names (two-tier holdings that closed below their thesis): exit at the open - your order. The Dhan disaster stop is further away and will not do it for you.
 
 ### 08:55 · Risk Shield — stops, open risk, class (YOU)
 - Banners first: 'Stops disagree' or 'Partly covered' → fix on Dhan before 09:15: ONE stop price per holding, covering the full quantity, limit price below the trigger.
@@ -106,7 +107,8 @@ The machine rebuilds everything between 16:00 and about 17:30. Your 20 minutes s
 ### 17:35 · Risk Shield — the book after today (YOU)
 - 🔥 Open risk: over budget → plan tomorrow's trims (they go first at 09:15).
 - 🔁 Swing ↔ Positional: a swing that passes all four gates may be converted now (it is a Daily close) — record it, then on Dhan set the new stop (and sell any trim), then Sync to TV. A losing swing converts only at half risk. EXIT REVIEW names are decided for tomorrow's open.
-- Open: [Risk Shield (🔥 Open risk card · 🔁 Swing ↔ Positional tab · warnings)](http://localhost:8501/?p=RISK%20SHIELD) · [Doc 25 Part 7b · swing or positional](http://localhost:8502/docs/portal/25_golden_rules.html#p7b)
+- New position today: check its Thesis SL in Settings & Overrides (s4_take copies S4's INVAL) and that the Dhan stop is the DISASTER level, not the thesis (Doc 25 Part 7e).
+- Open: [Risk Shield (🔥 Open risk card · 🔁 Swing ↔ Positional tab · warnings)](http://localhost:8501/?p=RISK%20SHIELD) · [Doc 25 Part 7b · swing or positional](http://localhost:8502/docs/portal/25_golden_rules.html#p7b) · [Doc 25 Part 7e · two-tier stop](http://localhost:8502/docs/portal/25_golden_rules.html#p7e)
 
 ### 17:45 · Tomorrow's candidates — the boards (YOU)
 - Daily board: the 5/5 positional names are tomorrow's Daily-close candidates. 125m/75m boards: swing names the alerts will time. Open each worth attention in the Golden Matcher and read the decision path.

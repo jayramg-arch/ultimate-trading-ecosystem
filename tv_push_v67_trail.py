@@ -290,7 +290,10 @@ def compute_book() -> list[dict]:
                 rrg = None
         hc = rc.holding_chandelier(d, jrow, bear, cap_protect=cap_protect, override_mode=mode, rrg=rrg)
         out.append({"symbol": s, **{k: hc[k] for k in ("level", "raw_level", "mult", "src", "window",
-                                                        "tt_label", "override", "anchored")}})
+                                                        "tt_label", "override", "anchored")},
+                    # TWO-TIER STOP (12-Oct-2026): the thesis level (close-basis exit) rides
+                    # the book as a 4th field; the slot's Hard SL is the Dhan DISASTER stop.
+                    "thesis": _f(r.get("thesis_sl")), "stoploss": _f(r.get("stoploss"))})
     return out
 
 
@@ -307,8 +310,14 @@ def book_string(rows: list[dict]) -> str:
         # manual override already is the level; nothing to change.)
         if r.get("anchored") and r.get("level") is not None and not (ov and ov[1] == "Exact"):
             floor = "E%.2f" % float(r["level"])
+        # 4th field T<price>: the THESIS (12-Oct-2026). Sent only when it sits ABOVE the
+        # resting Dhan stop - a thesis at or below it is superseded, and drawing it would
+        # show a "close-basis exit" under the order that fires first. v67 before 67.4.27
+        # reads fields 0-2 only, so the extra field is harmless to it.
+        th, dsl = r.get("thesis"), r.get("stoploss")
+        tfld = (",T%.2f" % th) if (th and (dsl is None or th > dsl + 1e-9)) else ""
         for k in _tv_keys(r["symbol"]):
-            parts.append("%s=%d,%.4f,%s" % (k, int(r["window"]), float(r["mult"]), floor))
+            parts.append("%s=%d,%.4f,%s%s" % (k, int(r["window"]), float(r["mult"]), floor, tfld))
     return ";".join(parts)
 
 

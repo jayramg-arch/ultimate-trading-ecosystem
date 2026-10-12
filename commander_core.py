@@ -69,6 +69,7 @@ JOURNAL_RENAME_MAP = {
     'entry_rs':'EntryRS','entry_conviction':'EntryConviction',
     'snapshot_meta':'SnapshotMeta',
     'manual_sl_override':'Manual SL Override',
+    'thesis_sl':'Thesis SL',
     'custom_ce_mult':'Custom CE Mult',
     'pyramid_status':'Pyramid Status',
 }

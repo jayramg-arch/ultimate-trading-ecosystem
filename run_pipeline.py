@@ -1094,6 +1094,32 @@ def main():
                 p.status = "SKIP"
                 p.message = f"skipped: {e}"[:160]
 
+    # 12b4. CLOSE-BELOW-THESIS ALERTS (12-Oct-2026, Jay - the two-tier stop). One price alert
+    # per holding whose thesis sits ABOVE its resting Dhan stop: crossing down, once per bar
+    # close on the trade's clock (Daily positional / 125m swing), webhook -> /thesis-alert ->
+    # Telegram. Never sells. Replaces yesterday's set; touches only "GM-THESIS ..." alerts.
+    # Holdings with no thesis, or a thesis at/below the Dhan stop, are skipped and listed.
+    logger.info("\n[PHASE 12b4] CLOSE-BELOW-THESIS ALERTS...")
+    with run.phase("Phase 12b4 — thesis alerts") as p:
+        if os.getenv("THESIS_ALERTS", "1") == "0":
+            p.status = "SKIP"; p.message = "THESIS_ALERTS=0"
+        else:
+            try:
+                import subprocess as _sp
+                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                           "tv_thesis_alerts.py")],
+                             capture_output=True, text=True, timeout=10 * 60)
+                _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
+                for _ln in _lines:
+                    logger.info(f"   ↳ {_ln}")
+                p.message = (_lines[-1] if _lines else "done")[:160]
+                if _r.returncode != 0:
+                    p.status = "WARN"
+            except Exception as e:
+                logger.warning(f"⚠️  thesis alerts skipped: {e}")
+                p.status = "SKIP"
+                p.message = f"skipped: {e}"[:160]
+
     # 12b3. POSITIONAL DAILY S4 GO ALERTS (5-Oct-2026, Jay). One single-symbol S4 GO alert on
     # the Daily close per GM_Positional name (FINAL_GM_POSITIONAL.csv, Phase 4.8), cloned from
     # the 75m watchlist alert so it carries the same condition, message and reviewer webhook;

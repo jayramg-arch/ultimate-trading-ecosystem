@@ -57,6 +57,31 @@ BEAR_SCORE_MAX = 5
 #    ai_risk_manager (2.0x) - so one stop could read green on the banner and red in the
 #    sidebar. Every surface reads these. S4 Pine mirrors them as inputs (pos_floor_atrD).
 POS_STOP_FLOOR_ATR_D = 4.0     # positional initial stop >= 4x DAILY ATR (2-Oct-2026)
+# TWO-TIER STOP (12-Oct-2026, Jay). Measured: of 8 stop exits that matched the journal stop,
+# 3 were WICK SWEEPS (the day closed back >= 0.5 ATR above the fill) and half of those filled
+# 09:15-09:18. So a trade carries two levels:
+#   THESIS SL   - the level that proves the idea wrong; exited only on a CLOSE below it, on the
+#                 trade's own clock (Daily for positional, 75m/125m for swing). Never an order.
+#   DISASTER SL - the resting Dhan stop order, further away, for gaps and real collapses.
+# Disaster = thesis - THESIS_TO_DISASTER_ATR x ATR(D), but never closer to the ENTRY than the
+# house floor for the plan type (swing 1.5x, positional 4x ATR(D)). Size is taken off the
+# DISASTER distance, so the worst case stays inside the risk rule.
+THESIS_TO_DISASTER_ATR = 1.0
+SWING_STOP_FLOOR_ATR_D = 1.5
+
+
+def disaster_stop(entry: float, thesis: float, atr_d: float, plan_type: str = "positional") -> float | None:
+    """Recommended resting (Dhan) stop for a NEW trade, from its thesis level.
+    min(thesis - 1 x ATR(D), entry - floor x ATR(D)); floor = 4 positional, 1.5 swing.
+    None when an input is missing - never a guess. Never places or moves an order."""
+    try:
+        entry, thesis, atr_d = float(entry), float(thesis), float(atr_d)
+    except (TypeError, ValueError):
+        return None
+    if not all(math.isfinite(x) for x in (entry, thesis, atr_d)) or atr_d <= 0 or thesis <= 0:
+        return None
+    floor = SWING_STOP_FLOOR_ATR_D if str(plan_type).lower().startswith("sw") else POS_STOP_FLOOR_ATR_D
+    return min(thesis - THESIS_TO_DISASTER_ATR * atr_d, entry - floor * atr_d)
 CHANDELIER_MULT = {"POS": 4.5, "WYC": 3.5, "REV": 2.5, "SWG": 1.5}   # by setup family
 CHANDELIER_BEAR_ADD = 0.5      # wider in a Bear/Cash tape
 CHANDELIER_WINDOW_SWING = 14   # bars for the highest-close anchor + ATR

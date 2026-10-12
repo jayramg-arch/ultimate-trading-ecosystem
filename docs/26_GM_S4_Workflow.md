@@ -229,6 +229,7 @@ Each of these has already cost a day or more.
 | Daily bars current after midnight | every daily read one session behind until Dhan's next-day publish (fixed 7 Oct: the intraday session-fill asked Dhan for `to_date` = the session, which Dhan treats as exclusive) | a Swing ↔ Positional `close` that matches the last session |
 | S4 alert path (ngrok + receiver) | TradingView alert reads "Webhook delivery failed — 404" (tunnel offline) or "502" (receiver down); the review never happens and TradingView does not retry | Telegram **S4 ALERT PATH DOWN** from the 15-min check (9:15 onward); then `START_ALERT_REVIEWER.bat` and `REVIEW SYMBOL TF` for anything missed |
 | Open risk inside budget | a book that loses far more than planned if the tape breaks | Risk Shield 🔥 Open risk card |
+| Thesis alerts set (two-tier stop) | a close below a holding's thesis passes unnoticed; only the farther Dhan disaster stop is left | auto-pilot Phase 12b4 line in the evening digest; `python tv_thesis_alerts.py --dry-run`; the receiver must be up (`/thesis-alert`) |
 
 ## 6b. AWAY FROM THE DESK (10–11 Oct 2026)
 

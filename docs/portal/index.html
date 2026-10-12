@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 12 Oct · 57 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 12 Oct · 58 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,16 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">12 Oct<br>two-tier stop</td>
+        <td><b>A thesis level beside the Dhan stop.</b> Measured: 3 of 8 stop-outs were wick sweeps that closed back
+        above the fill, half of them at the open. New trades carry a <b>thesis</b> (S4's INVAL, exited only on a
+        close below it, on the trade's clock) and a <b>disaster</b> stop at Dhan (thesis − 1 × ATR(D), at least
+        1.5× / 4× ATR(D) from entry for swing / positional; size off it). Existing holdings: thesis = today's stop,
+        nothing moved. Risk Shield edits it, the GM sizer and <code>s4_take</code> show it, v67 draws it, a nightly
+        close-below-thesis alert Telegrams it, and both digests list breaks. Nothing places a Dhan order.</td>
+        <td class="af">25 · 26 · 35</td>
+      </tr>
       <tr>
         <td class="dt">12 Oct<br>order flow at levels</td>
         <td><b>S5 v1.6 reads order flow at the S/R level and says what it means.</b> Absorption, trapped traders,

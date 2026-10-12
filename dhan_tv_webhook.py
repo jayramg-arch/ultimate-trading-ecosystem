@@ -139,6 +139,32 @@ async def handle_s4_review(request: Request):
         return {"status": "error", "message": str(e)}
 
 
+@app.post("/thesis-alert")
+async def handle_thesis_alert(request: Request):
+    """12-Oct-2026: TWO-TIER STOP. A holding CLOSED below its thesis level (the
+    'GM-THESIS <SYM>' TradingView alert, once per bar close on the trade's own clock,
+    set nightly by tv_thesis_alerts.py). Forwards the alert text to Telegram and logs it.
+    It does NOT sell: the exit is Jay's order. FAIL-CLOSED on the same key as /s4-review."""
+    _expected = os.getenv("S4_REVIEW_KEY", "") or os.getenv("WEBHOOK_SECRET", "")
+    _provided = str(request.query_params.get("key", "") or request.headers.get("X-Webhook-Secret", ""))
+    if not _expected or not (_provided and hmac.compare_digest(_provided, _expected)):
+        print("REJECTED /thesis-alert: invalid or missing key.")
+        return {"status": "rejected", "message": "Invalid or missing key"}
+    body = (await request.body()).decode("utf-8", "replace").strip()[:900]
+    try:
+        from datetime import datetime
+        os.makedirs("logs", exist_ok=True)
+        with open(os.path.join("logs", "thesis_alerts.log"), "a", encoding="utf-8") as fh:
+            fh.write("%s %s\n" % (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), body.replace("\n", " ")))
+        import s4_review
+        ok = s4_review.telegram("🟠 THESIS BROKEN · " + body)
+        print(f"/thesis-alert: {body[:80]} -> telegram {'sent' if ok else 'FAILED'}")
+        return {"status": "sent" if ok else "telegram-failed"}
+    except Exception as e:
+        print(f"/thesis-alert ERROR: {e}")
+        return {"status": "error", "message": str(e)}
+
+
 @app.post("/tv-webhook")
 async def handle_tv_webhook(request: Request):
     ticker = "UNKNOWN"

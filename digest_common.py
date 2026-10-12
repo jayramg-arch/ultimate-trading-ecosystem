@@ -141,3 +141,54 @@ def alert_status() -> dict:
         return d
     except Exception as e:
         return {"err": str(e)}
+
+
+def thesis_breaks() -> tuple[list[dict], int, str | None]:
+    """TWO-TIER STOP (12-Oct-2026): open holdings whose last CLOSE is below their thesis.
+    Only two-tier holdings count (thesis ABOVE the resting Dhan stop - a thesis at or below
+    it is superseded by the order). At digest time (08:45, after 16:30) the last closed bar
+    on either clock is the day's close: the 125m session's last bar closes at 15:30.
+    Returns (rows, two_tier_count, error)."""
+    try:
+        import sqlite3
+        import data_provider as dp
+        from journal_path import JOURNAL_DB
+        con = sqlite3.connect(JOURNAL_DB)
+        try:
+            rows = con.execute("SELECT symbol, thesis_sl, stoploss, timeframe FROM journal "
+                               "WHERE UPPER(status)='OPEN' AND thesis_sl IS NOT NULL").fetchall()
+        finally:
+            con.close()
+    except Exception as e:
+        return [], 0, "thesis check unavailable: %s" % e
+    out, n2 = [], 0
+    for sym, th, sl, tf in rows:
+        try:
+            th = float(th); sl = float(sl) if sl is not None else None
+        except (TypeError, ValueError):
+            continue
+        if th <= 0 or (sl is not None and th <= sl + 1e-9):
+            continue
+        n2 += 1
+        try:
+            df = dp.fetch_ohlcv(str(sym), period="3mo", interval="1d", use_cache=True)
+            c = float(df["Close"].dropna().iloc[-1]) if df is not None and len(df) else None
+        except Exception:
+            c = None
+        if c is not None and c < th:
+            out.append({"sym": str(sym), "close": c, "thesis": th, "stop": sl,
+                        "clock": "125m" if str(tf or "").lower().startswith("sw") else "Daily"})
+    return out, n2, None
+
+
+def thesis_lines() -> list[str]:
+    rows, n2, err = thesis_breaks()
+    if err:
+        return ["THESIS: not available (%s)" % err[:80]]
+    if not rows:
+        return ["THESIS: no holding closed below its thesis (%d two-tier holding%s)" % (n2, "" if n2 == 1 else "s")]
+    out = ["THESIS BROKEN · %d holding(s) closed below their thesis - exit at the next bar (your order):" % len(rows)]
+    for r in rows:
+        out.append("  %-11s close %9.2f < thesis %9.2f (%s clock) · Dhan disaster stop %s" % (
+            r["sym"], r["close"], r["thesis"], r["clock"], "%.2f" % r["stop"] if r["stop"] else "?"))
+    return out

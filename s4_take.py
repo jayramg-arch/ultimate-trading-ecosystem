@@ -63,6 +63,12 @@ def parse_plan(txt: str) -> dict:
         d["setup"] = m.group(1)
     m = re.search(r"^Qty @ [^|]*\| (\d+) sh", txt, re.M)
     d["qty"] = int(m.group(1)) if m else None
+    # TWO-TIER STOP (12-Oct-2026): S4's Entry row prints the thesis level as
+    # "INVAL 1287.7 zone distal ... close-basis only" - the close that proves the idea wrong.
+    m = re.search(r"INVAL\s+([\d,]+(?:\.\d+)?)", txt)
+    d["thesis"] = float(m.group(1).replace(",", "")) if m else None
+    m = re.search(r"ATR\(D\)\s*([\d,]+(?:\.\d+)?)", txt)
+    d["atr_d"] = float(m.group(1).replace(",", "")) if m else None
     return d
 
 
@@ -94,6 +100,7 @@ def main() -> int:
     ap.add_argument("--price", type=float, help="actual fill (default: the plan's entry)")
     ap.add_argument("--qty", type=int, help="shares (default: the panel's Qty row)")
     ap.add_argument("--sl", type=float, help="override the stop (default: the plan's)")
+    ap.add_argument("--thesis", type=float, help="override the thesis level (default: S4's INVAL on the review's panel)")
     ap.add_argument("--skip", metavar="WHY", help="mark SKIPPED instead of TAKEN, with a reason")
     ap.add_argument("--note", default="", help="free text into the block and the journal rationale")
     ap.add_argument("--no-journal", action="store_true", help="mark the review only")
@@ -126,6 +133,20 @@ def main() -> int:
             return 3
         rr = (plan["t1"] - price) / (price - stop) if (plan["t1"] and price > stop) else None
         tf_lbl = "Positional" if plan["type"] == "positional" else "Swing"
+        # TWO-TIER STOP: the thesis is exited on a CLOSE below it (alert, then you act);
+        # the resting Dhan order is the DISASTER stop, further away. Advice only - nothing
+        # here places or moves an order.
+        thesis = a.thesis if a.thesis is not None else plan.get("thesis")
+        if thesis is not None:
+            import house_policy as _hp
+            _dis = _hp.disaster_stop(price, thesis, plan.get("atr_d"), plan["type"])
+            print("thesis SL %.2f (exit on a %s CLOSE below it)" % (thesis, "Daily" if plan["type"] == "positional" else "75m/125m")
+                  + (" · recommended DISASTER stop at Dhan %.2f (thesis - %.1f x ATR(D), floored at %s x ATR(D) from entry)"
+                     % (_dis, _hp.THESIS_TO_DISASTER_ATR,
+                        _hp.POS_STOP_FLOOR_ATR_D if plan["type"] == "positional" else _hp.SWING_STOP_FLOOR_ATR_D)
+                     if _dis is not None else " · no ATR(D) on the panel - set the disaster stop by hand"))
+        else:
+            print("no INVAL on the review's panel - pass --thesis to record the thesis level")
         block = ("\n\n## TAKEN · %s\n- fill %.2f × %s sh%s\n- SL %.2f (%.1f%%) · T1 %s · T2 %s · %s%s\n%s"
                  % (now, price, qty if qty is not None else "?",
                     (" (plan entry %.2f)" % plan["entry"]) if plan["entry"] and abs(price - plan["entry"]) > 1e-6 else "",
@@ -148,6 +169,7 @@ def main() -> int:
                          "Timeframe": tf_lbl, "EntryDate": datetime.now().strftime("%Y-%m-%d"),
                          "Quantity": qty or 0, "BuyPrice": price, "Status": "OPEN", "Sector": sector,
                          "PlannedRR": round(rr, 2) if rr else None,
+                         "Thesis SL": thesis,
                          "Rationale": "S4 review %s · ruling: %s%s" % (fn, plan["ruling"] or "?", (" · " + a.note) if a.note else ""),
                          "Screenshot": os.path.relpath(path, HERE)}
                 res = dj.upsert_trade(entry)

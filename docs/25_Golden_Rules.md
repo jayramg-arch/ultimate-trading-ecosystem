@@ -448,6 +448,38 @@ On 7 Oct no holding was young enough to move.
 
 ---
 
+## PART 7e — THE TWO-TIER STOP: THESIS AND DISASTER (12 Oct 2026)
+
+*Why.* Measured on your own exits (59 exits since Oct 2024): of the 8 stop-outs that matched
+the journal stop, **3 were wick sweeps** — the day closed back ≥ 0.5 × ATR above the fill
+(TRITURBINE, RRKABEL, ASTERDM) — and **half of the sweeps filled at 09:15–09:18**. The other 5
+were real breaks the stop rightly took. A resting stop at the level is exactly where a sweep
+aims.
+
+**The rule.** Every new trade carries two levels:
+
+| | Thesis SL | Disaster SL |
+|---|---|---|
+| What | The level that proves the idea wrong | The resting Dhan stop order |
+| Exit | Only on a **CLOSE** below it, on the trade's own clock (Daily positional, 75m/125m swing) — at the next bar, your order | Automatically, on a trade through it |
+| Where | S4's **INVAL** (the Entry row's "close-basis" level), copied into the journal at entry | thesis − 1 × ATR(D), but **at least 1.5 × ATR(D) from entry for a swing, 4 × ATR(D) for a positional** |
+
+`disaster = min(thesis − 1×ATR(D), entry − floor×ATR(D))` (`house_policy.disaster_stop`).
+**Size off the disaster distance** — the worst case stays inside the 0.5% / 0.75% rule.
+
+**Existing holdings (option a).** Their thesis was set equal to today's Dhan stop: nothing
+moved, single-tier as before. The two-tier rule applies to new trades. A thesis at or below
+the Dhan stop is *superseded* (the order fires first) and gets no alert.
+
+**Where you see it.** S4 prints INVAL; `s4_take` records it and prints the recommended
+disaster stop; the GM sizer shows thesis, disaster and the size off the disaster; Risk Shield
+→ Settings & Overrides edits the thesis beside the Dhan stop (with a two-tier status column);
+v67 draws the thesis dashed and names the slot stop "Disaster SL · Dhan"; a **close-below-thesis
+alert** per two-tier holding (once per bar close, on the trade's clock) Telegrams you; the
+morning and evening digests list any holding that closed below its thesis.
+
+**Never.** Nothing places or moves a Dhan order — the disaster stop is set by you on Dhan.
+
 ## PART 8 — THE CHECKLIST (use this at the moment of the trade)
 
 Run it in order. **Stop at the first NO.**

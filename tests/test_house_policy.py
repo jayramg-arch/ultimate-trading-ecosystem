@@ -143,3 +143,19 @@ def test_exposure_rule_option_a():
     assert "no new entries" in t and "OVER" in t and ", " not in t
     e = hp.exposure_status()
     assert e["tier"] in ("OPEN", "NEUTRAL", "BEAR") and "text" in e
+
+
+def test_two_tier_disaster_stop():
+    """Two-tier stop (12-Oct-2026): disaster = min(thesis - 1 x ATR(D), entry - floor x ATR(D)),
+    floor 4x positional / 1.5x swing. Size comes off the disaster distance."""
+    import house_policy as hp
+    assert hp.THESIS_TO_DISASTER_ATR == 1.0 and hp.SWING_STOP_FLOOR_ATR_D == 1.5
+    assert hp.POS_STOP_FLOOR_ATR_D == 4.0
+    # positional: the 4x floor binds (entry 100, thesis 95, ATR 2 -> 92, not 93)
+    assert hp.disaster_stop(100, 95, 2, "positional") == 92
+    # swing: thesis - 1 ATR binds (93 < 97)
+    assert hp.disaster_stop(100, 95, 2, "swing") == 93
+    # a thesis close to entry: the floor still keeps the disaster >= 1.5 ATR away
+    assert hp.disaster_stop(100, 99.5, 2, "swing") == 97
+    # never a guess
+    assert hp.disaster_stop(100, None, 2) is None and hp.disaster_stop(100, 95, 0) is None

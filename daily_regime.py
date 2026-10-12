@@ -62,6 +62,7 @@ def links(host: str = "localhost") -> dict:
         "rules": (f"{lib}/25_golden_rules.html", "Golden Rules (Doc 25)"),
         "rules7b": (f"{lib}/25_golden_rules.html#p7b", "Doc 25 Part 7b · swing or positional"),
         "rules7c": (f"{lib}/25_golden_rules.html#p7c", "Doc 25 Part 7c · open-risk budget"),
+        "rules7e": (f"{lib}/25_golden_rules.html#p7e", "Doc 25 Part 7e · two-tier stop"),
         "loop": (f"{lib}/26_operating_loop.html", "Operating Loop (Doc 26)"),
         "s4doc": (f"{lib}/22_section_four.html", "Section Four (Doc 22)"),
         "regime_doc": (f"{lib}/35_daily_regime.html", "Daily Regime (Doc 35)"),
@@ -98,7 +99,9 @@ PHASES = [
         {"t": "08:50", "who": "you", "title": "Read the morning digest, then decide the exits",
          "how": ["Every name listed as at/below its Chandelier: decide now — exit at the open, or hold because the resting "
                  "stop already handles it. Write the decision down; do not decide it in the first minute of trade.",
-                 "Results within 3 days on a held name: decide the size (trim or hold), never the direction, from the result risk."]},
+                 "Results within 3 days on a held name: decide the size (trim or hold), never the direction, from the result risk.",
+                 "THESIS BROKEN names (two-tier holdings that closed below their thesis): exit at the open - your order. The Dhan "
+                 "disaster stop is further away and will not do it for you."]},
         {"t": "08:55", "who": "you", "title": "Risk Shield — stops, open risk, class",
          "how": ["Banners first: 'Stops disagree' or 'Partly covered' → fix on Dhan before 09:15: ONE stop price per holding, "
                  "covering the full quantity, limit price below the trigger.",
@@ -178,8 +181,10 @@ PHASES = [
          "how": ["🔥 Open risk: over budget → plan tomorrow's trims (they go first at 09:15).",
                  "🔁 Swing ↔ Positional: a swing that passes all four gates may be converted now (it is a Daily close) — "
                  "record it, then on Dhan set the new stop (and sell any trim), then Sync to TV. A losing swing converts only at "
-                 "half risk. EXIT REVIEW names are decided for tomorrow's open."],
-         "links": ["risk", "rules7b"]},
+                 "half risk. EXIT REVIEW names are decided for tomorrow's open.",
+                 "New position today: check its Thesis SL in Settings & Overrides (s4_take copies S4's INVAL) and that the Dhan "
+                 "stop is the DISASTER level, not the thesis (Doc 25 Part 7e)."],
+         "links": ["risk", "rules7b", "rules7e"]},
         {"t": "17:45", "who": "you", "title": "Tomorrow's candidates — the boards",
          "how": ["Daily board: the 5/5 positional names are tomorrow's Daily-close candidates. 125m/75m boards: swing names "
                  "the alerts will time. Open each worth attention in the Golden Matcher and read the decision path.",
