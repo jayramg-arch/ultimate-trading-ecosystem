@@ -1482,8 +1482,13 @@ def _s4go_core(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
         _fq = " · F n/a" if is_etf else (" · F?" if fund_ok is None else "")
         _pbt = (" · PB" if _pb else "") + _fq + _mtag
         return f"5/5 GO{_pbt}" if not _pa_age else f"5/5 · PA {_pa_age}b{_pbt}"
+    # The RECENCY CAP above can be the only reason n < 5: every gate passed, but the PA
+    # is a few bars old, so the row stops at 4/5. The old chain then fell through to
+    # "no funda" (MOREALTY 75m, 12-Oct: '4/5 · no funda · F n/a · PA 2b' - an ETF, whose
+    # F cannot fail). Name the real cause; "no funda" only when the F gate failed.
     _miss = ("no PA" if not g_pa else "no loc" if not g_loc
-             else "no vol" if not g_vol else "weak bar" if not g_bar else "no funda")
+             else "no vol" if not g_vol else "weak bar" if not g_bar
+             else "no funda" if not g_fund else "recent PA")
     _fq = " · F n/a" if is_etf else (" · F?" if fund_ok is None else "")
     return f"{n}/5 · {_miss}{_fq}{_age_tag}"
 
