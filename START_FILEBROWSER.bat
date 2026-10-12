@@ -20,10 +20,12 @@ set "TS=C:\Program Files\Tailscale\tailscale.exe"
 powershell -NoProfile -Command "if (Get-NetTCPConnection -LocalPort 8503 -State Listen -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }"
 if errorlevel 1 (
   echo Starting File Browser on 127.0.0.1:8503 ...
-  REM GODEBUG=winsymlink=0 (12-Oct-2026): the share folders are JUNCTIONS. Programs built
-  REM with Go 1.23+ report a junction as an "irregular" file, so File Browser tried to READ
-  REM each share as a file - "read ...\share\Desktop: Incorrect function", a 500 and
-  REM "Something went wrong" on every folder. This restores the old (link) behaviour.
+  REM 12-Oct-2026: the root is now C:\Users\jayra with per-user ALLOW rules (Documents,
+  REM Downloads, TradingData, OneDrive\Desktop; everything else denied) - set in the
+  REM database, see "filebrowser rules ls -u jay". The old RemoteAccess\share folder of
+  REM JUNCTIONS never worked: Go 1.23+ reports a junction as an irregular file ("Incorrect
+  REM function", 500), and as a link this version hides anything outside its root.
+  REM GODEBUG=winsymlink=0 is kept so any junction inside the allowed folders still reads.
   set "GODEBUG=winsymlink=0"
   start "File Browser :8503" /min "%RA%\filebrowser\filebrowser.exe" -d "%RA%\config\filebrowser.db" -l "%RA%\logs\filebrowser.log"
 ) else (

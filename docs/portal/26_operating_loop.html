@@ -691,7 +691,7 @@ footer em{color:var(--ink-2)}
       <tr><td>Risk Shield</td><td class="n">http://jaynuc:8501/?view=risk_window</td><td>Sidebar-free pop-out, same as the GM ones</td></tr>
       <tr><td>The Reviewer Log (live)</td><td class="n">http://jaynuc:8502/docs/portal/31_reviewer_log_v2.html</td><td><span class="m">Commander Portal</span> shortcut (serves the repo read-only on :8502)</td></tr>
       <tr><td>The Library</td><td class="n">http://jaynuc:8502/docs/portal/index.html</td><td>same</td></tr>
-      <tr><td>Files (10 Oct)</td><td class="n">http://jaynuc:8503</td><td><b>File Browser</b>, started by <span class="m">START_FILEBROWSER.bat</span> (MORNING step 6). Bound to 127.0.0.1 and published only on the tailnet by <span class="m">tailscale serve</span>. Root = the project, Documents, Downloads, Desktop, TradingData; full access; command execution off</td></tr>
+      <tr><td>Files (10 Oct)</td><td class="n">http://jaynuc:8503</td><td><b>File Browser</b>, started by <span class="m">START_FILEBROWSER.bat</span> (MORNING step 6). Bound to 127.0.0.1 and published only on the tailnet by <span class="m">tailscale serve</span>. Root = your profile folder, with rules that allow only Documents (the project is inside it), Downloads, TradingData and OneDrive &rarr; Desktop &mdash; everything else (AppData, browser data, <code>.ssh</code>) is refused. Full access inside those; command execution off. Sign in as <b>jay</b></td></tr>
       <tr><td>The desktop itself (10 Oct)</td><td class="n">jaynuc (Remote Desktop)</td><td>Windows App on the tablet/phone, password sign-in. The RDP firewall rules accept the tailnet only (100.64.0.0/10). This is how jobs are run remotely — no job-runner page. <b>Disconnect, never sign out</b>: signing out closes TradingView, the receiver and Web Commander</td></tr>
     </tbody>
   </table></div>
@@ -709,6 +709,15 @@ footer em{color:var(--ink-2)}
     3 scope the Remote Desktop firewall rules to the tailnet · 4 status · 5 publish File Browser on the tailnet.
     When the daemon sits in <code>NoState</code> ("can't reach the coordination server") nothing above is
     reachable; if 1 and 2 do not clear it, update Tailscale or reinstall it.</p>
+  <p><b>The real cause of NoState (11&ndash;12 Oct):</b> the Tailscale <em>tray app</em> had not started, and the
+    service waits for it before it connects. Fixed twice over: <b>unattended mode</b> is on (the service connects at
+    boot with no tray app and no sign-in), and <span class="m">MORNING.bat</span> step 0 starts the tray app if the
+    service is not Running. The node is now 100.110.209.18; <code>jaynuc</code> still resolves.</p>
+  <p><b>Why File Browser does not use links (12 Oct):</b> it was first set up on a folder of junctions to the five
+    places. Every folder failed &mdash; this version reads a junction as a broken file (&ldquo;Something went
+    wrong&rdquo;), and as a link it hides anything outside its root (&ldquo;It feels lonely here&rdquo;). So the root
+    is the profile folder and the access is set by rules: <span class="m">filebrowser rules ls -u jay</span> lists
+    them. Errors go to <span class="m">RemoteAccess\logs\filebrowser.log</span>.</p>
   <p><b>File Browser caution.</b> The project was archived on 1 Sep 2026 and gets no security fixes; one known bug
     can delete a directory recursively when an upload fails. It is reachable only from your own devices, but
     keep uploads small and do not upload into the project root. Change the initial password, then delete

@@ -239,12 +239,16 @@ public tunnel except the ngrok webhook).
 |---|---|---|
 | Web Commander | `http://jaynuc:8501` | `?view=gm_window&mobile=1` for the GM |
 | Library / Reviewer Log | `http://jaynuc:8502/docs/portal/index.html` | `SERVE_PORTAL.bat` |
-| Files | `http://jaynuc:8503` | File Browser, `START_FILEBROWSER.bat` (MORNING step 6); 127.0.0.1 + `tailscale serve`; full access, command exec off |
+| Files | `http://jaynuc:8503` | File Browser, `START_FILEBROWSER.bat` (MORNING step 6, Desktop shortcut); 127.0.0.1 + `tailscale serve`; root = profile folder, rules allow only Documents · Downloads · TradingData · OneDrive\Desktop (AppData etc. refused); command exec off; user `jay` |
 | The desktop | Remote Desktop to `jaynuc` | RDP firewall scoped to 100.64.0.0/10. **Disconnect, never sign out.** Jobs are run this way |
 
 `REMOTE_ADMIN_SETUP.bat` (admin): 1 restart Tailscale · 2 reset state + re-login (node back to
 `jaynuc`) · 3 RDP firewall to the tailnet · 4 status · 5 publish File Browser. If the daemon is in
-`NoState`, nothing is reachable — update or reinstall Tailscale.
+`NoState`, nothing is reachable. Real cause (11–12 Oct): the tray app had not started and the
+service waits for it — fixed by **unattended mode** (on) and MORNING step 0 (starts the tray app).
+File Browser does not follow links (junction = "Something went wrong", link = "It feels lonely
+here"), so access is set by rules, not a folder of links: `filebrowser rules ls -u jay`. Log:
+`RemoteAccess\logs\filebrowser.log`.
 File Browser was archived upstream on 1 Sep 2026 (no security fixes; an upload failure can
 delete a directory recursively) — keep uploads small, change the initial password and delete
 `RemoteAccess\config\INITIAL_LOGIN.txt`.
