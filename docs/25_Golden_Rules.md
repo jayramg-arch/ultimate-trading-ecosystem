@@ -484,6 +484,8 @@ morning and evening digests list any holding that closed below its thesis.
 
 **The latest bar (12 Oct) — read it, and let the read be measured.** The B gate passes a green bar with a long top wick on purpose. The board's **Bar** column and the **Commander Add-ons** indicator (M1) (`Commander_Addons_v1.0.pine` module M1, the one add-ons indicator, separate from S4) grade the last closed bar: weak = close in the lower third or a top wick ≥ half the range. H2 of the same pre-registration measures it; if it passes it changes the entry (buy-stop above a weak bar), never the alert.
 
+**One container for display add-ons (12 Oct).** `Commander_Addons_v1.0.pine` is the only place new chart reads go: one module each (own input group + Enable switch), display only, never feeding the GO, an alert or a binding. M1 = latest bar read, label `Weak.C:36%.TW:64%`. No new indicator per enhancement; a module that earns a place in the gate moves into S4 at a compile that is happening anyway.
+
 ## PART 8 — THE CHECKLIST (use this at the moment of the trade)
 
 Run it in order. **Stop at the first NO.**

@@ -661,11 +661,16 @@ footer em{color:var(--ink-2)}
   beat the other GOs by at least 0.25R. Until then, read it with your eye; it moves no gate.</p>
   <h4>The latest bar — read it, and let the read be measured (12 Oct)</h4>
   <p>The B gate passes a green bar with a long top wick, on purpose: tightening it cost winners every time it
-  was tried. So the bar is read before the order, not at the alert. The board's <b>Bar</b> column and the
-  <b>Commander Add-ons</b> indicator (M1) (<code>Commander_Addons_v1.0.pine</code>, module M1 - the one indicator for display add-ons, no S4
-  compile) show the same grade: <b>weak</b> = close in the lower third or a top wick of at least half the
-  range. Whether a weak bar returns less is H2 of the same pre-registration, from the same ledger. If it
+  was tried. So the bar is read before the order, not at the alert. The board's <b>Bar</b> column and module M1 of the
+  <b>Commander Add-ons</b> indicator (<code>Commander_Addons_v1.0.pine</code>) show the same grade:
+  <b>weak</b> = close in the lower third or a top wick of at least half the range. On the chart it is an orange
+  dot on each weak bar and a label on the last closed bar, e.g. <code>Weak.C:36%.TW:64%</code> (C = close
+  position in the range, TW = top-wick share). Whether a weak bar returns less is H2 of the same pre-registration, from the same ledger. If it
   passes, it changes the <i>entry</i> (a buy-stop above a weak bar), never the alert.</p>
+  <p><b>One container for display add-ons.</b> Commander Add-ons is the only place new chart reads go: each is a
+  module with its own input group and Enable switch, display only, never feeding the GO, an alert or a binding.
+  No new indicator per enhancement, and no experiments inside S4 (it sits at its token ceiling). A module that
+  earns a place in the gate moves into S4 at a compile that is happening anyway.</p>
 </section>
 
 
