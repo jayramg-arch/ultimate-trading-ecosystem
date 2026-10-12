@@ -4364,8 +4364,8 @@ bool   tbOn    = tbHit and not na(tbWin) and not na(tbMult) and tbMult > 0
 // level: exit on a CLOSE below it, on the trade's own clock. Python sends it only when it
 // sits ABOVE the slot's stop, which is the resting Dhan order - the DISASTER stop.
 // Measured: 3 of 8 stop exits were wick sweeps that closed back above the fill.
-string _tbTh    = tbHit and array.size(_tbP) >= 4 ? array.get(_tbP, 3) : ""
-float  tbThesis = str.startswith(_tbTh, "T") ? str.tonumber(str.substring(_tbTh, 1)) : na
+// Token ceiling (100,256): kept to one statement and one label - first build was 99 over.
+float  tbThesis = tbHit and array.size(_tbP) >= 4 ? str.tonumber(str.substring(array.get(_tbP, 3), 1)) : na
 bool   _is_swg_trade     = tbOn ? tbWin < 18 : str.startswith(_active_cat_safe, "SWG")
 float  ce_h_d            = _is_swg_trade ? ce_h_d_14 : ce_h_d_22
 float  ce_atr_d          = _is_swg_trade ? ce_atr_d_14 : ce_atr_d_22
@@ -5595,29 +5595,26 @@ if barstate.islast and showTrade and tradeActive
     // Entry Label
     label.new(bar_index + 3, finalEntry, "Avg. Entry: " + str.tostring(math.round_to_mintick(finalEntry)) + (finalDate > 0 ? " (" + str.format_time(finalDate, "dd MMM yy", "Asia/Kolkata") + ")" : ""), color=color.blue, style=label.style_none, textcolor=color.blue, size=size.small)
     
-    // TWO-TIER STOP: when the book carries a thesis above the resting stop, the slot's stop
-    // is the DISASTER order and the THESIS is drawn dashed above it.
-    bool _twoTier = finalSL > 0 and not na(tbThesis) and tbThesis > finalSL
-    string _slName = _twoTier ? "Disaster SL · Dhan: " : "Hard SL: "
+    // TWO-TIER STOP: a thesis above the resting stop is labelled at its level (the slot's
+    // Hard SL is then the DISASTER order). A label only - the token ceiling has no room for more.
     var line _thLn = na
     line.delete(_thLn)
-    if _twoTier
-        _thLn := line.new(bar_index - 40, tbThesis, bar_index + 3, tbThesis, color=color.new(color.orange, 0), style=line.style_dashed, width=1)
-        string thDist = showDist ? ", " + f_dist(tbThesis) : ""
-        label.new(bar_index + 3, tbThesis, "Thesis SL: " + str.tostring(math.round_to_mintick(tbThesis)) + " · close below = exit" + thDist, color=color.orange, style=label.style_none, textcolor=color.orange, size=size.small)
+    if tbThesis > finalSL and finalSL > 0
+        _thLn := line.new(bar_index - 40, tbThesis, bar_index + 3, tbThesis, color=color.orange, style=line.style_dashed)
+        label.new(bar_index + 3, tbThesis, "Thesis SL (close below = exit): " + str.tostring(math.round_to_mintick(tbThesis)), color=color.orange, style=label.style_none, textcolor=color.orange, size=size.small)
 
     // SL & Targets Labels with Distance
     if finalSL > 0
         if finalTSL > 0
             // Trail SL is active — show both Hard SL (dim) and Trail SL (bright)
             string hslDist = showDist ? ", " + f_dist(finalSL) : ""
-            label.new(bar_index + 3, finalSL, _slName + str.tostring(math.round_to_mintick(finalSL)) + hslDist, color=color.red, style=label.style_none, textcolor=color.new(color.red, 60), size=size.small)
+            label.new(bar_index + 3, finalSL, "Hard SL: " + str.tostring(math.round_to_mintick(finalSL)) + hslDist, color=color.red, style=label.style_none, textcolor=color.new(color.red, 60), size=size.small)
             string tslDist = showDist ? ", " + f_dist(finalTSL) : ""
             label.new(bar_index + 3, finalTSL, "Trail SL: " + str.tostring(math.round_to_mintick(finalTSL)) + tslDist, color=color.orange, style=label.style_none, textcolor=color.orange, size=size.small)
         else
             // No trail SL — show Hard SL normally
             string slDist = showDist ? ", " + f_dist(finalSL) : ""
-            label.new(bar_index + 3, finalSL, _slName + str.tostring(math.round_to_mintick(finalSL)) + slDist, color=color.red, style=label.style_none, textcolor=color.red, size=size.small)
+            label.new(bar_index + 3, finalSL, "Hard SL: " + str.tostring(math.round_to_mintick(finalSL)) + slDist, color=color.red, style=label.style_none, textcolor=color.red, size=size.small)
         
     if finalSL > 0 and finalT1 > 0
         string t1Dist = showDist ? ", " + f_dist(t1_val) : ""
@@ -5861,31 +5858,11 @@ plotshape(show_ribbon, title="Weinstein Stage Ribbon (Bottom)", style=shape.squa
 //                                 short build-up / short covering) from OI vs price.
 // ============================================================================
 plot(conf_score,        title="s4_actionSignal", display=display.none)
-// ── ML WIN PROBABILITY (26-Aug-2026, Jay: port it here and bind from v67) ──────
-// The logistic scorer that lived only in the Unified Ecosystem. Computed HERE because
-// v67 already owns five of its six inputs and is already S4's binding channel -- so S4
-// gets it for one input.source instead of a second channel to a second indicator.
-//
-// f_calc_alpha_score is the SAME function in both files, so that term cannot drift.
-// The one term that WOULD have drifted is RS: Unified's rsVal500 is the JdK RS-Ratio
-// CENTERED ON 0 (`rs_positive = rsVal500 > 0`), while v67's val500 is the 100-based
-// ratio (S4 tests `> 100`). Feeding val500 straight in would have shifted every score
-// by 0.002488 x 100 = +0.249 and quietly inflated the probability. Hence val500 - 100.
-//
-// CAVEAT worth knowing: these six coefficients are a fitted logistic whose calibration
-// has never been validated out-of-sample in this project. Read it as a RANKING, not as
-// a true probability -- "38%" does not mean 38 trades in 100 worked.
-float _mlBasis = ta.sma(close, 20)
-float _mlSd    = ta.stdev(close, 20)   // hoisted: a ta.* call inside a ternary is not
-float _mlBBw   = _mlBasis > 0 ? (4.0 * _mlSd) / _mlBasis : 0.0   // evaluated every bar,
-// so its rolling window desyncs — the same defect class as ta.* inside `if barstate.islast`.
-float _mlHi52  = ta.highest(high, 250)
-float _mlPbDep = _mlHi52 > 0 ? (_mlHi52 - close) / _mlHi52 : 0.0
-float _mlAtrP  = (not na(d_atr14)) and d_atr14 > 0 and close > 0 ? (d_atr14 / close) * 100.0 : 3.0
-float _mlAlpha = f_calc_alpha_score(close, open, d_ema20val, d_sma50, volume, d_vavg)
-float _mlScore = -0.510474 + (0.023048 * dailyRsi) + (0.113267 * _mlAtrP) + (-0.848810 * _mlBBw) + (0.002488 * (val500 - 100.0)) + (-0.013312 * _mlAlpha) + (-1.137420 * _mlPbDep)
-float mlWinProb = (1.0 / (1.0 + math.exp(-_mlScore))) * 100.0
-plot(mlWinProb,         title="s4_mlWinProb",    display=display.none)
+// ── ML WIN PROBABILITY - REMOVED 12-Oct-2026 (v67.4.27, Jay: cut what we do not use) ──
+// The logistic scorer fed only the s4_mlWinProb plot, which S4 stopped binding on 21-Sep
+// when its base-rate row replaced the ML row (and no Python reads it). It cost live
+// tokens because a plot consumed it; removing it made room for the two-tier thesis label
+// under the 100,256 ceiling. The fitted coefficients are in git history (v67.4.26).
 plot(score,             title="s4_assetQuality", display=display.none)
 plot(dailyRsi,          title="s4_rsiDaily",     display=display.none)
 plot(val500,            title="s4_rsRatio500",   display=display.none)
