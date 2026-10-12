@@ -1844,6 +1844,19 @@ def phase1_read(symbol: str | None, tf: str | None, bars_n: int) -> str:
 def review_one(symbol: str | None, tf: str | None, args) -> int:
     global LAST_RESULT
     st = switch_chart(symbol, tf)
+    # S5's footprint rows are one fixed height per chart; fit them to THIS stock before the
+    # read, or the order-flow rows read "ROWS TOO COARSE" and say nothing (12-Oct-2026).
+    # Only the tabs the reviewer drives; if the input changed, wait for S5 to recalculate.
+    try:
+        import s5_rows
+        _fit = s5_rows.fit(_main_targets())
+        if any(r.get("changed") for r in _fit):
+            print("  [s5 rows] " + "; ".join("%s %s->%s" % (r.get("sym"), r.get("cur"), r.get("want"))
+                                            for r in _fit if r.get("changed")))
+            time.sleep(1.5)
+            switch_chart(None, None)          # no switch - just wait until the panels settle
+    except Exception as _e:
+        print("  [s5 rows] not fitted (%s) - S5's order-flow rows may read 'too coarse'" % _e)
     d = read_panels(args.bars)
     read_txt = phase1_read(symbol, tf, args.bars) + render_read(d)
     if args.dump:

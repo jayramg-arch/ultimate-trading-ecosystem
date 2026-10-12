@@ -54,3 +54,14 @@ def test_s4_take_reads_the_thesis_and_daily_atr():
            "Entry · SL · T1 · T2 | E 1446.3 │ SL 1382.4 │ INVAL 1287.7 zone distal (-12.3%) close-basis only\n")
     d = s4_take.parse_plan(txt)
     assert d["thesis"] == 1287.7 and d["atr_d"] == 70.72
+
+
+def test_s5_rows_target_ticks_and_nse_tick_sizes():
+    """S5 footprint rows (12-Oct-2026): ~10 rows per ATR, tick size from Dhan's scrip master."""
+    import s5_rows
+    assert s5_rows.target_ticks(58.93, 0.10) == 59        # TVSMOTOR 125m, matches S5's own hint
+    assert s5_rows.target_ticks(0.5, 0.05) == 1           # floor at 1
+    assert s5_rows.target_ticks(None, 0.05) is None and s5_rows.target_ticks(10, None) is None
+    if s5_rows._ticks_table():                             # the master is a local data file
+        assert s5_rows.tick_size("NSE:TVSMOTOR") == 0.10
+        assert s5_rows.tick_size("NSE:PAGEIND") == 5.0

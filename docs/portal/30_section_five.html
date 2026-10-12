@@ -404,6 +404,11 @@ footer a{color:var(--acc)}
   level and its timeframe, how many bars ago, what it means and what voids it. If the footprint rows are too
   coarse for stacking to exist (fewer than 6 rows on the last bar), the row says so and suggests a
   <i>Ticks per volume row</i> value — row height is fixed per chart, because Pine needs a compile-time value.</p>
+  <p><b>Fitting the rows (12 Oct).</b> The reviewer sets its own S5 tab's row height for every stock before it reads
+  (ATR ÷ 10 ÷ the stock's tick size, from Dhan's scrip master — NSE ticks run from ₹0.01 to ₹5 by price), so a review
+  always gets a usable read. On <b>your</b> S5 tab, click <b>Set S5 Rows</b> (Desktop / Start → Weinstein Commander,
+  <span class="m">SET_S5_ROWS.bat</span>) after changing symbol. At the default 200 ticks a TVSMOTOR 125m bar spanned
+  3 rows; fitted, it spans about 10.</p>
   <div class="note">
     <span class="tag">Grades, never gates — with one exception</span>
     <p>None of this can be backtested (TradingView-only, bar by bar), so it never moves GO, size or a stop,
