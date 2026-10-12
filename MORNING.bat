@@ -3,6 +3,7 @@ REM ===========================================================================
 REM  MORNING - one click brings the desk up  (21-Sep-2026)
 REM
 REM  Starts, in order, and ONLY what is not already running (safe to re-run):
+REM    0. Tailscale connected (starts the tray app if the service is stuck)
 REM    1. TradingView Desktop with the CDP port (:9222)   LAUNCH_TRADINGVIEW_CDP.bat
 REM    2. Web Commander (:8501)                            LAUNCH_COMMANDER.bat
 REM    3. S4 alert reviewer + ngrok tunnel (:8000/:4040)  START_ALERT_REVIEWER.bat
@@ -25,6 +26,19 @@ set "PS=powershell -NoProfile -ExecutionPolicy Bypass -Command"
 echo ==============================================================
 echo   WEINSTEIN COMMANDER - MORNING
 echo ==============================================================
+
+REM 0. Tailscale (12-Oct-2026). The service can sit in "NoState" all day when the
+REM    tray app did not start at boot - it then waits for the tray to tell it to
+REM    connect, and the phone cannot reach this PC at all (20 Sep, 10 Oct, 11 Oct).
+REM    Unattended mode (on since 12 Oct) should prevent it; this is the backstop:
+REM    start the tray app if the backend is not Running, then report the state.
+set "TSX=C:\Program Files\Tailscale"
+if exist "%TSX%\tailscale.exe" (
+    %PS% "$s=(& '%TSX%\tailscale.exe' status --json 2>$null | ConvertFrom-Json).BackendState; if ($s -eq 'Running') { exit 0 }; if (-not (Get-Process tailscale-ipn -ErrorAction SilentlyContinue)) { Start-Process '%TSX%\tailscale-ipn.exe' }; for ($i=0; $i -lt 15; $i++) { Start-Sleep 2; $s=(& '%TSX%\tailscale.exe' status --json 2>$null | ConvertFrom-Json).BackendState; if ($s -eq 'Running') { exit 2 } }; Write-Host ('          Tailscale state: ' + $s); exit 1"
+    if errorlevel 2 (echo   [start] Tailscale was not connected - tray app started, now Running) else if errorlevel 1 (echo   [WARN]  Tailscale is NOT running - the phone cannot reach this PC. REMOTE_ADMIN_SETUP.bat option 1) else (echo   [ok]    Tailscale connected)
+) else (
+    echo   [skip]  Tailscale not installed
+)
 
 REM 1. TradingView with CDP
 call :listening 9222
