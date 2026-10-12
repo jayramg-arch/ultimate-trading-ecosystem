@@ -1107,7 +1107,7 @@ def rejection_read(ctx: dict) -> tuple[bool, str, float | None]:
 # upper half, so a green bar with a long top wick passes - kept loose on purpose (the alert
 # is a trigger; tightening it was measured three times in Aug and cost winners). Jay reads
 # the latest closed bar by eye before ordering; this names that read. DISPLAY ONLY.
-# The SAME four numbers are constants in Latest_Bar_Read_v1.0.pine (a test checks it).
+# The SAME four numbers are constants in Commander_Addons_v1.0.pine (module M1) (a test checks it).
 BAR_WEAK_CLOSE_POS   = 1 / 3    # close in the lower third of the range  -> weak
 BAR_WEAK_TOP_WICK    = 0.50     # upper wick >= half the range           -> weak
 BAR_STRONG_CLOSE_POS = 2 / 3    # close in the upper third ...

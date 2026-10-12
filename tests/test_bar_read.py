@@ -1,5 +1,5 @@
 """Latest-bar read (12-Oct-2026): weak / neutral / strong on the last closed trigger bar.
-Board Bar column + Latest_Bar_Read_v1.0.pine + H2 of the rejection pre-registration."""
+Board Bar column + Commander_Addons_v1.0.pine (M1) + H2 of the rejection pre-registration."""
 import os
 import re
 
@@ -34,7 +34,7 @@ def test_zero_range_or_missing_is_blank():
 
 
 def test_pine_constants_match_python():
-    src = open(os.path.join(HERE, "Latest_Bar_Read_v1.0.pine"), encoding="utf-8").read()
+    src = open(os.path.join(HERE, "Commander_Addons_v1.0.pine"), encoding="utf-8").read()
     want = {"WEAK_CLOSE_POS": gtb.BAR_WEAK_CLOSE_POS, "WEAK_TOP_WICK": gtb.BAR_WEAK_TOP_WICK,
             "STRONG_CLOSE_POS": gtb.BAR_STRONG_CLOSE_POS, "STRONG_TOP_WICK": gtb.BAR_STRONG_TOP_WICK}
     for name, val in want.items():

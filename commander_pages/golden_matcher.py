@@ -845,7 +845,7 @@ if True:
                         help="Latest closed trigger bar (display only): weak = close in the lower third or an upper "
                              "wick of at least half the range; strong = close in the upper third and upper wick under "
                              "a quarter; else neutral. The B gate stays loose; this is the read you make before the "
-                             "order. Same numbers as the Latest Bar Read indicator. Pre-registered H2."),
+                             "order. Same numbers as the Commander Add-ons indicator (M1). Pre-registered H2."),
                     "Trend": st.column_config.TextColumn(
                         "Trend", width=260,
                         help="Trend alignment grade (display only): A+ = W Stage 2 · D pullback at value · trigger TF shifted up; B = daily downtrend; C = daily extended; F = Stage 3/4."),

@@ -65,7 +65,7 @@ was measured and rejected three times in Aug (fills 314 → 241, removed trades 
 winners), so this is registered as a read to be measured, not a gate.
 
 **Definition (fixed — `gm_trigger_board.bar_grade`, same constants in
-`Latest_Bar_Read_v1.0.pine`):** on the same trigger bar the ledger already records
+`Commander_Addons_v1.0.pine (module M1)`):** on the same trigger bar the ledger already records
 (o, h, l, c),
 - **weak** = close in the lower third of the range, OR upper wick ≥ 50% of the range;
 - **strong** = close in the upper third AND upper wick < 25%;
