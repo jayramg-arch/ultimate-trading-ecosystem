@@ -5128,358 +5128,15 @@ string compPosStatusStr = "Entry " + entryDateStr + " · " + str.tostring(daysHe
 color  compPosStatusCol = timeWarnCol
 
 // ==========================================
-// DRAWING
+// DASHBOARD PANEL - REMOVED 12-Oct-2026 (v67.4.27, Jay: "I have stopped reading the v67
+// panel table, as I refer to the S4 panel"). The table, its three row helpers and both
+// render blocks (detailed + Decision Mode) are gone; everything they alone consumed is now
+// dead code, which Pine drops at compile. KEPT: every s4_* plot S4 binds, the chart
+// drawings (slots, Chandelier, MAs, AVWAP, ribbon, pyramid), and every input - including
+// the panel's own (tablePos, textSize, show_detailed_view) so saved inputs do not shift.
+// The reviewer's v67 'FUTURES OI STATE' cross-check now reads S4's row alone; S4 reads the
+// same OI from v67 through its bindings. The panel code is in git history (v67.4.26).
 // ==========================================
-var table panel = table.new(tablePos, 4, 60, border_width=1, border_color=color.gray)  // v65.0: bumped 50→60 to accommodate recovery panel rows
-
-// #palette (30-Jul, Jay: "replicate the same colour palette back to Weinstein Dashboard
-// from S4 Entry Trigger"). Ported VERBATIM from Section4_Entry_Trigger_v5.9.pine — same
-// function name, same five hex outputs, same dark-text constant — so the two panels
-// read as one system rather than two hand-tuned near-matches that will drift apart the
-// next time either file is touched. f_softBg buckets a semantic colour by its DOMINANT
-// RGB CHANNEL into one fixed pastel; it is a classifier, not a per-row lookup table, so
-// whatever colour a row already computes (recColor / compWeeklyCol / persona_col / …)
-// gets the new look automatically. color.r/g/b() return FLOAT here despite the 0-255
-// range in the docs — an explicit `int` declaration fails to compile (S4 hit this first).
-f_softBg(color c) =>
-    float _r = color.r(c)
-    float _g = color.g(c)
-    float _b = color.b(c)
-    float _mx = math.max(_r, math.max(_g, _b))
-    float _mn = math.min(_r, math.min(_g, _b))
-    _mx - _mn < 25 ? #AEB7C2 : _b > _r and _b > _g ? #8FC1EA : _r > 200 and _g > 100 and _b < 120 ? #F0B86E : _g >= _r and _g >= _b ? #7FCFC0 : #F1A7A0
-C_SOFTTXT = color.new(#10202E, 0)
-
-// drawRowL/R/C previously painted the LABEL cell a fixed solid white (C_LBL) and only
-// the VALUE cell in the row's semantic colour — the two-tone look S4 replaced. All ~69
-// call sites across both the detailed and compressed views pass the SAME three trailing
-// constants (C_LBL, C_LBL_TXT, C_VAL_TXT), so they are read here for compatibility but no
-// longer drive the look — both cells now share ONE f_softBg(valColor) background + the
-// one dark-navy text colour, matching a full "RECOMMENDATION"-style block in S4.
-drawRowL(tbl, r, title, valText, valColor, cellBg, titleColor, valTextColor) =>
-    color _bg = f_softBg(valColor)
-    table.cell(tbl, 0, r, title, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_left)
-    table.cell(tbl, 1, r, valText, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_center)
-
-drawRowR(tbl, r, title, valText, valColor, cellBg, titleColor, valTextColor) =>
-    color _bg = f_softBg(valColor)
-    table.cell(tbl, 2, r, title, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_left)
-    table.cell(tbl, 3, r, valText, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_center)
-
-// v67.3.0: full-width row for Decision-Mode (compressed view).
-// Merges columns 1-3 so the composite string can render across the whole cell.
-drawRowC(tbl, r, title, valText, valColor, cellBg, titleColor, valTextColor) =>
-    color _bg = f_softBg(valColor)
-    table.cell(tbl, 0, r, title, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_left)
-    table.merge_cells(tbl, 1, r, 3, r)
-    table.cell(tbl, 1, r, valText, bgcolor=_bg, text_color=C_SOFTTXT, text_size=textSize, text_halign=text.align_left)
-
-// v67.3.0: DETAILED VIEW — preserved verbatim, gated by show_detailed_view toggle.
-//   When OFF (default), control flows to the compressed render block below.
-if barstate.islast and show_detailed_view
-    int rowL = 0
-    int rowR = 0
-
-    // ── V1.3 Unified Palette ──────────────────────────────────────────────────
-    color C_HDR     = color.new(#1e222d, 0)   // dark header
-    color C_LBL     = color.new(#ffffff, 0)   // white label bg
-    color C_LBL_TXT = color.new(#000000, 0)   // black label text
-    color C_VAL_TXT = color.new(#000000, 0)   // black value text
-    color C_BULL    = color.new(#26a69a, 0)   // teal  — bullish / pass
-    color C_WARN    = color.new(#ff9800, 0)   // orange — caution / hold
-    color C_BEAR    = color.new(#ef5350, 0)   // red   — bearish / fail
-    color C_NEUT    = color.new(#f5f5f5, 0)   // light grey — neutral / n/a
-    color C_LIME    = color.new(#00c853, 0)   // bright green — strong bull
-
-    // Header Left
-    table.cell(panel, 0, rowL, "WEINSTEIN DASHBOARD", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.cell(panel, 1, rowL, syminfo.ticker, bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_center)
-    // Header Right
-    table.cell(panel, 2, rowR, "DATE", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.cell(panel, 3, rowR, str.tostring(year(timenow)) + "-" + str.tostring(month(timenow)) + "-" + str.tostring(dayofmonth(timenow)), bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_center)
-    rowL += 1
-    rowR += 1
-
-    // Trade Style Prominent Banner
-    // #palette: this row is a direct table.cell pair (not through drawRow*), so it needs
-    // its own f_softBg call to match the rest of the panel rather than the old fixed
-    // dark-navy label / raw-colour-white-text value split.
-    color _styleBg = f_softBg(style_col)
-    table.cell(panel, 0, rowL, "RECOMMENDED STYLE", bgcolor=_styleBg, text_color=C_SOFTTXT, text_size=size.normal, text_halign=text.align_left)
-    table.cell(panel, 1, rowL, style_txt, bgcolor=_styleBg, text_color=C_SOFTTXT, text_size=size.normal, text_halign=text.align_center)
-    table.merge_cells(panel, 1, rowL, 3, rowL)
-    rowL += 1
-    rowR += 1
-
-    if panicExit
-        drawRowL(panel, rowL, "⚠️ CRITICAL ALERT", "PRICE < 40WMA", C_BEAR, C_LBL, C_LBL_TXT, C_VAL_TXT)
-        rowL += 1
-
-    // --- LEFT COLUMN ---
-    // 1. BREADTH & SECTOR
-    table.cell(panel, 0, rowL, "── BREADTH & SECTOR ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.cell(panel, 1, rowL, "", bgcolor=C_HDR)
-    rowL += 1
-
-    drawRowL(panel, rowL, "Mkt Health (N500)", mktState, mktColor, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    string secStr = syminfo.sector + " / " + syminfo.industry
-    drawRowL(panel, rowL, "Sector Info", secStr, C_NEUT, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    color _secStageDispCol = str.contains(secStageStr, "STAGE 2") ? color.new(#26a69a, 0) : str.contains(secStageStr, "STAGE 1") ? color.new(#ff9800, 0) : color.new(#ef5350, 0)
-    drawRowL(panel, rowL, "Sector Stage (W)", secStageStr, _secStageDispCol, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    drawRowL(panel, rowL, "Sector Velocity (ROC)", secVelStr, secVelCol, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    drawRowL(panel, rowL, "RS (vs Nifty 50)", f_rrg_icon(rs50State) + " " + rs50State, f_rrg_color(rs50State), C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    drawRowL(panel, rowL, "RS (vs N500)", f_rrg_icon(rs500State) + " " + rs500State, f_rrg_color(rs500State), C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    drawRowL(panel, rowL, "RS (" + autoSectorName + ")", f_rrg_icon(rsSecState) + " " + rsSecState, f_rrg_color(rsSecState), C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    // v67.4.1: dedicated RRG row — quadrant + arrow + trajectory + score + tradeable.
-    // Distinct from RS rows above (which show direction/level only). Color reflects
-    // tradeable gate: red if cliff-edge LEADING or LAGGING, green otherwise.
-    string _rrgL_txt = _rrg500_cur + " " + _rrg500_arrow + "  " + (_rrg500_score > 0 ? "+" : "") + str.tostring(_rrg500_score) + "  ·  " + _rrg500_traj + "  ·  " + (_rrg500_tradeable ? "✓ BUY OK" : "✗ WAIT") + "  (RS-Ratio " + str.tostring(val500 + 100, "#.#") + ")"
-    color  _rrgL_col = _rrg500_tradeable ? color.new(#26a69a, 0) : color.new(#ef5350, 0)
-    drawRowL(panel, rowL, "RRG (vs N500)", _rrgL_txt, _rrgL_col, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    drawRowL(panel, rowL, "Futures OI State", compOiStr, compOiCol, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    drawRowL(panel, rowL, "Next Earnings", earnStr, earnColor, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-
-    // 2. ASSET QUALITY & CONFIRMATION
-    table.cell(panel, 0, rowL, "── ASSET QUALITY & CONFIRM ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.cell(panel, 1, rowL, "", bgcolor=C_HDR)
-    rowL += 1
-
-    drawRowL(panel, rowL, "ASSET QUALITY", assetQuality, gradeCol, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    drawRowL(panel, rowL, "Vol Accum (Setup)", vol_acc_ok ? "PASS" : "WAIT", vol_acc_ok ? C_BULL : C_NEUT, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    drawRowL(panel, rowL, "VCP Tightness", vcp_ok ? "PASS" : "WAIT", vcp_ok ? C_BULL : C_WARN, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    drawRowL(panel, rowL, "Vol Shelf (VWMA)", vol_shelf_ok ? "YES" : "NO", vol_shelf_ok ? C_BULL : C_BEAR, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    drawRowL(panel, rowL, "Price > M-VWAP", mvwap_ok ? "YES" : "NO", mvwap_ok ? C_BULL : C_BEAR, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    drawRowL(panel, rowL, "Daily Close > CPR", cpr_ok ? "YES" : "NO", cpr_ok ? C_BULL : C_BEAR, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    drawRowL(panel, rowL, "Anti-Algo BO Gate", anti_algo_ok ? "PASS" : "FAIL", anti_algo_ok ? C_BULL : C_BEAR, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-
-    // 3. THE VERDICT & SETUP
-    table.cell(panel, 0, rowL, "── THE VERDICT & SETUP ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.cell(panel, 1, rowL, "", bgcolor=C_HDR)
-    rowL += 1
-
-    drawRowL(panel, rowL, "RECOMMENDATION", displayRec, recColor, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    drawRowL(panel, rowL, "CATALYST (Edge)", chartCat, chartCatCol, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    // v67.2.5: POS-BO gate transparency row. Mirrors the Bull Screener's 9-gate stack.
-    //   GREEN  9/9 = all gates pass (POS-BO catalyst is eligible to fire)
-    //   ORANGE 6-8 = close but blocked — note which gates are red below
-    //   RED    <6 = setup not ready
-    string _gates_str = str.tostring(bs_gates_passing) + "/9 [" + (g1_stage ? "1" : "·") + (g2_above200 ? "2" : "·") + (g3_secRS ? "3" : "·") + (g4_secStage ? "4" : "·") + (g5_trendTpl ? "5" : "·") + (g6_volAcc ? "6" : "·") + (g7_fresh ? "7" : "·") + (g8_maSqz ? "8" : "·") + (g9_bbSqz ? "9" : "·") + "]"
-    color _gates_col = bs_gates_passing == 9 ? C_BULL : (bs_gates_passing >= 6 ? C_WARN : C_BEAR)
-    drawRowL(panel, rowL, "POS-BO Gates", _gates_str, _gates_col, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    drawRowL(panel, rowL, "ACTION SIGNAL", actionSignal, conf_col, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    // drawRowL(panel, rowL, "TRADE STYLE", style_txt, style_col, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-    drawRowL(panel, rowL, "PERSONA", persona_txt, persona_col, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowL += 1
-
-    // 4. TRADE & PORTFOLIO STATUS
-    table.cell(panel, 0, rowL, "── TRADE & PORTFOLIO ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.cell(panel, 1, rowL, "", bgcolor=C_HDR)
-    rowL += 1
-
-    if tradeActive
-        drawRowL(panel, rowL, "MY TRADE", tradeStatus, tradeColor, C_LBL, C_LBL_TXT, C_VAL_TXT)
-        rowL += 1
-        drawRowL(panel, rowL, "ENTRY DATE", entryDateStr, C_NEUT, C_LBL, C_LBL_TXT, C_VAL_TXT)
-        rowL += 1
-        drawRowL(panel, rowL, "DAYS HELD", str.tostring(daysHeld) + " Day(s)", daysHeld > 30 ? C_BULL : C_NEUT, C_LBL, C_LBL_TXT, C_VAL_TXT)
-        rowL += 1
-        drawRowL(panel, rowL, "Held", timeWarnStr, timeWarnCol, C_LBL, C_LBL_TXT, C_VAL_TXT)
-        rowL += 1
-        if finalSL > 0
-            drawRowL(panel, rowL, "Dynamic Profile", mktProfile, isBullMarket ? C_BULL : C_BEAR, C_LBL, C_LBL_TXT, C_VAL_TXT)
-            rowL += 1
-            drawRowL(panel, rowL, "Current R:R", rrText, currentR >= 1.0 ? C_BULL : C_WARN, C_LBL, C_LBL_TXT, C_VAL_TXT)
-            rowL += 1
-
-    // --- RIGHT COLUMN ---
-    // 1. POSITIONAL: THE HUNTER
-    table.cell(panel, 2, rowR, "── 🦁 POSITIONAL: THE HUNTER ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.cell(panel, 3, rowR, "(Weinstein/Weekly)", bgcolor=C_HDR, text_color=color.white, text_size=size.small, text_halign=text.align_center)
-    rowR += 1
-
-    drawRowR(panel, rowR, "Market Structure", stageDisplay, stageCol, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    // v67.2.2: split the week count out of Market Structure into its own row.
-    //   leg   = sub-stage age (resets on UP↔PULLBACK) — same anchor the Dashboard always used
-    //   macro = full Stage-2 lifespan (matches Commander Bull Screener)
-    //   tag   = Fresh / Maturing / Extended — keys off stage2_fresh_weeks input
-    drawRowR(panel, rowR, "Stage 2 Age", stage2AgeStr, stage2FreshCol, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    drawRowR(panel, rowR, masterTrendLabel, f_trendText(masterTrendDir), f_trendColor(masterTrendDir), C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    bool pAbove30 = wClose > wMA30
-    drawRowR(panel, rowR, "Price > 30W MA", pAbove30 ? "YES" : "NO", pAbove30 ? C_BULL : C_BEAR, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    drawRowR(panel, rowR, "30-Week MA Slope", wMASlopeState, wMASlopeState == "RISING" ? C_BULL : (wMASlopeState == "FALLING" ? C_BEAR : C_NEUT), C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    drawRowR(panel, rowR, "Weekly PB Health", wkHealthStr, wkHealthCol, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    drawRowR(panel, rowR, "Overhead Resist", str.tostring(resistCount) + " Level(s)", resistCount == 0 ? C_BULL : C_WARN, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    
-    // --- Room for Trade Metric (computed at global scope in v67.3.0, see above) ---
-    drawRowR(panel, rowR, "Room for Trade", roomStr, roomCol, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-
-    drawRowR(panel, rowR, "52W High Space", s_dev52, dev52 > -15 ? C_BULL : C_NEUT, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    drawRowR(panel, rowR, "ATH Space", s_devATH, (not na(devATH) and devATH > -15) ? C_BULL : C_NEUT, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-
-    // 2. SWING: THE SNIPER
-    table.cell(panel, 2, rowR, "── 🎯 SWING: THE SNIPER ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.cell(panel, 3, rowR, "(Minervini/Daily)", bgcolor=C_HDR, text_color=color.white, text_size=size.small, text_halign=text.align_center)
-    rowR += 1
-
-    drawRowR(panel, rowR, "Daily Trend (D)", f_trendText(dTrendDir), f_trendColor(dTrendDir), C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    // v67.2.4: Trend Engine config. Mirrors the on-chart Zigzag [Strict v6.2].
-    // GREEN = canonical defaults (matches Zigzag out-of-the-box).
-    // ORANGE = user overrode pivot or eq_threshold — must apply same override
-    // to Zigzag panel or Daily Trend rows will disagree across tools.
-    drawRowR(panel, rowR, "Trend Engine", trend_engine_str, trend_engine_col, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    drawRowR(panel, rowR, "Trend Template (>200d)", dSmaAligned ? "ALIGNED" : "MISALIGNED", dSmaAligned ? C_BULL : C_BEAR, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    bool pAbove50 = dClose > dMA50
-    drawRowR(panel, rowR, "Price > 50 DMA", pAbove50 ? "YES" : "NO", pAbove50 ? C_BULL : C_BEAR, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    drawRowR(panel, rowR, "50 DMA Slope", d50SlopeState, d50SlopeState == "RISING" ? C_BULL : (d50SlopeState == "FALLING" ? C_BEAR : C_NEUT), C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    drawRowR(panel, rowR, "Price Action Structure", paState, paColor, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    drawRowR(panel, rowR, "Volume Trend", volState, volColor, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    drawRowR(panel, rowR, "Volatility State (ADR)", patStr, C_NEUT, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    drawRowR(panel, rowR, ema_lbl + " Proximity", emaState, emaColor, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    drawRowR(panel, rowR, "Key-Level/Zone Proximity", keyLvlState, keyLvlColor, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    string rsiStr = str.tostring(currRsi, "#.##") + " / " + currRsiDiv
-    drawRowR(panel, rowR, "RSI & Divergence", rsiStr, currRsiDiv == "BULLISH DIV" ? C_BULL : (currRsiDiv == "BEARISH DIV" ? C_BEAR : C_NEUT), C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-    drawRowR(panel, rowR, "Daily Pullback Health", dayHealthStr, dayHealthCol, C_LBL, C_LBL_TXT, C_VAL_TXT)
-    rowR += 1
-
-// ==========================================
-// v67.3.0: COMPRESSED VIEW (Decision Mode) — default rendering
-// ==========================================
-// 13-18 rows depending on whether a position is open. All information from the
-// detailed view is preserved through composite cells (see compMacroStr,
-// compRsStr, etc. computed above). Toggle "Show Detailed View" to expand back.
-// ==========================================
-if barstate.islast and not show_detailed_view
-    int row = 0
-
-    color C_HDR     = color.new(#1e222d, 0)
-    color C_LBL     = color.new(#ffffff, 0)
-    color C_LBL_TXT = color.new(#000000, 0)
-    color C_VAL_TXT = color.new(#000000, 0)
-    color C_BULL    = color.new(#26a69a, 0)
-    color C_WARN    = color.new(#ff9800, 0)
-    color C_BEAR    = color.new(#ef5350, 0)
-    color C_NEUT    = color.new(#f5f5f5, 0)
-    color C_LIME    = color.new(#00c853, 0)
-
-    // Header (full width)
-    table.cell(panel, 0, row, "WEINSTEIN DASHBOARD · " + syminfo.ticker, bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.merge_cells(panel, 0, row, 2, row)
-    table.cell(panel, 3, row, str.tostring(year(timenow)) + "-" + str.tostring(month(timenow)) + "-" + str.tostring(dayofmonth(timenow)), bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_center)
-    row += 1
-
-    // Trade Style Prominent Banner
-    color _styleBg2 = f_softBg(style_col)
-    table.cell(panel, 0, row, "RECOMMENDED STYLE", bgcolor=_styleBg2, text_color=C_SOFTTXT, text_size=size.normal, text_halign=text.align_left)
-    table.cell(panel, 1, row, style_txt, bgcolor=_styleBg2, text_color=C_SOFTTXT, text_size=size.normal, text_halign=text.align_center)
-    table.merge_cells(panel, 1, row, 3, row)
-    row += 1
-
-    // CRITICAL ALERT (only when active)
-    if panicExit
-        drawRowC(panel, row, "⚠️ CRITICAL ALERT", "PRICE < 40WMA — EXIT NOW", C_BEAR, C_LBL, C_LBL_TXT, C_VAL_TXT)
-        row += 1
-
-    // === 🎯 ACT NOW (4 rows) ===
-    table.cell(panel, 0, row, "── 🎯 ACT NOW ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.merge_cells(panel, 0, row, 3, row)
-    row += 1
-
-    drawRowC(panel, row, "RECOMMENDATION",    displayRec,        recColor,         C_LBL, C_LBL_TXT, C_VAL_TXT)
-    row += 1
-    drawRowC(panel, row, "ACTION SIGNAL",     actionSignal,      conf_col,         C_LBL, C_LBL_TXT, C_VAL_TXT)
-    row += 1
-    drawRowC(panel, row, "CATALYST + GATES",  compCatStr,        compCatCol,       C_LBL, C_LBL_TXT, C_VAL_TXT)
-    row += 1
-    drawRowC(panel, row, "ASSET QUALITY",     scoreStr,          gradeCol,         C_LBL, C_LBL_TXT, C_VAL_TXT)
-    row += 1
-
-    // === 📊 STRUCTURE (5 rows) ===
-    table.cell(panel, 0, row, "── 📊 STRUCTURE ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.merge_cells(panel, 0, row, 3, row)
-    row += 1
-
-    drawRowC(panel, row, "WEEKLY STRUCTURE", compWeeklyStr,     compWeeklyCol,    C_LBL, C_LBL_TXT, C_VAL_TXT)
-    row += 1
-    drawRowC(panel, row, "DAILY STRUCTURE",  compDailyStr,      compDailyCol,     C_LBL, C_LBL_TXT, C_VAL_TXT)
-    row += 1
-    drawRowC(panel, row, "PRICE ACTION",      compPaStr,         compPaCol,        C_LBL, C_LBL_TXT, C_VAL_TXT)
-    row += 1
-    drawRowC(panel, row, "MOMENTUM",          compMomStr,        compMomCol,       C_LBL, C_LBL_TXT, C_VAL_TXT)
-    row += 1
-    drawRowC(panel, row, "LEVELS / ROOM",     compLvlStr,        compLvlCol,       C_LBL, C_LBL_TXT, C_VAL_TXT)
-    row += 1
-
-    // === 🌐 CONTEXT (4 rows) ===
-    table.cell(panel, 0, row, "── 🌐 CONTEXT ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.merge_cells(panel, 0, row, 3, row)
-    row += 1
-
-    drawRowC(panel, row, "MACRO / SECTOR",    compMacroStr,      compMacroCol,     C_LBL, C_LBL_TXT, C_VAL_TXT)
-    row += 1
-    drawRowC(panel, row, "RS (vs N500/Sec)", compRsStr,         compRsCol,        C_LBL, C_LBL_TXT, C_VAL_TXT)
-    row += 1
-    drawRowC(panel, row, "RRG (vs N500)",    compRrgStr,        compRrgCol,       C_LBL, C_LBL_TXT, C_VAL_TXT)
-    row += 1
-    drawRowC(panel, row, "FUTURES OI STATE",  compOiStr,         compOiCol,        C_LBL, C_LBL_TXT, C_VAL_TXT)
-    row += 1
-    drawRowC(panel, row, "PERSONA",           persona_txt,       persona_col,      C_LBL, C_LBL_TXT, C_VAL_TXT)
-    row += 1
-
-    // === 📦 PORTFOLIO ===
-    table.cell(panel, 0, row, "── 📦 PORTFOLIO ──", bgcolor=C_HDR, text_color=color.white, text_size=size.normal, text_halign=text.align_left)
-    table.merge_cells(panel, 0, row, 3, row)
-    row += 1
-
-    if tradeActive
-        drawRowC(panel, row, "MY TRADE",          compMyTradeStr,    compMyTradeCol,   C_LBL, C_LBL_TXT, C_VAL_TXT)
-        row += 1
-        drawRowC(panel, row, "POSITION STATUS",   compPosStatusStr,  compPosStatusCol, C_LBL, C_LBL_TXT, C_VAL_TXT)
-        row += 1
-
-
 
 // ── WEEKLY MA PLOTS (fixed 25-Aug-2026, Jay: "the 30WMA and 40WMA are not visible.
 // Also, on the settings->Style tab, why am I not able to set the colors?")
@@ -5597,24 +5254,27 @@ if barstate.islast and showTrade and tradeActive
     
     // TWO-TIER STOP: a thesis above the resting stop is labelled at its level (the slot's
     // Hard SL is then the DISASTER order). A label only - the token ceiling has no room for more.
+    bool _twoTier = finalSL > 0 and tbThesis > finalSL
+    string _slName = _twoTier ? "Disaster SL · Dhan: " : "Hard SL: "
     var line _thLn = na
     line.delete(_thLn)
-    if tbThesis > finalSL and finalSL > 0
+    if _twoTier
         _thLn := line.new(bar_index - 40, tbThesis, bar_index + 3, tbThesis, color=color.orange, style=line.style_dashed)
-        label.new(bar_index + 3, tbThesis, "Thesis SL (close below = exit): " + str.tostring(math.round_to_mintick(tbThesis)), color=color.orange, style=label.style_none, textcolor=color.orange, size=size.small)
+        string thDist = showDist ? ", " + f_dist(tbThesis) : ""
+        label.new(bar_index + 3, tbThesis, "Thesis SL: " + str.tostring(math.round_to_mintick(tbThesis)) + " · close below = exit" + thDist, color=color.orange, style=label.style_none, textcolor=color.orange, size=size.small)
 
     // SL & Targets Labels with Distance
     if finalSL > 0
         if finalTSL > 0
             // Trail SL is active — show both Hard SL (dim) and Trail SL (bright)
             string hslDist = showDist ? ", " + f_dist(finalSL) : ""
-            label.new(bar_index + 3, finalSL, "Hard SL: " + str.tostring(math.round_to_mintick(finalSL)) + hslDist, color=color.red, style=label.style_none, textcolor=color.new(color.red, 60), size=size.small)
+            label.new(bar_index + 3, finalSL, _slName + str.tostring(math.round_to_mintick(finalSL)) + hslDist, color=color.red, style=label.style_none, textcolor=color.new(color.red, 60), size=size.small)
             string tslDist = showDist ? ", " + f_dist(finalTSL) : ""
             label.new(bar_index + 3, finalTSL, "Trail SL: " + str.tostring(math.round_to_mintick(finalTSL)) + tslDist, color=color.orange, style=label.style_none, textcolor=color.orange, size=size.small)
         else
             // No trail SL — show Hard SL normally
             string slDist = showDist ? ", " + f_dist(finalSL) : ""
-            label.new(bar_index + 3, finalSL, "Hard SL: " + str.tostring(math.round_to_mintick(finalSL)) + slDist, color=color.red, style=label.style_none, textcolor=color.red, size=size.small)
+            label.new(bar_index + 3, finalSL, _slName + str.tostring(math.round_to_mintick(finalSL)) + slDist, color=color.red, style=label.style_none, textcolor=color.red, size=size.small)
         
     if finalSL > 0 and finalT1 > 0
         string t1Dist = showDist ? ", " + f_dist(t1_val) : ""

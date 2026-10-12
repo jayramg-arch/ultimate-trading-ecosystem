@@ -565,13 +565,13 @@ PARTICIPATION — use these ACTIVELY, they are where the panel earns its keep, n
   level - a PMH, earnings AVWAP or 1Y VAH ABOVE price and below T1 is a ROOM obstacle; one
   BELOW price is a support reference for the stop discussion. Name the ones that change the
   plan; do not list the rest.
-  Two OI-state readings reach you: S4's "Futures OI" row and v67's "FUTURES OI STATE".
-  Since v67.4.25 / S4 v10.11 both read the same OI (near + next month) against the same
-  price leg (the daily FUTURES change), so they should agree. If they differ, S4's futures
-  source is unbound and it fell back to the cash change: say so in section 8 and take v67's
-  state; keep S4's basis level and prose. Never report a build-up state without checking both.
+  The OI state is S4's "Futures OI" row. S4 reads the OI (near + next month) and the daily
+  FUTURES price change FROM v67 through its bindings; v67's own panel was retired on
+  12-Oct-2026, so there is normally no second OI row. If an older read still carries v67's
+  "FUTURES OI STATE" and the two differ, S4's futures source is unbound and fell back to the
+  cash change: say so in section 8 and take v67's state.
   EXPIRY WEEK: near-month OI falls on essentially every day of the last five before expiry
-  as positions roll. If v67's state ends "near only" (next-month series missing), an
+  as positions roll. If the OI state reads "near only" (next-month series missing), an
   "unwinding" or "covering" read in expiry week is ROLLOVER until proven otherwise - it must
   not by itself justify a trim, a WAIT or a PASS.
 - AVWAP (Low / BO / Gap anchors): price above a RISING AVWAP = buyers since that anchor are in
@@ -675,7 +675,7 @@ ANALYSIS
    a breakout-type or pullback-type trigger and therefore which volume standard applies,
    extension vs the daily EMA20, bar-ok.
 5. PARTICIPATION — futures OI change and basis (long/short build-up, covering,
-   unwinding; S4 row AND v67 row, flag if they differ), then options BY FIELD when the
+   unwinding; S4's row, and v67's too if an older read has one), then options BY FIELD when the
    row has numbers: PCR and its read, max pain vs price and its pull, ATM dOI (writers
    pulling/adding), writer strikes S/R and where they sit vs the stop and T1. Then
    footprint delta on the bar and 20-bar cumulative, absorption vs bleeding, delta
@@ -687,7 +687,7 @@ ANALYSIS
 7. THE PANEL'S OWN PLAN — entry method as printed (and whether it is a real retest or a
    market fill), stop and its basis, T1/T2 with R, trade type, house gates (2R / 20%).
    Is the plan coherent with the analysis above?
-8. CONTRADICTIONS — anywhere the panel disagrees with itself (S4 vs v67 vs S5, or two S4
+8. CONTRADICTIONS — anywhere the panel disagrees with itself (S4 vs S5, or two S4
    rows), and which side you believe.
 
 DELIBERATION
