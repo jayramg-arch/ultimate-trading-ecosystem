@@ -183,7 +183,7 @@ ul.how li{font-size:15px;color:var(--ink-2);margin:0 0 5px;max-width:64ch}
       <div class="clk">08:45</div>
       <div class="bd">
         <p class="t">Start the desk — MORNING.bat (one click)<span class="who">you</span></p>
-        <ul class="how"><li>Double-click Morning on the desktop. It starts, in order and only what is not running: TradingView with the CDP port, Web Commander, the alert receiver + ngrok, the reviewer banner, the Library server, File Browser (:8503).</li><li>Check the window &quot;S4 webhook receiver :8000&quot; is open — closing it is the only way alerts stop being reviewed.</li><li>Check TradingView has its six tabs open: S4 Phase-2 and S5 Layout (yours), S4 Reviewer and S5 Reviewer, Phase-1 and Panel Layout. If the reviewer tabs are missing, reviews FAIL loudly; they never borrow yours.</li><li>Banner green = reviewer idle.</li></ul>
+        <ul class="how"><li>Double-click Morning on the desktop. It first checks Tailscale (the phone&#x27;s way in) and starts its tray app if it is stuck, then starts, in order and only what is not running: TradingView with the CDP port, Web Commander, the alert receiver + ngrok, the reviewer banner, the Library server, File Browser (:8503).</li><li>Check the window &quot;S4 webhook receiver :8000&quot; is open — closing it is the only way alerts stop being reviewed.</li><li>Check TradingView has its six tabs open: S4 Phase-2 and S5 Layout (yours), S4 Reviewer and S5 Reviewer, Phase-1 and Panel Layout. If the reviewer tabs are missing, reviews FAIL loudly; they never borrow yours.</li><li>Banner green = reviewer idle.</li></ul>
         <div class="lk"><a href="http://localhost:8501/?p=DASHBOARD">Web Commander · Dashboard</a></div>
       </div>
     </div>
@@ -386,7 +386,7 @@ ul.how li{font-size:15px;color:var(--ink-2);margin:0 0 5px;max-width:64ch}
       <div class="clk">any time</div>
       <div class="bd">
         <p class="t">System work<span class="who">you</span></p>
-        <ul class="how"><li>Code changes, compiles and restarts belong here or after 15:30. After an S4 / v67 compile: AFTER_COMPILE.bat. Before Monday: Web Commander restarted on the latest code, and MORNING.bat on Monday morning.</li><li>Away from the desk: Remote Desktop to jaynuc (Tailscale only) runs any job; DISCONNECT, never sign out (sign-out closes TradingView, the receiver and Web Commander). Files at :8503. If nothing answers, Tailscale is wedged — REMOTE_ADMIN_SETUP.bat as administrator (Doc 26).</li></ul>
+        <ul class="how"><li>Code changes, compiles and restarts belong here or after 15:30. After an S4 / v67 compile: AFTER_COMPILE.bat. Before Monday: Web Commander restarted on the latest code, and MORNING.bat on Monday morning.</li><li>Away from the desk: Remote Desktop to jaynuc (Tailscale only) runs any job - sign in with the Microsoft account email and password, not the PIN. End the visit with Start &gt; Weinstein Commander &gt; Hand Back to PC (keeps the desk on its own screen; leaves the PC unlocked) - never Sign out, which closes TradingView, the receiver and Web Commander. Files at :8503 (user jay; Documents, Downloads, TradingData, OneDrive Desktop only). If nothing answers, Tailscale is wedged - REMOTE_ADMIN_SETUP.bat as administrator (Doc 26).</li></ul>
         <div class="lk"><a href="http://localhost:8502/docs/portal/index.html">The Library</a><a href="http://localhost:8503">File Browser (tailnet only)</a></div>
       </div>
     </div>

@@ -218,7 +218,7 @@ Each of these has already cost a day or more.
 
 | Check | Symptom when it fails | Where |
 |---|---|---|
-| Streamlit actually restarted | "the fix didn't work" — old code still serving 8501 | `STOP_COMMANDER.bat` |
+| Streamlit actually restarted | "the fix didn't work" — old code still serving 8501; or only the dashboard tab opens and not the GM tab | Since 11 Oct the launchers stop an old Commander server themselves (`stop_commander.ps1`), pin port 8501 and open the GM tab only once the app answers. `STOP_COMMANDER.bat` still works by hand |
 | Board source lists non-empty | part of the shortlist silently missing | board header strip |
 | Data freshness | catalysts firing on dead bars | `As_Of` + provenance strip |
 | Alerts bound to the CURRENT script | alert looks healthy in the list, never fires | Alerts panel — check the version and resolution |

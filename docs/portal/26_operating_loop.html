@@ -640,7 +640,7 @@ footer em{color:var(--ink-2)}
   <div class="tw"><table>
     <thead><tr><th>Check</th><th>Symptom when it fails</th></tr></thead>
     <tbody>
-      <tr><td>Streamlit actually restarted</td><td>"the fix didn't work" — old code still serving 8501</td></tr>
+      <tr><td>Streamlit actually restarted</td><td>"the fix didn't work" — old code still serving 8501, or only the dashboard opens and not the Golden Matcher tab. Since 11 Oct the launchers stop an old Commander server first (<span class="m">stop_commander.ps1</span>), pin port 8501 and open the GM tab only once the app answers &mdash; the old server surviving a closed console was why the second tab sometimes never came up</td></tr>
       <tr><td>Board source lists non-empty</td><td>part of the shortlist silently missing</td></tr>
       <tr><td>Data freshness</td><td>catalysts firing on dead bars</td></tr>
       <tr><td>Alerts bound to the current script</td><td>looks healthy in the list, never fires</td></tr>

@@ -87,7 +87,8 @@ PHASES = [
         {"t": "08:45", "who": "auto", "title": "Morning digest",
          "how": ["Morning_Digest: holdings at or below their Chandelier, results within 7 days, the market line."]},
         {"t": "08:45", "who": "you", "title": "Start the desk — MORNING.bat (one click)",
-         "how": ["Double-click Morning on the desktop. It starts, in order and only what is not running: TradingView with "
+         "how": ["Double-click Morning on the desktop. It first checks Tailscale (the phone's way in) and starts its tray "
+                 "app if it is stuck, then starts, in order and only what is not running: TradingView with "
                  "the CDP port, Web Commander, the alert receiver + ngrok, the reviewer banner, the Library server, File Browser (:8503).",
                  "Check the window \"S4 webhook receiver :8000\" is open — closing it is the only way alerts stop being reviewed.",
                  "Check TradingView has its six tabs open: S4 Phase-2 and S5 Layout (yours), S4 Reviewer and S5 Reviewer, "
@@ -222,9 +223,11 @@ PHASES = [
         {"t": "any time", "who": "you", "title": "System work",
          "how": ["Code changes, compiles and restarts belong here or after 15:30. After an S4 / v67 compile: AFTER_COMPILE.bat. "
                  "Before Monday: Web Commander restarted on the latest code, and MORNING.bat on Monday morning.",
-                 "Away from the desk: Remote Desktop to jaynuc (Tailscale only) runs any job; DISCONNECT, never sign out "
-                 "(sign-out closes TradingView, the receiver and Web Commander). Files at :8503. If nothing answers, "
-                 "Tailscale is wedged — REMOTE_ADMIN_SETUP.bat as administrator (Doc 26)."],
+                 "Away from the desk: Remote Desktop to jaynuc (Tailscale only) runs any job - sign in with the Microsoft "
+                 "account email and password, not the PIN. End the visit with Start > Weinstein Commander > Hand Back to "
+                 "PC (keeps the desk on its own screen; leaves the PC unlocked) - never Sign out, which closes TradingView, "
+                 "the receiver and Web Commander. Files at :8503 (user jay; Documents, Downloads, TradingData, OneDrive "
+                 "Desktop only). If nothing answers, Tailscale is wedged - REMOTE_ADMIN_SETUP.bat as administrator (Doc 26)."],
          "links": ["library", "files"]},
      ]},
 ]

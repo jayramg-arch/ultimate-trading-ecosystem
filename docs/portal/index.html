@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 11 Oct · 53 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 12 Oct · 56 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,30 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">12 Oct<br>remote access fixed</td>
+        <td><b>The phone reaches the desk again, and stays able to.</b> Tailscale had been stuck because its tray app
+        never started; it now runs <b>unattended</b> (connects at boot with no sign-in) and MORNING checks it first.
+        File Browser now opens your profile folder with rules that allow only Documents, Downloads, TradingData and
+        OneDrive Desktop (the old folder of links never worked). Remote Desktop signs in with the Microsoft account
+        password; <b>Hand Back to PC</b> ends a visit with the desk still on its own screen.</td>
+        <td class="af">26 · 35</td>
+      </tr>
+      <tr>
+        <td class="dt">11 Oct<br>S4 v11.30 · reviewer</td>
+        <td><b>S4 v11.30 on S4Core/72 compiled:</b> AVWAP <code>L</code> anchors on this year's low (it was years back
+        on leaders) and Room no longer reads negative inside a zone. <b>Reviewer:</b> rulings had been coming back as the
+        template text ("WAIT for &lt;specific bar/level/event&gt;"); the template no longer contains copyable
+        placeholders and a review that echoes it is asked once more.</td>
+        <td class="af">22 · 32</td>
+      </tr>
+      <tr>
+        <td class="dt">11 Oct<br>launcher</td>
+        <td><b>Restarting Commander opens both tabs again.</b> An old server that survived a closed console made the
+        launcher skip the Golden Matcher tab while Streamlit moved to another port. The launchers now stop the old
+        server first and pin port 8501.</td>
+        <td class="af">26</td>
+      </tr>
       <tr>
         <td class="dt">11 Oct<br>book factors</td>
         <td><b>The board shows what a name adds to the book; Risk Shield shows the book as factors.</b> A PCA study
