@@ -665,7 +665,7 @@ footer em{color:var(--ink-2)}
   <b>Commander Add-ons</b> indicator (<code>Commander_Addons_v1.0.pine</code>) show the same grade:
   <b>weak</b> = close in the lower third or a top wick of at least half the range. On the chart it is an orange
   dot on each weak bar and a label on the last closed bar, e.g. <code>Weak.C:36%.TW:64%</code> (C = close
-  position in the range, TW = top-wick share). Whether a weak bar returns less is H2 of the same pre-registration, from the same ledger. If it
+  position in the range, TW = top-wick share). Read it <b>with the PA signal</b>: the PA may have fired a few bars back on a bearish bar while the latest bar is bullish. The label adds the previous bars (<code>| 1b:W 2b:N 3b:S</code>) and the board shows <code>now … · PA 2b …</code>; the order is decided on the latest bar, the PA bar is context. Whether a weak bar returns less is H2 of the same pre-registration, from the same ledger. If it
   passes, it changes the <i>entry</i> (a buy-stop above a weak bar), never the alert.</p>
   <p><b>One container for display add-ons.</b> Commander Add-ons is the only place new chart reads go: each is a
   module with its own input group and Enable switch, display only, never feeding the GO, an alert or a binding.

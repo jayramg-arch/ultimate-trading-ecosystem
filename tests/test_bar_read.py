@@ -30,7 +30,18 @@ def test_strong_and_neutral():
 def test_zero_range_or_missing_is_blank():
     assert gtb.bar_grade(100, 100, 100, 100) is None
     assert gtb.bar_read({}) == ""
-    assert gtb.bar_read({"bar": {"o": 100, "h": 110, "l": 99, "c": 102}}).startswith("weak · close 27%")
+    assert gtb.bar_read({"bar": {"o": 100, "h": 110, "l": 99, "c": 102}}) == "Weak.C:27%.TW:73%"
+
+
+def test_pa_bar_shown_beside_the_latest_bar():
+    # PA fired 2 bars back on a weak bar; the latest closed bar is strong
+    ctx = {"bar": {"o": 100, "h": 105, "l": 99, "c": 104.5},
+           "pa_recent": {"age": 2, "sigma": 3, "bar": {"o": 100, "h": 110, "l": 99, "c": 102}}}
+    assert gtb.bar_read(ctx) == "now Strong.C:92%.TW:8% · PA 2b Weak.C:27%.TW:73%"
+    # the recovery path reads its own recency record, not the bull one
+    assert gtb.bar_read(ctx, "recovery") == "Strong.C:92%.TW:8%"
+    # PA on the latest bar (no recency record): one grade only
+    assert gtb.bar_read({"bar": ctx["bar"]}) == "Strong.C:92%.TW:8%"
 
 
 def test_pine_constants_match_python():

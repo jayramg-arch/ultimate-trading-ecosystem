@@ -84,3 +84,16 @@ does not rescue the other.
 the weak read change the ENTRY — e.g. a buy-stop above a weak trigger bar instead of the
 retest limit — not to suppress the alert. **If it fails:** the Bar column and the
 indicator stay display reads, and the manual check can be dropped with a clear conscience.
+
+## Amendment 2 — which bar H2 reads (12 Oct 2026, ~22:57 IST, before any ledger row)
+
+**Source:** Jay, 12 Oct 2026: the PA may have fired a few bars back (the board's recency
+window, up to 3 bars), on a bar that was bearish, while the latest bar is bullish; the
+order is decided on the latest bar. **H2 is unchanged and stays on the LATEST closed bar**
+(the ledger's o/h/l/c) — that is the decision rule being tested.
+
+The ledger now also records `pa_age` (0 = the PA is on the latest bar) and `pa_bar` (the
+PA bar's grade, same definition). These are **descriptive only**: reported beside the H1/H2
+result as counts (e.g. weak PA bar followed by a not-weak latest bar), never tested, never
+used to rescue a failed H2. A test on the PA-bar grade, if wanted, is a new registration
+made before looking at these columns' outcomes.

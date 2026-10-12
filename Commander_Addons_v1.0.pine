@@ -18,7 +18,8 @@
 //      40 request calls, 20 s. Prefer labels/shapes; avoid request calls unless needed.
 //
 // MODULES
-//   M1  Latest bar read   - weak / neutral / strong on the last closed bar (board: Bar)
+//   M1  Latest bar read   - weak / neutral / strong on the last closed bar + the previous
+//                           bars (where a recent PA fired) - board: Bar
 // -----------------------------------------------------------------------------
 //@version=6
 indicator("Commander Add-ons v1.0", shorttitle = "Add-ons", overlay = true, max_labels_count = 20)
@@ -51,6 +52,7 @@ m1On       = input.bool(true,  "Enable",                    group = G1)
 showWeak   = input.bool(true,  "Mark weak bars",            group = G1, tooltip = "Orange dot above every closed weak bar.")
 showStrong = input.bool(false, "Mark strong bars",          group = G1, tooltip = "Teal triangle below every closed strong bar.")
 showLabel  = input.bool(true,  "Label the last closed bar", group = G1, tooltip = "Grade, close position and top-wick share of the latest closed bar.")
+prevN      = input.int(3, "Also grade the previous bars", minval = 0, maxval = 5, group = G1, tooltip = "A PA signal may have fired a few bars back (the board allows 3). The label adds those bars' grades - 1b:W = one bar back was Weak (W/N/S). Order on the LATEST bar; the PA bar is context. 0 = off.")
 
 // Grade: -1 weak, 0 neutral, 1 strong, na unreadable (zero range)
 f_m1Grade(float o, float h, float l, float c) =>
@@ -84,6 +86,14 @@ if barstate.islast
         // bar's range, TW = top-wick share of the range.
         string name = na(gk) ? "n/a" : gk == -1 ? "Weak" : gk == 1 ? "Strong" : "Neutral"
         string txt = na(gk) ? "n/a" : name + ".C:" + str.tostring(math.round(cp * 100)) + "%.TW:" + str.tostring(math.round(wk * 100)) + "%"
+        // Previous bars, short (12 Oct): the PA bar may be a few bars back and bearish while
+        // the latest is bullish; the label shows both so the two are read together.
+        if prevN > 0
+            string prev = ""
+            for j = 1 to prevN
+                int gj = m1g[k + j]
+                prev += (j == 1 ? " | " : " ") + str.tostring(j) + "b:" + (na(gj) ? "-" : gj == -1 ? "W" : gj == 1 ? "S" : "N")
+            txt += prev
         color bg = na(gk) ? color.gray : gk == -1 ? color.new(color.orange, 10) : gk == 1 ? color.new(color.teal, 10) : color.new(color.gray, 10)
         m1Lb := label.new(bar_index - k, high[k], txt, style = label.style_label_down, color = bg, textcolor = color.white, size = size.small)
 

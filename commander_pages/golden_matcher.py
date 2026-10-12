@@ -842,7 +842,9 @@ if True:
                              "Blank = not a rejection bar. Pre-registered test: docs/PREREG_rejection_at_level.md"),
                     "Bar": st.column_config.TextColumn(
                         "Bar", width=210,
-                        help="Latest closed trigger bar (display only): weak = close in the lower third or an upper "
+                        help="Latest closed trigger bar first, then the PA bar when the PA fired a few bars back "
+                             "('now Strong... · PA 2b Weak...'); the order is decided on the latest bar. "
+                             "Weak = close in the lower third or an upper "
                              "wick of at least half the range; strong = close in the upper third and upper wick under "
                              "a quarter; else neutral. The B gate stays loose; this is the read you make before the "
                              "order. Same numbers as the Commander Add-ons indicator (M1). Pre-registered H2."),

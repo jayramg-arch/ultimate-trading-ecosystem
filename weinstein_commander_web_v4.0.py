@@ -4155,8 +4155,15 @@ def gm_load_intraday(symbol: str, minutes: int) -> dict:
                     continue
                 _s = sum(t for _n, _f, t, _x in _p if _f)
                 if _s > 0:
+                    # the bar the pattern fired on (12-Oct-2026): the board's Bar column
+                    # grades it beside the latest bar - a bearish PA bar can be followed
+                    # by a bullish latest bar, and the order decision is on the latter.
+                    _pb = df.iloc[-1 - k]
                     return {"age": k, "sigma": _s,
-                            "names": [n for n, f, _t, _x in _p if f]}
+                            "names": [n for n, f, _t, _x in _p if f],
+                            "bar": {"o": float(_pb["Open"]), "h": float(_pb["High"]),
+                                    "l": float(_pb["Low"]), "c": float(_pb["Close"]),
+                                    "ts": pd.Timestamp(df.index[-1 - k]).isoformat()}}
             return None
 
         _pa_now = _pap.detect_bull_patterns(df, "", intraday=True, ema20_ref=_d_e20, ema10_ref=_d_e10)

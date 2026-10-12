@@ -1135,15 +1135,35 @@ def bar_grade(o, h, l, c):
     return g, cpos, wick
 
 
-def bar_read(ctx: dict) -> str:
-    """Board text for the last closed trigger bar, e.g. 'weak · close 28% · top wick 61%'.
-    '' when the bar is unknown - never a guess."""
-    b = (ctx or {}).get("bar") or {}
+def bar_text(b: dict | None) -> str:
+    """Compact grade of one bar, the chart label's form: 'Weak.C:27%.TW:73%'. '' if unknown."""
+    b = b or {}
     r = bar_grade(b.get("o"), b.get("h"), b.get("l"), b.get("c"))
     if r is None:
         return ""
     g, cpos, wick = r
-    return "%s · close %d%% · top wick %d%%" % (g, round(cpos * 100), round(wick * 100))
+    return "%s.C:%d%%.TW:%d%%" % (g.capitalize(), round(cpos * 100), round(wick * 100))
+
+
+def pa_recent_of(ctx: dict, path: str = "bull") -> dict | None:
+    """The PA-recency record for the row's path (set only when the latest bar has no PA)."""
+    r = (ctx or {}).get("recovery_pa_recent" if path == "recovery" else "pa_recent")
+    return r if isinstance(r, dict) and (r.get("sigma") or 0) > 0 else None
+
+
+def bar_read(ctx: dict, path: str = "bull") -> str:
+    """Board text for the Bar column. The LATEST closed bar first - the order is decided on
+    it - and, when the PA fired a few bars back (the board's recency window), the PA bar
+    after it: 'now Strong.C:85%.TW:10% · PA 2b Weak.C:30%.TW:62%'. When the PA is on the
+    latest bar the two are the same bar and only one grade is shown."""
+    now = bar_text((ctx or {}).get("bar"))
+    rec = pa_recent_of(ctx, path)
+    pa = bar_text(rec.get("bar")) if rec else ""
+    if not now:
+        return ""
+    if not pa:
+        return now
+    return "now %s · PA %db %s" % (now, int(rec.get("age") or 0), pa)
 
 
 REJ_LEDGER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -2200,7 +2220,10 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
                      "bar_ts": _bar.get("ts", ""), "plan": _plan_of(ctx), "s4go": s4go,
                      "rej": int(bool(_rej_ok)), "rej_level": "" if _rej_lv is None else round(_rej_lv, 2),
                      "o": _bar.get("o", ""), "h": _bar.get("h", ""), "l": _bar.get("l", ""), "c": _bar.get("c", ""),
-                     "entry": entry if entry is not None else "", "sl": sl if sl is not None else ""})
+                     "entry": entry if entry is not None else "", "sl": sl if sl is not None else "",
+                     # the PA bar (12-Oct-2026): descriptive only, see amendment 2
+                     "pa_age": int((pa_recent_of(ctx, path) or {}).get("age") or 0),
+                     "pa_bar": bar_text((pa_recent_of(ctx, path) or {}).get("bar")) or bar_text(_bar)})
     return {
         "Symbol":        sym,
         "★":             ("★" if info.get("star") else ""),
@@ -2212,7 +2235,7 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         "Rej":           _rej_txt,
         # Latest-bar read (12-Oct-2026): weak / neutral / strong on the last closed trigger bar.
         # Display only - see bar_grade. Pre-registered as H2 in PREREG_rejection_at_level.md.
-        "Bar":           bar_read(ctx),
+        "Bar":           bar_read(ctx, path),
         # Trend alignment grade (2-Oct-2026, Jay): W macro · D location · trigger-TF shift.
         # DISPLAY ONLY - never gates; commander_core.trend_grade / S4Core.trendGrade.
         "Trend":         (str(ctx.get("trend_grade") or "") + (f" · {ctx.get('trend_grade_why')}" if ctx.get("trend_grade_why") else "")),
