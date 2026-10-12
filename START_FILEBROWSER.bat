@@ -20,7 +20,7 @@ set "TS=C:\Program Files\Tailscale\tailscale.exe"
 powershell -NoProfile -Command "if (Get-NetTCPConnection -LocalPort 8503 -State Listen -ErrorAction SilentlyContinue) { exit 0 } else { exit 1 }"
 if errorlevel 1 (
   echo Starting File Browser on 127.0.0.1:8503 ...
-  start "File Browser :8503" /min "%RA%\filebrowser\filebrowser.exe" -d "%RA%\config\filebrowser.db"
+  start "File Browser :8503" /min "%RA%\filebrowser\filebrowser.exe" -d "%RA%\config\filebrowser.db" -l "%RA%\logs\filebrowser.log"
 ) else (
   echo File Browser already running on :8503
 )
