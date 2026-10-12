@@ -192,3 +192,17 @@ def thesis_lines() -> list[str]:
         out.append("  %-11s close %9.2f < thesis %9.2f (%s clock) · Dhan disaster stop %s" % (
             r["sym"], r["close"], r["thesis"], r["clock"], "%.2f" % r["stop"] if r["stop"] else "?"))
     return out
+
+
+def rejection_ledger_line() -> list[str]:
+    """Counts for the pre-registered rejection-at-level test (docs/PREREG_rejection_at_level.md).
+    Counts only - the test itself runs once, at its threshold (rejection_test.py --run)."""
+    import os
+    p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "rejection_ledger.csv")
+    if not os.path.exists(p):
+        return ["REJECTION TEST: no GO rows logged yet"]
+    import pandas as pd
+    d = pd.read_csv(p)
+    d = d[d["logged"].astype(str) >= "2026-10-12 23:00"].drop_duplicates(subset=["tf", "symbol", "bar_ts"])
+    n, r = len(d), int((d["rej"] == 1).sum()) if len(d) else 0
+    return ["REJECTION TEST: %d GO rows logged (%d rejections, %d other) - runs at 30 + 30 per plan type" % (n, r, n - r)]

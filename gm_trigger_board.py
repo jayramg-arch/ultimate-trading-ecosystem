@@ -18,6 +18,8 @@
 from __future__ import annotations
 import math
 import os
+import threading
+from datetime import datetime
 import json
 import re
 
@@ -1066,6 +1068,62 @@ def _htf_rank(ctx: dict) -> int:
                .get("htf_rank") or 0)
 
 
+# REJECTION AT THE LEVEL (12-Oct-2026, Jay: "are we waiting for price acceptance /
+# rejection at key levels before we pick up the trade?"). The GO gates require price to be
+# AT a level (L), some pattern (P), a bar that did not close weak (B) and volume (V) - but
+# not that the bar actually PROBED the level and was pushed back. This names that case:
+#   the trigger bar's low reached the level (or pierced it) AND it closed back above it,
+#   in the upper half of its range.
+# Levels are the location sources that passed (gm_evaluate's support["loc_levels"]: a D/W/M
+# demand zone's proximal edge, an S/R level, the AVWAP, VAL). DISPLAY ONLY - it never moves a
+# gate. Whether it should is the pre-registered question in docs/PREREG_rejection_at_level.md.
+REJ_TOL_RANGE = 0.10      # the low may stop this fraction of the bar's range short of the level
+REJ_CLOSE_POS = 0.50      # close in the upper half of the bar
+
+
+def rejection_read(ctx: dict) -> tuple[bool, str, float | None]:
+    """(rejected, short text, level) for the last closed trigger bar. ('', None) when the
+    bar or the levels are unknown - never a guess."""
+    b = (ctx or {}).get("bar") or {}
+    lv = ((ctx or {}).get("support") or {}).get("loc_levels") or []
+    try:
+        o, h, l, c = float(b["o"]), float(b["h"]), float(b["l"]), float(b["c"])
+    except (KeyError, TypeError, ValueError):
+        return False, "", None
+    rng = h - l
+    if rng <= 0 or not lv:
+        return False, "", None
+    if (c - l) / rng < REJ_CLOSE_POS:
+        return False, "", None
+    tol = REJ_TOL_RANGE * rng
+    hits = [(p, tg) for p, tg in lv if p and l <= p + tol and c > p]
+    if not hits:
+        return False, "", None
+    p, tg = min(hits, key=lambda x: abs(x[0] - l))       # the level the low actually reached
+    return True, "✓ %s %s" % (tg, f"{p:,.2f}"), p
+
+
+REJ_LEDGER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "logs", "rejection_ledger.csv")
+_REJ_LOCK = threading.Lock()
+
+
+def _rej_ledger(row: dict) -> None:
+    """Append a board GO row for the pre-registered rejection test. Raw appends - the
+    scorer de-duplicates (one per symbol, timeframe and trigger bar). Never raises."""
+    try:
+        import csv as _csv
+        new = not os.path.exists(REJ_LEDGER)
+        os.makedirs(os.path.dirname(REJ_LEDGER), exist_ok=True)
+        with _REJ_LOCK, open(REJ_LEDGER, "a", newline="", encoding="utf-8") as fh:
+            w = _csv.DictWriter(fh, fieldnames=list(row))
+            if new:
+                w.writeheader()
+            w.writerow(row)
+    except Exception as e:
+        _log.debug("rejection ledger write failed: %s", e)
+
+
 def _role_mismatch(ctx: dict, path: str = "bull") -> bool:
     """The fired pattern's ROLE does not match WHERE price is.
 
@@ -2092,12 +2150,23 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     except Exception as _e:
         _log.debug("etf_quality unavailable for %s: %s", sym, _e)
 
+    _rej_ok, _rej_txt, _rej_lv = rejection_read(ctx)
+    if str(s4go).startswith("5/5"):
+        _bar = ctx.get("bar") or {}
+        _rej_ledger({"logged": datetime.now().strftime("%Y-%m-%d %H:%M"), "tf": _tf, "symbol": sym,
+                     "bar_ts": _bar.get("ts", ""), "plan": _plan_of(ctx), "s4go": s4go,
+                     "rej": int(bool(_rej_ok)), "rej_level": "" if _rej_lv is None else round(_rej_lv, 2),
+                     "o": _bar.get("o", ""), "h": _bar.get("h", ""), "l": _bar.get("l", ""), "c": _bar.get("c", ""),
+                     "entry": entry if entry is not None else "", "sl": sl if sl is not None else ""})
     return {
         "Symbol":        sym,
         "★":             ("★" if info.get("star") else ""),
         "Overall":       overall,
         "Category":      cat,                        # stage-1 ARM verdict (pa_fired; no bar_ok)
         "S4-GO":         s4go,                        # stage-2 preview: PA·loc·vol·bar_ok (S4 chart is final)
+        # Rejection at the level (12-Oct-2026): did the trigger bar probe a level that passed
+        # location and close back above it, upper half? Display only - see rejection_read.
+        "Rej":           _rej_txt,
         # Trend alignment grade (2-Oct-2026, Jay): W macro · D location · trigger-TF shift.
         # DISPLAY ONLY - never gates; commander_core.trend_grade / S4Core.trendGrade.
         "Trend":         (str(ctx.get("trend_grade") or "") + (f" · {ctx.get('trend_grade_why')}" if ctx.get("trend_grade_why") else "")),

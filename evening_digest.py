@@ -145,8 +145,8 @@ def trade_class_lines() -> list[str]:
 
 def build() -> str:
     L = ["EVENING · %s" % now_ist().strftime("%a %d %b %Y %H:%M IST"), ""]
-    from digest_common import thesis_lines
-    for part in (pipeline_lines, board_lines, reviewer_lines, trade_log_line, tv_lines, exit_lines, thesis_lines, trade_class_lines):
+    from digest_common import thesis_lines, rejection_ledger_line
+    for part in (pipeline_lines, board_lines, reviewer_lines, trade_log_line, tv_lines, exit_lines, thesis_lines, rejection_ledger_line, trade_class_lines):
         try:
             L += part()
         except Exception as e:

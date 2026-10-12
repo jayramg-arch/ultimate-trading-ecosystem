@@ -3022,6 +3022,7 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
             if _intra.get("relvol") is not None:  ctx["relvol"] = _intra["relvol"]
             if _intra.get("vol_dry") is not None: ctx["vol_dry"] = _intra["vol_dry"]
             if _intra.get("bar_ok") is not None:  ctx["bar_ok"] = _intra["bar_ok"]
+            if _intra.get("bar") is not None:     ctx["bar"] = _intra["bar"]
             if _intra.get("rsi") is not None:     rec["RSI"] = _intra["rsi"]
             if _intra.get("cmp") is not None:     cmp_px = _intra["cmp"]     # LIVE intraday price
             # WCL follows the TRIGGER TF (Jay trades 75m / 125m / Daily). S4 computes
@@ -3642,9 +3643,13 @@ def gm_load_symbol(symbol: str) -> dict:
         # Trigger-bar quality on the last CLOSED daily bar — same test as the intraday
         # loader's _bar_ok, so the S4-GO "clean bar" gate means the same thing on Daily.
         _daily_bar_ok = None
+        _daily_bar = None
         try:
             _dlb = df.iloc[-1]
             _do, _dh, _dl, _dc = float(_dlb["Open"]), float(_dlb["High"]), float(_dlb["Low"]), float(_dlb["Close"])
+            # REJECTION-AT-LEVEL (12-Oct-2026): the trigger bar itself, so the board can ask
+            # whether it probed a level and closed back above it (gm_trigger_board.rejection_read).
+            _daily_bar = {"o": _do, "h": _dh, "l": _dl, "c": _dc, "ts": str(pd.Timestamp(df.index[-1]).date())}
             _daily_bar_ok = bool((_dc >= _do) or (((_dc - _dl) / (_dh - _dl)) >= 0.5 if _dh > _dl else True))
         except Exception:
             _daily_bar_ok = None
@@ -3682,6 +3687,7 @@ def gm_load_symbol(symbol: str) -> dict:
             # intraday-specific about it — so the Daily read is the same test on the last
             # closed daily bar, not an approximation of it.
             "bar_ok": _daily_bar_ok,
+            "bar": _daily_bar,
         }
     except Exception as e:
         out["ctx"] = None
@@ -3899,6 +3905,21 @@ def gm_load_symbol(symbol: str) -> dict:
                     _sup["ize_vp_val"] = _vpsup.get("vp_val")
                     _sup["ize_vp_poc"] = _vpsup.get("vp_poc")
                     _sup["at_support"] = bool(_ize_at or _near_sr or _near_av or _near_vp)
+                    # REJECTION-AT-LEVEL (12-Oct-2026): the PRICE of each source that passed,
+                    # so the board can test "probed it and closed back above". A demand zone
+                    # is its proximal (top) edge - the level a probe reaches first.
+                    _lv = []
+                    for _tg, _zz in (("D", _izD), ("W", _izW), ("M", _izM)):
+                        if (_zz or {}).get("at_support") and (_zz or {}).get("proximal"):
+                            _lv.append((float(_zz["proximal"]), "zone " + _tg))
+                    for _tg, _rr in (("D", _srD), ("W", _srW)):
+                        if (_rr or {}).get("near_sr") and (_rr or {}).get("level"):
+                            _lv.append((float(_rr["level"]), "S/R " + _tg))
+                    if _near_av and _av.get("nearest"):
+                        _lv.append((float(_av["nearest"]), "AVWAP"))
+                    if _near_vp and _vpsup.get("vp_val"):
+                        _lv.append((float(_vpsup["vp_val"]), "VAL"))
+                    _sup["loc_levels"] = _lv
                     # HTF NESTING (v9.0 parity with S4's _htfNest). A zone sheltered by a
                     # HIGHER timeframe zone is the stronger proposition — and the board had
                     # no cross-TF term at all, so it systematically under-rated exactly the
@@ -4159,6 +4180,10 @@ def gm_load_intraday(symbol: str, minutes: int) -> dict:
             "relvol": _s4_rv(v),   # S4 chart_rv: prior-50 baseline (AUD-PAR-12)
             "vol_dry": (_vol5 / _vol20) if _vol20 else None,
             "bar_ok": _bar_ok,
+            # the last CLOSED trigger-TF bar (the forming one is already dropped above)
+            "bar": ({"o": float(df["Open"].iloc[-1]), "h": float(df["High"].iloc[-1]),
+                     "l": float(df["Low"].iloc[-1]), "c": float(df["Close"].iloc[-1]),
+                     "ts": pd.Timestamp(df.index[-1]).isoformat()} if len(df) else None),
             "cmp": (float(df["Close"].iloc[-1]) if len(df) else None),   # live intraday last price
             "last_ts": df.index[-1].strftime("%d-%b %H:%M"),
             # The resampled trigger-TF frame itself. gm_evaluate recomputes WCL

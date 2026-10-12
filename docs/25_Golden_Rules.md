@@ -480,6 +480,8 @@ morning and evening digests list any holding that closed below its thesis.
 
 **Never.** Nothing places or moves a Dhan order — the disaster stop is set by you on Dhan.
 
+**Rejection at the level (12 Oct) — measured before it is ruled.** The GO requires price AT a level, not a bar that probed it and was pushed back. The board's **Rej** column marks real rejections; every GO row is logged; `docs/PREREG_rejection_at_level.md` decides once, at 30 + 30 rows per plan type, whether they beat the other GOs by ≥ 0.25R. Until then it moves no gate.
+
 ## PART 8 — THE CHECKLIST (use this at the moment of the trade)
 
 Run it in order. **Stop at the first NO.**

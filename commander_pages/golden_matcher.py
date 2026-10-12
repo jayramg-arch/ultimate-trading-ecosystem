@@ -835,6 +835,11 @@ if True:
                         "Category", width=215),
                     "S4-GO": st.column_config.TextColumn(
                         "S4-GO", width=175),
+                    "Rej": st.column_config.TextColumn(
+                        "Rej", width=150,
+                        help="Rejection at the level (display only): the trigger bar's low reached a level that passed "
+                             "location (zone top, S/R, AVWAP, VAL) and it closed back above it, in the upper half. "
+                             "Blank = not a rejection bar. Pre-registered test: docs/PREREG_rejection_at_level.md"),
                     "Trend": st.column_config.TextColumn(
                         "Trend", width=260,
                         help="Trend alignment grade (display only): A+ = W Stage 2 · D pullback at value · trigger TF shifted up; B = daily downtrend; C = daily extended; F = Stage 3/4."),
@@ -1460,7 +1465,7 @@ if True:
                     # after RRG, then everything else.
                     # "Pos" sits beside Archetype: on a Pyramid row it says what is already
                     # held and what the add would be, and is blank on every other row.
-                    _front = ["Symbol", "★", "Overall", "Category", "S4-GO", "Plan", "Trend", "Archetype",
+                    _front = ["Symbol", "★", "Overall", "Category", "S4-GO", "Rej", "Plan", "Trend", "Archetype",
                               "Pos", "ΔBets", "Fit", "Loc", "Path", "RRG", "RS", "Stage", "Catalyst", "ΣPA",
                               "BFF", "RFF"]
                     _ordered = ([c for c in _front if c in _v.columns]
@@ -1500,7 +1505,7 @@ if True:
                     # AG-Grid discards a hand-dragged width on each rerun, a rebuild threw
                     # the manual re-widening away every single time.
                     for _pc, _pw in (("Symbol", 105), ("★", 46), ("Overall", 95),
-                                     ("Category", 215), ("S4-GO", 175), ("Archetype", 250),
+                                     ("Category", 215), ("S4-GO", 175), ("Rej", 150), ("Archetype", 250),
                                      ("Pos", 330), ("Loc", 230), ("Path", 90), ("RRG", 120)):
                         if _pc in _v.columns:
                             # minWidth == width: AG-Grid may re-flow on re-render, but it
