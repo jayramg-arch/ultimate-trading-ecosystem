@@ -647,6 +647,34 @@ div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid=
         else:
             st.success("🛡️ **NOISE WATCHDOG**: All Stop Losses are outside the immediate noise zone. Risk hygiene is optimal.")
 
+        # 3x-ATR DHAN STOP (12-Oct-2026, Jay: "maintain a minimum of 3xATR, due to the current
+        # market conditions"). The levels to type into Dhan by hand - the same numbers v67 draws
+        # as "Rec Dhan SL (3×ATR)" (tv_push_v67_trail, house_policy.rec_dhan_stop). Nothing here
+        # moves an order. Same-risk qty = shares that keep today's rupee risk at the wider stop.
+        _rec_rows = []
+        for sym in active_symbols:
+            _m = db_df[(db_df['Symbol'] == sym) & (db_df['Status'] == 'OPEN')]
+            if _m.empty:
+                continue
+            _je = _m.iloc[0]
+            _ltp = live_map.get(sym, {}).get('LTP')
+            _qty = live_map.get(sym, {}).get('Quantity')
+            _sl = float(_je.get('StopLoss') or 0.0)
+            _atr = get_atr(sym)
+            _r = _hp.rec_dhan_stop(_ltp, _sl, _atr, _qty)
+            if _r:
+                _rec_rows.append({"Symbol": sym, "Dhan SL now": round(_sl, 2),
+                                  "Distance (ATR)": round((_ltp - _sl) / _atr, 2) if _sl > 0 else None,
+                                  "Rec Dhan SL": round(_r[0], 2),
+                                  "Same-risk qty": _r[1], "Qty now": int(_qty or 0)})
+        if _rec_rows:
+            with st.expander(f"🎯 Recommended Dhan stops — {_hp.DHAN_STOP_MIN_ATR:g}× ATR minimum "
+                             f"({len(_rec_rows)} holdings closer than that; also drawn on v67)", expanded=False):
+                st.dataframe(pd.DataFrame(_rec_rows), hide_index=True, width="stretch")
+                st.caption("Widening at the same quantity adds rupee risk; 'Same-risk qty' keeps today's. "
+                           "Check Risk Shield's exit reviews first - widening a stop the Chandelier says to "
+                           "exit runs against that read.")
+
         if not active_symbols:
             st.info("No active trades found.")
         else:

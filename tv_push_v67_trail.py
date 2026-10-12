@@ -293,8 +293,31 @@ def compute_book() -> list[dict]:
                                                         "tt_label", "override", "anchored")},
                     # TWO-TIER STOP (12-Oct-2026): the thesis level (close-basis exit) rides
                     # the book as a 4th field; the slot's Hard SL is the Dhan DISASTER stop.
-                    "thesis": _f(r.get("thesis_sl")), "stoploss": _f(r.get("stoploss"))})
+                    "thesis": _f(r.get("thesis_sl")), "stoploss": _f(r.get("stoploss")),
+                    # 3x-ATR DHAN STOP (12-Oct-2026): recommended resting stop + same-risk qty
+                    "rec": _rec_stop(s, d, _f(r.get("stoploss")), _f(r.get("quantity")), hc.get("level"))})
     return out
+
+
+def _rec_stop(sym, d, stop, qty, chand):
+    """'R<price>:<qty>[:x]' for the 5th book field, or ''. LTP = the frame's last close (the
+    nightly push runs after the close; Sync to TV mid-session uses the cached last bar), ATR
+    = the Noise Watchdog's own ATR(14) so the chart and the Journal banner agree. 'x' marks a
+    holding whose Chandelier is at/above LTP - widening that stop runs against an exit read."""
+    try:
+        import house_policy as _hp
+        from ai_risk_manager import get_atr
+        if d is None or d.empty:
+            return ""
+        ltp = float(d["Close"].iloc[-1])
+        r = _hp.rec_dhan_stop(ltp, stop, get_atr(sym), qty)
+        if not r:
+            return ""
+        x = ":x" if (chand is not None and float(chand) >= ltp) else ""
+        return "R%.2f:%s%s" % (r[0], "" if r[1] is None else int(r[1]), x)
+    except Exception as e:
+        print(f"{sym}: recommended stop skipped ({e})")
+        return ""
 
 
 def book_string(rows: list[dict]) -> str:
@@ -316,6 +339,12 @@ def book_string(rows: list[dict]) -> str:
         # reads fields 0-2 only, so the extra field is harmless to it.
         th, dsl = r.get("thesis"), r.get("stoploss")
         tfld = (",T%.2f" % th) if (th and (dsl is None or th > dsl + 1e-9)) else ""
+        # 5th field R<price>:<qty>[:x] (12-Oct-2026): the recommended Dhan stop at 3x ATR.
+        # Fields are POSITIONAL, so when it is present the 4th field is always written
+        # (an empty "T" reads as no thesis in v67).
+        rfld = r.get("rec") or ""
+        if rfld:
+            tfld = (tfld or ",T") + "," + rfld
         for k in _tv_keys(r["symbol"]):
             parts.append("%s=%d,%.4f,%s%s" % (k, int(r["window"]), float(r["mult"]), floor, tfld))
     return ";".join(parts)

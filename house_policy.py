@@ -97,6 +97,39 @@ AT_SL_ATR = 1.5                # pyramid ladder: losing position this close to i
 LADDER_GRACE_SESSIONS = 10
 
 
+# DHAN STOP MINIMUM DISTANCE (12-Oct-2026, Jay: "maintain a minimum of 3xATR, due to the
+# current market conditions"). The Noise Watchdog only ALERTS inside 1.5x ATR; this is the
+# distance a resting Dhan stop should keep from LTP. A stop closer than this gets a
+# RECOMMENDED level (LTP - 3 x ATR) drawn on v67, plus the share count that keeps today's
+# rupee risk. A recommendation to type into Dhan by hand - nothing places or moves an order,
+# and a stop already at least this far is never moved (never a tighten from here).
+DHAN_STOP_MIN_ATR = 3.0
+
+
+def rec_dhan_stop(ltp, stop, atr, qty=None):
+    """(recommended stop, shares that keep today's rupee risk) when the resting stop sits
+    closer than DHAN_STOP_MIN_ATR x ATR to LTP; None when it is already far enough or an
+    input is missing. No stop at all (<= 0) -> the level with no share count."""
+    try:
+        ltp, atr = float(ltp), float(atr)
+        stop = float(stop or 0)
+    except (TypeError, ValueError):
+        return None
+    if not (math.isfinite(ltp) and math.isfinite(atr)) or ltp <= 0 or atr <= 0:
+        return None
+    rec = ltp - DHAN_STOP_MIN_ATR * atr
+    # within 0.05 ATR of the line is rounding, not a stop worth retyping
+    if rec <= 0 or (stop > 0 and stop <= rec + 0.05 * atr):
+        return None
+    keep = None
+    if stop > 0 and qty:
+        try:
+            keep = int(max(0.0, (ltp - stop) * float(qty)) // (ltp - rec))
+        except (TypeError, ValueError, ZeroDivisionError):
+            keep = None
+    return rec, keep
+
+
 def noise_band(dist_atr: float | None) -> str:
     """'red' / 'amber' / 'green' for a stop-to-LTP distance in ATR; '' when unknown.
     One rule for the Journal banner, its ledger column and the AI Risk Guard."""

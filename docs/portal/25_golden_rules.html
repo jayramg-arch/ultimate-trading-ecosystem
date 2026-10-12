@@ -671,6 +671,13 @@ footer em{color:var(--ink-2)}
   module with its own input group and Enable switch, display only, never feeding the GO, an alert or a binding.
   No new indicator per enhancement, and no experiments inside S4 (it sits at its token ceiling). A module that
   earns a place in the gate moves into S4 at a compile that is happening anyway.</p>
+  <h4>Dhan stops: at least 3× ATR from price (12 Oct)</h4>
+  <p>In the current market a resting Dhan stop keeps at least <b>3× ATR(14)</b> from LTP
+  (<code>house_policy.DHAN_STOP_MIN_ATR</code>). Closer stops get a recommended level, LTP − 3× ATR, on v67
+  (<i>Rec Dhan SL (3×ATR)</i>, dotted cyan) and in the Journal page's Watchdog list. Widening at the same
+  quantity adds rupee risk, so each line also shows the <b>same-risk share count</b>; and a line marked
+  <i>exit review</i> sits on a holding the Chandelier already says to exit - settle that first. Stops already
+  wider are never moved by this rule.</p>
 </section>
 
 
