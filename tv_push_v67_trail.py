@@ -140,7 +140,7 @@ def snapshot_or_restore(restore: bool) -> int:
         with open(SNAP_PATH, encoding="utf-8") as f:
             snap = json.load(f)
     out = {}
-    for t in s._chart_targets():
+    for t in _pages():
         cid = t["url"].split("/chart/")[1].split("/")[0]
         want = json.dumps(snap.get(cid)) if restore else "null"
         if restore and cid not in snap:
@@ -196,7 +196,7 @@ def push_slots(slots: list[dict]) -> int:
     import s4_review as s
     js = SLOTS_JS % {"prefix": json.dumps(V67_PREFIX), "slots": json.dumps(slots)}
     bad = seen = 0
-    for t in s._chart_targets():
+    for t in _pages():
         cid = t["url"].split("/chart/")[1].split("/")[0]
         r = json.loads(s._tv(js, t))
         if r.get("none"):
@@ -323,6 +323,13 @@ def _rec_stop(sym, d, stop, qty, chand):
         return ""
 
 
+def _pages():
+    """Every chart page, including a second copy of a layout (13-Oct-2026) - see
+    tv_bind_s4._chart_pages_every. The visible Panel Layout copy had never received the book."""
+    from tv_bind_s4 import _chart_pages_every
+    return _chart_pages_every()
+
+
 def book_string(rows: list[dict]) -> str:
     parts = []
     for r in rows:
@@ -365,7 +372,7 @@ def push(book: str | None) -> int:
     js = JS % {"prefix": json.dumps(V67_PREFIX), "title": json.dumps(INPUT_TITLE), "want": want}
     bad = 0
     seen = 0
-    for t in s._chart_targets():
+    for t in _pages():
         cid = t["url"].split("/chart/")[1].split("/")[0]
         r = json.loads(s._tv(js, t))
         if r.get("none"):

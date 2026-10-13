@@ -75,6 +75,21 @@ def _chart_targets_all():
     return sorted(pages, key=lambda t: t["url"])
 
 
+def _chart_pages_every():
+    """EVERY chart page, NO de-duplication (13-Oct-2026). TradingView can hold two live pages
+    for one layout (a second window): 12 pages for 6 layouts on 13 Oct. Any writer that keeps
+    one page per layout can write to the copy Jay is not looking at - the v67 stop book reached
+    the hidden Panel Layout page while the visible one stayed empty. Writers (bind, bundles,
+    v67 push, S5 rows) use this; account-level callers (alerts) keep _chart_targets_all."""
+    try:
+        targets = requests.get(f"{CDP}/json", timeout=5).json()
+    except Exception as e:
+        print(f"Cannot reach TradingView's debug port at {CDP} ({e}).", file=sys.stderr)
+        return []
+    pages = [t for t in targets if t.get("type") == "page" and "/chart/" in str(t.get("url", ""))]
+    return sorted(pages, key=lambda t: (t["url"], t.get("id", "")))
+
+
 def _chart_target():
     """The TradingView chart page among the CDP targets."""
     try:
@@ -130,7 +145,7 @@ def main() -> int:
                     help="report the current binding state and change nothing")
     args = ap.parse_args()
 
-    tgts = _chart_targets_all()
+    tgts = _chart_pages_every()      # every copy of every layout (13-Oct-2026)
     if not tgts:
         print("TradingView is running but no chart page was found. Open a chart first.",
               file=sys.stderr)

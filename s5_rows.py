@@ -156,8 +156,8 @@ def main() -> int:
     ap.add_argument("--all", action="store_true", help="include the reviewer's own tabs")
     ap.add_argument("--check", action="store_true", help="report only, change nothing")
     a = ap.parse_args()
-    from tv_bind_s4 import _chart_targets_all
-    tabs = _chart_targets_all()
+    from tv_bind_s4 import _chart_pages_every
+    tabs = _chart_pages_every()      # every copy of every layout (13-Oct-2026)
     if not tabs:
         print("ERROR: no TradingView chart tab over CDP - is TradingView running with the debug port?")
         return 2

@@ -25,7 +25,7 @@ import json
 import os
 import sys
 
-from tv_bind_s4 import _chart_targets_all, _evaluate
+from tv_bind_s4 import _chart_targets_all, _chart_pages_every, _evaluate
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BUNDLE_FILE = os.path.join(HERE, "gm_bundles", "latest.txt")
@@ -123,7 +123,7 @@ def main() -> int:
         if not b1:
             print("bundle 1 is EMPTY - refusing to blank every S4 tab; check gm_bundles/latest.txt", file=sys.stderr); return 2
 
-    tgts = _chart_targets_all()
+    tgts = _chart_pages_every()      # every copy of every layout (13-Oct-2026)
     if not tgts:
         return 2
     js = JS % {"want": json.dumps(want, ensure_ascii=False),
