@@ -143,7 +143,9 @@ JS = r"""
         const chk = ((await api.getAlerts({alert_ids: [newId]})) || [])[0];
         const cd = (chk && chk.condition) || {};
         const v = cd.series && cd.series[1] && cd.series[1].value;
-        if (!chk || String(chk.symbol).indexOf(c.tv) < 0 || Math.abs(v - c.level) > 0.01
+        // the symbol comes back JSON-escaped: NSE:M&MFIN reads "NSE:M&MFIN" (13-Oct-2026)
+        const symBack = String(chk && chk.symbol).replace(/\\u0026/g, "&");
+        if (!chk || symBack.indexOf(c.tv) < 0 || Math.abs(v - c.level) > 0.01
             || String(chk.resolution) !== String(c.res) || cd.frequency !== "on_bar_close")
           throw new Error("verify failed: " + (chk && chk.symbol) + " @ " + v + " res " + (chk && chk.resolution) + " freq " + cd.frequency);
         return {id: newId, chk: {symbol: chk.symbol, res: chk.resolution, freq: cd.frequency, type: cd.type, value: v, hook: !!chk.web_hook}};
