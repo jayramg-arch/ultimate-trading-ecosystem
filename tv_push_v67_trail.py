@@ -294,6 +294,9 @@ def compute_book() -> list[dict]:
                     # TWO-TIER STOP (12-Oct-2026): the thesis level (close-basis exit) rides
                     # the book as a 4th field; the slot's Hard SL is the Dhan DISASTER stop.
                     "thesis": _f(r.get("thesis_sl")), "stoploss": _f(r.get("stoploss")),
+                    # INITIAL SL (13-Oct-2026): the first recorded stop - drawn so the deviation
+                    # from the original plan is visible on the chart.
+                    "initial": _f(r.get("initial_sl")),
                     # 3x-ATR DHAN STOP (12-Oct-2026): recommended resting stop + same-risk qty
                     "rec": _rec_stop(s, d, _f(r.get("stoploss")), _f(r.get("quantity")), hc.get("level"))})
     return out
@@ -338,13 +341,19 @@ def book_string(rows: list[dict]) -> str:
         # show a "close-basis exit" under the order that fires first. v67 before 67.4.27
         # reads fields 0-2 only, so the extra field is harmless to it.
         th, dsl = r.get("thesis"), r.get("stoploss")
-        tfld = (",T%.2f" % th) if (th and (dsl is None or th > dsl + 1e-9)) else ""
+        # 13-Oct-2026 (Jay: initial, thesis and hard SL all on the chart): the thesis is sent
+        # whenever it differs from the Dhan stop, above OR below it (v67 labels which).
+        tfld = (",T%.2f" % th) if (th and (dsl is None or abs(th - dsl) > 0.0005 * dsl)) else ""
         # 5th field R<price>:<qty>[:x] (12-Oct-2026): the recommended Dhan stop at 3x ATR.
-        # Fields are POSITIONAL, so when it is present the 4th field is always written
-        # (an empty "T" reads as no thesis in v67).
+        # 6th field I<price> (13-Oct-2026): the INITIAL stop. Fields are POSITIONAL, so a later
+        # field forces the earlier ones to be written (an empty "T"/"R" reads as absent).
         rfld = r.get("rec") or ""
-        if rfld:
-            tfld = (tfld or ",T") + "," + rfld
+        ini = r.get("initial")
+        ifld = ("I%.2f" % ini) if ini else ""
+        if rfld or ifld:
+            tfld = (tfld or ",T") + "," + (rfld or "R")
+        if ifld:
+            tfld += "," + ifld
         for k in _tv_keys(r["symbol"]):
             parts.append("%s=%d,%.4f,%s%s" % (k, int(r["window"]), float(r["mult"]), floor, tfld))
     return ";".join(parts)

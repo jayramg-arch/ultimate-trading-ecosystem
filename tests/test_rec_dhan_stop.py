@@ -29,3 +29,12 @@ def test_book_field_is_positional_after_an_empty_thesis():
     book = t.book_string(rows)
     assert "ABC=22,5.0000,0,T,R85.00:6:x" in book
     assert "XYZ=14,2.0000,0,T99.00" in book and "XYZ=14,2.0000,0,T99.00," not in book
+
+
+def test_initial_and_below_stop_thesis_are_carried():
+    rows = [{"symbol": "INI", "window": 22, "mult": 4.5, "override": None, "anchored": False,
+             "level": 90.0, "thesis": 93.0, "stoploss": 95.0, "rec": "", "initial": 97.5}]
+    # thesis BELOW the Dhan stop is now sent too (v67 labels it superseded); initial is field 6
+    assert "INI=22,4.5000,0,T93.00,R,I97.50" in t.book_string(rows)
+    rows[0].update(thesis=95.0, initial=None)          # thesis == stop, no initial -> nothing extra
+    assert t.book_string(rows) == "INI=22,4.5000,0"

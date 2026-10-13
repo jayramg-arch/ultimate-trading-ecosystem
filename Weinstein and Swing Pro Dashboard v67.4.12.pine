@@ -1,5 +1,5 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.28]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.29]", overlay=true, max_bars_back=5000, max_lines_count=500)
 // v67.4.17 (31 Jul 2026): RESTORE INLINE TREND ARROWS (Jay: "place arrow icons properly,
 //   they should appear like Pre-S2 on Weekly structure row"). Reverted badge column split:
 //   restored 4-column compressed panel layout. Re-embedded W & 30WMA arrows into WEEKLY STRUCTURE,
@@ -4374,6 +4374,9 @@ array<string> _tbRp = str.split(tbHit and array.size(_tbP) >= 5 ? str.substring(
 float  tbRec   = array.size(_tbRp) >= 1 ? str.tonumber(array.get(_tbRp, 0)) : na
 float  tbRecQ  = array.size(_tbRp) >= 2 ? str.tonumber(array.get(_tbRp, 1)) : na
 bool   tbRecX  = array.size(_tbRp) >= 3 and array.get(_tbRp, 2) == "x"
+// INITIAL SL (v67.4.29, 13-Oct-2026, Jay: "initial, thesis and hard SL all plotted, so I can
+// see how I deviated"). Optional 6th book field I<price> = the first recorded stop below entry.
+float  tbInit  = tbHit and array.size(_tbP) >= 6 ? str.tonumber(str.substring(array.get(_tbP, 5), 1)) : na
 bool   _is_swg_trade     = tbOn ? tbWin < 18 : str.startswith(_active_cat_safe, "SWG")
 float  ce_h_d            = _is_swg_trade ? ce_h_d_14 : ce_h_d_22
 float  ce_atr_d          = _is_swg_trade ? ce_atr_d_14 : ce_atr_d_22
@@ -5266,10 +5269,20 @@ if barstate.islast and showTrade and tradeActive
     string _slName = _twoTier ? "Disaster SL · Dhan: " : "Hard SL: "
     var line _thLn = na
     line.delete(_thLn)
-    if _twoTier
+    // v67.4.29: drawn whenever it is sent (Python sends it only when it differs from the
+    // Dhan stop); below the hard SL it is superseded and says so.
+    if not na(tbThesis)
         _thLn := line.new(bar_index - 40, tbThesis, bar_index + 3, tbThesis, color=color.orange, style=line.style_dashed)
         string thDist = showDist ? ", " + f_dist(tbThesis) : ""
-        label.new(bar_index + 3, tbThesis, "Thesis SL: " + str.tostring(math.round_to_mintick(tbThesis)) + " · close below = exit" + thDist, color=color.orange, style=label.style_none, textcolor=color.orange, size=size.small)
+        label.new(bar_index + 3, tbThesis, "Thesis SL: " + str.tostring(math.round_to_mintick(tbThesis)) + (_twoTier ? " · close below = exit" : " · below the hard SL (superseded)") + thDist, color=color.orange, style=label.style_none, textcolor=color.orange, size=size.small)
+    // Initial SL (v67.4.29): grey dashed, with how far the hard SL now sits from it.
+    var line _inLn = na
+    line.delete(_inLn)
+    if not na(tbInit) and finalSL > 0 and math.abs(tbInit - finalSL) > 0.0005 * finalSL
+        _inLn := line.new(bar_index - 40, tbInit, bar_index + 3, tbInit, color=color.gray, style=line.style_dashed)
+        float _dev = (finalSL - tbInit) / tbInit * 100.0
+        string inDist = showDist ? ", " + f_dist(tbInit) : ""
+        label.new(bar_index + 3, tbInit, "Initial SL: " + str.tostring(math.round_to_mintick(tbInit)) + " · hard SL now " + str.tostring(math.abs(_dev), "0.0") + "% " + (_dev < 0 ? "lower (widened)" : "higher (trailed)") + inDist, color=color.gray, style=label.style_none, textcolor=color.gray, size=size.small)
 
     // 3x-ATR recommended Dhan stop (v67.4.28): dotted cyan line + label, only when sent.
     var line _rcLn = na
