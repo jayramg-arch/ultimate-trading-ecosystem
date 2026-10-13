@@ -4,7 +4,8 @@
 On 12 Oct every holding's thesis was migrated as thesis = its Dhan stop (single tier), so
 the thesis was a copy of an order, not a structural level. This reads S4's INVAL for each
 OPEN holding - the close that proves the idea wrong, printed on the Entry row - on the
-trade's own clock (Daily for positional, 125m for swing), and PROPOSES it as the thesis.
+Daily timeframe for EVERY trade (13-Oct-2026, Jay: risk/trade management is limited to the
+Daily timeframe - swing names still time their ENTRY on 75m/125m), and PROPOSES it as the thesis.
 
     python thesis_from_s4.py              read S4 for every holding, write the proposal
     python thesis_from_s4.py --apply      write the reviewed proposal's thesis values
@@ -71,7 +72,7 @@ def propose() -> int:
         return 2
     out = []
     for rid, sym, tf, buy, stop, thesis in _holdings():
-        clock = "125" if str(tf or "").lower().startswith("sw") else "D"
+        clock = "D"          # management is Daily for every trade (13-Oct-2026)
         rec = {"id": rid, "symbol": sym, "clock": clock, "ltp": _ltp(sym), "dhan_sl": stop,
                "thesis_now": thesis, "s4_inval": "", "basis": "", "verdict": "no-inval"}
         try:

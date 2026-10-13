@@ -640,7 +640,7 @@ footer em{color:var(--ink-2)}
     <thead><tr><th></th><th>Thesis SL</th><th>Disaster SL</th></tr></thead>
     <tbody>
       <tr><td>What</td><td>The level that proves the idea wrong</td><td>The resting Dhan stop order</td></tr>
-      <tr><td>Exit</td><td>Only on a <b>close</b> below it, on the trade's own clock (Daily positional, 75m/125m swing) — at the next bar, your order</td><td>Automatically, on a trade through it</td></tr>
+      <tr><td>Exit</td><td>Only on a <b>close</b> below it, on the <b>Daily close</b> for every trade (swing included, 13 Oct) — at the next bar, your order</td><td>Automatically, on a trade through it</td></tr>
       <tr><td>Where</td><td>S4's <b>INVAL</b> (the Entry row's close-basis level), copied into the journal at entry</td><td>thesis − 1 × ATR(D), but at least <b>1.5 × ATR(D)</b> from entry for a swing and <b>4 × ATR(D)</b> for a positional</td></tr>
     </tbody>
   </table></div>
@@ -677,7 +677,7 @@ footer em{color:var(--ink-2)}
   the <b>hard SL</b> (the resting Dhan order), beside the Chandelier. A widened hard SL is a deliberate exception
   in a noisy market; the grey line keeps the original plan in view so the exception stays visible.</p>
   <h4>Thesis from S4, and a frozen R unit (13 Oct)</h4>
-  <p>Each holding's thesis is S4's own INVAL on the trade's clock (Daily positional, 125m swing), proposed by
+  <p>Each holding's thesis is S4's own INVAL on the <b>Daily</b> timeframe (every trade - risk and trade management are Daily only), proposed by
   <code>thesis_from_s4.py</code> and written only after review. Widening the Dhan stop to the 3× ATR line then
   makes it the disaster stop beneath the thesis. Targets do not move when a stop moves: the R unit is the first
   stop the position had below its entry (<code>initial_sl</code>), so T1/T2 stay 3R/5R of the risk taken at

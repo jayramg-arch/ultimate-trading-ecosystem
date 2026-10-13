@@ -4,7 +4,8 @@ THE TWO-TIER STOP. Measured on Jay's exits: of 8 stop-outs that matched the jour
 3 were wick sweeps (the day closed back >= 0.5 ATR above the fill) and half of the sweeps
 filled at 09:15-09:18. So a trade carries two levels:
   THESIS SL   (journal thesis_sl) - exited only on a CLOSE below it, on the trade's own
-              clock: the Daily close for a positional trade, the 125m close for a swing.
+              clock: the Daily close for every trade (13-Oct-2026, Jay: risk/trade
+              management is limited to the Daily timeframe).
   DISASTER SL (the resting Dhan stop) - further away, for gaps and real collapses.
 A resting order cannot wait for a close, so the thesis needs an ALERT. This sets one
 TradingView price alert per holding: "crossing down <thesis>, once per bar close", on the
@@ -69,7 +70,7 @@ def _webhook() -> str | None:
 def clock_of(timeframe: str | None) -> tuple[str, str]:
     """(TradingView resolution, label) - the trade's own clock."""
     tf = str(timeframe or "").strip().lower()
-    return ("125", "125m") if tf.startswith("sw") else ("1D", "Daily")
+    return ("1D", "Daily")      # every trade: management is Daily (13-Oct-2026)
 
 
 def candidates() -> tuple[list[dict], list[str]]:

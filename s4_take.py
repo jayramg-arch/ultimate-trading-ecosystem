@@ -140,7 +140,7 @@ def main() -> int:
         if thesis is not None:
             import house_policy as _hp
             _dis = _hp.disaster_stop(price, thesis, plan.get("atr_d"), plan["type"])
-            print("thesis SL %.2f (exit on a %s CLOSE below it)" % (thesis, "Daily" if plan["type"] == "positional" else "75m/125m")
+            print("thesis SL %.2f (exit on a %s CLOSE below it)" % (thesis, "Daily")
                   + (" · recommended DISASTER stop at Dhan %.2f (thesis - %.1f x ATR(D), floored at %s x ATR(D) from entry)"
                      % (_dis, _hp.THESIS_TO_DISASTER_ATR,
                         _hp.POS_STOP_FLOOR_ATR_D if plan["type"] == "positional" else _hp.SWING_STOP_FLOOR_ATR_D)

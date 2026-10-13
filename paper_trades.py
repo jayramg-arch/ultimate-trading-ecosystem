@@ -25,7 +25,8 @@ ORDERS   the Risk Allocator's default 3-leg split (house canon, bull_screener.pa
            OCO-2   positional 25% / swing 33% at T2 + the stop
            RUNNER  the balance, stop-only (no target) - exits on the stop or the thesis
          Each target leg gets at least one share while shares remain (Allocator v2.6).
-CLOCK    positional on Daily bars; swing on the review's 75m/125m bars (125m for a Daily review).
+CLOCK    Daily bars for every trade: risk/trade management is limited to the Daily timeframe
+         (13-Oct-2026, Jay). Swing names time their entry on 75m/125m, but are managed on Daily.
 FILL     the plan entry within ~3 sessions: a buy-limit when the entry is at/below the last
          closed bar's close, else a buy-stop. Gaps fill at the open.
 WALK     bar by bar after the fill bar: HARD SL on a touch (gap -> the open), stop-first on a
@@ -168,10 +169,7 @@ def _canon_fill(lv: dict) -> None:
 
 
 def _clock(review_tf: str, plan_type: str) -> str:
-    tf = str(review_tf or "").upper().replace("M", "")
-    if plan_type == "positional":
-        return "D"
-    return tf if tf in ("75", "125") else "125"
+    return "D"          # management is Daily for every trade (13-Oct-2026, Jay)
 
 
 # ── sizing: the Risk Allocator ──────────────────────────────────────────────

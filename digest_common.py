@@ -177,7 +177,7 @@ def thesis_breaks() -> tuple[list[dict], int, str | None]:
             c = None
         if c is not None and c < th:
             out.append({"sym": str(sym), "close": c, "thesis": th, "stop": sl,
-                        "clock": "125m" if str(tf or "").lower().startswith("sw") else "Daily"})
+                        "clock": "Daily"})   # Daily close for every trade (13-Oct-2026, Jay: risk/trade management is limited to the Daily timeframe)
     return out, n2, None
 
 

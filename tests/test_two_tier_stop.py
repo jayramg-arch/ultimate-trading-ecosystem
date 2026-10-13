@@ -29,12 +29,12 @@ def test_only_two_tier_holdings_get_a_thesis_alert(tmp_path, monkeypatch):
     monkeypatch.setattr(journal_path, "JOURNAL_DB", db)
     items, skipped = ta.candidates()
     got = {c["sym"]: (c["level"], c["res"]) for c in items}
-    assert got == {"AAA": (110.0, "1D"), "BBB": (50.0, "125")}
+    assert got == {"AAA": (110.0, "1D"), "BBB": (50.0, "1D")}   # swing is Daily too (13-Oct-2026)
     assert len(skipped) == 3 and any("CCC" in s and "single tier" in s for s in skipped)
 
 
 def test_trade_clock():
-    assert ta.clock_of("Swing") == ("125", "125m")
+    assert ta.clock_of("Swing") == ("1D", "Daily")   # management is Daily for every trade (13-Oct-2026)
     assert ta.clock_of("Positional") == ("1D", "Daily")
     assert ta.clock_of(None) == ("1D", "Daily")      # unknown = positional, as everywhere
 

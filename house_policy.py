@@ -61,7 +61,7 @@ POS_STOP_FLOOR_ATR_D = 4.0     # positional initial stop >= 4x DAILY ATR (2-Oct-
 # 3 were WICK SWEEPS (the day closed back >= 0.5 ATR above the fill) and half of those filled
 # 09:15-09:18. So a trade carries two levels:
 #   THESIS SL   - the level that proves the idea wrong; exited only on a CLOSE below it, on the
-#                 trade's own clock (Daily for positional, 75m/125m for swing). Never an order.
+#                 Daily close for every trade (13-Oct-2026, Jay). Never an order.
 #   DISASTER SL - the resting Dhan stop order, further away, for gaps and real collapses.
 # Disaster = thesis - THESIS_TO_DISASTER_ATR x ATR(D), but never closer to the ENTRY than the
 # house floor for the plan type (swing 1.5x, positional 4x ATR(D)). Size is taken off the
