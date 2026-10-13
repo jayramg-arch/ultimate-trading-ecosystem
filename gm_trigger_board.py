@@ -1918,8 +1918,12 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
     entry = wf.get("plan_entry") or g(rec, "Entry") or cmp_px
     sl = wf.get("plan_sl")
     t1 = wf.get("plan_t1")
+    t2 = wf.get("plan_t2")          # positional R-canon T2 (13-Oct-2026); None for swing
     sl_pct = ((entry - sl) / entry * 100.0) if (entry and sl and entry > 0) else None
-    rr = ((t1 - entry) / (entry - sl)) if (entry and sl and t1 and entry > sl) else None
+    # R:R measures ROOM to the plan's own target, not to the canon T1 (which is 3.0R by
+    # construction and would read 3.0 on every clear positional row).
+    _rt1 = wf.get("room_t1") or t1
+    rr = ((_rt1 - entry) / (entry - sl)) if (entry and sl and _rt1 and entry > sl) else None
 
     # ── ROOM — what actually stands in the way (7-Aug-2026) ────────────────────
     # The board advertised HINDALCO at "R:R 1.9, T1 1163.5" on the same bar S4
@@ -2305,6 +2309,7 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
         "SL":         _r1(sl),
         "SL%":        _r1(sl_pct),
         "T1":         _r1(t1),
+        "T2":         _r1(t2),
         "R:R":        _r1(rr),
         "Room":       room_txt,
         "Tier":       info.get("tier", "Discovery"),

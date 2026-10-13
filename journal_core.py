@@ -238,6 +238,7 @@ def init_db():
             snapshot_meta TEXT,
             manual_sl_override REAL,
             thesis_sl REAL,
+            initial_sl REAL,
             custom_ce_mult REAL,
             pyramid_status TEXT,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -266,10 +267,34 @@ def load_db():
         'entry_conviction': 'EntryConviction', 'snapshot_meta': 'SnapshotMeta',
         'manual_sl_override': 'Manual SL Override',
         'thesis_sl': 'Thesis SL',
+        'initial_sl': 'Initial SL',
         'custom_ce_mult': 'Custom CE Mult',
         'pyramid_status': 'Pyramid Status'
     }
     return df.rename(columns=rename_map)
+
+# INITIAL SL - THE FROZEN R UNIT (13-Oct-2026, Jay). The nightly sync copies the live Dhan
+# stop into `stoploss`, so a stop widened for noise (the 3x-ATR rule) or trailed up would
+# change any target computed as entry + N x (entry - stoploss). The R unit has to be fixed
+# at entry: `initial_sl` is written ONCE - the first stop a position has below its entry -
+# and nothing ever updates it. Called by journal_sync after it reads the Dhan stops, by
+# s4_take after it writes an entry, and once at migration.
+def freeze_initial_sl(db_file=None) -> int:
+    """Set initial_sl = stoploss on OPEN rows that have none yet, where the stop sits below
+    the entry. Returns the number of rows frozen. Never overwrites a frozen value."""
+    conn = sqlite3.connect(db_file or DB_FILE)
+    try:
+        cols = [r[1] for r in conn.execute("PRAGMA table_info(journal)")]
+        if "initial_sl" not in cols:
+            conn.execute("ALTER TABLE journal ADD COLUMN initial_sl REAL")
+        n = conn.execute("UPDATE journal SET initial_sl = stoploss WHERE UPPER(status)='OPEN' "
+                         "AND initial_sl IS NULL AND stoploss > 0 AND buy_price > 0 "
+                         "AND stoploss < buy_price").rowcount
+        conn.commit()
+        return n
+    finally:
+        conn.close()
+
 
 def upsert_trade(entry):
     conn = sqlite3.connect(DB_FILE)
@@ -288,6 +313,7 @@ def upsert_trade(entry):
         'AI_Analysis': 'ai_analysis',
         'Manual SL Override': 'manual_sl_override',
         'Thesis SL': 'thesis_sl',
+        'Initial SL': 'initial_sl',
         'Custom CE Mult': 'custom_ce_mult',
         'Pyramid Status': 'pyramid_status'
     }
@@ -409,7 +435,8 @@ def migrate_db():
                             ('entry_alpha','INTEGER'), ('entry_rs','REAL'),
                             ('entry_conviction','REAL'), ('snapshot_meta','TEXT'),
                             ('manual_sl_override','REAL'), ('custom_ce_mult','REAL'),
-                            ('pyramid_status','TEXT'), ('thesis_sl','REAL')):
+                            ('pyramid_status','TEXT'), ('thesis_sl','REAL'),
+                            ('initial_sl','REAL')):
             if _col not in cols:
                 c.execute(f"ALTER TABLE journal ADD COLUMN {_col} {_type}")
             

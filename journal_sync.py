@@ -229,6 +229,16 @@ def sync(db_file=DB_FILE, dry_run=False, do_close=True):
         conn.commit()
     conn.close()
 
+    # INITIAL SL (13-Oct-2026): freeze the first stop below entry as the trade's R unit.
+    # After the LEVELS step, so a holding added tonight is frozen at its first Dhan stop.
+    frozen = 0
+    if not dry_run:
+        try:
+            import journal_core as _jc
+            frozen = _jc.freeze_initial_sl(db_file)
+        except Exception as e:
+            print(f"  (initial_sl not frozen: {e})")
+
     # Report
     print(f"\n{'[DRY-RUN] ' if dry_run else ''}Journal ↔ Dhan holdings sync — {date.today().isoformat()}")
     print(f"  Live holdings: {len(live)} | Journal OPEN: {len(opens)}")
@@ -241,7 +251,8 @@ def sync(db_file=DB_FILE, dry_run=False, do_close=True):
         print("  ⚠ STOP ORDERS (Dhan) - every live stop fires; the journal keeps the latest:")
         for _f in stop_flags:
             print("     " + _f)
-    print(f"\n  {'Would ' if dry_run else ''}ADD {added} · UPDATE {updated} · CLOSE {closed} · LEVELS {levels} · FLAG {len(flagged)}")
+    print(f"\n  {'Would ' if dry_run else ''}ADD {added} · UPDATE {updated} · CLOSE {closed} · LEVELS {levels} · FLAG {len(flagged)}"
+          + (f" · R-UNIT FROZEN {frozen}" if frozen else ""))
     return {"status": "ok", "added": added, "updated": updated,
             "closed": closed, "levels": levels, "flagged": flagged, "stop_flags": stop_flags}
 

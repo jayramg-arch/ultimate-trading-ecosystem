@@ -70,6 +70,7 @@ JOURNAL_RENAME_MAP = {
     'snapshot_meta':'SnapshotMeta',
     'manual_sl_override':'Manual SL Override',
     'thesis_sl':'Thesis SL',
+    'initial_sl':'Initial SL',
     'custom_ce_mult':'Custom CE Mult',
     'pyramid_status':'Pyramid Status',
 }
@@ -925,6 +926,25 @@ def plan_type_for_symbol(symbol) -> str | None:
         return None
 
 
+def _canon_targets(ctx, entry, sl):
+    """(T1, T2) at the house R-canon off the plan's own stop, for a POSITIONAL plan: 3R / 5R
+    (bull_screener.target_r_for). The S4 Plan's rule - its targets are entry + N x R AFTER
+    the 4x ATR(D) floor - so a wider positional stop widens the targets with it (13-Oct-2026,
+    Jay). (None, None) for a swing plan or an unusable stop: those keep the plan's own T1.
+    The room / R:R reading stays on the plan's original target (see room_t1)."""
+    try:
+        if not (entry and sl and float(entry) > float(sl) > 0):
+            return None, None
+        if plan_type_ctx(ctx) == "swing":
+            return None, None
+        import bull_screener as _bs
+        r1, r2 = _bs.target_r_for("", swing=False)
+        R = float(entry) - float(sl)
+        return float(entry) + r1 * R, float(entry) + r2 * R
+    except Exception:
+        return None, None
+
+
 def _plan_structural_sl(ctx, entry, atr, ret_src=False):
     """S4's stop ladder (see the block comment above). Returns a price (or
     (price, source) with ret_src) -- None when there is no entry. `atr` is only the
@@ -1449,7 +1469,10 @@ def compute_workflow(rec, ctx, cmp_px, mansfield) -> dict:
                 inherited=inherited, still_valid=still_valid, location_ok=bool(g4),
                 # numeric plan levels for the page's position sizer / journal form
                 plan_entry=(entry if sl is not None else None),
-                plan_sl=sl, plan_t1=t1)
+                # T1/T2 at the R-canon for a positional plan (S4's rule); room_t1 keeps the
+                # plan's own target, which is what the R:R / room reading measures.
+                plan_sl=sl, plan_t1=(_canon_targets(ctx, entry, sl)[0] or t1),
+                plan_t2=_canon_targets(ctx, entry, sl)[1], room_t1=t1)
 
 def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
     """Recovery-specific decision path — used when the primary signal is a
@@ -1788,7 +1811,9 @@ def compute_recovery_workflow(rec_r, ctx, cmp_px) -> dict:
                          else True),
                 current=current, actionable=actionable, recovery=True, loc_note=loc_note,
                 inherited=inherited, still_valid=still_valid, location_ok=bool(loc_ok),
-                plan_entry=entry, plan_sl=sl, plan_t1=t1)
+                plan_entry=entry, plan_sl=sl,
+                plan_t1=(_canon_targets(ctx, entry, sl)[0] or t1),
+                plan_t2=_canon_targets(ctx, entry, sl)[1], room_t1=t1)
 
 def _gm_apply_location_rule(_s, vp_at=False):
     """The ONE location rule — rule A2 + GM_LOC_STRICT — for every Trigger TF.

@@ -170,6 +170,7 @@ def main() -> int:
                          "Quantity": qty or 0, "BuyPrice": price, "Status": "OPEN", "Sector": sector,
                          "PlannedRR": round(rr, 2) if rr else None,
                          "Thesis SL": thesis,
+                         "Initial SL": stop,          # frozen R unit (13-Oct-2026)
                          "Rationale": "S4 review %s · ruling: %s%s" % (fn, plan["ruling"] or "?", (" · " + a.note) if a.note else ""),
                          "Screenshot": os.path.relpath(path, HERE)}
                 res = dj.upsert_trade(entry)

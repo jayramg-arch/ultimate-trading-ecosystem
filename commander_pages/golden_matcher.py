@@ -1465,7 +1465,7 @@ if True:
                     # a CSV round-trip (disk cache reload) can leave them as object.
                     for _nc in ("Overall", "Alpha", "RS", "Conviction", "Combined", "ΣPA",
                                 "R:R", "CMP", "Chg%", "52WH%", "SL%", "MLProb%",
-                                "Entry", "SL", "T1", "P/E", "ΔBets"):
+                                "Entry", "SL", "T1", "T2", "P/E", "ΔBets"):
                         if _nc in _v.columns:
                             _v[_nc] = pd.to_numeric(_v[_nc], errors="coerce")
                     # Column order (item 14): decision columns first, then group the

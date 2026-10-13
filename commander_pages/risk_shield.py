@@ -561,6 +561,9 @@ if True:
                                 # The ladder was correct and simply never had the inputs.
                                 "buy_price": float(r.get("BuyPrice")) if pd.notna(r.get("BuyPrice")) else None,
                                 "stoploss": float(r.get("StopLoss")) if pd.notna(r.get("StopLoss")) else None,
+                                # frozen R unit (13-Oct-2026): the first stop below entry,
+                                # never updated by the nightly Dhan sync.
+                                "initial_sl": float(r.get("Initial SL")) if pd.notna(r.get("Initial SL", None)) else None,
                                 # entry date anchors the Chandelier at entry (7-Oct-2026)
                                 "entry_date": (r.get("EntryDate") if pd.notna(r.get("EntryDate", None)) else
                                                r.get("Entry Date") if pd.notna(r.get("Entry Date", None)) else None),
@@ -1670,8 +1673,15 @@ if True:
                                                 tgt_d_e = (tgt - buy_price) / buy_price * 100
                                                 tgt_d_l = (tgt - ltp) / ltp * 100
                                                 tgt_str += f" (<span style='color:var(--muted)'>{tgt_d_e:+.1f}%</span> / <span style='color:#38BDF8'>{tgt_d_l:+.1f}%</span>)"
-                                                if sl is not None and (buy_price - sl) > 0:
-                                                    r_val = (tgt - buy_price) / (buy_price - sl)
+                                                # R from the FROZEN entry stop when the journal has one
+                                                # (13-Oct-2026): this leg's own stop is live - widened for
+                                                # noise or trailed, it would mislabel a correctly placed
+                                                # 3R target as ~2R and flag it "too near".
+                                                _r_sl = (journal_overrides.get(sym, {}) or {}).get("initial_sl")                                                     if isinstance(journal_overrides, dict) else None
+                                                if not (_r_sl and 0 < _r_sl < buy_price):
+                                                    _r_sl = sl
+                                                if _r_sl is not None and (buy_price - _r_sl) > 0:
+                                                    r_val = (tgt - buy_price) / (buy_price - _r_sl)
                                                     tgt_str += f" <span style='color:var(--warn);font-weight:bold;'>[{r_val:.1f}R]</span>"
                                                     # POLICY CHECK (9-Aug-2026). These are LIVE broker OCOs — changing the
                                                     # screener's targets does NOT move an order already resting at Dhan, so a
@@ -1956,11 +1966,12 @@ if True:
                                         import bull_screener as _bs_r
                                         _setup_r = str((_jov or {}).get("setup") or "")
                                         _t1r, _t2r = _bs_r.target_r_for(_setup_r, swing=is_swing)
-                                        # R unit: prefer the journal's original stop; else the LOWEST
-                                        # resting SL (least-trailed, closest to the original); else the
-                                        # policy ATR stop. Whichever answers is named on the card.
-                                        for _cand, _lbl in ((_jov.get("stoploss"), "journal SL"),
-                                                            (min(sl_vals) if sl_vals else None, "oldest resting SL"),
+                                        # R unit (13-Oct-2026): the FROZEN entry stop (journal
+                                        # initial_sl); else the policy ATR stop. Never a live stop -
+                                        # the journal SL is re-read from Dhan every night, so a stop
+                                        # widened for noise (3x-ATR rule) or trailed would have moved
+                                        # the targets with it. Whichever answers is named on the card.
+                                        for _cand, _lbl in ((_jov.get("initial_sl"), "entry stop (frozen)"),
                                                             ((buy_price - atr_val * (1.5 if is_swing else 4.0))
                                                              if (buy_price and atr_val) else None, "policy ATR stop")):
                                             try:
@@ -2160,6 +2171,10 @@ if True:
                                         _anchor = buy_price if buy_price else ltp
                                         atr_sl = _anchor - (atr_val * sl_mult)
                                         _runit_r = _anchor - atr_sl
+                                        # frozen entry stop wins when recorded (13-Oct-2026)
+                                        _isl = (_jov or {}).get("initial_sl")
+                                        if buy_price and _isl and 0 < _isl < buy_price:
+                                            _runit_r = buy_price - _isl
                                         try:
                                             import bull_screener as _bs_rl
                                             _t1r_l, _t2r_l = _bs_rl.target_r_for((_jov or {}).get("setup"), swing=is_swing)
@@ -2469,6 +2484,10 @@ if True:
                                         _anch2 = bp if bp else ltp
                                         rec_sl = _anch2 - (atr_val * sl_mult)
                                         _runit2 = _anch2 - rec_sl
+                                        # frozen entry stop wins when recorded (13-Oct-2026)
+                                        _isl2 = (journal_overrides.get(sym, {}) or {}).get("initial_sl")                                             if isinstance(journal_overrides, dict) else None
+                                        if bp and _isl2 and 0 < _isl2 < bp:
+                                            _runit2 = bp - _isl2
                                         try:
                                             import bull_screener as _bs_u
                                             _t1r_u, _t2r_u = _bs_u.target_r_for(
