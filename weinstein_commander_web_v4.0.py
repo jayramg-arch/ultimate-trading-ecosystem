@@ -1401,6 +1401,7 @@ with st.sidebar:
         ]),
         ("🔬  ANALYSIS", [
             ("🔬 AUTOPSY",     "AUTOPSY"),
+            ("📄 PAPER TRADES", "PAPER"),
             ("📈 BACKTEST",    "BACKTEST"),
             ("🧪 AI LAB",      "AI LAB"),
         ]),
@@ -4287,6 +4288,12 @@ elif page == 'BREADTH':
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == 'HMM':
     commander_pages.run("market_hmm", globals())   # page body: commander_pages/market_hmm.py
+
+# ══════════════════════════════════════════════════════════════════════════════
+#  13-Oct-2026 — PAPER TRADES (every TAKE taken on paper: thesis / hard SL / T1 / T2)
+# ══════════════════════════════════════════════════════════════════════════════
+elif page == 'PAPER':
+    commander_pages.run("paper_trades", globals())   # page body: commander_pages/paper_trades.py
 
 
 # ══════════════════════════════════════════════════════════════════════════════

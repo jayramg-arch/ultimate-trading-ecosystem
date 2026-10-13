@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 12 Oct · 65 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 13 Oct · 68 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,29 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">13 Oct<br>Paper Trades page</td>
+        <td><b>Every TAKE, taken on paper.</b> Web Commander → ANALYSIS → <b>📄 PAPER TRADES</b> walks each
+        reviewer TAKE and each S4 <i>TAKE IT</i> verdict from its plan entry to the thesis close, the hard SL, T1 and
+        T2, in R, with the two-tier and hard-SL-only results side by side and an era split around the 3 Oct stop
+        floor. Rebuilt nightly (auto-pilot Phase 12g). Nothing is ordered.</td>
+        <td class="af">26</td>
+      </tr>
+      <tr>
+        <td class="dt">13 Oct<br>thesis from S4</td>
+        <td><b>Portfolio thesis levels from S4's own INVAL.</b> <code>thesis_from_s4.py</code> reads S4 for each
+        holding on its clock (Daily positional, 125m swing) on the reviewer tab and proposes INVAL as the thesis;
+        <code>--apply</code> writes only after review.</td>
+        <td class="af">25</td>
+      </tr>
+      <tr>
+        <td class="dt">13 Oct<br>frozen R unit · canon targets</td>
+        <td><b>Widening a stop no longer moves the targets.</b> The journal keeps the first stop below entry
+        (<code>initial_sl</code>) as the R unit; Risk Shield's targets and leg R labels read it, never the live
+        Dhan stop. The GM board's positional T1/T2 are now 3R/5R off the floored stop, as on S4 (new T2 column);
+        its R:R still measures room to the plan's own target.</td>
+        <td class="af">23 · 25</td>
+      </tr>
       <tr>
         <td class="dt">12 Oct<br>3× ATR Dhan stop</td>
         <td><b>Dhan stops at least 3× ATR from price</b> (Jay, current market conditions). A holding whose

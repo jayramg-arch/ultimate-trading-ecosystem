@@ -1195,6 +1195,33 @@ def main():
                 p.status = "SKIP"
                 p.message = f"skipped: {e}"[:160]
 
+    # 12g. PAPER TRADES (13-Oct-2026, Jay: "a paper trading dashboard - assume we took the
+    # trade and track whether it hits thesis SL, hard SL, T1 or T2"). Every reviewer TAKE and
+    # every S4 TAKE IT walked to today's close -> data/paper_trades.csv for the Web Commander
+    # PAPER TRADES page. Read-only: no orders, no journal writes. PAPER_TRADES=0 skips.
+    logger.info("\n[PHASE 12g] PAPER TRADES (every TAKE taken on paper)...")
+    with run.phase("Phase 12g — paper trades") as p:
+        if os.getenv("PAPER_TRADES", "1") == "0":
+            p.status = "SKIP"; p.message = "PAPER_TRADES=0"
+        else:
+            try:
+                import subprocess as _sp
+                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                           "paper_trades.py")],
+                             capture_output=True, text=True, timeout=15 * 60)
+                _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
+                for _ln in _lines:
+                    logger.info(f"   ↳ {_ln}")
+                _tr = next((l for l in _lines if l.startswith("traded")), "")
+                p.message = ("paper trades: " + _tr.replace("traded", "").strip() if _tr else
+                             (_lines[0] if _lines else "done"))[:160]
+                if _r.returncode != 0:
+                    p.status = "WARN"
+            except Exception as e:
+                logger.warning(f"⚠️  paper trades skipped: {e}")
+                p.status = "SKIP"
+                p.message = f"skipped: {e}"[:160]
+
     # 12e. TRADE LOG (3-Oct-2026, Jay: "the Take-it / Take-it reduced reviews are the pool -
     # compare them with the actual trades and build the trade log"). Every TAKE review vs Dhan's
     # own BUY fills: TAKEN / SKIPPED (with what S4's plan did) / OFF-LOG buys. Read-only.

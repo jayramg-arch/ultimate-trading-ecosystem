@@ -671,6 +671,13 @@ footer em{color:var(--ink-2)}
   module with its own input group and Enable switch, display only, never feeding the GO, an alert or a binding.
   No new indicator per enhancement, and no experiments inside S4 (it sits at its token ceiling). A module that
   earns a place in the gate moves into S4 at a compile that is happening anyway.</p>
+  <h4>Thesis from S4, and a frozen R unit (13 Oct)</h4>
+  <p>Each holding's thesis is S4's own INVAL on the trade's clock (Daily positional, 125m swing), proposed by
+  <code>thesis_from_s4.py</code> and written only after review. Widening the Dhan stop to the 3× ATR line then
+  makes it the disaster stop beneath the thesis. Targets do not move when a stop moves: the R unit is the first
+  stop the position had below its entry (<code>initial_sl</code>), so T1/T2 stay 3R/5R of the risk taken at
+  entry. With a 4× ATR(D) positional stop that is T1 ≈ 12× ATR and T2 ≈ 20× ATR - partial-profit points; most of
+  the result comes from the trail.</p>
   <h4>Dhan stops: at least 3× ATR from price (12 Oct)</h4>
   <p>In the current market a resting Dhan stop keeps at least <b>3× ATR(14)</b> from LTP
   (<code>house_policy.DHAN_STOP_MIN_ATR</code>). Closer stops get a recommended level, LTP − 3× ATR, on v67

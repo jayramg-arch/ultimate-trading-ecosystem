@@ -180,7 +180,7 @@ def validate_risk_hygiene(df):
             alerts.append({
                 'Symbol': symbol,
                 'Issue': 'Noise Risk',
-                'Detail': f"SL is only {dist_to_sl/atr:.1f}x ATR away. Market noise might trigger it prematurely. {_hp.NOISE_ATR_AMBER:g}x ATR or more suggested."
+                'Detail': f"SL is only {dist_to_sl/atr:.1f}x ATR away. Market noise might trigger it prematurely. Keep the Dhan stop {_hp.DHAN_STOP_MIN_ATR:g}x ATR or more away (Journal → Recommended Dhan stops)."
             })
             
     return alerts
