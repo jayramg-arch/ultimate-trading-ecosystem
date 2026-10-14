@@ -38,3 +38,24 @@ def test_initial_and_below_stop_thesis_are_carried():
     assert "INI=22,4.5000,0,T93.00,R,I97.50" in t.book_string(rows)
     rows[0].update(thesis=95.0, initial=None)          # thesis == stop, no initial -> nothing extra
     assert t.book_string(rows) == "INI=22,4.5000,0"
+
+
+def test_r_unit_frozen_stop_wins_else_policy():
+    # recorded stop below entry -> that stop, not policy
+    assert t.r_unit_stop({"buy_price": 100, "initial_sl": 90, "timeframe": "Positional"}, 5) == (90.0, False)
+    # none recorded (or above entry) -> entry - 4x ATR positional / 1.5x swing, flagged
+    assert t.r_unit_stop({"buy_price": 100, "initial_sl": None, "timeframe": "Positional"}, 5) == (80.0, True)
+    assert t.r_unit_stop({"buy_price": 100, "initial_sl": 110, "timeframe": "Swing"}, 4) == (94.0, True)
+
+
+def test_canon_targets_follow_the_r_canon():
+    # swing 2R/4R off R = 10; positional 3R/5R
+    assert t.canon_targets({"buy_price": 100, "initial_sl": 90, "timeframe": "Swing"}, 5) == (120.0, 140.0)
+    assert t.canon_targets({"buy_price": 100, "initial_sl": 90, "timeframe": "Positional"}, 5) == (130.0, 150.0)
+
+
+def test_policy_initial_carries_the_p_flag():
+    rows = [{"symbol": "POL", "window": 22, "mult": 4.5, "override": None, "anchored": False,
+             "level": 90.0, "thesis": None, "stoploss": 95.0, "rec": "", "initial": None,
+             "initial_pol": 80.0}]
+    assert "POL=22,4.5000,0,T,R,I80.00p" in t.book_string(rows)

@@ -1,5 +1,5 @@
 //@version=6
-indicator("Weinstein & Swing Pro Dashboard [v67.4.29]", overlay=true, max_bars_back=5000, max_lines_count=500)
+indicator("Weinstein & Swing Pro Dashboard [v67.4.30]", overlay=true, max_bars_back=5000, max_lines_count=500)
 // v67.4.17 (31 Jul 2026): RESTORE INLINE TREND ARROWS (Jay: "place arrow icons properly,
 //   they should appear like Pre-S2 on Weekly structure row"). Reverted badge column split:
 //   restored 4-column compressed panel layout. Re-embedded W & 30WMA arrows into WEEKLY STRUCTURE,
@@ -4376,7 +4376,11 @@ float  tbRecQ  = array.size(_tbRp) >= 2 ? str.tonumber(array.get(_tbRp, 1)) : na
 bool   tbRecX  = array.size(_tbRp) >= 3 and array.get(_tbRp, 2) == "x"
 // INITIAL SL (v67.4.29, 13-Oct-2026, Jay: "initial, thesis and hard SL all plotted, so I can
 // see how I deviated"). Optional 6th book field I<price> = the first recorded stop below entry.
-float  tbInit  = tbHit and array.size(_tbP) >= 6 ? str.tonumber(str.substring(array.get(_tbP, 5), 1)) : na
+// v67.4.30 (14-Oct-2026): a trailing "p" = POLICY stop (entry - 1.5x/4x ATR(D)) - no stop
+// below entry was ever recorded, so the plan's own stop is drawn and labelled as such.
+string _tbIf  = tbHit and array.size(_tbP) >= 6 ? array.get(_tbP, 5) : ""
+bool   tbInitPol = str.endswith(_tbIf, "p")
+float  tbInit  = str.length(_tbIf) > 1 ? str.tonumber(str.substring(_tbIf, 1, str.length(_tbIf) - (tbInitPol ? 1 : 0))) : na
 bool   _is_swg_trade     = tbOn ? tbWin < 18 : str.startswith(_active_cat_safe, "SWG")
 float  ce_h_d            = _is_swg_trade ? ce_h_d_14 : ce_h_d_22
 float  ce_atr_d          = _is_swg_trade ? ce_atr_d_14 : ce_atr_d_22
@@ -5243,7 +5247,7 @@ plot(showTrade and tradeActive and finalSL > 0 and finalT2 > 0 ? t2_val : na, "A
 // --- Native Chandelier Exit: computation MOVED above the portfolio-slot block
 // (it is consumed by the pyramid ladder, which must run before the panel is
 // drawn). Only the plot stays here.
-plot(showTrade ? ce_trailing_stop : na, "ALGO Chandelier TSL (v67)", color=color.new(#e3b341, 0), style=plot.style_cross, linewidth=2)
+plot(showTrade ? ce_trailing_stop : na, "ALGO Chandelier TSL (v67)", color=color.new(color.aqua, 0), style=plot.style_stepline, linewidth=2)
 
 // --- Pyramid ADD levels on the chart (12-Aug-2026) --------------------------
 // The ladder's ADD rung needs price BETWEEN two lines: at/above the 20-EMA (the
@@ -5259,9 +5263,15 @@ plot(showTrade and tradeActive and pyrLeaderG ? pyrAddCeilG : na, "Pyramid: ADD 
 // -------------------------------------------------------------
 
 // LABELS (Last Bar Only - v20.0 Style)
+// v67.4.30 (14-Oct-2026): labels from an earlier last bar were never deleted, so a chart
+// left open through the session showed every level twice once a new bar opened (VIJAYA).
+var array<label> _tlbls = array.new<label>()
+if barstate.islast
+    while array.size(_tlbls) > 0
+        label.delete(array.pop(_tlbls))
 if barstate.islast and showTrade and tradeActive
     // Entry Label
-    label.new(bar_index + 3, finalEntry, "Avg. Entry: " + str.tostring(math.round_to_mintick(finalEntry)) + (finalDate > 0 ? " (" + str.format_time(finalDate, "dd MMM yy", "Asia/Kolkata") + ")" : ""), color=color.blue, style=label.style_none, textcolor=color.blue, size=size.small)
+    array.push(_tlbls, label.new(bar_index + 3, finalEntry, "Avg. Entry: " + str.tostring(math.round_to_mintick(finalEntry)) + (finalDate > 0 ? " (" + str.format_time(finalDate, "dd MMM yy", "Asia/Kolkata") + ")" : ""), color=color.blue, style=label.style_none, textcolor=color.blue, size=size.small))
     
     // TWO-TIER STOP: a thesis above the resting stop is labelled at its level (the slot's
     // Hard SL is then the DISASTER order). A label only - the token ceiling has no room for more.
@@ -5274,45 +5284,45 @@ if barstate.islast and showTrade and tradeActive
     if not na(tbThesis)
         _thLn := line.new(bar_index - 40, tbThesis, bar_index + 3, tbThesis, color=color.orange, style=line.style_dashed)
         string thDist = showDist ? ", " + f_dist(tbThesis) : ""
-        label.new(bar_index + 3, tbThesis, "Thesis SL: " + str.tostring(math.round_to_mintick(tbThesis)) + (_twoTier ? " · close below = exit" : " · below the hard SL (superseded)") + thDist, color=color.orange, style=label.style_none, textcolor=color.orange, size=size.small)
+        array.push(_tlbls, label.new(bar_index + 3, tbThesis, "Thesis SL: " + str.tostring(math.round_to_mintick(tbThesis)) + (_twoTier ? " · close below = exit" : " · below the hard SL (superseded)") + thDist, color=color.orange, style=label.style_none, textcolor=color.orange, size=size.small))
     // Initial SL (v67.4.29): grey dashed, with how far the hard SL now sits from it.
     var line _inLn = na
     line.delete(_inLn)
-    if not na(tbInit) and finalSL > 0 and math.abs(tbInit - finalSL) > 0.0005 * finalSL
+    if not na(tbInit) and finalSL > 0
         _inLn := line.new(bar_index - 40, tbInit, bar_index + 3, tbInit, color=color.gray, style=line.style_dashed)
         float _dev = (finalSL - tbInit) / tbInit * 100.0
         string inDist = showDist ? ", " + f_dist(tbInit) : ""
-        label.new(bar_index + 3, tbInit, "Initial SL: " + str.tostring(math.round_to_mintick(tbInit)) + " · hard SL now " + str.tostring(math.abs(_dev), "0.0") + "% " + (_dev < 0 ? "lower (widened)" : "higher (trailed)") + inDist, color=color.gray, style=label.style_none, textcolor=color.gray, size=size.small)
+        array.push(_tlbls, label.new(bar_index + 3, tbInit, (tbInitPol ? "Initial SL (policy): " : "Initial SL: ") + str.tostring(math.round_to_mintick(tbInit)) + (math.abs(tbInit - finalSL) <= 0.0005 * finalSL ? " · hard SL unchanged" : " · hard SL now " + str.tostring(math.abs(_dev), "0.0") + "% " + (_dev < 0 ? "lower (widened)" : "higher (trailed)")) + inDist, color=color.gray, style=label.style_none, textcolor=color.gray, size=size.small))
 
-    // 3x-ATR recommended Dhan stop (v67.4.28): dotted cyan line + label, only when sent.
+    // 3x-ATR recommended Dhan stop (v67.4.28): dotted magenta line (v67.4.30; cyan = Chandelier) + label, only when sent.
     var line _rcLn = na
     line.delete(_rcLn)
     if not na(tbRec)
-        _rcLn := line.new(bar_index - 40, tbRec, bar_index + 3, tbRec, color=color.aqua, style=line.style_dotted, width=2)
+        _rcLn := line.new(bar_index - 40, tbRec, bar_index + 3, tbRec, color=color.fuchsia, style=line.style_dotted, width=2)
         string rcDist = showDist ? ", " + f_dist(tbRec) : ""
         string rcQty = na(tbRecQ) ? "" : " · same risk: " + str.tostring(tbRecQ, "#") + " sh"
-        label.new(bar_index + 3, tbRec, "Rec Dhan SL (3×ATR): " + str.tostring(math.round_to_mintick(tbRec)) + rcQty + (tbRecX ? " · ⚠ exit review" : "") + rcDist, color=color.aqua, style=label.style_none, textcolor=color.aqua, size=size.small)
+        array.push(_tlbls, label.new(bar_index + 3, tbRec, "Rec Dhan SL (3×ATR): " + str.tostring(math.round_to_mintick(tbRec)) + rcQty + (tbRecX ? " · ⚠ exit review" : "") + rcDist, color=color.fuchsia, style=label.style_none, textcolor=color.fuchsia, size=size.small))
 
     // SL & Targets Labels with Distance
     if finalSL > 0
         if finalTSL > 0
             // Trail SL is active — show both Hard SL (dim) and Trail SL (bright)
             string hslDist = showDist ? ", " + f_dist(finalSL) : ""
-            label.new(bar_index + 3, finalSL, _slName + str.tostring(math.round_to_mintick(finalSL)) + hslDist, color=color.red, style=label.style_none, textcolor=color.new(color.red, 60), size=size.small)
+            array.push(_tlbls, label.new(bar_index + 3, finalSL, _slName + str.tostring(math.round_to_mintick(finalSL)) + hslDist, color=color.red, style=label.style_none, textcolor=color.new(color.red, 60), size=size.small))
             string tslDist = showDist ? ", " + f_dist(finalTSL) : ""
-            label.new(bar_index + 3, finalTSL, "Trail SL: " + str.tostring(math.round_to_mintick(finalTSL)) + tslDist, color=color.orange, style=label.style_none, textcolor=color.orange, size=size.small)
+            array.push(_tlbls, label.new(bar_index + 3, finalTSL, "Trail SL: " + str.tostring(math.round_to_mintick(finalTSL)) + tslDist, color=color.orange, style=label.style_none, textcolor=color.orange, size=size.small))
         else
             // No trail SL — show Hard SL normally
             string slDist = showDist ? ", " + f_dist(finalSL) : ""
-            label.new(bar_index + 3, finalSL, _slName + str.tostring(math.round_to_mintick(finalSL)) + slDist, color=color.red, style=label.style_none, textcolor=color.red, size=size.small)
+            array.push(_tlbls, label.new(bar_index + 3, finalSL, _slName + str.tostring(math.round_to_mintick(finalSL)) + slDist, color=color.red, style=label.style_none, textcolor=color.red, size=size.small))
         
     if finalSL > 0 and finalT1 > 0
         string t1Dist = showDist ? ", " + f_dist(t1_val) : ""
-        label.new(bar_index + 3, t1_val, "Target 1: " + str.tostring(math.round_to_mintick(t1_val)) + t1Dist, color=color.green, style=label.style_none, textcolor=color.green, size=size.small)
+        array.push(_tlbls, label.new(bar_index + 3, t1_val, "Target 1: " + str.tostring(math.round_to_mintick(t1_val)) + t1Dist, color=color.green, style=label.style_none, textcolor=color.green, size=size.small))
         
     if finalSL > 0 and finalT2 > 0
         string t2Dist = showDist ? ", " + f_dist(t2_val) : ""
-        label.new(bar_index + 3, t2_val, "Target 2: " + str.tostring(math.round_to_mintick(t2_val)) + t2Dist, color=color.green, style=label.style_none, textcolor=color.lime, size=size.small)
+        array.push(_tlbls, label.new(bar_index + 3, t2_val, "Target 2: " + str.tostring(math.round_to_mintick(t2_val)) + t2Dist, color=color.green, style=label.style_none, textcolor=color.lime, size=size.small))
     
 
 

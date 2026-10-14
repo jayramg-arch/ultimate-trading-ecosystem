@@ -78,8 +78,9 @@ SLOTS_JS = r"""
       if (k < 0) { bad.push("Slot " + s.i + " missing"); return; }
       for (var q = 0; q < 7; q++) if (!info[k + 1 + q] || info[k + 1 + q].name !== NAMES[q]) { bad.push("Slot " + s.i + " layout"); return; }
       var tslId = info[k + 3].id;
-      // the Trail SL you typed on the chart wins while the slot holds the same ticker
-      var tsl = (String(cur[info[k].id]).toUpperCase() === s.tick.toUpperCase() && Number(cur[tslId]) > 0) ? Number(cur[tslId]) : s.tsl;
+      // 14-Oct-2026: the manual Trail SL is retired (the Chandelier book replaced it) -
+      // a value typed on the chart is no longer kept; Python always sends 0.
+      var tsl = s.tsl;
       var vals = [s.tick, s.entry, s.sl, tsl, s.t1, s.t2, s.sec, s.date];
       want.push({id: info[k].id, value: vals[0]});
       for (var q2 = 0; q2 < 7; q2++) want.push({id: info[k + 1 + q2].id, value: vals[q2 + 1]});
@@ -165,9 +166,67 @@ def snapshot_or_restore(restore: bool) -> int:
     return 0
 
 
+def r_unit_stop(row, atr) -> tuple[float | None, bool]:
+    """(stop that defines 1R, is_policy) - the Risk Shield's R unit (14-Oct-2026).
+    The FROZEN entry stop (journal initial_sl) when one was recorded below entry; else the
+    policy stop entry - 1.5x (swing) / 4x (positional) daily ATR. Never a live stop."""
+    def _f(x):
+        try:
+            v = float(x)
+            return v if v == v and v > 0 else None
+        except (TypeError, ValueError):
+            return None
+    entry, ini = _f(row.get("buy_price")), _f(row.get("initial_sl"))
+    if entry and ini and ini < entry:
+        return ini, False
+    swing = "swing" in str(row.get("timeframe") or "").lower()
+    if entry and atr and atr > 0:
+        return entry - atr * (1.5 if swing else 4.0), True
+    return None, False
+
+
+def canon_targets(row, atr) -> tuple[float | None, float | None]:
+    """Canon T1/T2 off the R unit: swing 2R/4R, positional 3R/5R (bull_screener.target_r_for)."""
+    import bull_screener as bs
+    stop, _ = r_unit_stop(row, atr)
+    try:
+        entry = float(row.get("buy_price"))
+    except (TypeError, ValueError):
+        return None, None
+    if not stop or not entry or stop >= entry:
+        return None, None
+    swing = "swing" in str(row.get("timeframe") or "").lower()
+    r1, r2 = bs.target_r_for(row.get("setup"), swing=swing)
+    return round(entry + r1 * (entry - stop), 2), round(entry + r2 * (entry - stop), 2)
+
+
+def _resting_target_symbols() -> set | None:
+    """Symbols with a resting TARGET leg at Dhan; None when the order book can't be read."""
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(os.path.join(HERE, ".env"))
+        import order_levels as ol
+        from dhan_auth import ensure_valid_token
+        from dhanhq import dhanhq
+        orders = ol.fetch_live_orders(dhanhq(client_id=os.getenv("DHAN_CLIENT_ID"),
+                                             access_token=ensure_valid_token()))
+        if not orders:
+            return None
+        return {str(s).upper() for s, legs in orders.items()
+                if any(str(l.get("leg", "")).upper().startswith("TARGET") for l in (legs or []))}
+    except Exception as e:
+        print("resting orders unavailable (journal targets kept):", e)
+        return None
+
+
 def compute_slots() -> list[dict]:
     """The 25 slot values Sync to TV writes into the Pine file (db_portfolio_sync.build_slots),
-    as plain values for setInputValues."""
+    as plain values for setInputValues.
+
+    14-Oct-2026 (Jay): (1) Trail SL is always 0 - it was the slot's old hand-typed trailing
+    stop (SAILIFE carried 966.2, below its entry); the Chandelier book replaced it. (2) A
+    holding with NO resting target leg at Dhan gets the canon T1/T2 off the R unit instead of
+    stale journal targets (SYRMA T2 sat below T1; LAURUSLABS' targets were below price)."""
     import re
     from datetime import datetime, timezone
     import db_portfolio_sync as dps
@@ -177,18 +236,26 @@ def compute_slots() -> list[dict]:
         open_trades = con.execute("SELECT * FROM journal WHERE status='OPEN' ORDER BY id ASC").fetchall()
     finally:
         con.close()
+    jrows = {str(r["symbol"]).upper(): dict(r) for r in open_trades}
     with open(os.path.join(HERE, dps.PINE_PATH), encoding="utf-8") as f:
         pine = f.read()
+    with_targets = _resting_target_symbols()
     out = []
     for sl in dps.build_slots(open_trades, pine):
         m = re.search(r"(\d{4}-\d{2}-\d{2})", str(sl["date_val"]))
         date_ms = int(datetime.strptime(m.group(1), "%Y-%m-%d").replace(tzinfo=timezone.utc).timestamp() * 1000) if m else 0
-        try:
-            tsl = float(sl["tsl_val"])
-        except (TypeError, ValueError):
-            tsl = 0.0
+        t1, t2 = float(sl["t1"]), float(sl["t2"])
+        sym = str(sl["tick"] or "").upper().replace("NSE:", "")
+        if sym and with_targets is not None and sym not in with_targets and sym in jrows:
+            try:
+                from ai_risk_manager import get_atr
+                c1, c2 = canon_targets(jrows[sym], get_atr(sym))
+                if c1 and c2:
+                    t1, t2 = c1, c2
+            except Exception as e:
+                print(f"{sym}: canon targets skipped ({e})")
         out.append({"i": sl["i"], "tick": sl["tick"], "entry": float(sl["entry"]), "sl": float(sl["sl"]),
-                    "tsl": tsl, "t1": float(sl["t1"]), "t2": float(sl["t2"]), "sec": sl["sec"], "date": date_ms})
+                    "tsl": 0.0, "t1": t1, "t2": t2, "sec": sl["sec"], "date": date_ms})
     return out
 
 
@@ -297,9 +364,28 @@ def compute_book() -> list[dict]:
                     # INITIAL SL (13-Oct-2026): the first recorded stop - drawn so the deviation
                     # from the original plan is visible on the chart.
                     "initial": _f(r.get("initial_sl")),
+                    # 14-Oct-2026: no stop below entry ever recorded (LAURUSLABS) -> the
+                    # Risk Shield's policy R-unit stop, flagged so v67 labels it "(policy)".
+                    "initial_pol": _policy_initial(s, r),
                     # 3x-ATR DHAN STOP (12-Oct-2026): recommended resting stop + same-risk qty
                     "rec": _rec_stop(s, d, _f(r.get("stoploss")), _f(r.get("quantity")), hc.get("level"))})
     return out
+
+
+def _policy_initial(sym, r):
+    """Policy stop for a holding with no recorded initial stop below entry; else None."""
+    try:
+        ini = float(r.get("initial_sl"))
+        if ini == ini and 0 < ini < float(r.get("buy_price")):
+            return None
+    except (TypeError, ValueError):
+        pass
+    try:
+        from ai_risk_manager import get_atr
+        st, pol = r_unit_stop(dict(r), get_atr(sym))
+        return round(st, 2) if (st and pol) else None
+    except Exception:
+        return None
 
 
 def _rec_stop(sym, d, stop, qty, chand):
@@ -356,7 +442,8 @@ def book_string(rows: list[dict]) -> str:
         # field forces the earlier ones to be written (an empty "T"/"R" reads as absent).
         rfld = r.get("rec") or ""
         ini = r.get("initial")
-        ifld = ("I%.2f" % ini) if ini else ""
+        ipol = r.get("initial_pol")
+        ifld = ("I%.2f" % ini) if ini else (("I%.2fp" % ipol) if ipol else "")
         if rfld or ifld:
             tfld = (tfld or ",T") + "," + (rfld or "R")
         if ifld:
