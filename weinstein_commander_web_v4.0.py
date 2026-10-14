@@ -2988,6 +2988,9 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
     # (Daily trigger-TF): "not attempted" is by design, not a failure, and must not
     # be counted as one.
     intra_ok = False; intra_label = ""; intra_reason = None; intra_reason_code = None
+    # The board this row is built for (14-Oct-2026): the PA -> now combo is a DAILY-board
+    # read, and an intraday row whose intraday load failed must not pick it up.
+    ctx["_board_tf"] = trigger_tf
     if trigger_tf in ("75m", "125m"):
         _mins = 75 if trigger_tf == "75m" else 125
         _intra = gm_load_intraday(symbol, _mins) or {}
@@ -3735,6 +3738,15 @@ def gm_load_symbol(symbol: str) -> dict:
                 _stage0 = str((out.get("rec") or {}).get("Stage", ""))
                 out["ctx"]["pa_patterns"] = _detect_pa_patterns(out["df"], _stage0)
                 out["ctx"]["recovery_pa_patterns"] = _detect_recovery_pa_patterns(out["df"], _stage0)
+                # PA -> NOW combo (14-Oct-2026, Jay): when the latest DAILY bar has no PA,
+                # the last PA within 3 bars graded as one candle through today. Display
+                # only (Bar column on the Daily board); never a gate. None when today fired.
+                try:
+                    import gm_trigger_board as _gtbc
+                    out["ctx"]["pa_combo"] = _gtbc.pa_combo(out["df"], _detect_pa_patterns, _stage0)
+                    out["ctx"]["recovery_pa_combo"] = _gtbc.pa_combo(out["df"], _detect_recovery_pa_patterns, _stage0)
+                except Exception as _e_pc:
+                    _gm_logger.warning(f"{symbol}: PA combo read failed: {_e_pc}")
         except Exception as e:
             # P1: a detection CRASH must not read as "no trigger" — they are
             # decision-different states. Flag it; Step-5 renders the error.

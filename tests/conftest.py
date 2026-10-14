@@ -44,6 +44,14 @@ def _isolate_armed_register(tmp_path, monkeypatch):
     except Exception:                       # module not importable in this environment
         return
     monkeypatch.setattr(gm_armed, "_STORE", str(tmp_path / "gm_armed.json"), raising=False)
+    # the board's append-only ledgers (14-Oct-2026): a test that builds a row must not add
+    # a fake row to the live rejection / PA-combo records the pre-registered tests score
+    try:
+        import gm_trigger_board as _gtb
+        monkeypatch.setattr(_gtb, "REJ_LEDGER", str(tmp_path / "rejection_ledger.csv"), raising=False)
+        monkeypatch.setattr(_gtb, "PC_LEDGER", str(tmp_path / "pa_combo_ledger.csv"), raising=False)
+    except Exception:
+        pass
 
 
 @pytest.fixture(autouse=True)

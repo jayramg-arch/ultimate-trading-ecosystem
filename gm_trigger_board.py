@@ -1145,6 +1145,59 @@ def bar_text(b: dict | None) -> str:
     return "%s.C:%d%%.TW:%d%%" % (g.capitalize(), round(cpos * 100), round(wick * 100))
 
 
+PA_COMBO_LOOKBACK = 3     # daily bars back to look for the last PA (14-Oct-2026)
+
+
+def pa_combo(df, fn, stage: str = "", look: int = PA_COMBO_LOOKBACK, **kw) -> dict | None:
+    """PA -> NOW as ONE candle (14-Oct-2026, Jay: "look at the last bar on which the PA
+    fired and check whether the bar combo from that PA bar till the latest bar is actually
+    bullish, rather than just today's bar").
+
+    Only when the LATEST bar has no PA: finds the most recent bar within `look` bars back
+    where `fn` (a pa_patterns battery) fired, then grades the combined candle from the PA
+    bar's open to the latest close (high/low over the span) with bar_grade. `held` = the
+    latest close is at/above the PA bar's close; `kept_low` = no close since has gone
+    below the PA bar's low. DISPLAY ONLY - it never touches the GO gates (pre-registered
+    test: docs/PREREG_pa_combo.md). Shared by the board and pa_combo_study.py."""
+    try:
+        if df is None or len(df) < 60 + look:
+            return None
+        def _sig(x):
+            return sum(t for _n, f, t, _x in fn(x, stage, **kw) if f)
+        if _sig(df) > 0:
+            return None
+        for k in range(1, look + 1):
+            s = _sig(df.iloc[:-k])
+            if s > 0:
+                pa = df.iloc[-1 - k]
+                seg = df.iloc[-1 - k:]
+                o, h, l = float(pa["Open"]), float(seg["High"].max()), float(seg["Low"].min())
+                c = float(seg["Close"].iloc[-1])
+                g = bar_grade(o, h, l, c)
+                if g is None:
+                    return None
+                return {"age": k, "sigma": s, "grade": g[0], "cpos": g[1],
+                        "held": c >= float(pa["Close"]),
+                        "kept_low": bool((df["Close"].iloc[-k:] >= float(pa["Low"])).all()),
+                        "pa_ts": str(df.index[-1 - k])[:10]}
+        return None
+    except Exception as e:
+        _log.debug("pa_combo failed: %s", e)
+        return None
+
+
+def pa_combo_text(pc: dict | None) -> str:
+    """'PA 3b → combo Strong 76% · held' (or '· failed' when the latest close is below the
+    PA bar's close, '· broke PA low' when a close went under its low)."""
+    if not pc:
+        return ""
+    tail = "held" if pc.get("held") else "failed"
+    if not pc.get("kept_low"):
+        tail = "broke PA low"
+    return "PA %db → combo %s %d%% · %s" % (int(pc["age"]), str(pc["grade"]).capitalize(),
+                                           round(float(pc["cpos"]) * 100), tail)
+
+
 def pa_recent_of(ctx: dict, path: str = "bull") -> dict | None:
     """The PA-recency record for the row's path (set only when the latest bar has no PA)."""
     r = (ctx or {}).get("recovery_pa_recent" if path == "recovery" else "pa_recent")
@@ -1162,6 +1215,14 @@ def bar_read(ctx: dict, path: str = "bull") -> str:
     if not now:
         return ""
     if not pa:
+        # DAILY board (14-Oct-2026): no intraday recency there - show the PA -> now combo
+        # (last PA within 3 daily bars, graded as one candle through today) when today
+        # itself has no PA. Only on a Daily-sourced row, so an intraday row never carries
+        # a daily read it did not ask for.
+        if str((ctx or {}).get("_board_tf") or "Daily") == "Daily":
+            pc = (ctx or {}).get("recovery_pa_combo" if path == "recovery" else "pa_combo")
+            if pc:
+                return "now %s · %s" % (now, pa_combo_text(pc))
         return now
     return "now %s · PA %db %s" % (now, int(rec.get("age") or 0), pa)
 
@@ -1185,6 +1246,25 @@ def _rej_ledger(row: dict) -> None:
             w.writerow(row)
     except Exception as e:
         _log.debug("rejection ledger write failed: %s", e)
+
+
+PC_LEDGER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs", "pa_combo_ledger.csv")
+
+
+def _pc_ledger(row: dict) -> None:
+    """Append a Daily-board PA -> now combo row (forward record for PREREG_pa_combo).
+    Raw appends; the scorer de-duplicates per symbol and bar. Never raises."""
+    try:
+        import csv as _csv
+        new = not os.path.exists(PC_LEDGER)
+        os.makedirs(os.path.dirname(PC_LEDGER), exist_ok=True)
+        with _REJ_LOCK, open(PC_LEDGER, "a", newline="", encoding="utf-8") as fh:
+            w = _csv.DictWriter(fh, fieldnames=list(row))
+            if new:
+                w.writeheader()
+            w.writerow(row)
+    except Exception as e:
+        _log.debug("pa combo ledger write failed: %s", e)
 
 
 def _role_mismatch(ctx: dict, path: str = "bull") -> bool:
@@ -2228,6 +2308,18 @@ def build_row(sym: str, info: dict, loaders: dict, g) -> dict | None:
                      # the PA bar (12-Oct-2026): descriptive only, see amendment 2
                      "pa_age": int((pa_recent_of(ctx, path) or {}).get("age") or 0),
                      "pa_bar": bar_text((pa_recent_of(ctx, path) or {}).get("bar")) or bar_text(_bar)})
+    # PA -> NOW COMBO, forward record (14-Oct-2026): every Daily-board row whose PA fired
+    # 1-3 bars back, with its combined-candle grade. Scored only by pa_combo_study.py
+    # --forward under docs/PREREG_pa_combo.md; nothing here changes a gate.
+    _pc = ctx.get("recovery_pa_combo" if path == "recovery" else "pa_combo")
+    if _pc and str(ctx.get("_board_tf") or "Daily") == "Daily":
+        _bar = ctx.get("bar") or {}
+        _pc_ledger({"logged": datetime.now().strftime("%Y-%m-%d %H:%M"), "symbol": sym,
+                    "path": path, "bar_ts": _bar.get("ts", ""), "pa_ts": _pc.get("pa_ts", ""),
+                    "age": _pc.get("age"), "sigma": _pc.get("sigma"), "grade": _pc.get("grade"),
+                    "cpos": round(float(_pc.get("cpos") or 0), 3), "held": int(bool(_pc.get("held"))),
+                    "kept_low": int(bool(_pc.get("kept_low"))), "s4go": s4go,
+                    "close": _bar.get("c", ""), "sl": sl if sl is not None else ""})
     return {
         "Symbol":        sym,
         "★":             ("★" if info.get("star") else ""),
