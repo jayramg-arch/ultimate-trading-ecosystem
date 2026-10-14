@@ -227,7 +227,7 @@ Each of these has already cost a day or more.
 | GTT trail actually running | stops never ratchet | `logs/gtt_shield.log` |
 | Every position has a resting stop | naked exposure | Risk Shield · `--cover` |
 | Daily bars current after midnight | every daily read one session behind until Dhan's next-day publish (fixed 7 Oct: the intraday session-fill asked Dhan for `to_date` = the session, which Dhan treats as exclusive) | a Swing ↔ Positional `close` that matches the last session |
-| S4 alert path (ngrok + receiver) | TradingView alert reads "Webhook delivery failed — 404" (tunnel offline) or "502" (receiver down); the review never happens and TradingView does not retry | Telegram **S4 ALERT PATH DOWN** from the 15-min check (9:15 onward); then `START_ALERT_REVIEWER.bat` and `REVIEW SYMBOL TF` for anything missed |
+| S4 alert path (ngrok + receiver) | TradingView alert reads "Webhook delivery failed — 404" (tunnel offline) or "502" (receiver down); the review never happens and TradingView does not retry | Telegram **S4 ALERT PATH DOWN** from the 15-min check (9:15 onward); then click **Fix Webhook** (§6c) and `REVIEW SYMBOL TF` for anything missed |
 | Open risk inside budget | a book that loses far more than planned if the tape breaks | Risk Shield 🔥 Open risk card |
 | Thesis alerts set (two-tier stop) | a close below a holding's thesis passes unnoticed; only the farther Dhan disaster stop is left | auto-pilot Phase 12b4 line in the evening digest; `python tv_thesis_alerts.py --dry-run`; the receiver must be up (`/thesis-alert`) |
 | S5 footprint rows fit the stock | S5's order-flow rows read "ROWS TOO COARSE" and say nothing | the reviewer fits its own tab; on yours click `Set S5 Rows` (SET_S5_ROWS.bat) after changing symbol |
@@ -261,6 +261,42 @@ that close). It describes how wide daily swings are — for stop distance and pa
 not replace the exposure rule and it is not a direction signal.
 
 ---
+
+## 6c. WEBHOOK DELIVERY FAILED — 404 (runbook, 14 Oct 2026)
+
+A 404 on a TradingView alert means the alert never reached the PC: ngrok's server answered
+for an offline tunnel (`ERR_NGROK_3200`). A 502 means the tunnel is up but the receiver is
+down. **TradingView never retries — that alert is lost.**
+
+1. **Did the PC sleep?** That is the usual cause (14 Oct: put to sleep overnight, an HP
+   printer timer woke it at 08:25, Windows put it back to sleep at 08:27 with nobody at the
+   keyboard; nothing answered until 11:45). Wake it and click **Morning**.
+2. **Otherwise click `Fix Webhook`** (Desktop › Batch Jobs, `FIX_WEBHOOK.bat`). It checks the
+   receiver (`127.0.0.1:8000/health`), the ngrok agent (`:4040`) and the public tunnel
+   (`https://<NGROK_DOMAIN>/health`, what TradingView calls), restarts **only** the piece
+   that is down, and confirms from the public side within ~60 s. A healthy receiver is
+   never restarted (it would kill a review in progress). It also prints the last
+   wake-from-sleep time when it is under 90 minutes old.
+3. **Read the result.**
+
+   | It says | Meaning | Next |
+   |---|---|---|
+   | `[ok] healthy NOW` | the outage is over | step 4 |
+   | `[ok] FIXED` | it restarted the receiver and/or ngrok | step 4 |
+   | `[X] public 000` | no internet, or ngrok refused the session | read the *ngrok tunnel* window; last resort **Morning** |
+   | `[X] receiver not 200` | the receiver crashes on start | read the *S4 webhook receiver :8000* window |
+
+   By hand: `curl -s -o NUL -w "%{http_code}" https://<NGROK_DOMAIN>/health` — 200 up,
+   404 tunnel offline, 502 receiver down.
+4. **Recover the missed alerts.** TradingView › Alerts Log: for each GO that fired during the
+   outage whose setup still stands, `REVIEW SYMBOL 75` (or `125` / `D`).
+5. **One receiver window only.** A window repeating `PORT 8000: ALREADY IN USE` is a
+   duplicate (the first one holds the port) — close it.
+
+Early warning: from 9:15 the 15-minute check sends **S4 ALERT PATH DOWN** on Telegram —
+click Fix Webhook then rather than waiting for a 404. It cannot warn you while the PC
+itself sleeps, because the check runs on the PC. **Don't sleep the PC on a trading night**
+— a timer wake with nobody at the keyboard drops back to sleep after about 2 minutes.
 
 ## 7. THE WHOLE LOOP, COMPRESSED
 

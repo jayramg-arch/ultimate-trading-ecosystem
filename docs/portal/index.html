@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 13 Oct · 69 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 14 Oct · 70 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,14 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">14 Oct<br>Fix Webhook</td>
+        <td><b>A one-click repair for "Webhook delivery failed &mdash; 404".</b> <span class="m">Fix Webhook</span>
+        (Desktop &rsaquo; Batch Jobs) checks the receiver, the ngrok agent and the public tunnel, restarts only what
+        is down and confirms from TradingView's side. The 14 Oct 404s were the PC sleeping (woken by a printer timer,
+        back asleep two minutes later); Doc 26 now carries the runbook.</td>
+        <td class="af">26</td>
+      </tr>
       <tr>
         <td class="dt">13 Oct<br>three stops on v67</td>
         <td><b>Initial, thesis and hard SL on every holding's chart</b> (plus the Chandelier). v67.4.29 draws the
