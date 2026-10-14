@@ -1,0 +1,19 @@
+signals after de-dup: 33466 · split at 2025-11-12
+
+== IS (2024-09-06 .. 2025-11-12)
+  A: n  7466  mean -0.067R  median -0.124R  stopped  17.8%
+  B: n  2120  mean -0.095R  median -0.142R  stopped  17.9%
+  C: n  5787  mean -0.069R  median -0.118R  stopped  17.2%
+  D: n  4766  mean -0.079R  median -0.129R  stopped  18.7%
+  B-A mean -0.028R  CI [-0.071, +0.015]  median gap -0.019R  -> H1 PASS
+  B-C mean -0.026R  CI [-0.070, +0.017]  -> H2 FAIL
+
+== OOS (2025-11-13 .. 2026-09-11)
+  A: n  4907  mean -0.036R  median -0.088R  stopped  17.2%
+  B: n  1462  mean -0.047R  median -0.074R  stopped  18.7%
+  C: n  3803  mean -0.013R  median -0.056R  stopped  15.3%
+  D: n  3155  mean -0.040R  median -0.096R  stopped  16.7%
+  B-A mean -0.011R  CI [-0.066, +0.044]  median gap +0.014R  -> H1 PASS
+  B-C mean -0.033R  CI [-0.088, +0.021]  -> H2 FAIL
+
+VERDICT  H1 PASS · H2 FAIL -> recency only, grade adds nothing

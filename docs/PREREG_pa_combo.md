@@ -63,3 +63,28 @@ combined candle is bullish, treat the PA as still standing.
 - Disclosure: before this file was committed, the scan was smoke-tested on ONE symbol
   (TITAN, 224 signals) to check it runs; its cohort means were printed. No other outcome
   was seen. TITAN stays in the universe.
+
+## RESULT (14 Oct 2026, run once) — H1 PASS · H2 FAIL → the grade adds nothing
+
+33,466 signals after de-dup (nifty500, 2024-09-06 .. 2026-09-11; split 2025-11-12).
+Placebo first: H2 failed with shuffled labels, as required.
+
+| | IS mean / median R20 | OOS mean / median R20 |
+|---|---|---|
+| A  PA today | −0.067 / −0.124 (n 7,466) | −0.036 / −0.088 (n 4,907) |
+| B  PA 1–3b, strong + held + kept low | −0.095 / −0.142 (n 2,120) | −0.047 / −0.074 (n 1,462) |
+| C  PA 1–3b, weak combo | −0.069 / −0.118 (n 5,787) | −0.013 / −0.056 (n 3,803) |
+| D  other recency rows | −0.079 / −0.129 (n 4,766) | −0.040 / −0.096 (n 3,155) |
+
+- H1 (B not worse than A): PASS in both windows (B−A −0.028 R IS, −0.011 R OOS; CIs
+  straddle 0).
+- H2 (B beats C by 0.15 R): FAIL in both windows — B is slightly *worse* than C
+  (−0.026 R IS, −0.033 R OOS; CIs straddle 0).
+- Decision per the rule above: do **not** promote the combo grade. A bullish
+  follow-through candle after the PA does not pick better trades than a weak one.
+- Not concluded here (would be re-slicing): that a PA 1–3 bars back is as good as one
+  today. A, B, C and D all sit within ~0.06 R of each other, which points that way, but
+  the hypothesis was not registered; it needs its own pre-registration.
+- Context: every cohort is slightly negative at 20 sessions with a next-open entry —
+  this test measures the timing question only, not the system's edge.
+Output: `reports/pa_combo_result_20261014.txt`.
