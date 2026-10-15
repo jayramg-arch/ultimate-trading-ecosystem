@@ -136,7 +136,11 @@ async def portfolio(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("⏳ Syncing with Dhan for live portfolio stats...")
     
     try:
-        dhan = dhanhq(os.getenv("DHAN_CLIENT_ID"), os.getenv("DHAN_ACCESS_TOKEN"))
+        # AUD-1015-09 (15-Oct-2026): the token is read at CALL time through dhan_auth, not from
+        # os.environ - load_dotenv() never overwrites a variable already set, so inside a
+        # long-running Web Commander the env copy stays yesterday's after the 08:00 refresh.
+        from dhan_auth import ensure_valid_token as _evt
+        dhan = dhanhq(os.getenv("DHAN_CLIENT_ID"), _evt())
         h_resp = dhan.get_holdings()
         f_resp = dhan.get_fund_limits()
         

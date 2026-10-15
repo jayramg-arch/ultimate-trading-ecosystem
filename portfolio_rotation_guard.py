@@ -48,7 +48,14 @@ def get_open_portfolio():
     # 1. Try Live Dhan First
     load_dotenv()
     CLIENT_ID = os.getenv("DHAN_CLIENT_ID")
-    ACCESS_TOKEN = os.getenv("DHAN_ACCESS_TOKEN")
+    # AUD-1015-09 (15-Oct-2026): the token is read at CALL time through dhan_auth, not from
+    # os.environ - load_dotenv() never overwrites a variable already set, so inside a
+    # long-running Web Commander the env copy stays yesterday's after the 08:00 refresh.
+    try:
+        from dhan_auth import ensure_valid_token as _evt
+        ACCESS_TOKEN = _evt()
+    except Exception:
+        ACCESS_TOKEN = os.getenv("DHAN_ACCESS_TOKEN")
     try:
         if CLIENT_ID and ACCESS_TOKEN:
             dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)

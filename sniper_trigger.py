@@ -35,7 +35,11 @@ def cls():
 
 def connect_dhan():
     try:
-        dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
+        # AUD-1015-09 (15-Oct-2026): the token is read at CALL time through dhan_auth, not from
+        # os.environ - load_dotenv() never overwrites a variable already set, so inside a
+        # long-running Web Commander the env copy stays yesterday's after the 08:00 refresh.
+        from dhan_auth import ensure_valid_token as _evt
+        dhan = dhanhq(CLIENT_ID or os.getenv("DHAN_CLIENT_ID"), _evt())
         resp = dhan.get_fund_limits()
         if resp['status'] == 'success':
             return dhan, resp['data']

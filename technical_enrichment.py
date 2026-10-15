@@ -182,6 +182,19 @@ def _weekly_stage(symbol: str, daily_close: pd.Series) -> Optional[int]:
     from DAILY SMA200/50, so the same stock could show a different Stage in
     FINAL_WATCHLIST vs Bull_Screener_Results. Falls back to the daily proxy only
     when weekly data is unavailable."""
+    # AUD-1015-10 (15-Oct-2026): CONFIRMED weeks first (trade_class.weekly_stage - drops the
+    # forming week, as the board and Risk Shield do). The 1wk fetch below includes the
+    # unfinished week, so mid-week the matcher CSV's Stage could differ from the board's.
+    try:
+        import trade_class as _tc
+        if _DP_OK and _dp is not None:
+            _dd = _flatten_cols(_dp.fetch_ohlcv(symbol, period="2y", interval="1d"))
+            if _dd is not None and not _dd.empty:
+                _st = _tc.weekly_stage(_dd)[0]
+                if _st in (1, 2, 3, 4):
+                    return int(_st)
+    except Exception as e:
+        logger.debug("confirmed-week stage for %s failed (%s) - 1wk fallback", symbol, e)
     try:
         import bull_screener as _bs  # lazy import avoids any circular-import risk
         if _DP_OK and _dp is not None:
