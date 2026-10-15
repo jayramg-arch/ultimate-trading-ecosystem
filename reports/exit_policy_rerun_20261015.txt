@@ -1,0 +1,71 @@
+  fetched 50 …
+  fetched 100 …
+  fetched 150 …
+  fetched 200 …
+  fetched 250 …
+  fetched 300 …
+  fetched 350 …
+source trades=1103  symbols=396  anchors 2022-06-15 -> 2026-01-15
+[data_provider] FEED: Dhan=ON | nselib=OFF | nsepython=ON | cache=parquet
+  Built symbol-->meta map: 3152 NSE EQUITY + INDEX
+frames: 395/396
+simulated 1101 trades
+
+=== VALIDITY (E0 must reproduce production) ===
+  median |E0 - recorded| = 0.000pp   within 1.0pp = 100.0%
+  PASS — comparison is valid
+
+  benchmark leg: median |E0 recomputed - recorded| = 0.003pp, within 0.5pp = 99.9%
+
+--- IN-SAMPLE · POS  (n=420) ---
+  config               meanA    medA   win%     PF   days  initSL%    T1%  meanR   medR
+  E0_control           +5.58   -1.84   43.3   3.83   54.4      6.9   10.2  +0.76  +0.09  <-- control
+  E1_dhan_native       +3.55   -0.19   48.6   3.04   43.5     11.9    0.0  +0.50  +0.14   (-2.03pp)
+  E2_dhan_tighten1R    +3.49   -0.19   48.6   3.02   43.5     11.9    0.0  +0.49  +0.14   (-2.09pp)
+  E3_gemini            +3.59   -0.19   48.6   3.05   43.5     11.9    1.4  +0.50  +0.14   (-1.99pp)
+  E4_claude            +3.49   -0.19   48.6   3.02   43.5     11.9    0.0  +0.49  +0.14   (-2.09pp)
+  E5_pure_trail        +3.55   -0.19   48.6   3.04   43.5     11.9    0.0  +0.50  +0.14   (-2.03pp)
+
+--- OUT-OF-SAMPLE · POS  (n=246) ---
+  config               meanA    medA   win%     PF   days  initSL%    T1%  meanR   medR
+  E0_control           +1.24   -3.31   35.0   0.94   41.3      9.8    2.8  -0.04  -0.45  <-- control
+  E1_dhan_native       +0.26   -3.23   40.7   0.82   41.6     29.7    0.0  -0.07  -0.43   (-0.98pp)
+  E2_dhan_tighten1R    +0.21   -3.34   40.7   0.81   41.3     29.7    0.0  -0.08  -0.43   (-1.03pp)
+  E3_gemini            +0.26   -3.23   40.7   0.82   41.6     29.7    0.8  -0.07  -0.43   (-0.98pp)
+  E4_claude            +0.21   -3.34   40.7   0.81   41.3     29.7    0.0  -0.08  -0.43   (-1.03pp)
+  E5_pure_trail        +0.26   -3.23   40.7   0.82   41.6     29.7    0.0  -0.07  -0.43   (-0.98pp)
+
+--- IN-SAMPLE · SWG  (n=217) ---
+  config               meanA    medA   win%     PF   days  initSL%    T1%  meanR   medR
+  E0_control           +0.40   -1.47   34.1   1.29   16.2     67.3   30.0  +0.22  -1.05  <-- control
+  E1_dhan_native       +0.25   -0.56   43.3   1.05    6.3     47.9    0.0  -0.04  -0.09   (-0.15pp)
+  E2_dhan_tighten1R    +0.16   -0.56   42.4   1.00    6.2     47.9    0.0  -0.05  -0.03   (-0.25pp)
+  E3_gemini            +0.26   -0.56   43.3   1.06    6.3     47.9    7.4  -0.03  -0.09   (-0.14pp)
+  E4_claude            +0.05   -0.56   42.4   1.01    6.6     47.9    6.0  -0.05  -0.03   (-0.35pp)
+  E5_pure_trail        +0.25   -0.56   43.3   1.05    6.3     47.9    0.0  -0.04  -0.09   (-0.15pp)
+
+--- OUT-OF-SAMPLE · SWG  (n=218) ---
+  config               meanA    medA   win%     PF   days  initSL%    T1%  meanR   medR
+  E0_control           +0.30   -1.93   28.9   0.81   14.1     74.3   23.9  -0.16  -1.05  <-- control
+  E1_dhan_native       -0.64   -1.67   32.1   0.56    6.8     61.9    0.0  -0.30  -1.04   (-0.94pp)
+  E2_dhan_tighten1R    -0.60   -1.64   32.6   0.59    6.5     61.9    0.0  -0.28  -1.04   (-0.90pp)
+  E3_gemini            -0.60   -1.67   32.1   0.58    6.8     61.9    7.3  -0.29  -1.04   (-0.90pp)
+  E4_claude            -0.46   -1.64   33.0   0.59    7.2     61.9    6.4  -0.27  -1.04   (-0.76pp)
+  E5_pure_trail        -0.64   -1.67   32.1   0.56    6.8     61.9    0.0  -0.30  -1.04   (-0.94pp)
+
+=== ADOPTION (prereg: IS >= +1.0pp vs E0, OOS also beats E0, median not worse by >1.0pp) ===
+  POS E1_dhan_native     IS -2.03pp fail | OOS -0.98pp fail | med PASS
+  POS E2_dhan_tighten1R  IS -2.09pp fail | OOS -1.03pp fail | med PASS
+  POS E3_gemini          IS -1.99pp fail | OOS -0.98pp fail | med PASS
+  POS E4_claude          IS -2.09pp fail | OOS -1.03pp fail | med PASS
+  POS E5_pure_trail      IS -2.03pp fail | OOS -0.98pp fail | med PASS
+  --> POS: KEEP E0 (nothing cleared the rule)
+
+  SWG E1_dhan_native     IS -0.15pp fail | OOS -0.94pp fail | med PASS
+  SWG E2_dhan_tighten1R  IS -0.25pp fail | OOS -0.90pp fail | med PASS
+  SWG E3_gemini          IS -0.14pp fail | OOS -0.90pp fail | med PASS
+  SWG E4_claude          IS -0.35pp fail | OOS -0.76pp fail | med PASS
+  SWG E5_pure_trail      IS -0.15pp fail | OOS -0.94pp fail | med PASS
+  --> SWG: KEEP E0 (nothing cleared the rule)
+
+saved: validation_runs/_exit_policy_study.csv
