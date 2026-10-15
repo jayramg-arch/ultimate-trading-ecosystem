@@ -68,3 +68,26 @@ the 2024-09 .. 2026-09 window. **This test uses only the EARLIER, unseen window.
   the S4 buy-stop / retest; 2023-24 was a strong tape, so absolute R will look better than
   the pa_combo window — the test is the A-vs-R DIFFERENCE, not the level.
 - No outcome from this window has been computed before this file was committed.
+
+## RESULT (15 Oct 2026, run once) — H PASS → Daily board gets the recency allowance
+
+97,517 signals built, 39,225 after de-dup (nifty500, 2023-05-30 .. 2024-08-08, split at
+2024-01-03). Placebo run first: it passed, as expected for a shuffle (plumbing check only).
+
+| | 1st half mean / median R20 | 2nd half mean / median R20 |
+|---|---|---|
+| A  PA today | +0.410 / +0.313 (n 7,147) | +0.172 / +0.111 (n 6,935) |
+| R  PA 1–3 sessions back | +0.414 / +0.312 (n 7,776) | +0.171 / +0.114 (n 7,525) |
+| E  PA 4–6 back (descriptive) | +0.399 / +0.297 (n 3,563) | +0.169 / +0.098 (n 3,584) |
+| F  no PA in 6 sessions (descriptive) | +0.382 / +0.266 (n 1,272) | +0.184 / +0.123 (n 1,423) |
+
+- H: R − A = +0.004 R (CI −0.043..+0.054) and −0.001 R (CI −0.042..+0.036); median
+  gaps −0.000 / +0.002 R. PASS in both halves.
+- Decision per the rule: the Daily board accepts a PA 1–3 sessions back, as the intraday
+  boards do (age tag, capped at 4/5). S4 unchanged.
+- Observation, NOT a conclusion (needs its own registration): F, no PA at all in six
+  sessions, sits with A in both halves. Inside a qualified uptrend (close > rising SMA150),
+  whether the battery fired, and when, made little difference to the 20-session outcome
+  with a next-open entry. The recency allowance is safe for that same reason — it is not
+  evidence that the PA gate selects better trades.
+Output: `reports/pa_recency_result_20261015.txt`.

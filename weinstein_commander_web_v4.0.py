@@ -2984,6 +2984,15 @@ def gm_evaluate(symbol: str, trigger_tf: str = "75m", deep_rec: bool = False) ->
     # The board this row is built for (14-Oct-2026): the PA -> now combo is a DAILY-board
     # read, and an intraday row whose intraday load failed must not pick it up.
     ctx["_board_tf"] = trigger_tf
+    # DAILY PA RECENCY (15-Oct-2026, docs/PREREG_pa_recency_daily.md: H PASS on the unseen
+    # 2023-05..2024-08 window, R-A +0.004R / -0.001R). The Daily board now accepts a PA that
+    # fired 1-3 sessions back exactly as the intraday boards do - s4go_status caps the row
+    # at 4/5 and prints the age. The record is the pa_combo read (last PA within 3 daily
+    # bars, None when today fired). Daily rows only: an intraday row whose intraday load
+    # fails keeps no recency, as before.
+    if trigger_tf not in ("75m", "125m"):
+        ctx["pa_recent"] = ctx.get("pa_combo")
+        ctx["recovery_pa_recent"] = ctx.get("recovery_pa_combo")
     if trigger_tf in ("75m", "125m"):
         _mins = 75 if trigger_tf == "75m" else 125
         _intra = gm_load_intraday(symbol, _mins) or {}
