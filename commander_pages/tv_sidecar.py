@@ -84,7 +84,15 @@ if True:
                 import yfinance as _yf2
                 _tv_ticker = _yf2.Ticker(_tv_sym)
                 _tv_info   = _tv_ticker.info
-                _tv_hist   = _tv_ticker.history(period="6mo", interval="1d", auto_adjust=True)
+                # AUD-1015-13: prices from the house feed; yfinance only for .info
+                try:
+                    import data_provider as _dp_tv
+                    _tv_hist = _dp_tv.fetch_ohlcv(str(_tv_sym).replace(".NS", ""), period="6mo",
+                                                  interval="1d", use_cache=True)
+                except Exception:
+                    _tv_hist = None
+                if _tv_hist is None or _tv_hist.empty:
+                    _tv_hist = _tv_ticker.history(period="6mo", interval="1d", auto_adjust=True)
             except Exception as _tve:
                 _tv_info, _tv_hist = {}, pd.DataFrame()
                 st.error(f"Fetch failed: {_tve}")
@@ -100,11 +108,11 @@ if True:
             _tv_avol   = _tv_info.get("averageVolume") or 1
 
             _tvc = st.columns(6)
-            _tvc[0].metric("LTP",        f"₹{_tv_price:,.2f}", delta=f"{_tv_chg:+.2f}%",
+            _tvc[0].metric("LTP",        f"₹{format_inr(_tv_price)}", delta=f"{_tv_chg:+.2f}%",
                            delta_color="normal" if _tv_chg >= 0 else "inverse")
-            _tvc[1].metric("Prev Close", f"₹{_tv_prev:,.2f}")
-            _tvc[2].metric("52W High",   f"₹{_tv_hi52:,.2f}")
-            _tvc[3].metric("52W Low",    f"₹{_tv_lo52:,.2f}")
+            _tvc[1].metric("Prev Close", f"₹{format_inr(_tv_prev)}")
+            _tvc[2].metric("52W High",   f"₹{format_inr(_tv_hi52)}")
+            _tvc[3].metric("52W Low",    f"₹{format_inr(_tv_lo52)}")
             _tvc[4].metric("Volume",     f"{_tv_vol:,}")
             _tvc[5].metric("Vol/Avg",    f"{_tv_vol/_tv_avol:.2f}x" if _tv_avol > 0 else "N/A",
                            delta="above avg" if _tv_vol > _tv_avol else "below avg",
@@ -125,7 +133,7 @@ if True:
                     (_tv_hist["High"] - _tv_hist["Low"]),
                     (_tv_hist["High"] - _tv_hist["Close"].shift()).abs(),
                     (_tv_hist["Low"]  - _tv_hist["Close"].shift()).abs(),
-                ], axis=1).max(axis=1).rolling(14).mean().iloc[-1]
+                ], axis=1).max(axis=1).ewm(alpha=1.0 / 14, min_periods=14, adjust=False).mean().iloc[-1]   # Wilder (AUD-1015-12)
             ) if len(_tv_hist) >= 14 else 0.0
 
             _lv_col1, _lv_col2 = st.columns(2)
@@ -141,7 +149,7 @@ if True:
                         f'<div style="padding:5px 0;border-bottom:1px solid var(--rule);display:flex;gap:8px;font-size:0.82rem">'
                         f'<span>{_ic}</span>'
                         f'<span style="flex:1;color:var(--ink)">{_lbl}</span>'
-                        f'<span style="color:var(--acc)">₹{_val:,.2f}</span>'
+                        f'<span style="color:var(--acc)">₹{format_inr(_val)}</span>'
                         f'<span style="color:var(--muted);margin-left:8px">{_di}</span>'
                         f'</div>', unsafe_allow_html=True
                     )
@@ -154,7 +162,7 @@ if True:
                     st.markdown(
                         f'<div style="padding:5px 0;border-bottom:1px solid var(--rule);display:flex;gap:8px;font-size:0.82rem">'
                         f'<span style="flex:1;color:var(--ink)">{_lbl}</span>'
-                        f'<span style="color:{_col}">₹{_val:,.2f}</span>'
+                        f'<span style="color:{_col}">₹{format_inr(_val)}</span>'
                         f'</div>', unsafe_allow_html=True
                     )
 

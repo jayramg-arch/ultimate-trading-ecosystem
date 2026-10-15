@@ -1531,9 +1531,9 @@ if _HUB_OK:
             _dii_part_col = "var(--bull)" if _dii_net >= 0 else "var(--bear)"
             # HTML inline-coloured spans so each side colours independently
             _fii_txt = (
-                f"<span style='color:{_fii_part_col};'>{_fii_arrow} ₹{abs(_fii_net):,.0f}Cr</span>"
+                f"<span style='color:{_fii_part_col};'>{_fii_arrow} ₹{format_inr_int(abs(_fii_net))}Cr</span>"
                 f"<span style='color:var(--ink-2);'> / </span>"
-                f"<span style='color:{_dii_part_col};'>{_dii_arrow} ₹{abs(_dii_net):,.0f}Cr</span>"
+                f"<span style='color:{_dii_part_col};'>{_dii_arrow} ₹{format_inr_int(abs(_dii_net))}Cr</span>"
             )
             # Net colour for the cell border-tinge: dominant flow direction
             _fii_col = "var(--bull)" if (_fii_net + _dii_net) >= 0 else "var(--bear)"

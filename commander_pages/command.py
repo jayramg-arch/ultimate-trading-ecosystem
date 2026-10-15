@@ -376,7 +376,7 @@ if True:
                     else:
                         _new_alert = add_alert(_al_sym, _al_cond, _al_price, _al_note)
                         st.success(
-                            f"🔔 Alert added: **{_al_sym}** {_al_cond} ₹{_al_price:,.2f}"
+                            f"🔔 Alert added: **{_al_sym}** {_al_cond} ₹{format_inr(_al_price)}"
                         )
                         st.rerun()
 
@@ -412,7 +412,7 @@ if True:
                     )
                     with _al_col1:
                         st.markdown(
-                            f"**{_al['symbol']}** — {_al['condition']} ₹{_al['price']:,.2f}  "
+                            f"**{_al['symbol']}** — {_al['condition']} ₹{format_inr(_al['price'])}  "
                             f"<span style='color:var(--muted);font-size:0.8rem'>{_dist}</span>"
                             + (f"  *{_al['note']}*" if _al.get("note") else ""),
                             unsafe_allow_html=True
@@ -426,7 +426,7 @@ if True:
                                 (_al["condition"] == "crossing" and abs(_cur_p - _al["price"]) / max(_al["price"], 1) < 0.003)
                             ) else "var(--muted)"
                             st.markdown(
-                                f'<div style="color:{_trig_color};font-size:0.9rem">₹{_cur_p:,.2f}</div>',
+                                f'<div style="color:{_trig_color};font-size:0.9rem">₹{format_inr(_cur_p)}</div>',
                                 unsafe_allow_html=True
                             )
                     with _al_col3:
@@ -447,7 +447,7 @@ if True:
                 for _al in reversed(_fired_alerts):
                     _fh_rows.append({
                         "Symbol":    _al["symbol"],
-                        "Condition": f"{_al['condition']} ₹{_al['price']:,.2f}",
+                        "Condition": f"{_al['condition']} ₹{format_inr(_al['price'])}",
                         "Note":      _al.get("note", ""),
                         "Fired At":  _al.get("fired_at", ""),
                         "Added":     _al.get("created_at", ""),

@@ -86,8 +86,8 @@ if True:
                     )
                     # Price
                     _xr_r1 = st.columns(4)
-                    _xr_r1[0].metric("Price",       f"₹{_xr_fd.get('price',0):,.2f}")
-                    _xr_r1[1].metric("Market Cap",  f"₹{_xr_fd.get('market_cap',0):,.0f}Cr" if _xr_fd.get('market_cap') else "N/A")
+                    _xr_r1[0].metric("Price",       f"₹{format_inr(_xr_fd.get('price',0))}")
+                    _xr_r1[1].metric("Market Cap",  f"₹{format_inr_int(_xr_fd.get('market_cap',0))}Cr" if _xr_fd.get('market_cap') else "N/A")
                     _xr_r1[2].metric("52W vs High", f"{_xr_fd.get('week52_vs_high',0):+.1f}%" if _xr_fd.get('week52_vs_high') is not None else "N/A")
                     _xr_r1[3].metric("Beta",        f"{_xr_fd.get('beta',0):.2f}" if _xr_fd.get('beta') else "N/A")
                     st.markdown("---")
@@ -110,8 +110,8 @@ if True:
                     # Balance sheet
                     section("Balance Sheet")
                     _xr_r4 = st.columns(4)
-                    _xr_r4[0].metric("Revenue (TTM)",  f"₹{_xr_fd.get('revenue_ttm',0):,.0f}Cr"    if _xr_fd.get('revenue_ttm')    else "N/A")
-                    _xr_r4[1].metric("Net Income",     f"₹{_xr_fd.get('net_income_ttm',0):,.0f}Cr" if _xr_fd.get('net_income_ttm') else "N/A")
+                    _xr_r4[0].metric("Revenue (TTM)",  f"₹{format_inr_int(_xr_fd.get('revenue_ttm',0))}Cr"    if _xr_fd.get('revenue_ttm')    else "N/A")
+                    _xr_r4[1].metric("Net Income",     f"₹{format_inr_int(_xr_fd.get('net_income_ttm',0))}Cr" if _xr_fd.get('net_income_ttm') else "N/A")
                     _xr_r4[2].metric("Debt/Equity",    f"{_xr_fd.get('debt_equity',0):.2f}x"        if _xr_fd.get('debt_equity')    else "N/A")
                     _xr_r4[3].metric("Current Ratio",  f"{_xr_fd.get('current_ratio',0):.2f}"       if _xr_fd.get('current_ratio')  else "N/A")
 

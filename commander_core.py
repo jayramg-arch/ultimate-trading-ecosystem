@@ -1938,15 +1938,15 @@ def _rs_v67_markers(lv, bar_min, bar_range):
     if lv.get("initial"):
         h += (f'<div style="position:absolute;left:{_p(lv["initial"]):.1f}%;top:-3px;width:14px;height:14px;'
               f'border:2px solid #9CA3AF;background:transparent;border-radius:50%;transform:translateX(-50%);z-index:3;" '
-              f'title="Initial SL ₹{lv["initial"]:,.2f}"></div>')
+              f'title="Initial SL ₹{format_inr(lv["initial"])}"></div>')
     if lv.get("thesis"):
         h += (f'<div style="position:absolute;left:{_p(lv["thesis"]):.1f}%;top:-2px;width:12px;height:12px;'
               f'background:#F97316;border-radius:50%;transform:translateX(-50%);z-index:4;" '
-              f'title="Thesis SL ₹{lv["thesis"]:,.2f}{" (below the hard SL - superseded)" if lv.get("thesis_sup") else " - close below = exit"}"></div>')
+              f'title="Thesis SL ₹{format_inr(lv["thesis"])}{" (below the hard SL - superseded)" if lv.get("thesis_sup") else " - close below = exit"}"></div>')
     if lv.get("rec"):
         h += (f'<div style="position:absolute;left:{_p(lv["rec"]):.1f}%;top:-2px;width:12px;height:12px;'
               f'background:#D946EF;border-radius:50%;transform:translateX(-50%);z-index:4;" '
-              f'title="Rec Dhan SL (3×ATR) ₹{lv["rec"]:,.2f}"></div>')
+              f'title="Rec Dhan SL (3×ATR) ₹{format_inr(lv["rec"])}"></div>')
     return h
 
 def _rs_v67_text(lv):
@@ -1985,6 +1985,6 @@ def _rs_risk_drift(entry, initial, disaster, qty):
         return ' · <span style="color:var(--faint);">risk = initial plan</span>'
     if pct > 0:
         return (f' · Risk vs initial SL: <span style="font-family:JetBrains Mono;color:var(--bear);font-weight:bold;">'
-                f'+{pct:.0f}%</span>' + (f' <span style="color:var(--faint);">(+₹{extra:,.0f})</span>' if extra > 0 else ""))
+                f'+{pct:.0f}%</span>' + (f' <span style="color:var(--faint);">(+₹{format_inr_int(extra)})</span>' if extra > 0 else ""))
     return (f' · Risk vs initial SL: <span style="font-family:JetBrains Mono;color:var(--bull);font-weight:bold;">'
             f'{pct:.0f}%</span>')

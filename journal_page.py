@@ -416,8 +416,11 @@ div[data-testid='column-header-content'] { font-weight:bold!important; }
     total_wins = active_wins + closed_wins
     total_loss = active_loss + closed_loss
     total_trades = total_wins + total_loss
-    win_rate = (total_wins / total_trades * 100) if total_trades > 0 else 0.0
-    loss_rate = (total_loss / total_trades * 100) if total_trades > 0 else 0.0
+    # AUD-1015-15: the win rate is CLOSED trades only - it sits under the closed Wins /
+    # Losses and must equal Autopsy's. It mixed open positions in (28.7% vs 27.4%).
+    _closed_n = closed_wins + closed_loss
+    win_rate = (closed_wins / _closed_n * 100) if _closed_n > 0 else 0.0
+    loss_rate = (closed_loss / _closed_n * 100) if _closed_n > 0 else 0.0
 
     # - SIDEBAR UI -
     _SB.title("📘 Trade Journal")
@@ -558,7 +561,7 @@ div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid=
             time.sleep(1)
             st.rerun()
 
-    _SB.metric("Win Rate", f"{win_rate:.1f}%")
+    _SB.metric("Win Rate (closed)", f"{win_rate:.1f}%")
 
     # - SECTION 4: AI RISK GUARD -
     _SB.divider()

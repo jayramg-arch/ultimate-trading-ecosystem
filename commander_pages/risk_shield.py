@@ -231,7 +231,7 @@ if True:
         _curr_port = _s_port.iloc[-1]
         if _rc.capital_protection_active(_portfolio_history):   # shared with the v67 push
             _capital_protection_mode = True
-            _cap_prot_msg = f"📉 CAPITAL PROTECTION MODE ACTIVE: Portfolio Equity (₹{_curr_port:,.0f}) is below 20-EMA (₹{_port_ema20:,.0f}). Mechanical stops will be tightened globally."
+            _cap_prot_msg = f"📉 CAPITAL PROTECTION MODE ACTIVE: Portfolio Equity (₹{format_inr_int(_curr_port)}) is below 20-EMA (₹{format_inr_int(_port_ema20)}). Mechanical stops will be tightened globally."
 
     # --- AI review helper (uses fast model for batch) ---
     # Prompts are framed for Jay's NSE swing/positional method: Weinstein Stage 2,
@@ -371,8 +371,8 @@ if True:
                 tgt_qty = o.get("target_qty") or o.get("qty") or 0
                 sl_dist = ((ltp - sl) / ltp * 100) if ltp and sl is not None else 0.0
                 tgt_dist = ((target - ltp) / ltp * 100) if ltp and target is not None else 0.0
-                sl_str = f"SL ₹{sl:,.0f} ({sl_dist:+.1f}%)" if sl is not None else "No SL"
-                tgt_str = f"Tgt ₹{target:,.0f} (+{tgt_dist:.1f}%)" if target is not None else "Trailing Runner (No Target)"
+                sl_str = f"SL ₹{format_inr_int(sl)} ({sl_dist:+.1f}%)" if sl is not None else "No SL"
+                tgt_str = f"Tgt ₹{format_inr_int(target)} (+{tgt_dist:.1f}%)" if target is not None else "Trailing Runner (No Target)"
                 orders_desc.append(f"  Leg {o_idx+1}: {sl_str} | {tgt_str}")
             _pyr_class = kwargs.get("pyr_class", ""); _pyr_reason = kwargs.get("pyr_reason", "")
             _chand = _tech.get("chandelier_exit") if isinstance(_tech, dict) else None
@@ -384,7 +384,7 @@ if True:
                               f"If the engine says TRIM/REDUCE/EXIT, confirm or dispute that.")
             else:
                 _reconcile = "\nAdvise if I should hold, trail the SL up, add (pyramid), or exit."
-            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | open R: {r_mult} | open risk ₹{risk:,.0f}{_tech_str}{_tt_str}\n" + "\n".join(orders_desc) + _reconcile
+            prompt = f"{_sys}\n{symbol} | LTP ₹{format_inr(ltp)} | open R: {r_mult} | open risk ₹{format_inr_int(risk)}{_tech_str}{_tt_str}\n" + "\n".join(orders_desc) + _reconcile
             return ask_llm(prompt, fallback_text=_AI_UNAVAILABLE)
         elif order_type == "GTT_ENTRY":
             trigger = kwargs.get("trigger", 0); price = kwargs.get("price", 0)
@@ -395,17 +395,17 @@ if True:
             if isinstance(_tech, dict):
                 if _tech.get("ws_score", 100) < 50 or _tech.get("sma200_slope", 0) < 0:
                     _setup_warn = f"\nWARNING: Setup may be invalid. WS Score is {_tech.get('ws_score')}/80 and SMA200 slope is {_tech.get('sma200_slope'):+.2f}%. Highlight these risks."
-            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | buy trigger ₹{trigger:,.2f} ({dist:+.1f}% vs LTP) | limit ₹{price:,.2f} | type: {_style}{_tech_str}{_tt_str}{_setup_warn}\nProvide a brief technical analysis on whether this looks like a valid Stage-2 pullback entry setup."
+            prompt = f"{_sys}\n{symbol} | LTP ₹{format_inr(ltp)} | buy trigger ₹{format_inr(trigger)} ({dist:+.1f}% vs LTP) | limit ₹{format_inr(price)} | type: {_style}{_tech_str}{_tt_str}{_setup_warn}\nProvide a brief technical analysis on whether this looks like a valid Stage-2 pullback entry setup."
             return ask_llm(prompt, fallback_text=_AI_UNAVAILABLE)
         elif order_type == "UNPROTECTED_HOLDING":
             buy_price = kwargs.get("buy_price", 0); ltp = kwargs.get("ltp", 0)
             pnl_pct = ((ltp - buy_price) / buy_price * 100) if buy_price else 0.0
-            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | cost ₹{buy_price:,.2f} | P&L {pnl_pct:+.1f}% | NO STOP LOSS{_tech_str}{_tt_str}\nProvide a technical view and suggest an optimal placement for a stop loss to protect this position."
+            prompt = f"{_sys}\n{symbol} | LTP ₹{format_inr(ltp)} | cost ₹{format_inr(buy_price)} | P&L {pnl_pct:+.1f}% | NO STOP LOSS{_tech_str}{_tt_str}\nProvide a technical view and suggest an optimal placement for a stop loss to protect this position."
             return ask_llm(prompt, fallback_text=_AI_UNAVAILABLE)
         elif order_type == "SINGLE_EXIT":
             trigger = kwargs.get("trigger", 0); ltp = kwargs.get("ltp", 0)
             dist = kwargs.get("dist", 0); label = kwargs.get("label", "Stop Loss")
-            prompt = f"{_sys}\n{symbol} | LTP ₹{ltp:,.2f} | {label}: ₹{trigger:,.2f} ({dist:+.1f}% away){_tech_str}{_tt_str}\nShould I hold, trail, or act on this {label.lower()}?"
+            prompt = f"{_sys}\n{symbol} | LTP ₹{format_inr(ltp)} | {label}: ₹{format_inr(trigger)} ({dist:+.1f}% away){_tech_str}{_tt_str}\nShould I hold, trail, or act on this {label.lower()}?"
             return ask_llm(prompt, fallback_text=_AI_UNAVAILABLE)
         return "N/A"
 
@@ -870,7 +870,8 @@ if True:
                                     _tr2 = (_hi - _c.shift(1)).abs()
                                     _tr3 = (_lo - _c.shift(1)).abs()
                                     _tr = pd.concat([_tr1, _tr2, _tr3], axis=1).max(axis=1)
-                                    _atr = float(_tr.rolling(14).mean().iloc[-1])
+                                    # Wilder (AUD-1015-12): the house ATR - was a simple 14-day mean
+                                    _atr = float(_tr.ewm(alpha=1.0 / 14, min_periods=14, adjust=False).mean().iloc[-1])
                                     _atr_pct = (_atr / _ltp) * 100 if _ltp else 0.0
                                     _dist_from_200 = ((_ltp - _sma200) / _sma200) * 100 if _sma200 else 0.0
                                     
@@ -1259,7 +1260,7 @@ if True:
                     <div style="background:linear-gradient(145deg, var(--surface-2) 0%, var(--surface-3) 100%);border: 1.5px solid var(--rule);padding:16px;border-radius:12px;margin-bottom:20px;box-shadow:0 4px 16px rgba(0,0,0,0.25);">
                         <div style="font-size:0.75rem;font-weight:700;color:var(--faint);letter-spacing:1px;text-transform:uppercase;font-family:JetBrains Mono;">Est. Portfolio Drawdown</div>
                         <div style="font-size:1.8rem;font-weight:900;color:var(--bear);margin-top:4px;font-family:JetBrains Mono;">-{dd_pct:.2f}%</div>
-                        <div style="font-size:0.85rem;color:var(--muted);margin-top:6px;">Est. Loss: <b style="color:var(--bear);">₹{sim_losses:,.0f}</b> | SLs Fired: <b style="color:var(--bear);">{hits}</b></div>
+                        <div style="font-size:0.85rem;color:var(--muted);margin-top:6px;">Est. Loss: <b style="color:var(--bear);">₹{format_inr_int(sim_losses)}</b> | SLs Fired: <b style="color:var(--bear);">{hits}</b></div>
                     </div>
                     ''', unsafe_allow_html=True)
                     
@@ -1293,7 +1294,7 @@ if True:
                     if len(dates) > 0:
                         fig2 = go.Figure(go.Scatter(
                             x=dates, y=risks, mode='lines+markers+text',
-                            text=[f"₹{r:,.0f}" for r in risks], textposition="top center", textfont=dict(color="#38BDF8", size=10, family="JetBrains Mono"),
+                            text=[f"₹{format_inr_int(r)}" for r in risks], textposition="top center", textfont=dict(color="#38BDF8", size=10, family="JetBrains Mono"),
                             line=dict(color='#38BDF8', width=3), marker=dict(size=7, color='#38BDF8', line=dict(color='#FFFFFF', width=1))
                         ))
                         fig2.update_layout(
@@ -1628,7 +1629,7 @@ if True:
                                     for o_idx, o in enumerate(orders):
                                         sl = o["sl_trigger"]; tgt = o["target_trigger"]
                                         if sl is not None:
-                                            sl_str = f"SL <span style='color:var(--bear);font-weight:bold;'>₹{sl:,.0f}</span>"
+                                            sl_str = f"SL <span style='color:var(--bear);font-weight:bold;'>₹{format_inr_int(sl)}</span>"
                                             if buy_price and ltp:
                                                 sl_d_e = (sl - buy_price) / buy_price * 100
                                                 sl_d_l = (sl - ltp) / ltp * 100
@@ -1687,7 +1688,7 @@ if True:
                                             sl_parts.append(sl_str)
                                         if tgt is not None:
                                             label = f"T{o_idx+1}"
-                                            tgt_str = f"<span style='color:var(--bull);font-weight:bold;'>{label} ₹{tgt:,.0f}</span>"
+                                            tgt_str = f"<span style='color:var(--bull);font-weight:bold;'>{label} ₹{format_inr_int(tgt)}</span>"
                                             if buy_price and ltp:
                                                 tgt_d_e = (tgt - buy_price) / buy_price * 100
                                                 tgt_d_l = (tgt - ltp) / ltp * 100
@@ -1739,8 +1740,8 @@ if True:
                                                         _swlog.info("swallowed risk_shield.py:1756: %s", _sx)
                                             tgt_parts.append(tgt_str)
 
-                                    header_entry = f"<b style='color:var(--faint);'>Entry ₹{buy_price:,.2f}</b>" if buy_price else "<b style='color:var(--faint);'>Entry: N/A</b>"
-                                    header_ltp = f"<b style='color:#38BDF8;'>LTP ₹{ltp:,.2f}</b>" if ltp else "<b style='color:#38BDF8;'>LTP: N/A</b>"
+                                    header_entry = f"<b style='color:var(--faint);'>Entry ₹{format_inr(buy_price)}</b>" if buy_price else "<b style='color:var(--faint);'>Entry: N/A</b>"
+                                    header_ltp = f"<b style='color:#38BDF8;'>LTP ₹{format_inr(ltp)}</b>" if ltp else "<b style='color:#38BDF8;'>LTP: N/A</b>"
                                     
                                     # Calculate ATR + is_swing first for Time Stop logic.
                                     _tech = hist_data.get(sym)
@@ -1905,9 +1906,9 @@ if True:
                                         _mq = int(_o.get("sl_qty") or _o.get("qty") or 0)
                                         _mt = _o.get("target_trigger")
                                         _ms = _o.get("sl_trigger")
-                                        _mtxt = (f"T{_oi+1} ₹{_mt:,.2f}" if _mt is not None
+                                        _mtxt = (f"T{_oi+1} ₹{format_inr(_mt)}" if _mt is not None
                                                  else "<span style='color:var(--bear)'>no target leg</span>")
-                                        _mstxt = (f"SL ₹{_ms:,.2f}" if _ms is not None
+                                        _mstxt = (f"SL ₹{format_inr(_ms)}" if _ms is not None
                                                   else "<span style='color:var(--bear)'>no SL leg</span>")
                                         # --bull, not --bull-rule: a RULE token is a border and
                                         # renders 1.63:1 on this card's ground. The ternary was also
@@ -2048,7 +2049,7 @@ if True:
                                         for _i in _order[:max(0, _rem)]:
                                             _base[_i] += 1
                                         return _base
-                                    _fr = lambda v: f"₹{v:,.2f}" if v else "—"
+                                    _fr = lambda v: f"₹{format_inr(v)}" if v else "—"
                                     _slsrc = ("Chandelier" if (_r_sl and _ce_r and abs(_r_sl - float(_ce_r)) < 0.01)
                                               else "resting SL (already tighter)") if _r_sl else "—"
                                     # T1 ALREADY BANKED (17-Aug, Jay). The timeline block (~:17179) and
@@ -2217,8 +2218,8 @@ if True:
                                             if not t or not _rr_risk or _rr_risk <= 0:
                                                 return ''
                                             return f' <span style="color:var(--faint)">({(t - _anchor) / _rr_risk:.1f}R)</span>'
-                                        t1_str = f' | Rec T1: <span style="color:var(--warn);font-weight:bold;">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
-                                        t2_str = f' | Rec T2: <span style="color:var(--warn);font-weight:bold;">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}' if rec_t2 else ''
+                                        t1_str = f' | Rec T1: <span style="color:var(--warn);font-weight:bold;">₹{format_inr_int(rec_t1)}</span>{_rr(rec_t1)}' if rec_t1 else ''
+                                        t2_str = f' | Rec T2: <span style="color:var(--warn);font-weight:bold;">₹{format_inr_int(rec_t2)}</span>{_rr(rec_t2)}' if rec_t2 else ''
                                         # Rec SL is LTP - sl_mult x ATR by construction, so naming the multiple makes
                                         # the basis explicit rather than leaving a bare number to compare
                                         # against the entry-relative hard SL beside it.
@@ -2262,7 +2263,7 @@ if True:
                                             markers_html = ""
                                             if ema20:
                                                 ema_pos = (ema20 - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{ema20:,.2f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{format_inr(ema20)}"></div>'
                                             if chandelier:
                                                 chan_pos = (chandelier - bar_min) / bar_range * 100
                                                 # TSL was a 3px sliver in the SAME purple (#C084FC) as the 12px Rec-SL
@@ -2270,7 +2271,7 @@ if True:
                                                 # close and the trail simply looked absent (Jay: "the TSL bar
                                                 # is missing from the stock tile timeline"). Own colour, wider,
                                                 # taller, and drawn with a z-index so it can never be buried.
-                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-9px;width:5px;height:26px;background:var(--acc);border-radius:2px;transform:translateX(-50%);box-shadow:0 0 6px rgba(34,211,238,0.9);z-index:5;" title="TSL / Chandelier ₹{chandelier:,.2f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-9px;width:5px;height:26px;background:var(--acc);border-radius:2px;transform:translateX(-50%);box-shadow:0 0 6px rgba(34,211,238,0.9);z-index:5;" title="TSL / Chandelier ₹{format_inr(chandelier)}"></div>'
                                                 # #18 (24-Aug-2026, Jay: "show the price on the TSL curve").
                                                 # The level was only in the hover title, so the trail's actual
                                                 # number needed a mouse to read - and the whole point of the
@@ -2283,29 +2284,29 @@ if True:
                                             if time_stop_price:
                                                 ts_pos = (time_stop_price - bar_min) / bar_range * 100
                                                 if time_stop_hit:
-                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:4px;height:20px;background:var(--bear);border-radius:1px;transform:translateX(-50%);box-shadow:0 0 8px #EF4444;" title="Time Stop HIT! Held {days_held}d (0.5R = ₹{time_stop_price:,.2f})"></div>'
+                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:4px;height:20px;background:var(--bear);border-radius:1px;transform:translateX(-50%);box-shadow:0 0 8px #EF4444;" title="Time Stop HIT! Held {days_held}d (0.5R = ₹{format_inr(time_stop_price)})"></div>'
                                                 else:
-                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:3px;height:20px;background:var(--warn);border-radius:1px;transform:translateX(-50%);" title="Time Stop (0.5R) ₹{time_stop_price:,.2f}"></div>'
+                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:3px;height:20px;background:var(--warn);border-radius:1px;transform:translateX(-50%);" title="Time Stop (0.5R) ₹{format_inr(time_stop_price)}"></div>'
                                             markers_html += _rs_v67_markers(_lv1x, bar_min, bar_range)
                                             for sv in sl_vals:
                                                 pos = (sv - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:var(--bear);border-radius:50%;transform:translateX(-50%);" title="SL ₹{sv:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:var(--bear);border-radius:50%;transform:translateX(-50%);" title="SL ₹{format_inr_int(sv)}"></div>'
                                             if buy_price:
                                                 entry_pos = (buy_price - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--faint);border-radius:50%;transform:translateX(-50%);" title="Entry ₹{buy_price:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--faint);border-radius:50%;transform:translateX(-50%);" title="Entry ₹{format_inr_int(buy_price)}"></div>'
                                             ltp_pos = (ltp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#38BDF8;border:2px solid var(--surface);border-radius:50%;transform:translateX(-50%);box-shadow:0 0 8px #38BDF8;" title="LTP ₹{ltp:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#38BDF8;border:2px solid var(--surface);border-radius:50%;transform:translateX(-50%);box-shadow:0 0 8px #38BDF8;" title="LTP ₹{format_inr_int(ltp)}"></div>'
                                             
                                             for tv in tgt_vals:
                                                 pos = (tv - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:var(--bull);border-radius:50%;transform:translateX(-50%);" title="Actual Tgt ₹{tv:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:var(--bull);border-radius:50%;transform:translateX(-50%);" title="Actual Tgt ₹{format_inr_int(tv)}"></div>'
                                                 
                                             if rec_t1:
                                                 t1_pos = (rec_t1 - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{t1_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--warn);border-radius:50%;transform:translateX(-50%);" title="Rec T1 ₹{rec_t1:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{t1_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--warn);border-radius:50%;transform:translateX(-50%);" title="Rec T1 ₹{format_inr_int(rec_t1)}"></div>'
                                             if rec_t2:
                                                 t2_pos = (rec_t2 - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--warn);border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--warn);border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{format_inr_int(rec_t2)}"></div>'
                                                 
                                             progress_bar_html = f'<div style="width:100%;{_RS_TRACK};height:6px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
 
@@ -2314,7 +2315,7 @@ if True:
                                     for o_idx, o in enumerate(orders):
                                         tgt = o["target_trigger"]
                                         if tgt and ltp and ltp >= tgt:
-                                            reco_parts.append(f"⚠️ LTP crossed T{o_idx+1} (₹{tgt:,.0f}) — consider trailing SL to entry ₹{buy_price:,.0f}")
+                                            reco_parts.append(f"⚠️ LTP crossed T{o_idx+1} (₹{format_inr_int(tgt)}) — consider trailing SL to entry ₹{format_inr_int(buy_price)}")
                                     if min_sl_dist is not None and min_sl_dist <= 3.0:
                                         reco_parts.append(f"🔴 SL only {min_sl_dist:.1f}% away — high risk zone")
                                     elif min_sl_dist is not None and min_sl_dist <= 5.0:
@@ -2342,7 +2343,7 @@ if True:
                                         f'<span style="font-size:0.8rem;color:var(--faint);margin-left:8px;vertical-align:middle;">{qty_str}</span></div>'
                                         f'<div style="text-align:right;padding-right:20px;"><div style="font-size:0.78rem;color:var(--faint);">'
                                         f'R-Mult: <span style="font-family:JetBrains Mono;color:{r_color};font-weight:bold;">{r_multiple_str}</span>'
-                                        f' · Risk: <span style="font-family:JetBrains Mono;color:var(--bear);font-weight:bold;">₹{risk_exposure:,.2f}</span>'
+                                        f' · Risk: <span style="font-family:JetBrains Mono;color:var(--bear);font-weight:bold;">₹{format_inr(risk_exposure)}</span>'
                                         f'{_rs_risk_drift(buy_price, (journal_overrides.get(sym, {}) if isinstance(journal_overrides, dict) else {}).get("initial_sl"), (min(sl_vals) if sl_vals else None), (_held_qty or total_qty))}</div></div></div>'
                                         f'{progress_bar_html}'
                                         f'{rec_line}'
@@ -2451,7 +2452,7 @@ if True:
                                     ai_key = f"ai_single_review_{sym}_{s['order_id']}"
                                     ai_html = _rs_ai_card(st.session_state.get(ai_key))
                                     reason_line = f"<div style='font-size:0.75rem;margin-top:4px;color:var(--warn);font-weight:600;'>⚖️ Pyramid/Trim: {_pyr_reason}</div>" if _pyr_reason else ""
-                                    st.markdown(f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid {color};text-align:left;">{expand_btn}<span style="font-size:1.1rem;font-weight:700;color:var(--acc);">{sym}</span> <span style="font-size:0.8rem;color:var(--muted);">Qty: {s["qty"]}</span><br>{flags_html}<span style="font-size:0.8rem;color:var(--ink);">LTP ₹{ltp:,.2f} → {label}: ₹{trigger:,.2f} ({dist:+.1f}%)</span>{reason_line}{ai_html}</div>', unsafe_allow_html=True)
+                                    st.markdown(f'<div class="metric-card" style="padding:14px;margin-bottom:10px;border-left:3px solid {color};text-align:left;">{expand_btn}<span style="font-size:1.1rem;font-weight:700;color:var(--acc);">{sym}</span> <span style="font-size:0.8rem;color:var(--muted);">Qty: {s["qty"]}</span><br>{flags_html}<span style="font-size:0.8rem;color:var(--ink);">LTP ₹{format_inr(ltp)} → {label}: ₹{format_inr(trigger)} ({dist:+.1f}%)</span>{reason_line}{ai_html}</div>', unsafe_allow_html=True)
 
                     # Unprotected Holdings
                     if unprotected_holdings:
@@ -2558,30 +2559,30 @@ if True:
                                         if bar_range > 0:
                                             if ema20:
                                                 ema_pos = (ema20 - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{ema20:,.2f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{format_inr(ema20)}"></div>'
                                             if chandelier:
                                                 chan_pos = (chandelier - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-6px;width:3px;height:20px;background:#C084FC;border-radius:1px;transform:translateX(-50%);" title="TSL(22D) ₹{chandelier:,.2f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-6px;width:3px;height:20px;background:#C084FC;border-radius:1px;transform:translateX(-50%);" title="TSL(22D) ₹{format_inr(chandelier)}"></div>'
                                             if time_stop_price:
                                                 ts_pos = (time_stop_price - bar_min) / bar_range * 100
                                                 if time_stop_hit:
-                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:4px;height:20px;background:var(--bear);border-radius:1px;transform:translateX(-50%);box-shadow:0 0 8px #EF4444;" title="Time Stop HIT! Held {days_held}d (0.5R = ₹{time_stop_price:,.2f})"></div>'
+                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:4px;height:20px;background:var(--bear);border-radius:1px;transform:translateX(-50%);box-shadow:0 0 8px #EF4444;" title="Time Stop HIT! Held {days_held}d (0.5R = ₹{format_inr(time_stop_price)})"></div>'
                                                 else:
-                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:3px;height:20px;background:var(--warn);border-radius:1px;transform:translateX(-50%);" title="Time Stop (0.5R) ₹{time_stop_price:,.2f}"></div>'
+                                                    markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:3px;height:20px;background:var(--warn);border-radius:1px;transform:translateX(-50%);" title="Time Stop (0.5R) ₹{format_inr(time_stop_price)}"></div>'
                                                     
                                             entry_pos = (bp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--faint);border-radius:50%;transform:translateX(-50%);" title="Entry ₹{bp:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--faint);border-radius:50%;transform:translateX(-50%);" title="Entry ₹{format_inr_int(bp)}"></div>'
                                             
                                             markers_html += _rs_v67_markers(_lv2, bar_min, bar_range)
                                             
                                             ltp_pos = (ltp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#38BDF8;border:2px solid var(--surface);border-radius:50%;transform:translateX(-50%);box-shadow:0 0 8px #38BDF8;" title="LTP ₹{ltp:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#38BDF8;border:2px solid var(--surface);border-radius:50%;transform:translateX(-50%);box-shadow:0 0 8px #38BDF8;" title="LTP ₹{format_inr_int(ltp)}"></div>'
                                             if rec_t1:
                                                 t1_pos = (rec_t1 - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{t1_pos:.1f}%;top:-3px;width:14px;height:14px;background:var(--bull);border-radius:50%;transform:translateX(-50%);" title="Rec T1 ₹{rec_t1:,.0f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{t1_pos:.1f}%;top:-3px;width:14px;height:14px;background:var(--bull);border-radius:50%;transform:translateX(-50%);" title="Rec T1 ₹{format_inr_int(rec_t1)}"></div>'
                                             
                                             t2_pos = (rec_t2 - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-3px;width:14px;height:14px;background:var(--bull);border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-3px;width:14px;height:14px;background:var(--bull);border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{format_inr_int(rec_t2)}"></div>'
                                             
                                         pb_html = f'<div style="width:100%;{_RS_TRACK};height:6px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
                                         
@@ -2593,9 +2594,9 @@ if True:
                                             if not t or not _rk or _rk <= 0:
                                                 return ''
                                             return f' <span style="color:var(--faint)">({(t - _px) / _rk:.1f}R)</span>'
-                                        t1_str = f' | Rec T1: <span style="color:var(--bull);font-weight:bold;">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
+                                        t1_str = f' | Rec T1: <span style="color:var(--bull);font-weight:bold;">₹{format_inr_int(rec_t1)}</span>{_rr(rec_t1)}' if rec_t1 else ''
                                         _lvtxt2 = _rs_v67_text(_lv2)
-                                        rec_line = f'<div style="font-size:0.78rem;color:var(--ink-2);margin-top:6px;line-height:1.6;">{_lvtxt2}{" | " if _lvtxt2 else ""}{t1_str.lstrip(" |")}{" | " if t1_str else ""}Rec T2: <span style="color:var(--bull);font-weight:bold;">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}</div>'
+                                        rec_line = f'<div style="font-size:0.78rem;color:var(--ink-2);margin-top:6px;line-height:1.6;">{_lvtxt2}{" | " if _lvtxt2 else ""}{t1_str.lstrip(" |")}{" | " if t1_str else ""}Rec T2: <span style="color:var(--bull);font-weight:bold;">₹{format_inr_int(rec_t2)}</span>{_rr(rec_t2)}</div>'
                                     elif bp and ltp:
                                         ema20 = _tech.get("ema20") if _tech else None
                                         
@@ -2615,14 +2616,14 @@ if True:
                                         if bar_range > 0:
                                             if ema20:
                                                 ema_pos = (ema20 - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{ema20:,.2f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{format_inr(ema20)}"></div>'
                                             if chandelier:
                                                 chan_pos = (chandelier - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-6px;width:3px;height:20px;background:#C084FC;border-radius:1px;transform:translateX(-50%);" title="TSL(22D) ₹{chandelier:,.2f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{chan_pos:.1f}%;top:-6px;width:3px;height:20px;background:#C084FC;border-radius:1px;transform:translateX(-50%);" title="TSL(22D) ₹{format_inr(chandelier)}"></div>'
                                             entry_pos = (bp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--faint);border-radius:50%;transform:translateX(-50%);" title="Entry ₹{bp:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--faint);border-radius:50%;transform:translateX(-50%);" title="Entry ₹{format_inr_int(bp)}"></div>'
                                             ltp_pos = (ltp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#38BDF8;border:2px solid var(--surface);border-radius:50%;transform:translateX(-50%);box-shadow:0 0 8px #38BDF8;" title="LTP ₹{ltp:,.0f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#38BDF8;border:2px solid var(--surface);border-radius:50%;transform:translateX(-50%);box-shadow:0 0 8px #38BDF8;" title="LTP ₹{format_inr_int(ltp)}"></div>'
                                         pb_html = f'<div style="width:100%;{_RS_TRACK};height:6px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
                                 
                                     expand_btn = '<label class="expand-btn" title="Toggle Fullscreen" style="cursor:pointer;float:right;margin-top:-5px;color:var(--faint);">⛶<input type="checkbox" class="expand-toggle" style="display:none;"></label>'
@@ -2664,7 +2665,7 @@ if True:
                                         f'{flags_html}'
                                         f'{pb_html}'
                                         f'<div style="font-size:0.82rem;color:var(--ink-2);line-height:1.6;">'
-                                        f'Cost ₹{bp:,.2f} → LTP <b style="color:#38BDF8;">₹{ltp:,.2f}</b> <span style="color:{pnl_color};font-weight:bold;">({pnl_pct:+.1f}%)</span>'
+                                        f'Cost ₹{format_inr(bp)} → LTP <b style="color:#38BDF8;">₹{format_inr(ltp)}</b> <span style="color:{pnl_color};font-weight:bold;">({pnl_pct:+.1f}%)</span>'
                                         f'</div>'
                                         f'{rec_line}'
                                         f'{reason_line}'
@@ -2738,16 +2739,16 @@ if True:
                                             markers_html = ""
                                             if ema20:
                                                 ema_pos = (ema20 - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{ema20:,.2f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{ema_pos:.1f}%;top:-6px;width:3px;height:20px;background:#f97316;border-radius:1px;transform:translateX(-50%);" title="EMA20 ₹{format_inr(ema20)}"></div>'
                                             trigger_pos = (trigger - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{trigger_pos:.1f}%;top:-3px;width:14px;height:14px;background:var(--warn);border-radius:50%;transform:translateX(-50%);" title="Trigger ₹{trigger:,.2f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{trigger_pos:.1f}%;top:-3px;width:14px;height:14px;background:var(--warn);border-radius:50%;transform:translateX(-50%);" title="Trigger ₹{format_inr(trigger)}"></div>'
                                             
                                             if price != trigger:
                                                 limit_pos = (price - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{limit_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--muted);border-radius:50%;transform:translateX(-50%);" title="Limit ₹{price:,.2f}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{limit_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--muted);border-radius:50%;transform:translateX(-50%);" title="Limit ₹{format_inr(price)}"></div>'
                                             
                                             ltp_pos = (ltp - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:var(--acc);border:2px solid var(--surface);border-radius:50%;transform:translateX(-50%);" title="LTP ₹{ltp:,.2f}"></div>'
+                                            markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:var(--acc);border:2px solid var(--surface);border-radius:50%;transform:translateX(-50%);" title="LTP ₹{format_inr(ltp)}"></div>'
                                             
                                             pb_html = f'<div style="width:100%;background:var(--rule);height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
                                 
@@ -2760,8 +2761,8 @@ if True:
                                             setup_warning_html = '<div style="font-size:0.75rem;color:var(--bear);font-weight:bold;margin-top:6px;">🚨 INVALID SETUP WARNING (WS Score < 50 or SMA200 slope < 0)</div>'
                                             border = "var(--bear)"
                                             
-                                    entry_line = f"<b style='color:var(--warn);'>Trigger ₹{trigger:,.2f}</b> (Limit ₹{price:,.2f})"
-                                    ltp_line = f"<b style='color:#38BDF8;'>LTP ₹{ltp:,.2f}</b> — <span style='color:{dist_color};font-weight:bold;'>{status}</span>" if ltp else "LTP: N/A"
+                                    entry_line = f"<b style='color:var(--warn);'>Trigger ₹{format_inr(trigger)}</b> (Limit ₹{format_inr(price)})"
+                                    ltp_line = f"<b style='color:#38BDF8;'>LTP ₹{format_inr(ltp)}</b> — <span style='color:{dist_color};font-weight:bold;'>{status}</span>" if ltp else "LTP: N/A"
                                 
                                     ai_key = f"ai_entry_review_{sym}_{b['order_id']}"
                                     trade_style_badge = _rs_type_badge(rs_trade_type.get(sym, (None, "UNKNOWN"))[1])
@@ -2840,8 +2841,8 @@ if True:
                                     
                                     row_data = {
                                         "Symbol": sym, 
-                                        "LTP": f"₹{ltp:,.2f}", 
-                                        "SL": f"₹{sl:,.2f}",
+                                        "LTP": f"₹{format_inr(ltp)}", 
+                                        "SL": f"₹{format_inr(sl)}",
                                     }
                                     
                                     _tech = hist_data.get(sym)
@@ -2885,7 +2886,7 @@ if True:
                                         
                                     row_data["W-Score"] = f"{ws_score}/80" if ws_score is not None else "N/A"
                                     
-                                    row_data["Risk ₹"] = f"₹{current_risk:,.0f}"
+                                    row_data["Risk ₹"] = f"₹{format_inr_int(current_risk)}"
                                     row_data["% Port"] = f"{portfolio_pct:.2f}%"
                                     
                                     risk_rows.append(row_data)
@@ -2899,18 +2900,24 @@ if True:
                         analyzed_symbols = set()
                         for sym in sell_gtts_by_symbol.keys():
                             if sym not in analyzed_symbols:
-                                _tech = hist_data.get(sym)
-                                ltp = ltps.get(sym) or 0
-                                if _tech and ltp:
-                                    sma200 = _tech.get("sma200", 0)
-                                    sma200_slope = _tech.get("sma200_slope", 0)
-                                    if sma200:
-                                        if ltp > sma200 and sma200_slope > 0:
-                                            stage_counts["Stage 2 🟢"] += 1
-                                        elif ltp < sma200 and sma200_slope < 0:
-                                            stage_counts["Stage 4 🔴"] += 1
-                                        else:
-                                            stage_counts["Stage 1/3 🟡"] += 1
+                                # CANONICAL weekly stage (AUD-1015-14): trade_class.weekly_stage,
+                                # the 2x2 on confirmed weeks every other surface uses. This read
+                                # a DAILY 200-SMA proxy and showed 12/4/2 against 16/2/0.
+                                _cst = None
+                                try:
+                                    import trade_class as _tc_ps
+                                    import data_provider as _dp_ps
+                                    _cst = _tc_ps.weekly_stage(_dp_ps.fetch_ohlcv(sym, period="2y", interval="1d",
+                                                                                  use_cache=True))[0]
+                                except Exception:
+                                    _cst = None
+                                if _cst in (1, 2, 3, 4):
+                                    if _cst == 2:
+                                        stage_counts["Stage 2 🟢"] += 1
+                                    elif _cst == 4:
+                                        stage_counts["Stage 4 🔴"] += 1
+                                    else:
+                                        stage_counts["Stage 1/3 🟡"] += 1
                                     analyzed_symbols.add(sym)
                                     
                         total_analyzed = sum(stage_counts.values())

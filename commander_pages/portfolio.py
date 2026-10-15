@@ -111,8 +111,8 @@ if True:
                     # Summary metrics row
                     _ov_c = st.columns(4)
                     _ov_c[0].metric("Positions",     _ov.get("num_positions", 0))
-                    _ov_c[1].metric("Portfolio Value", f"₹{_ov.get('total_value',0):,.0f}")
-                    _ov_c[2].metric("Total Cost",     f"₹{_ov.get('total_cost',0):,.0f}")
+                    _ov_c[1].metric("Portfolio Value", f"₹{format_inr_int(_ov.get('total_value',0))}")
+                    _ov_c[2].metric("Total Cost",     f"₹{format_inr_int(_ov.get('total_cost',0))}")
                     _pnl = _ov.get("total_pnl_pct", 0)
                     # If ALL live prices failed, the P&L is mechanically 0% —
                     # show as "—" instead of misleading "+0.00%".
@@ -136,9 +136,9 @@ if True:
                             _h_rows.append({
                                 "Symbol":    _h["symbol"].replace(".NS",""),
                                 "Qty":       int(_h["quantity"]),
-                                "Avg Cost":  f"₹{_h.get('avg_cost',0):,.0f}",
-                                "LTP":       f"₹{_h.get('current_price',0):,.2f}",
-                                "Mkt Value": f"₹{_h.get('market_value',0):,.0f}",
+                                "Avg Cost":  f"₹{format_inr_int(_h.get('avg_cost',0))}",
+                                "LTP":       f"₹{format_inr(_h.get('current_price',0))}",
+                                "Mkt Value": f"₹{format_inr_int(_h.get('market_value',0))}",
                                 "Weight%":   f"{_h.get('weight',0)*100:.1f}%",
                                 "P&L%":      f"{_h.get('pnl_pct',0):+.1f}%",
                                 "Sector":    _h.get("sector","—"),
@@ -225,7 +225,7 @@ if True:
                         section("Value at Risk (Historical)")
                         _v1, _v2, _v3, _v4 = st.columns(4)
                         _v1.metric("1-Day VaR",       f"{_var_res['var_1d_pct']:.2f}%",    help="Historical simulation at chosen confidence")
-                        _v2.metric("1-Day VaR (₹)",   f"₹{_var_res['var_1d_inr']:,.0f}")
+                        _v2.metric("1-Day VaR (₹)",   f"₹{format_inr_int(_var_res['var_1d_inr'])}")
                         _v3.metric("CVaR (ES)",        f"{_var_res['cvar_1d_pct']:.2f}%",   help="Expected loss beyond VaR threshold")
                         _v4.metric("10-Day VaR",       f"{_var_res['var_10d_pct']:.2f}%",   help="Scaled via sqrt-of-time rule")
 

@@ -112,12 +112,12 @@ if True:
                 _f1,_f2,_f3,_f4 = st.columns(4, gap="small")
                 _fn = float(_latest_fii.get("fii_net",0))
                 _dn = float(_latest_fii.get("dii_net",0))
-                _f1.metric("FII Net (latest)", f"₹{_fn:,.0f}Cr", delta_color="normal")
-                _f2.metric("DII Net (latest)", f"₹{_dn:,.0f}Cr")
+                _f1.metric("FII Net (latest)", f"₹{format_inr_int(_fn)}Cr", delta_color="normal")
+                _f2.metric("DII Net (latest)", f"₹{format_inr_int(_dn)}Cr")
                 _f3.metric("FII 5D Sum",
-                           f"₹{_fii_df2['fii_net'].tail(5).sum():,.0f}Cr" if "fii_net" in _fii_df2 else "–")
+                           f"₹{format_inr_int(_fii_df2['fii_net'].tail(5).sum())}Cr" if "fii_net" in _fii_df2 else "–")
                 _f4.metric("DII 5D Sum",
-                           f"₹{_fii_df2['dii_net'].tail(5).sum():,.0f}Cr" if "dii_net" in _fii_df2 else "–")
+                           f"₹{format_inr_int(_fii_df2['dii_net'].tail(5).sum())}Cr" if "dii_net" in _fii_df2 else "–")
 
                 try:
                     _fig_fii = go.Figure()

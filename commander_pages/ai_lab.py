@@ -28,8 +28,16 @@ if True:
                 with st.spinner(f"Analyzing {prop_sym}..."):
                     try:
                         ticker_yf = yf_symbol(prop_sym)   # BUG-15: centralised mapper
-                        hist = yf.Ticker(ticker_yf).history(period="1mo")
-                        ltp_val = float(hist['Close'].iloc[-1]) if not hist.empty else prop_entry
+                        # AUD-1015-13: the house feed (Dhan live LTP, else last close) first
+                        ltp_val = 0.0
+                        try:
+                            import data_provider as _dp_pr
+                            ltp_val = float(_dp_pr.get_ltp(prop_sym) or 0)
+                        except Exception:
+                            ltp_val = 0.0
+                        if not ltp_val:
+                            hist = yf.Ticker(ticker_yf).history(period="1mo")
+                            ltp_val = float(hist['Close'].iloc[-1]) if not hist.empty else prop_entry
 
                         prop_sector  = get_sector(prop_sym)   # BUG-15: top-level import
                         rating_res   = get_weinstein_score(symbol=prop_sym, sector=prop_sector,
@@ -140,7 +148,15 @@ if True:
                         try:
                             _ga_yf_sym = _ga_sym if _ga_sym.endswith(".NS") else _ga_sym + ".NS"
                             _ga_tk = yf.Ticker(_ga_yf_sym)
-                            _ga_hist = _ga_tk.history(period="6mo")
+                            # AUD-1015-13: prices from the house feed; yfinance only for .info
+                            try:
+                                import data_provider as _dp_gh
+                                _ga_hist = _dp_gh.fetch_ohlcv(_ga_sym.replace(".NS", ""), period="6mo",
+                                                              interval="1d", use_cache=True)
+                            except Exception:
+                                _ga_hist = None
+                            if _ga_hist is None or _ga_hist.empty:
+                                _ga_hist = _ga_tk.history(period="6mo")
                             _ga_info = _ga_tk.info
 
                             # Technical levels
@@ -214,7 +230,7 @@ if True:
                         _ltp_v = _dp_ga.latest_close(_ga_disp_sym)
                     except Exception:
                         _ltp_v = float(yf.Ticker(_ga_disp_sym+'.NS' if not _ga_disp_sym.endswith('.NS') else _ga_disp_sym).fast_info.get('lastPrice', 0))
-                    _ltp_disp = f" — ₹{_ltp_v:,.2f}"
+                    _ltp_disp = f" — ₹{format_inr(_ltp_v)}"
                 except Exception as _sx:
                     _swlog.info("swallowed ai_lab.py:218: %s", _sx)
                 section(f"AI Analysis: {_ga_disp_sym}{_ltp_disp}")

@@ -49,8 +49,8 @@ if True:
 
                     # Price + market cap
                     r1 = st.columns(4)
-                    r1[0].metric("Price", f"₹{_fd.get('price',0):,.2f}")
-                    r1[1].metric("Market Cap", f"₹{_fd.get('market_cap',0):,.0f}Cr" if _fd.get('market_cap') else "N/A")
+                    r1[0].metric("Price", f"₹{format_inr(_fd.get('price',0))}")
+                    r1[1].metric("Market Cap", f"₹{format_inr_int(_fd.get('market_cap',0))}Cr" if _fd.get('market_cap') else "N/A")
                     r1[2].metric("52W vs High", f"{_fd.get('week52_vs_high',0):+.1f}%" if _fd.get('week52_vs_high') is not None else "N/A")
                     r1[3].metric("Beta", f"{_fd.get('beta',0):.2f}" if _fd.get('beta') else "N/A")
 
@@ -76,8 +76,8 @@ if True:
                     # Financials
                     section("Financials (TTM)")
                     r4 = st.columns(4)
-                    r4[0].metric("Revenue",    f"₹{_fd.get('revenue_ttm',0):,.0f}Cr"    if _fd.get('revenue_ttm')    else "N/A")
-                    r4[1].metric("Net Income", f"₹{_fd.get('net_income_ttm',0):,.0f}Cr" if _fd.get('net_income_ttm') else "N/A")
+                    r4[0].metric("Revenue",    f"₹{format_inr_int(_fd.get('revenue_ttm',0))}Cr"    if _fd.get('revenue_ttm')    else "N/A")
+                    r4[1].metric("Net Income", f"₹{format_inr_int(_fd.get('net_income_ttm',0))}Cr" if _fd.get('net_income_ttm') else "N/A")
                     r4[2].metric("EPS (TTM)",  f"₹{_fd.get('eps_ttm',0):.2f}"           if _fd.get('eps_ttm')        else "N/A")
                     r4[3].metric("Fwd EPS",    f"₹{_fd.get('eps_forward',0):.2f}"       if _fd.get('eps_forward')    else "N/A")
 

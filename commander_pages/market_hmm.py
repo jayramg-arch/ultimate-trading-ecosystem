@@ -50,7 +50,7 @@ if True:
     _better = "this model" if _r["model"]["bic"] <= _bic_alt else f"the {3 if _K == 2 else 2}-state model"
     _m4.metric("Fit (BIC, lower = better)", f"{_r['model']['bic']:,.0f}",
                f"{3 if _K == 2 else 2}-state: {_bic_alt:,.0f} → {_better} fits better", delta_color="off")
-    st.caption(f"{_idx_name} · last close {_today['date']} ₹{_today['close']:,.2f} · "
+    st.caption(f"{_idx_name} · last close {_today['date']} ₹{format_inr(_today['close'])} · "
                + " · ".join(f"P({k}) {v:.0%}" for k, v in _today["probs"].items()))
 
     # ── chart: price shaded by regime · filtered probabilities · returns ───────

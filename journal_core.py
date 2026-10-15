@@ -96,10 +96,11 @@ if INIT_ERROR:
 def format_inr(number):
     try:
         if number is None or pd.isna(number): return "0.00"
-        val = float(number)
+        # AUD-1015-16: group the ABSOLUTE value - grouping "-44394" printed "₹-,44,394"
+        val = float(number); sign = "-" if val < 0 else ""; val = abs(val)
         s, *d = str("{:.2f}".format(val)).partition(".")
         r = ",".join([s[x-2:x] for x in range(-3, -len(s), -2)][::-1] + [s[-3:]])
-        return "".join([r] + d)
+        return sign + "".join([r] + d)
     except (ValueError, TypeError, AttributeError):
         return str(number)
 
