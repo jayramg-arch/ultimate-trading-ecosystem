@@ -1187,15 +1187,12 @@ def pa_combo(df, fn, stage: str = "", look: int = PA_COMBO_LOOKBACK, **kw) -> di
 
 
 def pa_combo_text(pc: dict | None) -> str:
-    """'PA 3b → combo Strong 76% · held' (or '· failed' when the latest close is below the
-    PA bar's close, '· broke PA low' when a close went under its low)."""
+    """'PA 3b' - the age of the last PA only (15-Oct-2026, Jay). The combined-candle grade
+    and held/failed were measured and do not pick better trades (PREREG_pa_combo: H2
+    FAIL), so they are no longer shown; the ledger still records them."""
     if not pc:
         return ""
-    tail = "held" if pc.get("held") else "failed"
-    if not pc.get("kept_low"):
-        tail = "broke PA low"
-    return "PA %db → combo %s %d%% · %s" % (int(pc["age"]), str(pc["grade"]).capitalize(),
-                                           round(float(pc["cpos"]) * 100), tail)
+    return "PA %db" % int(pc["age"])
 
 
 def pa_recent_of(ctx: dict, path: str = "bull") -> dict | None:

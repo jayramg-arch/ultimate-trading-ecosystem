@@ -28,7 +28,7 @@ def test_finds_last_pa_and_grades_the_span():
     # span: PA open 100.0-ish, high/low over 3 bars, close 60% up the range -> neutral
     assert pc["grade"] == "neutral" and abs(pc["cpos"] - 0.6) < 0.01
     assert pc["pa_ts"] == str(df.index[-3])[:10]
-    assert gtb.pa_combo_text(pc) == "PA 2b → combo Neutral 60% · held"
+    assert gtb.pa_combo_text(pc) == "PA 2b"
 
 
 def test_failed_follow_through_is_named():
@@ -37,7 +37,7 @@ def test_failed_follow_through_is_named():
     df.iloc[-1, df.columns.get_loc("Low")] = 89.0
     pc = gtb.pa_combo(df, _fires_on({df.index[-2]}))
     assert not pc["held"] and not pc["kept_low"] and pc["grade"] == "weak"
-    assert gtb.pa_combo_text(pc).endswith("broke PA low")
+    assert gtb.pa_combo_text(pc) == "PA 1b"
 
 
 def test_nothing_in_window():
@@ -49,6 +49,6 @@ def test_bar_read_shows_combo_only_on_daily_board():
     df = _df()
     pc = gtb.pa_combo(df, _fires_on({df.index[-2]}))
     ctx = {"bar": {"o": 100, "h": 102, "l": 99, "c": 101.5}, "pa_combo": pc, "_board_tf": "Daily"}
-    assert "PA 1b → combo" in gtb.bar_read(ctx, "bull")
+    assert gtb.bar_read(ctx, "bull").endswith(" · PA 1b")
     ctx["_board_tf"] = "75m"
-    assert "combo" not in gtb.bar_read(ctx, "bull")
+    assert "PA 1b" not in gtb.bar_read(ctx, "bull")
