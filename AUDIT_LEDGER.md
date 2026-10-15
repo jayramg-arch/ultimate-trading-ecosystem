@@ -969,6 +969,6 @@ canonical one on the live book, then repoint the copies. Page-by-page review is 
 | AUD-1015-20 | TV Sidecar | private 200-day stage ("Stage 4") | FIXED: canonical stage |
 
 ### Open questions for Jay
-- **Legacy "Mobile / Standalone" pages** (`pages/1_home`, `2_xray`, `3_journal`, `4_autopsy`, linked in the sidebar) are older parallel copies with their own formatters, token reads and stats (3_journal still prints "₹-,44,394"). Retire them (the GM has `?mobile=1`), or bring them onto the shared code?
-- **IKS sector**: the board map says Nifty IT; the journal said Pharma. Healthcare-services business — confirm which bucket the 25% cap should count it in.
-- **Hunter → X-Ray tab** results are from 11 Jul: click-to-run, not in the auto-pilot (the board computes X-Ray live). Add it to the auto-pilot, or leave on demand?
+- **RESOLVED (Jay): retired** — moved to `_archive/legacy_pages/`, sidebar links removed. `pages/5_pyramid` and `6_rrg` remain (unlinked). **Legacy "Mobile / Standalone" pages** (`pages/1_home`, `2_xray`, `3_journal`, `4_autopsy`, linked in the sidebar) are older parallel copies with their own formatters, token reads and stats (3_journal still prints "₹-,44,394"). Retire them (the GM has `?mobile=1`), or bring them onto the shared code?
+- **RESOLVED (Jay): IKS = IT** (healthcare solutions) — board map already curated Nifty IT; journal row corrected (backup `..._20261015_2138_iks_sector.db`). **IKS sector**: the board map says Nifty IT; the journal said Pharma. Healthcare-services business — confirm which bucket the 25% cap should count it in.
+- **RESOLVED (Jay): added to auto-pilot** as Phase 5.5 (`XRAY_AUTOPILOT=0` skips); run tonight, 13 names. **Hunter → X-Ray tab** results are from 11 Jul: click-to-run, not in the auto-pilot (the board computes X-Ray live). Add it to the auto-pilot, or leave on demand?

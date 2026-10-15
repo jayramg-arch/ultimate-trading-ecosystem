@@ -834,22 +834,27 @@ def main():
         except Exception as e:
             logger.warning(f"   ↳ portfolio picks CSV skipped: {e}")
 
-    # 5.5. FUNDAMENTAL X-RAY SCREENER (Deprecated — integrated directly into Golden Matcher)
-    # logger.info("\n[PHASE 5.5] RUNNING FUNDAMENTAL X-RAY SCREENER...")
-    # with run.phase("Phase 5.5 — Fundamental X-Ray") as p:
-    #     try:
-    #         # Delete custom symbols if they exist so it sweeps the newly generated watchlists
-    #         custom_xray = "xray_custom_symbols.txt"
-    #         if os.path.exists(custom_xray):
-    #             os.remove(custom_xray)
-    # 
-    #         import xray_screener_job
-    #         xray_screener_job.main()
-    #         p.message = "X-Ray complete"
-    #     except Exception as e:
-    #         logger.error(f"❌ Error in X-Ray screener: {e}")
-    #         raise
-    # 
+    # 5.5. X-RAY SCREENER (15-Oct-2026, Jay: "add X-Ray to auto-pilot"). Re-enabled for the
+    # Hunter page's X-Ray tab, whose FINAL_XRay_Picks.csv was last written 11 Jul because
+    # it only ran on a click. Same scorecard the board uses (weinstein_xray_screener), over
+    # FINAL_WATCHLIST.csv. ADDITIVE: a failure is logged and never fails the run.
+    # XRAY_AUTOPILOT=0 skips it.
+    logger.info("\n[PHASE 5.5] X-RAY SCREENER (Hunter tab)...")
+    with run.phase("Phase 5.5 — X-Ray Screener") as p:
+        if os.getenv("XRAY_AUTOPILOT", "1") == "0":
+            p.status = "SKIP"
+            p.message = "XRAY_AUTOPILOT=0"
+        else:
+            try:
+                import xray_screener_job as _xj
+                _xdf = _xj.run_xray_screener(out_file="FINAL_XRay_Picks.csv")
+                p.records = len(_xdf) if _xdf is not None else 0
+                p.message = f"{p.records} names scored -> FINAL_XRay_Picks.csv"
+            except Exception as e:
+                logger.warning(f"   ↳ X-Ray screener skipped: {e}")
+                p.status = "WARN"
+                p.message = f"skipped: {e}"[:200]
+
     # # 5.6. GENERATE LOCAL WATCHLISTS (Pass 2 - Includes X-Ray) (Deprecated)
     # logger.info("\n[PHASE 5.6] GENERATING LOCAL WATCHLISTS (Pass 2)...")
     # with run.phase("Phase 5.6 — Watchlists (Pass 2)") as p:

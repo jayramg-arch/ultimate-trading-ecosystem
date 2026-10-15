@@ -1485,15 +1485,9 @@ with st.sidebar:
     # sidebar; we hide that with CSS (see [data-testid="stSidebarNav"] rule
     # above) and re-render them here at the bottom so the top is reserved
     # for status + nav. Using st.page_link() preserves all routing behaviour.
-    st.markdown('<div class="sb-section-lbl">📱 Mobile / Standalone</div>', unsafe_allow_html=True)
-    try:
-        st.page_link("pages/1_home.py",    label="🏠 Home",    icon=None)
-        st.page_link("pages/2_xray.py",    label="🧬 X-Ray",   icon=None)
-        st.page_link("pages/3_journal.py", label="📓 Journal", icon=None)
-        st.page_link("pages/4_autopsy.py", label="🔬 Autopsy", icon=None)
-    except Exception:
-        # Fallback for older Streamlit versions: just show plain text references
-        st.caption("pages/1_home.py · pages/2_xray.py · pages/3_journal.py · pages/4_autopsy.py")
+    # RETIRED 15-Oct-2026 (Jay): the four "Mobile / Standalone" pages (Home, X-Ray, Journal,
+    # Autopsy) were older parallel copies with their own formatters, token reads and stats -
+    # moved to _archive/legacy_pages/. On a phone, use the GM's ?view=gm_window&mobile=1.
 
 # ══════════════════════════════════════════════════════════════════════════════
 #  TOP STATUS BAR
