@@ -1,0 +1,205 @@
+<meta charset="utf-8">
+<title>Strategic Briefing</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --ground:#EEF1F4; --surface:#FFFFFF; --surface-2:#F6F8FA;
+  --ink:#0E1319; --ink-2:#3A4552; --muted:#66727F; --rule:#D6DDE4; --rule-soft:#E6EBF0;
+  --go:#0F7A66; --go-bg:#E4F2EE; --go-rule:#9FCFC2;
+  --wait:#A96500; --wait-bg:#FBF0DE; --wait-rule:#E0BE86;
+  --no:#B23025; --no-bg:#FBE9E7;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --grot:'Bricolage Grotesque','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+    --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+    --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+    --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+    --no:#EF6259; --no-bg:#34191A;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+  --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+  --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+  --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+  --no:#EF6259; --no-bg:#34191A;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--serif);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px}
+
+header.mast{border-bottom:1px solid var(--rule);background:var(--surface)}
+.mast-in{max-width:960px;margin:0 auto;padding:46px 24px 36px}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 12px}
+h1{font-family:var(--grot);font-weight:800;font-size:clamp(32px,5vw,50px);line-height:1.03;
+  letter-spacing:-.02em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.dek b{color:var(--ink);font-weight:600}
+
+main{padding:44px 0 90px}
+section{margin:0 0 62px;scroll-margin-top:20px}
+.pt{font-family:var(--mono);font-size:11.5px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 6px}
+h2{font-family:var(--grot);font-weight:700;font-size:clamp(22px,2.6vw,29px);line-height:1.15;
+  letter-spacing:-.015em;margin:0 0 10px;text-wrap:balance}
+h3{font-family:var(--grot);font-weight:600;font-size:17.5px;margin:30px 0 8px}
+p{margin:0 0 14px;max-width:68ch}
+.lede{font-size:18px;color:var(--ink-2);max-width:64ch}
+.m{font-family:var(--mono);font-size:.86em;background:var(--surface-2);
+  border:1px solid var(--rule-soft);border-radius:3px;padding:1px 5px;white-space:nowrap}
+
+/* ── timeline ─────────────────────────────────────────── */
+.tl{position:relative;margin:26px 0 0;padding-left:0}
+.tl::before{content:"";position:absolute;left:78px;top:8px;bottom:8px;width:1px;background:var(--rule)}
+.ev{display:grid;grid-template-columns:78px 1fr;gap:0;position:relative;margin:0 0 4px}
+.ev .clk{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;
+  color:var(--muted);padding:15px 16px 0 0;text-align:right;white-space:nowrap}
+.ev .bd{border:1px solid transparent;padding:13px 0 13px 22px;position:relative}
+.ev .bd::before{content:"";position:absolute;left:-4px;top:19px;width:9px;height:9px;
+  border-radius:50%;background:var(--ground);border:1.5px solid var(--rule)}
+.ev .t{font-family:var(--grot);font-weight:600;font-size:16.5px;margin:0 0 3px}
+.ev .d{font-size:15px;color:var(--ink-2);max-width:62ch;margin:0}
+.ev .d + .d{margin-top:6px}
+.ev .who{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);display:inline-block;margin-left:9px;vertical-align:1px;font-weight:500}
+
+/* the human step is the whole point of the page */
+.ev.you .bd{background:var(--go-bg);border:1px solid var(--go-rule);border-left-width:3px;
+  padding-left:20px;border-radius:2px}
+.ev.you .bd::before{background:var(--go);border-color:var(--go);width:11px;height:11px;left:-5.5px}
+.ev.you .t{color:var(--ink)}
+.ev.you .who{color:var(--go);font-weight:600}
+.ev.off .bd::before{background:var(--wait);border-color:var(--wait)}
+
+ol.mini{margin:10px 0 0;padding-left:19px;display:flex;flex-direction:column;gap:7px}
+ol.mini li{font-size:15px;color:var(--ink-2)}
+ol.mini li b{color:var(--ink)}
+ol.mini li::marker{font-family:var(--mono);font-size:12px;color:var(--go)}
+
+/* ── tables ───────────────────────────────────────────── */
+.tw{overflow-x:auto;margin:20px 0;border:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%;background:var(--surface);font-size:15px}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);text-align:left;font-weight:600;padding:11px 14px;
+  border-bottom:1px solid var(--rule);white-space:nowrap;background:var(--surface-2)}
+td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.5}
+tr:last-child td{border-bottom:0}
+td.n{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
+  white-space:nowrap;color:var(--ink-2)}
+td.warn{color:var(--no)}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--wait);background:var(--wait-bg);
+  padding:15px 18px;margin:20px 0;font-size:15.5px}
+.note .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--wait);display:block;margin-bottom:6px;font-weight:600}
+.note p{margin:0;max-width:none}
+
+pre{font-family:var(--mono);font-size:13.5px;line-height:1.85;background:var(--surface);
+  border:1px solid var(--rule);border-left:3px solid var(--go);padding:18px 20px;
+  overflow-x:auto;margin:20px 0;color:var(--ink-2)}
+pre b{color:var(--ink);font-weight:600}
+
+footer{border-top:1px solid var(--rule);padding:26px 0 60px;font-size:15px;color:var(--muted);max-width:68ch}
+footer em{color:var(--ink-2)}
+
+@media(max-width:720px){
+  body{font-size:16px}
+  .tl::before{left:60px}
+  .ev{grid-template-columns:60px 1fr}
+  .ev .clk{font-size:11.5px;padding-right:12px}
+  .ev .bd{padding-left:18px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<style>
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:18px 0 0}
+.kp{background:var(--surface);border:1px solid var(--rule);padding:10px 12px}
+.kl{font-family:var(--mono);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-3,#777);margin:0}
+.kv{font-family:var(--mono);font-size:20px;font-weight:700;margin:4px 0 0}
+.ks{font-size:12px;margin:2px 0 0;color:var(--ink-2)}
+.up{color:#1f8a5b}.dn{color:#c0392b}
+td.n,th.n{text-align:right;font-family:var(--mono);white-space:nowrap}
+td.nm{font-weight:700;white-space:nowrap}
+.bar{background:var(--surface-2,#eee);height:8px;width:160px;border-radius:2px}
+.bar span{display:block;height:8px;background:#2f7d7a;border-radius:2px}
+.bar span.over{background:#c0392b}
+pre.ctx{white-space:pre-wrap;font-size:12.5px;background:var(--surface);border:1px solid var(--rule);padding:10px 12px}
+.ai h2,.ai h3,.ai h4{margin-top:18px}
+</style><header class="mast"><div class="mast-in">
+  <p class="eyebrow">Doc 37 · Daily · 2026-10-15</p>
+  <h1>Strategic Briefing</h1>
+  <p class="dek">The book as it stands this morning — 18 positions from dhan,
+  their stops and stage — the market and the exposure rule, and the AI read. Rebuilt every time
+  <b>Market Briefing</b> runs on the Dashboard. A dated Markdown copy sits in <span class="m">reports/briefing/</span>.</p>
+  <div class="kpis"><div class="kp"><p class="kl">Invested (cost)</p><p class="kv">₹19,72,633</p></div><div class="kp"><p class="kl">Market value</p><p class="kv">₹19,28,111</p></div>
+  <div class="kp"><p class="kl">Unrealised P&amp;L</p><p class="kv"><span class='dn'>₹-44,522</span></p><p class="ks">-2.3%</p></div>
+  <div class="kp"><p class="kl">Cash</p><p class="kv">₹5,60,783</p></div><div class="kp"><p class="kl">Stage 2 / 3 / 4</p><p class="kv">16 / 0 / 0</p></div></div>
+</div></header>
+<div class="wrap"><main>
+<section><p class="pt">Market</p><h2>The tape and the exposure rule</h2>
+  <p>Nifty 50: UP (1.66%) · India VIX 14.02</p>
+  <pre class="ctx">MARKET CONTEXT (information, not a gate - it sets expectations and size, never vetoes a setup)
+regime Bear / Cash (score 1 · 2026-10-15) · Nifty 500 breadth 2026-10-15: A/D 196/301 · above 50/200-DMA 19.6%/39.6% · 52w highs/lows 13/112 · Stage 2 31.4% · McClellan osc 20.37 / summation 2985.13 (2026-10-14)
+
+EXPOSURE RULE (house rule, BINDING - unlike the context above): EXPOSURE (Option A · score 1): BEAR tier - no new entries · no adds · exposure cap 40% (deployed 66% - OVER) · unlocks: a follow-through day or breadth thrust (2 pilots) or regime score 3+</pre>
+</section>
+<section><p class="pt">Risk first</p><h2>What needs a decision</h2>
+  <p class="lede">Stage 3 or 4, at or within 1% of the thesis (a Daily close below it is the exit), or beyond −1R.</p>
+  <ul><li><b>CAPLIPOINT</b> — at/below thesis · beyond -1R</li><li><b>VIJAYA</b> — within 1% of thesis</li><li><b>IKS</b> — within 1% of thesis</li><li><b>BAJFINANCE</b> — beyond -1R</li><li><b>TVSMOTOR</b> — beyond -1R</li><li><b>NESTLEIND</b> — at/below thesis · beyond -1R</li><li><b>CUMMINSIND</b> — beyond -1R</li><li><b>M&amp;MFIN</b> — beyond -1R</li><li><b>AUBANK</b> — beyond -1R</li><li><b>SAILIFE</b> — at/below thesis</li></ul>
+</section>
+<section><p class="pt">Positions</p><h2>The book, largest first</h2>
+  <div class="tw"><table><thead><tr><th>Asset</th><th>Sector</th><th>Plan</th><th>Stage</th><th class="n">RS</th>
+  <th class="n">CMP</th><th class="n">Avg</th><th class="n">P&amp;L</th><th class="n">R</th><th class="n">Dhan SL</th>
+  <th class="n">Thesis</th><th class="n">Initial</th><th class="n">Value</th><th>Flag</th></tr></thead>
+  <tbody><tr><td class='nm'>COALINDIA</td><td>Energy</td><td>Positional</td><td>STAGE 1 (BASE)</td><td class='n'>0.35</td><td class='n'>418.00</td><td class='n'>431.37</td><td class='n dn'>-3.1%</td><td class='n'>-0.64</td><td class='n'>391.50</td><td class='n'>402.10</td><td class='n'>410.60</td><td class='n'>₹2,19,868</td><td></td></tr><tr><td class='nm'>SONACOMS</td><td>Auto</td><td>Positional</td><td>STAGE 2 (UP)</td><td class='n'>0.23</td><td class='n'>801.80</td><td class='n'>770.11</td><td class='n up'>+4.1%</td><td class='n'>+0.27</td><td class='n'>718.50</td><td class='n'>759.05</td><td class='n'>652.20</td><td class='n'>₹2,06,864</td><td></td></tr><tr><td class='nm'>PHARMABEES</td><td>Pharma</td><td>Positional</td><td>STAGE 2 (UP)</td><td class='n'>-0.01</td><td class='n'>26.57</td><td class='n'>27.29</td><td class='n dn'>-2.6%</td><td class='n'>-0.26</td><td class='n'>24.50</td><td class='n'>26.00</td><td class='n'>24.50</td><td class='n'>₹1,94,652</td><td></td></tr><tr><td class='nm'>CAPLIPOINT</td><td>Pharma</td><td>Swing</td><td>STAGE 2 (UP)</td><td class='n'>-0.98</td><td class='n'>2,301.70</td><td class='n'>2,531.53</td><td class='n dn'>-9.1%</td><td class='n'>-1.13</td><td class='n'>2,013.50</td><td class='n'>2,325.20</td><td class='n'>2,327.70</td><td class='n'>₹1,51,912</td><td>at/below thesis · beyond -1R</td></tr><tr><td class='nm'>VIJAYA</td><td>Pharma</td><td>Positional</td><td>STAGE 2 (UP)</td><td class='n'>-0.34</td><td class='n'>1,382.40</td><td class='n'>1,418.29</td><td class='n dn'>-2.5%</td><td class='n'>-0.25</td><td class='n'>1,268.50</td><td class='n'>1,380.00</td><td class='n'>1,275.50</td><td class='n'>₹1,35,475</td><td>within 1% of thesis</td></tr><tr><td class='nm'>LAURUSLABS</td><td>Pharma</td><td>Positional</td><td>STAGE 2 (UP)</td><td class='n'>0.77</td><td class='n'>2,020.00</td><td class='n'>1,613.23</td><td class='n up'>+25.2%</td><td class='n'>+2.07</td><td class='n'>1,722.50</td><td class='n'>1,952.10</td><td class='n'>–</td><td class='n'>₹1,17,160</td><td></td></tr><tr><td class='nm'>ANANDRATHI</td><td>Financial Services</td><td>Positional</td><td>STAGE 2 (UP)</td><td class='n'>0.17</td><td class='n'>2,139.00</td><td class='n'>1,787.78</td><td class='n up'>+19.6%</td><td class='n'>+2.94</td><td class='n'>1,936.50</td><td class='n'>2,015.90</td><td class='n'>1,668.20</td><td class='n'>₹1,15,506</td><td></td></tr><tr><td class='nm'>IKS</td><td>Nifty IT</td><td>Swing</td><td>STAGE 2 (UP)</td><td class='n'>-0.12</td><td class='n'>1,713.00</td><td class='n'>1,843.50</td><td class='n dn'>-7.1%</td><td class='n'>-0.56</td><td class='n'>1,588.50</td><td class='n'>1,712.70</td><td class='n'>1,608.50</td><td class='n'>₹92,502</td><td>within 1% of thesis</td></tr><tr><td class='nm'>BAJFINANCE</td><td>Financial Services</td><td>Swing</td><td>STAGE 2 (UP)</td><td class='n'>-0.46</td><td class='n'>967.25</td><td class='n'>1,075.69</td><td class='n dn'>-10.1%</td><td class='n'>-1.24</td><td class='n'>873.50</td><td class='n'>942.20</td><td class='n'>988.50</td><td class='n'>₹89,954</td><td>beyond -1R</td></tr><tr><td class='nm'>TVSMOTOR</td><td>Auto</td><td>Positional</td><td>STAGE 2 (UP)</td><td class='n'>-0.15</td><td class='n'>4,028.00</td><td class='n'>4,394.50</td><td class='n dn'>-8.3%</td><td class='n'>-1.31</td><td class='n'>3,708.50</td><td class='n'>3,823.30</td><td class='n'>4,114.50</td><td class='n'>₹88,616</td><td>beyond -1R</td></tr><tr><td class='nm'>NESTLEIND</td><td>FMCG</td><td>Swing</td><td>STAGE 2 (UP)</td><td class='n'>-0.69</td><td class='n'>1,282.00</td><td class='n'>1,438.37</td><td class='n dn'>-10.9%</td><td class='n'>-1.16</td><td class='n'>1,219.50</td><td class='n'>1,292.90</td><td class='n'>1,303.70</td><td class='n'>₹88,458</td><td>at/below thesis · beyond -1R</td></tr><tr><td class='nm'>CUMMINSIND</td><td>Capital Goods &amp; Defense</td><td>Swing</td><td>STAGE 2 (UP)</td><td class='n'>-0.66</td><td class='n'>4,631.00</td><td class='n'>5,456.50</td><td class='n dn'>-15.1%</td><td class='n'>-1.73</td><td class='n'>4,495.50</td><td class='n'>4,357.90</td><td class='n'>4,979.00</td><td class='n'>₹83,358</td><td>beyond -1R</td></tr><tr><td class='nm'>M&amp;MFIN</td><td>Financial Services</td><td>Swing</td><td>STAGE 1 (BASE)</td><td class='n'>-1.04</td><td class='n'>315.20</td><td class='n'>387.36</td><td class='n dn'>-18.6%</td><td class='n'>-1.34</td><td class='n'>288.50</td><td class='n'>309.20</td><td class='n'>333.50</td><td class='n'>₹81,006</td><td>beyond -1R</td></tr><tr><td class='nm'>GLAXO</td><td>Pharma</td><td>Positional</td><td>STAGE 2 (UP)</td><td class='n'>-0.71</td><td class='n'>2,530.00</td><td class='n'>2,629.20</td><td class='n dn'>-3.8%</td><td class='n'>-0.30</td><td class='n'>2,389.50</td><td class='n'>2,485.00</td><td class='n'>2,298.50</td><td class='n'>₹73,370</td><td></td></tr><tr><td class='nm'>AUBANK</td><td>Bank Nifty</td><td>Positional</td><td>STAGE 2 (UP)</td><td class='n'>-0.2</td><td class='n'>1,002.30</td><td class='n'>1,085.90</td><td class='n dn'>-7.7%</td><td class='n'>-3.57</td><td class='n'>912.50</td><td class='n'>959.05</td><td class='n'>1,062.50</td><td class='n'>₹69,159</td><td>beyond -1R</td></tr><tr><td class='nm'>NETWEB</td><td>Nifty IT</td><td>Positional</td><td>STAGE 2 (UP)</td><td class='n'>-0.23</td><td class='n'>4,696.00</td><td class='n'>4,471.61</td><td class='n up'>+5.0%</td><td class='n'>+0.40</td><td class='n'>3,988.50</td><td class='n'>4,453.00</td><td class='n'>3,906.80</td><td class='n'>₹56,352</td><td></td></tr><tr><td class='nm'>SYRMA</td><td>Capital Goods &amp; Defense</td><td>Swing</td><td>STAGE 2 (UP)</td><td class='n'>1.0</td><td class='n'>1,689.00</td><td class='n'>1,475.50</td><td class='n up'>+14.5%</td><td class='n'>+0.97</td><td class='n'>1,333.50</td><td class='n'>1,657.60</td><td class='n'>1,254.50</td><td class='n'>₹38,847</td><td></td></tr><tr><td class='nm'>SAILIFE</td><td>Pharma</td><td>Positional</td><td>STAGE 2 (UP)</td><td class='n'>-0.52</td><td class='n'>1,391.70</td><td class='n'>1,049.15</td><td class='n up'>+32.6%</td><td class='n'>+3.05</td><td class='n'>1,303.50</td><td class='n'>1,453.20</td><td class='n'>936.90</td><td class='n'>₹25,051</td><td>at/below thesis</td></tr></tbody></table></div>
+</section>
+<section><p class="pt">Concentration</p><h2>Sector weights</h2>
+  <p class="lede">By market value. The house cap is 25% per sector (red bar = over).</p>
+  <div class="tw"><table><thead><tr><th>Sector</th><th class="n">Value</th><th class="n">Weight</th><th></th></tr></thead>
+  <tbody><tr><td>Pharma</td><td class='n'>₹6,97,620</td><td class='n'>36.2%</td><td><div class='bar'><span style='width:90%' class=over></span></div></td></tr><tr><td>Auto</td><td class='n'>₹2,95,480</td><td class='n'>15.3%</td><td><div class='bar'><span style='width:38%'></span></div></td></tr><tr><td>Financial Services</td><td class='n'>₹2,86,467</td><td class='n'>14.9%</td><td><div class='bar'><span style='width:37%'></span></div></td></tr><tr><td>Energy</td><td class='n'>₹2,19,868</td><td class='n'>11.4%</td><td><div class='bar'><span style='width:29%'></span></div></td></tr><tr><td>Nifty IT</td><td class='n'>₹1,48,854</td><td class='n'>7.7%</td><td><div class='bar'><span style='width:19%'></span></div></td></tr><tr><td>Capital Goods &amp; Defense</td><td class='n'>₹1,22,205</td><td class='n'>6.3%</td><td><div class='bar'><span style='width:16%'></span></div></td></tr><tr><td>FMCG</td><td class='n'>₹88,458</td><td class='n'>4.6%</td><td><div class='bar'><span style='width:11%'></span></div></td></tr><tr><td>Bank Nifty</td><td class='n'>₹69,159</td><td class='n'>3.6%</td><td><div class='bar'><span style='width:9%'></span></div></td></tr></tbody></table></div>
+</section>
+<section class="ai"><p class="pt">AI read</p><h2>Gemini's briefing</h2>
+  <h3>1. Verdict for today</h3>
+<p>The Nifty is up 1.66% but our regime score remains at 1 (Bear tier), enforcing a strict ban on new entries and adds while capping exposure at 40% (our deployed capital is at 66%, which is over the limit). The book holds 16 Stage 2 positions and 2 Stage 1 bases with an unrealised P&amp;L of Rs -44,522 (-2.3%), showing relative resilience despite broad market weakness. The single most important action today is to monitor our vulnerable positions for thesis breaches while keeping capital locked in cash (Rs 5,60,783) until a follow-through day, breadth thrust, or regime score of 3+ unlocks new deployment.</p>
+<h3>2. Risk first</h3>
+<ul>
+<li>COALINDIA: In Stage 1 base below 30-week SMA, P&amp;L at -0.64R; thesis level at Rs 402.10 decides the exit.</li>
+<li>PHARMABEES: Near thesis stop (-0.26R); Daily close below Rs 26.00 invalidates the thesis.</li>
+<li>CAPLIPOINT: Deep loss (-1.13R); Daily close below thesis level Rs 2,325.20 forces exit.</li>
+<li>VIJAYA: Near thesis stop (-0.25R); Daily close below Rs 1,380.00 invalidates the thesis.</li>
+<li>IKS: Near thesis stop (-0.56R); Daily close below Rs 1,712.70 invalidates the thesis.</li>
+<li>BAJFINANCE: Deep loss (-1.24R); Daily close below thesis level Rs 942.20 forces exit.</li>
+<li>TVSMOTOR: Deep loss (-1.31R); Daily close below thesis level Rs 3,823.30 forces exit.</li>
+<li>NESTLEIND: Deep loss (-1.16R); Daily close below thesis level Rs 1,292.90 forces exit.</li>
+<li>CUMMINSIND: Deep loss (-1.73R) and volume distribution; Daily close below thesis level Rs 4,357.90 forces exit.</li>
+<li>M&amp;MFIN: In Stage 1 base with deep loss (-1.34R); Daily close below thesis level Rs 309.20 forces exit.</li>
+<li>GLAXO: Near thesis stop (-0.30R); Daily close below Rs 2,485.00 invalidates the thesis.</li>
+<li>AUBANK: Deep loss (-3.57R); Daily close below thesis level Rs 959.05 forces exit.</li>
+<li>NETWEB: Near thesis stop (+0.40R); Daily close below Rs 4,453.00 invalidates the thesis.</li>
+<li>SYRMA: Near thesis stop (+0.97R); Daily close below Rs 1,657.60 invalidates the thesis.</li>
+</ul>
+<h3>3. Action matrix</h3>
+<div class="tw"><table><thead><tr><th>Asset</th><th>Plan</th><th>Stage / RS</th><th>R now</th><th>Stops (Dhan / thesis)</th><th>Verdict</th><th>The level or trigger</th></tr></thead><tbody><tr><td>COALINDIA</td><td>Positional</td><td>STAGE 1 / 0.35</td><td>-0.64</td><td>Rs 391.50 / Rs 402.10</td><td>HOLD</td><td>Daily close &lt; Rs 402.10</td></tr><tr><td>SONACOMS</td><td>Positional</td><td>STAGE 2 / 0.23</td><td>+0.27</td><td>Rs 718.50 / Rs 759.05</td><td>HOLD</td><td>Daily close &lt; Rs 759.05</td></tr><tr><td>PHARMABEES</td><td>Positional</td><td>STAGE 2 / -0.01</td><td>-0.26</td><td>Rs 24.50 / Rs 26.00</td><td>HOLD</td><td>Daily close &lt; Rs 26.00</td></tr><tr><td>CAPLIPOINT</td><td>Swing</td><td>STAGE 2 / -0.98</td><td>-1.13</td><td>Rs 2,013.50 / Rs 2,325.20</td><td>EXIT REVIEW</td><td>Daily close &lt; Rs 2,325.20</td></tr><tr><td>VIJAYA</td><td>Positional</td><td>STAGE 2 / -0.34</td><td>-0.25</td><td>Rs 1,268.50 / Rs 1,380.00</td><td>HOLD</td><td>Daily close &lt; Rs 1,380.00</td></tr><tr><td>LAURUSLABS</td><td>Positional</td><td>STAGE 2 / 0.77</td><td>+2.07</td><td>Rs 1,722.50 / Rs 1,952.10</td><td>TRAIL</td><td>Trail Dhan stop; close &lt; Rs 1,952.10</td></tr><tr><td>ANANDRATHI</td><td>Positional</td><td>STAGE 2 / 0.17</td><td>+2.94</td><td>Rs 1,936.50 / Rs 2,015.90</td><td>TRAIL</td><td>Trail Dhan stop; close &lt; Rs 2,015.90</td></tr><tr><td>IKS</td><td>Swing</td><td>STAGE 2 / -0.12</td><td>-0.56</td><td>Rs 1,588.50 / Rs 1,712.70</td><td>HOLD</td><td>Daily close &lt; Rs 1,712.70</td></tr><tr><td>BAJFINANCE</td><td>Swing</td><td>STAGE 2 / -0.46</td><td>-1.24</td><td>Rs 873.50 / Rs 942.20</td><td>EXIT REVIEW</td><td>Daily close &lt; Rs 942.20</td></tr><tr><td>TVSMOTOR</td><td>Positional</td><td>STAGE 2 / -0.15</td><td>-1.31</td><td>Rs 3,708.50 / Rs 3,823.30</td><td>EXIT REVIEW</td><td>Daily close &lt; Rs 3,823.30</td></tr><tr><td>NESTLEIND</td><td>Swing</td><td>STAGE 2 / -0.69</td><td>-1.16</td><td>Rs 1,219.50 / Rs 1,292.90</td><td>EXIT REVIEW</td><td>Daily close &lt; Rs 1,292.90</td></tr><tr><td>CUMMINSIND</td><td>Swing</td><td>STAGE 2 / -0.66</td><td>-1.73</td><td>Rs 4,495.50 / Rs 4,357.90</td><td>EXIT REVIEW</td><td>Daily close &lt; Rs 4,357.90</td></tr><tr><td>M&amp;MFIN</td><td>Swing</td><td>STAGE 1 / -1.04</td><td>-1.34</td><td>Rs 288.50 / Rs 309.20</td><td>EXIT REVIEW</td><td>Daily close &lt; Rs 309.20</td></tr><tr><td>GLAXO</td><td>Positional</td><td>STAGE 2 / -0.71</td><td>-0.30</td><td>Rs 2,389.50 / Rs 2,485.00</td><td>HOLD</td><td>Daily close &lt; Rs 2,485.00</td></tr><tr><td>AUBANK</td><td>Positional</td><td>STAGE 2 / -0.20</td><td>-3.57</td><td>Rs 912.50 / Rs 959.05</td><td>EXIT REVIEW</td><td>Daily close &lt; Rs 959.05</td></tr><tr><td>NETWEB</td><td>Positional</td><td>STAGE 2 / -0.23</td><td>+0.40</td><td>Rs 3,988.50 / Rs 4,453.00</td><td>HOLD</td><td>Daily close &lt; Rs 4,453.00</td></tr><tr><td>SYRMA</td><td>Swing</td><td>STAGE 2 / 1.00</td><td>+0.97</td><td>Rs 1,333.50 / Rs 1,657.60</td><td>TRAIL</td><td>Trail Dhan stop; close &lt; Rs 1,657.60</td></tr><tr><td>SAILIFE</td><td>Positional</td><td>STAGE 2 / -0.52</td><td>+3.05</td><td>Rs 1,303.50 / Rs 1,453.20</td><td>TRAIL</td><td>Trail Dhan stop; close &lt; Rs 1,453.20</td></tr></tbody></table></div>
+<h3>4. Concentration</h3>
+<p>The Pharma sector holds Rs 6,97,620, accounting for 36.2% of the book, which breaches the 25% sector cap. The portfolio is diversified across 18 positions and multiple industries, so it is not a single trade in disguise, but Pharma overexposure requires trimming on strength to rebalance sector risk.</p>
+<h3>5. Capital</h3>
+<p>Keep cash untouched (Rs 5,60,783) under the Bear tier exposure rule, as no new entries or adds are permitted. If thesis stops are breached and exits occur, free capital further to bring total deployed exposure down toward the 40% cap. If trims are required due to sector concentration or failed setups, execute exits starting with the deepest underwater swing positions (such as CUMMINSIND, AUBANK, and M&amp;MFIN) to claw back liquidity.</p>
+<h3>6. What would change the view</h3>
+<ul>
+<li>A confirmed Follow-Through Day or breadth thrust in Nifty 500 accompanied by a regime score lift to 3+.</li>
+<li>Broad market expansion where over 50% of stocks reclaim their 50-DMA and 52-week highs significantly outnumber lows.</li>
+</ul>
+</section>
+<footer><em>Generated by briefing_page.py from market_intel.json and Strategic_Briefing_AI.md · 2026-10-15 18:35:47.</em>
+Markdown copy: <span class="m">reports\briefing\Strategic_Briefing_20261015.md</span></footer>
+</main></div>

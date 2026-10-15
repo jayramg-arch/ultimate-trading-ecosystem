@@ -353,7 +353,18 @@ def scan_position(row: pd.Series, df_cnx_d: pd.DataFrame, df_cnx_w: pd.DataFrame
 
         ltp  = float(df_d["Close"].iloc[-1])
         atr  = _atr14(df_d)
-        stage = _weinstein_stage(df_w) if not df_w.empty else 0
+        # CANONICAL stage (15-Oct-2026): trade_class.weekly_stage = bull_screener's stateless
+        # 2x2 on CONFIRMED weeks, the definition S4 / v67 / GM / Risk Shield share. The local
+        # _weinstein_stage had the two off-diagonal cells inverted (a pullback below a RISING
+        # 30-week MA read "Stage 3 topping"), so the 16:00 scan told the book to exit names
+        # every other surface called Stage 2. Local version kept only as a fallback.
+        try:
+            import trade_class as _tc
+            stage = _tc.weekly_stage(df_d)[0]
+        except Exception:
+            stage = None
+        if stage is None:
+            stage = _weinstein_stage(df_w) if not df_w.empty else 0
         rs    = _mansfield_rs(df_w, df_cnx_w) if not df_w.empty else np.nan
 
         result["LTP"]             = round(ltp, 2)

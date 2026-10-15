@@ -57,12 +57,16 @@ def main():
     #    Strategic_Briefing_AI.md exists on disk (see generate_report_pdf.py).
     run_step("generate_report_pdf.py")
 
+    # 3b. The Library page + dated Markdown copy (15-Oct-2026): Doc 37, the briefing in the
+    #     Library's own look, and reports/briefing/Strategic_Briefing_YYYYMMDD.md.
+    run_step("briefing_page.py")
+
     # 4. Open Generated Files
     print("-" * 40)
     print("[>] Opening Artifacts...")
 
-    for f in ("Gemini_Analysis_Prompt.txt",
-              "Strategic_Briefing_AI.md",
+    for f in (os.path.join("docs", "portal", "37_strategic_briefing.html"),
+              "Gemini_Analysis_Prompt.txt",
               "Strategic_Briefing_Automated.pdf"):
         if os.path.exists(f):
             print(f"[FILE] Opening {f}...")

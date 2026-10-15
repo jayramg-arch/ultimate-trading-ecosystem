@@ -195,14 +195,23 @@ class ProReportPDF(FPDF):
         self.cell(0, 10, 'Portfolio Composition & Exposure', 0, 1)
         self.ln(2)
         
-        # Account Summary
+        # Account Summary (15-Oct-2026): "Invested Value" was the MARKET value of every name
+        # ever held. Now: invested = cost (qty x average), market value beside it, and the
+        # unrealised P&L between them - the book comes from briefing_book (live Dhan).
         cash = account.get('AvailableCash', 0)
         total_nw = total_aum + cash
-        
-        self.set_font('Arial', '', 10)
-        self.cell(50, 6, "Invested Value:", 0, 0)
-        self.set_font('Arial', 'B', 10)
-        self.cell(40, 6, self.format_indian_number(total_aum), 0, 1)
+        total_inv = sum(float(a.get('Position', {}).get('Invested') or 0) for a in assets)
+        pnl = total_aum - total_inv
+
+        for lbl, val in (("Invested (cost):", total_inv), ("Market Value:", total_aum),
+                         ("Unrealised P&L:", pnl)):
+            self.set_font('Arial', '', 10)
+            self.cell(50, 6, lbl, 0, 0)
+            self.set_font('Arial', 'B', 10)
+            txt = self.format_indian_number(val)
+            if lbl.startswith("Unrealised") and total_inv:
+                txt += f"  ({pnl / total_inv * 100:+.1f}%)"
+            self.cell(40, 6, txt, 0, 1)
         
         self.set_font('Arial', '', 10)
         self.cell(50, 6, "Available Cash:", 0, 0)

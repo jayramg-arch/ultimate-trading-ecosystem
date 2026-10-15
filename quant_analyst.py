@@ -46,9 +46,16 @@ CLIENT_ID    = os.getenv("DHAN_CLIENT_ID")
 ACCESS_TOKEN = os.getenv("DHAN_ACCESS_TOKEN")
 
 def get_dhan_balance():
+    # 15-Oct-2026: the raw .env token expires daily, so this failed silently and the
+    # briefing reported Rs 0 cash. ensure_valid_token() refreshes it (as journal_sync does).
+    # CLIENT_ID is read at import, BEFORE this module's load_dotenv() further down, so it
+    # was None unless the caller had loaded .env first - another silent Rs 0.
     try:
-        if not CLIENT_ID or not ACCESS_TOKEN: return 0.0
-        dhan = dhanhq(CLIENT_ID, ACCESS_TOKEN)
+        from dotenv import load_dotenv as _ld
+        _ld(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env"))
+        cid = CLIENT_ID or os.getenv("DHAN_CLIENT_ID")
+        if not cid: return 0.0
+        dhan = dhanhq(cid, ensure_valid_token())
         resp = dhan.get_fund_limits()
         if isinstance(resp, dict) and resp.get('status') == 'success':
             data = resp.get('data', {})
@@ -459,39 +466,16 @@ def generate_macro_narrative(macro_data):
     return geo_text, macro_text
 
 def analyze_market():
-    # 0. Sync Data & Get CSV Metadata
-    csv_metadata = sync_portfolio_json() # sync_portfolio now returns metadata
-    
-    # 0.5 Fetch live portfolio and cash to guarantee 100% accuracy in reporting
-    print("[-] Fetching live holdings from broker...")
-    live_portfolio = get_live_holdings()
+    # 0. THE BOOK (15-Oct-2026): live Dhan holdings joined to the journal's plan fields
+    # (briefing_book). This replaced portfolio.csv + portfolio_data.json, which only ever
+    # ADDED names - sold positions (RELIANCE) stayed in the report and the Gemini prompt
+    # with stale quantities, and inflated "Invested Value".
+    import briefing_book
+    book, book_src = briefing_book.load_book()
+    print(f"[-] Book: {len(book)} positions from {book_src}")
+    if not book:
+        print("[!] No open positions found - the briefing will carry macro only.")
 
-    print("[*] Launching Hybrid Intelligence Scanner...")
-
-    with open(INPUT_FILE, "r", encoding="utf-8") as f:
-        raw_data = json.load(f)
-
-    # Merge any live-broker holdings that aren't already in portfolio_data.json.
-    # Previously the analysis universe was the CSV-derived JSON only, which left
-    # the PDF + Gemini prompt showing fewer stocks than the live dashboard when
-    # the CSV was stale (user reported: dashboard 6, PDF 4). Live broker data
-    # is the ground truth — fold any missing symbols in here so every held
-    # name gets analysed and persisted into portfolio_data.json for next run.
-    if live_portfolio:
-        _added = 0
-        for _sym in live_portfolio.keys():
-            if _sym and _sym not in raw_data:
-                raw_data[_sym] = []
-                _added += 1
-        if _added:
-            print(f"[+] Added {_added} live holding(s) missing from "
-                  f"{INPUT_FILE}: {[s for s in live_portfolio if s not in csv_metadata][:8]}")
-            try:
-                with open(INPUT_FILE, "w", encoding="utf-8") as _f:
-                    json.dump(raw_data, _f, indent=4)
-            except Exception as _we:
-                print(f"[!] Could not persist merged portfolio_data.json: {_we}")
-        
     # Benchmark — _safe_history handles Yahoo chart API returning null
     print("[-] Fetching Nifty 50 Data...")
     nifty_hist = _safe_history("^NSEI", period="2y")
@@ -513,32 +497,47 @@ def analyze_market():
     
     intel_dossier = []
     
-    for symbol, lines in raw_data.items():
+    for pos in book:
+        symbol = pos["symbol"]
         print(f"[>] Analyzing: {symbol}...")
         
         try:
             ticker = get_ticker(symbol)
             stock = yf.Ticker(ticker)
 
-            # 1. Price Data — _safe_history avoids NoneType crash on Yahoo API failures
-            df = _safe_history(ticker, period="2y")
+            # 1. Price Data - Dhan first (data_provider, the house feed), Yahoo as fallback
+            df = pd.DataFrame()
+            try:
+                import data_provider as _dp
+                df = _dp.fetch_ohlcv(symbol, period="2y", interval="1d", use_cache=True)
+                df = df if df is not None else pd.DataFrame()
+            except Exception:
+                df = pd.DataFrame()
+            if df.empty:
+                df = _safe_history(ticker, period="2y")
             if df.empty: continue
             
             # 2. Fundamentals
             fund = get_fundamentals(stock)
             
-            # OVERRIDE SECTOR FROM CSV
-            if symbol in csv_metadata:
-                csv_sector = csv_metadata[symbol].get('Sector')
-                if csv_sector and "NSE:" in str(csv_sector):
-                    # Clean up "NSE:CNXAUTO" -> "Auto"
-                    clean_sec = str(csv_sector).replace("NSE:", "").replace("CNX", "")
-                    fund['Sector'] = clean_sec
-                elif csv_sector:
-                     fund['Sector'] = str(csv_sector)
-            
+            # Sector from the board's own map (sector_lookup) - yfinance returned '.' for some
+            fund['Sector'] = pos["sector"]
+
             # 3. Technical Structure
             stage, sma_wk, squeeze, vol_status = calculate_technical_structure(df)
+            # CANONICAL stage (15-Oct-2026): the shared 2x2 on confirmed weeks (trade_class),
+            # not this module's one-week slope on the forming week - the briefing had shown
+            # 12/0/1 while the exit scan and Risk Shield disagreed with it and each other.
+            try:
+                import trade_class as _tc
+                _cs = _tc.weekly_stage(df)[0]
+                if _cs in (1, 2, 3, 4):
+                    stage = {1: "STAGE 1 (BASE)", 2: "STAGE 2 (UP)", 3: "STAGE 3 (TOP)",
+                             4: "STAGE 4 (DOWN)"}[_cs]
+                else:
+                    print(f"[!] {symbol}: canonical stage unavailable - local read kept")
+            except Exception as _se:
+                print(f"[!] {symbol}: canonical stage failed ({_se}) - local read kept")
             
             # 4. Relative Strength (skipped if benchmark unavailable)
             rs_rating = 0.0
@@ -574,27 +573,42 @@ def analyze_market():
             # 7. EXPERT SYSTEM GENERATION
             thesis, context, verdict, verdict_desc, rating = generate_analyst_commentary(tech_dict, fund, dist_high)
             
-            # 8. Portfolio Details Extraction (Live API Priority > CSV Fallback)
-            qty = 0
-            entry_price = 0
-            
-            # Prefer absolute live reality
-            if symbol in live_portfolio:
-                qty = int(live_portfolio[symbol]['Qty'])
-                entry_price = float(live_portfolio[symbol]['Avg'])
-            elif symbol in csv_metadata:
-                qty = int(csv_metadata[symbol].get('Qty', 0))
-                entry_price = float(csv_metadata[symbol].get('Entry', 0))
-            
-            position_value = round(qty * cmp, 2)
-            
+            # 8. Position (15-Oct-2026): from the book - quantity and average from Dhan, plan
+            # fields from the journal. Invested = cost; CurrentValue = market value.
+            qty = float(pos["qty"] or 0)
+            entry_price = float(pos["avg"] or 0)
+            invested = round(qty * entry_price, 2)
+            position_value = round(qty * float(cmp), 2)
+            pnl = round(position_value - invested, 2)
+            pnl_pct = round(pnl / invested * 100, 2) if invested else 0.0
+            r_mult = None
+            try:
+                import risk_common as _rc
+                _atr = float(ta.atr(df['High'], df['Low'], df['Close'], length=14).iloc[-1])
+                _rs, _pol = _rc.r_unit_stop({"buy_price": entry_price, "initial_sl": pos["initial_sl"],
+                                             "timeframe": pos["plan"]}, _atr)
+                if _rs and _rs < entry_price:
+                    r_mult = round((float(cmp) - entry_price) / (entry_price - _rs), 2)
+            except Exception:
+                pass
+
             intel_dossier.append({
                 "Symbol": symbol,
                 "CMP": round(cmp, 2),
                 "Position": {
                      "Qty": qty,
-                     "AvgPrice": entry_price,
-                     "CurrentValue": position_value
+                     "AvgPrice": round(entry_price, 2),
+                     "Invested": invested,
+                     "CurrentValue": position_value,
+                     "PnL": pnl,
+                     "PnL_pct": pnl_pct,
+                     "R": r_mult,
+                     "Plan": pos["plan"],
+                     "Setup": pos["setup"],
+                     "EntryDate": pos["entry_date"],
+                     "DhanSL": pos["dhan_sl"],
+                     "ThesisSL": pos["thesis_sl"],
+                     "InitialSL": pos["initial_sl"],
                 },
                 "Technical": tech_dict,
                 "Fundamental": fund,
@@ -612,7 +626,7 @@ def analyze_market():
             })
             
             # Rate Limit Safety
-            time.sleep(4) 
+            time.sleep(1)   # yfinance fundamentals/news only now
             
         except Exception as e:
             print(f"[X] Error {symbol}: {e}")
@@ -621,7 +635,12 @@ def analyze_market():
             
     # Load Account Info via Live API
     live_cash = get_dhan_balance()
-    acc_info = {"AvailableCash": live_cash}
+    acc_info = {"AvailableCash": live_cash, "BookSource": book_src}
+    try:
+        import market_context as _mc
+        acc_info["Context"] = _mc.for_review()
+    except Exception:
+        acc_info["Context"] = ""
 
     final_output = {
         "Timestamp": time.strftime("%Y-%m-%d %H:%M:%S"),
@@ -638,154 +657,154 @@ def analyze_market():
         
     print(f"[OK] Market Intelligence Gathered. Saved to {OUTPUT_FILE}")
 
+def _inr(v, dec=0):
+    """Indian grouping: 12,34,567 (house rule). '-' for missing."""
+    try:
+        v = float(v)
+    except (TypeError, ValueError):
+        return "-"
+    neg = v < 0
+    v = abs(v)
+    s = f"{v:.{dec}f}"
+    whole, _, frac = s.partition(".")
+    if len(whole) > 3:
+        head, tail = whole[:-3], whole[-3:]
+        parts = []
+        while len(head) > 2:
+            parts.insert(0, head[-2:])
+            head = head[:-2]
+        if head:
+            parts.insert(0, head)
+        whole = ",".join(parts + [tail])
+    return ("-" if neg else "") + whole + (("." + frac) if frac else "")
+
+
 def generate_gemini_prompt_file(macro, portfolio, account):
+    """The prompt for the Strategic Daily Briefing (rewritten 15-Oct-2026).
+
+    Built for HOW THE BOOK IS RUN, not a generic hedge-fund note: every position carries its
+    plan type, Weinstein stage, R from the frozen R unit, and the three stops (Dhan disaster,
+    thesis close-exit, initial plan) plus cost vs value. The exposure rule is stated as
+    BINDING, so the model cannot recommend entries or adds the house rule forbids.
     """
-    Creates a detailed prompt file for manual Gemini Pro analysis.
-    User-defined 'Deep Research' structure.
-    """
-    timestamp = time.strftime("%Y-%m-%d %H:%M:%S")
-    
-    # 1. Prepare Macro Data Block
-    macro_block = f"""
-    - Global Risk Sentiment: {macro.get('GeoPolitical_Risk')}
-    - Indian Market Trend (Nifty 50): {macro['Nifty 50']['Trend']} ({macro['Nifty 50']['Change']}%)
-    - Volatility Index (India VIX): {macro['India VIX']['Current']}
-    - Currency (USD/INR): {macro['USD/INR']['Current']} ({macro['USD/INR']['Trend']})
-    - Key News Flow:
-    """
-    for n in macro.get('Top_News', [])[:4]:
-        macro_block += f"      * {n['Title']} ({n['Source']})\n"
+    import datetime as _dt
+    ist = _dt.datetime.utcnow() + _dt.timedelta(hours=5, minutes=30)
+    stamp = ist.strftime("%a %d %b %Y, %H:%M IST")
 
-    # 1.1 Account Context
-    cash = account.get('AvailableCash', 0)
-    acc_block = f"Available Capital for Deployment: INR {cash:,.2f}"
+    cash = float(account.get("AvailableCash") or 0)
+    invested = sum(float(i["Position"].get("Invested") or 0) for i in portfolio)
+    value = sum(float(i["Position"].get("CurrentValue") or 0) for i in portfolio)
+    pnl = value - invested
+    pnl_pct = (pnl / invested * 100) if invested else 0.0
 
-    # 2. Prepare Portfolio Data Block
-    portfolio_block = ""
-    for item in portfolio:
-        sym = item['Symbol']
-        tech = item['Technical']
-        fund = item['Fundamental']
-        pos = item['Position']
-        sent = item.get('Sentiment', {})
-        
-        # Calculate/Format Data Points
-        pe_ratio = fund.get('PE')
-        if pe_ratio is None: pe_ratio = "N/A"
-        
-        profit_growth = fund.get('ProfitGrowth')
-        if profit_growth is None: profit_growth = "N/A"
-        else: profit_growth = f"{round(profit_growth * 100, 1)}%"
+    nifty = macro.get("Nifty 50", {}) or {}
+    vix = macro.get("India VIX", {}) or {}
+    usd = macro.get("USD/INR", {}) or {}
+    news = "".join(f"\n  - {n.get('Title')} ({n.get('Source')})" for n in (macro.get("Top_News") or [])[:4])
 
-        # New Metrics
-        roe = fund.get('ROE', 'N/A')
-        roestr = f"{round(roe*100, 1)}%" if isinstance(roe, (int, float)) else "N/A"
-        
-        de = fund.get('DebtToEq', 'N/A')
-        destr = f"{round(de, 2)}" if isinstance(de, (int, float)) else "N/A"
-        
-        is_etf = "MCX" in str(fund.get('Sector')) or "ETF" in str(fund.get('Sector')) or "BEES" in str(sym) or "Index" in str(fund.get('Sector'))
+    # sector weights by market value
+    sec = {}
+    for i in portfolio:
+        k = i["Fundamental"].get("Sector") or "Unassigned"
+        sec[k] = sec.get(k, 0.0) + float(i["Position"].get("CurrentValue") or 0)
+    sec_lines = "\n".join(f"  - {k}: Rs {_inr(v)} ({v / value * 100:.1f}%)" for k, v in
+                          sorted(sec.items(), key=lambda x: -x[1])) if value else "  - none"
 
-        if is_etf:
-            portfolio_block += f"""
-    ### CONSTITUENT (ETF/INDEX): {sym}
-    - **Type**: Exchange Traded Fund / Index Tracker
-    - **Price Structure**: {tech['Stage']} | CMP: {indian_format(item['CMP'])}
-    - **Trend Support**: 30-W SMA: {indian_format(tech['Support_SMA30'])} | Dist. from 52W High: -{tech['Dist_High']}%
-    - **Relative Strength**: {tech['RS_Rating']} (vs Nifty Benchmark)
-    - **Tracking Goal**: {fund.get('Sector', 'Market Index')}
-    - **Analyst Sentiment Rating**: {sent.get('Rating', 'Hold')}
-    - **Current Exposure**: Qty: {indian_format(pos['Qty'])} | Avg Price: {indian_format(pos['AvgPrice'])}
-    - **ETP SPECIAL INSTRUCTIONS**: Analyze this as an Index/Sector proxy. Evaluate the underlying sector rotation, macroeconomic sensitivity (USD, Rates, Commodities), and tracking efficiency. Ignore traditional P/E or growth ratios for this instrument.
-    --------------------------------------------------
-    """
-        else:
-            portfolio_block += f"""
-    ### CONSTITUENT (STOCK): {sym}
-    - **Sector**: {fund.get('Sector', 'Unknown')}
-    - **Price Structure**: {tech['Stage']} | CMP: {indian_format(item['CMP'])}
-    - **Trend Support**: 30-W SMA: {indian_format(tech['Support_SMA30'])} | Dist. from 52W High: -{tech['Dist_High']}%
-    - **Relative Strength**: {tech['RS_Rating']}
-    - **Volume & Momentum**: {tech['Vol_Status']} | Squeeze: {'ACTIVE' if tech['Squeeze'] else 'None'}
-    - **Fundamental Health**: P/E: {pe_ratio} | Growth (NP): {profit_growth} | ROE: {roestr} | D/E: {destr}
-    - **Analyst Sentiment Rating**: {sent.get('Rating', 'Hold')}
-    - **Current Exposure**: Qty: {indian_format(pos['Qty'])} | Avg Price: {indian_format(pos['AvgPrice'])}
-    --------------------------------------------------
-    """
+    rows = []
+    for i in sorted(portfolio, key=lambda x: -float(x["Position"].get("CurrentValue") or 0)):
+        t, f, ps, se = i["Technical"], i["Fundamental"], i["Position"], i.get("Sentiment", {})
+        is_etf = "BEES" in i["Symbol"] or "ETF" in str(f.get("Sector", "")).upper()
+        r = ps.get("R")
+        fund = ""
+        if not is_etf:
+            pe = f.get("PE")
+            g = f.get("ProfitGrowth")
+            roe = f.get("ROE")
+            de = f.get("DebtToEq")
+            fund = (f"\n  Fundamentals: P/E {round(pe, 1) if isinstance(pe, (int, float)) else 'n/a'} | profit growth "
+                    f"{(str(round(g * 100, 1)) + '%') if isinstance(g, (int, float)) else 'n/a'} | ROE "
+                    f"{(str(round(roe * 100, 1)) + '%') if isinstance(roe, (int, float)) else 'n/a'} | D/E "
+                    f"{round(de, 2) if isinstance(de, (int, float)) else 'n/a'}")
+        rows.append(
+            f"### {i['Symbol']} - {f.get('Sector', 'Unassigned')}{' (ETF)' if is_etf else ''}\n"
+            f"  Plan: {ps.get('Plan')}{(' · setup ' + ps['Setup']) if str(ps.get('Setup') or '').upper() not in ('', 'NONE') else ''}"
+            f"{(' · entered ' + str(ps['EntryDate'])[:10]) if ps.get('EntryDate') else ''}\n"
+            f"  Position: {_inr(ps.get('Qty'))} sh @ Rs {_inr(ps.get('AvgPrice'), 2)} | invested Rs {_inr(ps.get('Invested'))}"
+            f" | value Rs {_inr(ps.get('CurrentValue'))} | P&L {ps.get('PnL_pct', 0):+.1f}%"
+            f" | R {('%+.2f' % r) if r is not None else 'n/a'}\n"
+            f"  Price: CMP Rs {_inr(i['CMP'], 2)} | {t.get('Stage')} | 30-week SMA Rs {_inr(t.get('Support_SMA30'), 2)}"
+            f" | {t.get('Dist_High')}% below the 52-week high | Mansfield RS {t.get('RS_Rating')}"
+            f" | volume {t.get('Vol_Status')}{' | squeeze' if t.get('Squeeze') else ''}\n"
+            f"  Stops: Dhan (disaster) Rs {_inr(ps.get('DhanSL'), 2)} | thesis (exit on a Daily close below)"
+            f" Rs {_inr(ps.get('ThesisSL'), 2)} | initial plan Rs {_inr(ps.get('InitialSL'), 2)}"
+            f"{fund}\n  News tone: {se.get('Rating', 'n/a')}")
+    book = "\n\n".join(rows) if rows else "(no open positions)"
 
-    # 3. Construct the Full Prompt
-    prompt = f"""
-# SYSTEM ROLE
-You are a **Senior Quantitative Analyst** at a top-tier Hedge Fund. Your mandate is to produce a "Strategic Daily Briefing" for the Chief Investment Officer (CIO). Your analysis must be data-driven, institutional in tone, and highly specific.
+    prompt = f"""# ROLE
+You are the risk-first portfolio reviewer for an independent NSE trader who runs a
+systematic Weinstein Stage 2 / relative-strength book with ATR-based stops. Write the
+Strategic Daily Briefing he reads before the open. Be specific, numerical and brief. His
+system's rules are final - you explain and apply them, you do not override them.
 
-# INPUT DATA
-## [TIMESTAMP]
-{timestamp}
+# AS OF
+{stamp} · book source: {account.get('BookSource', 'dhan')}
 
-## [ACCOUNT_INFO]
-{acc_block}
+# ACCOUNT
+- Invested (cost): Rs {_inr(invested)} | market value: Rs {_inr(value)} | unrealised P&L: Rs {_inr(pnl)} ({pnl_pct:+.1f}%)
+- Cash available: Rs {_inr(cash)} | positions: {len(portfolio)}
 
-## [MACRO_DATA]
-{macro_block}
+# MARKET
+- Nifty 50: {nifty.get('Trend')} ({nifty.get('Change')}%) | India VIX {vix.get('Current')} | USD/INR {usd.get('Current')} ({usd.get('Trend')})
+- Global risk read: {macro.get('GeoPolitical_Risk')}
+- News:{news or ' none'}
+{account.get('Context') or ''}
 
-## [PORTFOLIO_LIST]
-{portfolio_block}
+# HOUSE RULES (apply them; never contradict them)
+1. The EXPOSURE RULE above is binding. If it says no new entries or no adds, recommend none
+   - say what would have to change for that to lift.
+2. Stage: hold Stage 2; Stage 3 = review or trim; Stage 4 = exit review. Never "buy the dip"
+   on a Stage 3 or 4 name.
+3. Two-tier stop: the THESIS is exited on a Daily CLOSE below it; the Dhan stop is the
+   disaster stop for gaps. Keep the Dhan stop at least 3x ATR below price; never suggest
+   widening it beyond the initial plan without saying the risk grows.
+4. Targets are R-multiples off the initial risk: swing 2R / 4R, positional 3R / 5R. Never
+   propose a target under 2R.
+5. Sector cap 25% of the book. Risk per new trade 0.5% of capital (ETF 0.75%, add 1%).
+6. Plain text and Markdown only - no LaTeX, no $ signs. Rupees as Rs with Indian grouping.
 
-# ANALYTICAL FRAMEWORKS
-You must apply the following frameworks to the provided data:
+# SECTOR WEIGHTS (by market value)
+{sec_lines}
 
-1.  **Technical Analysis (Weinstein & Momentum)**:
-    -   Classify assets into **Stage 1 (Base)**, **Stage 2 (Uptrend)**, **Stage 3 (Top)**, or **Stage 4 (Downtrend)** based on the provided "Price Structure" and "30-Week SMA".
-    -   Use **Relative Strength (RS)** to identify leaders vs. laggards.
-    -   Flag "Squeeze Alerts" as high-potential breakout setups.
+# THE BOOK
+{book}
 
-2.  **Fundamental & ETP Analysis**:
-    -   For Stocks: Compare **P/E Ratios** against **Profit Growth** (PEG principle). Identify "Stretched", "Fair", or "Undervalued" valuations.
-    -   For ETFs: Analyze the **Sectoral Theme** momentum and its weight in the portfolio relative to macroeconomic trends.
+# OUTPUT (Markdown, these sections, in this order)
+## 1. Verdict for today
+Three sentences: the tape and the exposure rule; the book's health (how many in Stage 2 / 3 / 4,
+unrealised P&L); the single most important action today.
 
-3.  **Sentiment Composite**:
-    -   Incorporate the provided **Analyst Sentiment (Strong Buy/Buy/Hold/Sell/Strong Sell)** into the final verdict.
-    -   Factor in Volume Status (Accumulation = Bullish, Distribution = Bearish).
+## 2. Risk first
+Every position that is: below or within 1% of its thesis, under 3x ATR from its Dhan stop,
+in Stage 3 or 4, or at a loss beyond -1R. One line each: what is wrong and the level that decides it.
 
-# VISION ANALYSIS (MULTI-MODAL AUDIT)
-If I have attached a chart screenshot:
-1.  **Stage Confirmation**: Visually confirm if the price is above the 30-week SMA and if the SMA is rising (Stage 2).
-2.  **Pattern Recognition**: Identify VCP (Volatility Contraction), Cup & Handle, or Breakout patterns.
-3.  **Volume Verification**: Check for 'Institutional Footprints' (large green volume bars) during the recent rally.
-4.  **Verdict**: Provide a 'Technical Audit' score (1-10) based on the visual chart quality matched with the provided fundamental data.
+## 3. Action matrix
+| Asset | Plan | Stage / RS | R now | Stops (Dhan / thesis) | Verdict | The level or trigger |
+Verdict is one of HOLD, TRAIL, TRIM, EXIT REVIEW, ADD (only if the exposure rule allows).
 
-# OUTPUT STRUCTURE (Strict Markdown)
+## 4. Concentration
+Sectors over or near the 25% cap, and whether the book is one trade in disguise.
 
-## 1. Executive Summary
-*   **Market Narrative**: Synthesize the `[MACRO_DATA]` into a brief 3-sentence narrative on the current risk environment (Risk-On / Risk-Off).
-*   **Portfolio Health**: A quick pulse check on the `[PORTFOLIO_LIST]` (e.g., "Portfolio is heavily weighted towards Stage 2 leaders...").
+## 5. Capital
+What to do with cash today under the exposure rule (usually: nothing new until it lifts),
+and the order to free capital if trims are due.
 
-## 2. Sectoral Deep Dives
-*   Group the assets by their Sector.
-*   Provide a mini-analysis of the strongest vs. weakest sectors in the portfolio.
-
-## 3. Asset Action Matrix
-*   Create a TABLE with the following columns:
-    | Asset | Grouping | Technical Verdict | Sentiment Score (0-100) | Key Levels | Fundamental Check | Actionable Advice |
-    | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-    *   **Grouping**: Growth / Value / Momentum / defensive.
-    *   **Technical Verdict**: BUY / ACCUMULATE / HOLD / TRIM / SELL.
-    *   **Actionable Advice**: Specific instruction (e.g., "Add on dip to 1450", "Trailing Stop at 30W SMA").
-
-## 4. Investment Strategy
-*   **Allocation Shift**: Based on Macro and Techs, should we increase Cash, Aggressively Deploy, or Rotate Sectors?
-*   **Top Pick**: Identify the single highest-conviction idea from the list.
-
-# CONSTRAINTS
--   Do **NOT** provide generic advice like "do your own research". You are an analyst; give your professional opinion.
--   Be concise. Use bullet points.
--   Focus on **Risk Management** (Stop Losses) as much as Upside.
+## 6. What would change the view
+Two or three specific market or price events.
 """
-
     with open("Gemini_Analysis_Prompt.txt", "w", encoding="utf-8") as f:
         f.write(prompt)
-    
-    print("📝 Gemini Prompt File Generated: 'Gemini_Analysis_Prompt.txt'")
+    print("[OK] Gemini Prompt File Generated: 'Gemini_Analysis_Prompt.txt'")
+
 
 def sync_portfolio_json():
     """
