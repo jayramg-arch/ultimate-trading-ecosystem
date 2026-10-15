@@ -932,3 +932,25 @@ entry shadow running.
 - **AUD-OCT-14** Jay pushes.
 - **v67 ↔ Risk Shield Chandelier parity** DONE (4-Oct): one function (`risk_common.holding_chandelier`) drives the Risk Shield page and `tv_push_v67_trail.py`, which pushes window/multiplier/floor per holding plus the 25 portfolio slots into v67 (Phase 12f, Sync to TV, AFTER_COMPILE). Six swing holdings had been drawn on the positional trail, 3–12% low; verified equal after the v67.4.26 compile. Risk Allocator v2.6 brought onto house capital/cap/floor; Unified CE ATR → Wilder.
 - Watchlist cleanup `XRay_Picks` failure FIXED (4-Oct): the row selector matched the outer list container, so every delete clicked the TOP row's Remove — the XRay 'failure' was a wrong-row delete (a targeted run on XRay_Picks-30SEP26 removed Bull_Hunter-02OCT26). Row now = nearest container of the exact title, must hold one title, run aborts if any other list disappears; `NUCLEAR_ONLY=<name>` for one-list runs. Verified: the target alone was deleted.
+
+## 15 October 2026 — Consistency audit, part 1: the core numbers (Jay: "read each page for consistency")
+
+Method: inventory every place a core number is computed, measure each copy against the
+canonical one on the live book, then repoint the copies. Page-by-page review is part 2.
+
+| # | Number | Canonical | Copies found | Measured drift | Status |
+|---|---|---|---|---|---|
+| AUD-1015-01 | Weekly stage | `bull_screener.compute_weekly_stage_and_wks` via `trade_class.weekly_stage` (confirmed weeks) | exit_signal_engine `_weinstein_stage`, quant_analyst `calculate_technical_structure` (technical_enrichment / recovery / etf already delegate) | exit scan had the off-diagonal cells INVERTED: AUBANK/BAJFINANCE/CUMMINSIND/NESTLEIND "Stage 3", COALINDIA/M&MFIN "Stage 4" vs canonical 2/2/2/2/1/1 | FIXED 579d9868 (copies kept as fallback) |
+| AUD-1015-02 | RS | JdK RS-Ratio − 100, strike_cal, confirmed weeks (`gm_trigger_board.rrg_live` now returns `rs`/`mom`) | exit_signal_engine `_mansfield_rs`, quant_analyst (vs Nifty 50, ×10) | sign disagreed on M&MFIN (−2.44 vs +6.69) and NESTLEIND → two false "RS FADE" actions | FIXED 2b274112 |
+| AUD-1015-03 | R multiple | `risk_common.r_unit_stop` (initial_sl, else policy 1.5×/4× ATR) | exit scan + Risk Shield tile used the LIVE stop | trailed stops above entry → SAILIFE 34,255R, ANANDRATHI +0.00R | FIXED f32672a8 |
+| AUD-1015-04 | ATR(14) | Wilder (S4 `ta.atr`, `bull_screener.compute_atr`) | `ai_risk_manager.get_atr` (simple mean, 1 month), exit `_atr14` (span-14 EMA) | up to 19% (ANANDRATHI 65.75 vs 55.19) — drives the 3×ATR Rec Dhan SL | FIXED 22ea83c7 |
+| AUD-1015-05 | Book (holdings) | live Dhan holdings + journal plan fields (`briefing_book`) | quant_analyst read portfolio.csv + an append-only portfolio_data.json | RELIANCE and other sold names in the briefing; "Invested" = stale market value | FIXED 579d9868 |
+| AUD-1015-06 | Cash | `get_fund_limits` with `ensure_valid_token` | quant_analyst read CLIENT_ID before load_dotenv | cash ₹0 vs ₹5,60,783 | FIXED 579d9868 |
+| AUD-1015-07 | Recommended stop | `house_policy.rec_dhan_stop` (3×ATR) | Risk Shield purple "Rec SL (4×ATR from LTP)" = entry formula, mislabelled | two different "recommended stops" | FIXED 4448b65b |
+| AUD-1015-08 | Exit rule | Risk Shield ladder | exit scan "below entry in Bear regime → EXIT_FULL" | fired on 11/18 | SOFTENED to REVIEW 1d34138e (Jay) |
+
+### Open (not fixed)
+- **AUD-1015-09 Long-running processes cache the token at import.** `sniper_trigger`, `master_portfolio_sync`, `portfolio_rotation_guard`, `telegram_sentinel` read `DHAN_ACCESS_TOKEN` once. The 08:00 refresh rewrites `.env`, so a script started later is fine; Web Commander running across the next refresh holds yesterday's token in those modules. Fix: read through `dhan_auth.ensure_valid_token()` at call time.
+- **AUD-1015-10 Weekly bars with the forming week.** `technical_enrichment._weekly_stage` fetches `1wk` bars (forming week included) while the canonical drops it — mid-week the matcher CSV Stage can differ from the board's. Fix: use `trade_class.weekly_stage` on the daily frame.
+- **AUD-1015-11** `ai_grading_engine.get_weinstein_score` defaults `stage="Stage 2"` when not passed — check callers pass the real stage.
+- Part 2 (page by page): Dashboard, Risk Shield, Journal, Golden Matcher, Portfolio, Action Center, Command, Macro/Breadth, AI Lab — each menu option's outputs read against the canonical numbers above.
