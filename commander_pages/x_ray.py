@@ -47,7 +47,7 @@ if True:
             st.button("🔄 Sync with TV", on_click=sync_tv_symbol_xray, help="Auto-read symbol from open TradingView", use_container_width=True, key="xr_sync_btn")
             
             if "xr_sym_input" not in st.session_state:
-                st.session_state["xr_sym_input"] = st.session_state.get("xr_symbol", "RELIANCE.NS")
+                st.session_state["xr_sym_input"] = st.session_state.get("xr_symbol", default_research_symbol())
                 
             _xr_sym = st.text_input(
                 "NSE Symbol", 

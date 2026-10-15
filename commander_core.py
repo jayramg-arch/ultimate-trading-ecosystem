@@ -1988,3 +1988,22 @@ def _rs_risk_drift(entry, initial, disaster, qty):
                 f'+{pct:.0f}%</span>' + (f' <span style="color:var(--faint);">(+₹{format_inr_int(extra)})</span>' if extra > 0 else ""))
     return (f' · Risk vs initial SL: <span style="font-family:JetBrains Mono;color:var(--bull);font-weight:bold;">'
             f'{pct:.0f}%</span>')
+
+
+def default_research_symbol() -> str:
+    """The symbol research pages open on (AUD-1015-19): the largest OPEN holding by cost.
+    TV Sidecar, X-Ray and Fundamentals defaulted to RELIANCE.NS - a name sold in July."""
+    try:
+        import sqlite3 as _sq
+        import journal_path as _jp
+        con = _sq.connect(_jp.JOURNAL_DB)
+        try:
+            r = con.execute("SELECT symbol FROM journal WHERE UPPER(status)='OPEN' "
+                            "AND symbol NOT LIKE 'LIQUID%' ORDER BY quantity * buy_price DESC LIMIT 1").fetchone()
+        finally:
+            con.close()
+        if r and r[0]:
+            return str(r[0]).strip().upper() + ".NS"
+    except Exception:
+        pass
+    return "NIFTYBEES.NS"

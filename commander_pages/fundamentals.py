@@ -15,7 +15,7 @@ if True:
         _fd_col1, _fd_col2 = st.columns([2, 4])
         with _fd_col1:
             _fd_sym = st.text_input(
-                "NSE Symbol", value=st.session_state.get("fd_symbol","RELIANCE.NS"),
+                "NSE Symbol", value=st.session_state.get("fd_symbol", default_research_symbol()),
                 key="fd_sym_input", placeholder="e.g. INFY.NS, TCS.NS"
             ).strip().upper()
             if _fd_sym and not _fd_sym.endswith(".NS"):

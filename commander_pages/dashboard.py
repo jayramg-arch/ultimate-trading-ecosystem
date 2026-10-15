@@ -234,11 +234,14 @@ if True:
             try:
                 import sector_lookup as _hm_sl
                 def _hm_sec(row):
+                    # AUD-1015-18: the board's sector map first, the journal column as fallback
+                    rec = _hm_sl.get_sector(row.get('Symbol', ''))
+                    if rec and (rec.get('display_name') or rec.get('sector_name')):
+                        return rec.get('display_name') or rec.get('sector_name')
                     cur = str(row.get('Sector', '') or '').strip()
                     if cur and cur.lower() not in ('', 'nan', 'unassigned', 'other', 'unknown'):
                         return cur
-                    rec = _hm_sl.get_sector(row.get('Symbol', ''))
-                    return (rec.get('display_name') or rec.get('sector_name')) if rec else 'Unassigned'
+                    return 'Unassigned'
                 hmap['Sector'] = hmap.apply(_hm_sec, axis=1)
             except Exception:
                 hmap['Sector'] = hmap['Sector'].fillna("Unassigned").replace("", "Unassigned")

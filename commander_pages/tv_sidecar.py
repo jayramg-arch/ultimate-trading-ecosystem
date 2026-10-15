@@ -65,7 +65,7 @@ if True:
             auto_sync_tv_symbol()
         
         if "tv_sym_input" not in st.session_state:
-            st.session_state["tv_sym_input"] = st.session_state.get("tv_symbol", "RELIANCE.NS")
+            st.session_state["tv_sym_input"] = st.session_state.get("tv_symbol", default_research_symbol())
             
         _tv_sym = st.text_input(
             "Symbol", 
@@ -306,6 +306,18 @@ if True:
                 "Stage 4 — Declining 🔴" if not _ws_above200 and _ws_sma200slp < 0 else
                 "Stage 3 — Topping 🟠"
             )
+            # CANONICAL stage (AUD-1015-20): the weekly 2x2 on confirmed weeks that S4 / the
+            # board / Risk Shield use; the 200-day proxy above is kept only as a fallback.
+            try:
+                import trade_class as _tc_tv
+                import data_provider as _dp_tv2
+                _cst_tv = _tc_tv.weekly_stage(_dp_tv2.fetch_ohlcv(str(_tv_sym).replace(".NS", ""),
+                                                                  period="2y", interval="1d", use_cache=True))[0]
+                if _cst_tv in (1, 2, 3, 4):
+                    _ws_stage = {1: "Stage 1 — Basing 🟡", 2: "Stage 2 — Advancing 🟢",
+                                 3: "Stage 3 — Topping 🟠", 4: "Stage 4 — Declining 🔴"}[_cst_tv]
+            except Exception:
+                pass
             _ws_c1, _ws_c2, _ws_c3, _ws_c4 = st.columns(4)
             _ws_c1.metric("Stage",          _ws_stage.split("—")[0].strip())
             _ws_c2.metric("Weinstein Score", f"{_ws_score}/80")

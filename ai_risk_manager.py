@@ -209,12 +209,18 @@ def analyze_sector_concentration(df):
     try:
         import sector_lookup as _sl
         def _enrich(row):
+            # AUD-1015-18: the board's sector map FIRST, the journal's free-text column
+            # only as a fallback. The journal held 'NSE:CNXENERGY', 'Healthcare' (an ETF),
+            # blanks and IKS = Pharma, so the same book read 29% Pharma here and 36% in
+            # the briefing.
             cur = str(row.get('Sector', '') or '').strip()
-            if cur and cur.lower() not in ('', 'nan', 'unassigned', 'other', 'unknown'):
-                return cur
             sym = row.get('Symbol', '')
             rec = _sl.get_sector(sym) if sym else None
-            return (rec.get('display_name') or rec.get('sector_name')) if rec else (cur or 'Unassigned')
+            if rec and (rec.get('display_name') or rec.get('sector_name')):
+                return rec.get('display_name') or rec.get('sector_name')
+            if cur and cur.lower() not in ('', 'nan', 'unassigned', 'other', 'unknown'):
+                return cur
+            return 'Unassigned'
         df['Sector'] = df.apply(_enrich, axis=1)
     except Exception:
         df['Sector'] = df['Sector'].fillna('Unassigned').replace('', 'Unassigned')

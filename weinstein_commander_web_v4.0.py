@@ -232,7 +232,7 @@ from commander_core import (  # moved verbatim 25-Sep-2026 - see commander_core.
     _gm_use_pivot_zones, _gm_loc_htf_only, trend_grade, trend_grade_inputs, _gm_zone_rungs, _grade, _house_initial_stop, _plan_structural_sl,
     _range_bar, _rec_cfg, _s4_rv, _sb_cls, _stg_digit,
     clean_symbol, compute_decision, compute_portfolio_analytics, compute_recovery_workflow, compute_workflow,
-    fnum, format_inr, format_inr_int, get_dhan_balance, get_dhanhq_client,
+    default_research_symbol, fnum, format_inr, format_inr_int, get_dhan_balance, get_dhanhq_client,
     get_img_as_base64, get_live_holdings_stats, get_script_path, get_sector, inr,
     load_closed_trades_db, load_journal_db, logger, minervini_checks, render_pa_banner,
     yf_symbol,

@@ -954,3 +954,21 @@ canonical one on the live book, then repoint the copies. Page-by-page review is 
 - **AUD-1015-10 — FIXED (`trade_class.weekly_stage` first).** Weekly bars with the forming week. `technical_enrichment._weekly_stage` fetches `1wk` bars (forming week included) while the canonical drops it — mid-week the matcher CSV Stage can differ from the board's. Fix: use `trade_class.weekly_stage` on the daily frame.
 - **AUD-1015-11 — CLOSED, no effect:** the `stage` argument is never read inside the function. `ai_grading_engine.get_weinstein_score` defaults `stage="Stage 2"` when not passed — check callers pass the real stage.
 - Part 2 (page by page): Dashboard, Risk Shield, Journal, Golden Matcher, Portfolio, Action Center, Command, Macro/Breadth, AI Lab — each menu option's outputs read against the canonical numbers above.
+
+### Part 2 — pages (15 Oct, evening). Method: every page rendered headless; headline numbers compared across pages and against the canonical definitions; each page swept for private stage / RS / ATR / price / format logic.
+| # | Page | Finding | Status |
+|---|---|---|---|
+| AUD-1015-12 | Risk Shield, TV Sidecar | private simple-mean ATR (feeds "N×ATR", trade-type rung 3, policy R) | FIXED 99b5156f (Wilder) |
+| AUD-1015-13 | AI Lab, TV Sidecar | prices straight from yfinance | FIXED 99b5156f (house feed first) |
+| AUD-1015-14 | Risk Shield | "Market Persona" stage from a daily 200-SMA proxy: 12/4/2 vs canonical 16/2/0 | FIXED 99b5156f |
+| AUD-1015-15 | Journal | Win rate mixed OPEN positions into the closed rate (28.7% vs Autopsy 27.4%) | FIXED 99b5156f (closed-only, labelled) |
+| AUD-1015-16 | Journal | `journal_core.format_inr` grouped the minus sign: "₹-,44,394" | FIXED 99b5156f |
+| AUD-1015-17 | 10 pages | 101 rupee values in Western grouping (₹1,928,111) | FIXED 99b5156f |
+| AUD-1015-18 | Dashboard heatmap, Journal concentration | journal free-text sector first (NSE:CNXENERGY, "Healthcare" ETF, blanks, IKS = Pharma) → Pharma 29% vs 36% | FIXED: board map (sector_lookup) first |
+| AUD-1015-19 | TV Sidecar, X-Ray, Fundamentals | defaulted to RELIANCE.NS (sold) | FIXED: largest open holding |
+| AUD-1015-20 | TV Sidecar | private 200-day stage ("Stage 4") | FIXED: canonical stage |
+
+### Open questions for Jay
+- **Legacy "Mobile / Standalone" pages** (`pages/1_home`, `2_xray`, `3_journal`, `4_autopsy`, linked in the sidebar) are older parallel copies with their own formatters, token reads and stats (3_journal still prints "₹-,44,394"). Retire them (the GM has `?mobile=1`), or bring them onto the shared code?
+- **IKS sector**: the board map says Nifty IT; the journal said Pharma. Healthcare-services business — confirm which bucket the 25% cap should count it in.
+- **Hunter → X-Ray tab** results are from 11 Jul: click-to-run, not in the auto-pilot (the board computes X-Ray live). Add it to the auto-pilot, or leave on demand?
