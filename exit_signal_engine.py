@@ -132,15 +132,18 @@ def recommend_actions(buy_price: float, stop_loss: float, ltp: float,
         return out
 
     # v2.3 E-2: in extreme bear regime, positions below entry = full exit
+    # 15-Oct-2026 (Jay): SOFTENED from EXIT_FULL to a REVIEW flag. It fired on 11 of 18
+    # holdings and Risk Shield's ladder has no such rule, so the two disagreed. The exits
+    # that ARE rules - stop breach, Stage 4, a Daily close below the thesis - still decide.
     if exit_below_entry and ltp < buy_price:
         out.append({
-            "action":       "EXIT_FULL",
-            "qty_pct":      100,
+            "action":       "REVIEW",
+            "qty_pct":      0,
             "new_sl":       None,
             "trail_method": None,
-            "reason":       (f"Position below entry in Bear regime "
+            "reason":       (f"Below entry in a Bear regime "
                             f"(regime={_regime.get('regime_score', '?')}/10) "
-                            f"-- exit fully to preserve capital."),
+                            f"-- review: is the thesis intact? Exit on the thesis close or the stop, not on this flag."),
         })
         return out
 
@@ -428,10 +431,13 @@ def scan_position(row: pd.Series, df_cnx_d: pd.DataFrame, df_cnx_w: pd.DataFrame
                 # If only the recommender fired (e.g. price hit 1R) flag for review.
                 # 15-Oct-2026: REPLACE the "All clear" placeholder rather than append to
                 # it - the table read "All clear | exit fully" on ten positions.
-                result["Exit_Flag"] = "ACTION"
+                # A REVIEW-only recommendation (the softened bear-regime rule) raises its own
+                # REVIEW flag - shown on the Dashboard, NOT pushed to Telegram as an action.
+                _review_only = all(r.get("action") == "REVIEW" for r in recs)
+                result["Exit_Flag"] = "REVIEW" if _review_only else "ACTION"
                 result["Exit_Reasons"] = [r for r in result["Exit_Reasons"] if "All clear" not in r]
                 result["Exit_Reasons"].append(
-                    "📌 " + recs[0]["reason"]
+                    ("🔎 " if _review_only else "📌 ") + recs[0]["reason"]
                 )
 
     except Exception as e:

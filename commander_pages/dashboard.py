@@ -189,7 +189,20 @@ if True:
                                     unsafe_allow_html=True,
                                 )
                 else:
-                    st.success(f"✅ All {len(_hold_df)} positions healthy — no exit signals triggered.")
+                    st.success(f"✅ No exit actions on {len(_hold_df)} positions.")
+                # REVIEW rows (15-Oct-2026): below entry in a Bear regime - a question to ask
+                # of the thesis, not an exit. Listed so they are seen, never counted as actions.
+                _review_df = _exit_cached[_exit_cached["Exit_Flag"] == "REVIEW"]
+                if not _review_df.empty:
+                    st.markdown(
+                        f'<div style="background:var(--warn-bg);border-left:3px solid var(--warn);padding:8px 12px;'
+                        f'border-radius:4px;margin:8px 0;"><strong style="color:var(--warn);">🔎 {len(_review_df)} '
+                        f'to review</strong> <span style="color:var(--ink-2);">— below entry in a Bear regime. Exit on '
+                        f'the thesis close or the stop, not on this flag.</span></div>', unsafe_allow_html=True)
+                    _rv = _review_df[[c for c in ("Symbol", "LTP", "R_Multiple", "Weinstein_Stage") if c in _review_df.columns]].copy()
+                    if "R_Multiple" in _rv.columns:
+                        _rv["R_Multiple"] = _rv["R_Multiple"].apply(lambda x: f"{x:+.1f}R" if pd.notna(x) else "—")
+                    st.dataframe(_rv, use_container_width=True, hide_index=True)
             elif _exit_cached is not None:
                 st.info("No open positions to scan.")
 
