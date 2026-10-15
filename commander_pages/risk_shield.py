@@ -5,6 +5,74 @@
 # commander_pages.run('risk_shield', globals()), so it sees exactly the globals it saw inline.
 # The body stays under `if True:` so no line was re-indented. Edit the page HERE.
 if True:
+    # ── V67 LEVELS ON THE TIMELINE (15-Oct-2026, Jay: "v67 shows Thesis SL, Recommended SL,
+    # Trail SL, Disaster SL, T1 and T2 - why are they not replicated to the Risk Shield?").
+    # Thesis and Initial come from the journal; the Rec Dhan SL is house_policy.rec_dhan_stop
+    # with the Noise Watchdog's ATR - the SAME call tv_push_v67_trail makes, so the chart and
+    # this page cannot show two different recommended stops. It REPLACES the old purple
+    # "Rec SL (4.0xATR)", which was the entry-stop formula and answered a different question.
+    def _rs_v67_levels(sym, ltp, qty, jov):
+        out = {"thesis": None, "thesis_sup": False, "initial": None,
+               "rec": None, "rec_qty": None, "rec_x": False, "rec_note": ""}
+        jov = jov or {}
+        stop = jov.get("stoploss")
+        th, ini = jov.get("thesis_sl"), jov.get("initial_sl")
+        if th and th > 0 and not (stop and abs(th - stop) <= 0.0005 * stop):
+            out["thesis"], out["thesis_sup"] = th, bool(stop and th < stop)
+        if ini and ini > 0:
+            out["initial"] = ini
+        try:
+            from ai_risk_manager import get_atr as _ga_v
+            _atr_v = _ga_v(sym)
+            if ltp and _atr_v and _atr_v > 0:
+                _r = _HP.rec_dhan_stop(ltp, stop, _atr_v, qty)
+                if _r:
+                    out["rec"], out["rec_qty"] = _r[0], _r[1]
+                elif stop:
+                    out["rec_note"] = f"Dhan stop already {(ltp - stop) / _atr_v:.1f}×ATR below LTP (≥3×)"
+        except Exception as _e_v:
+            out["rec_note"] = "Rec Dhan SL n/a"
+        return out
+
+    def _rs_v67_markers(lv, bar_min, bar_range):
+        h = ""
+        if not bar_range or bar_range <= 0:
+            return h
+        def _p(v):
+            return (v - bar_min) / bar_range * 100
+        if lv.get("initial"):
+            h += (f'<div style="position:absolute;left:{_p(lv["initial"]):.1f}%;top:-3px;width:14px;height:14px;'
+                  f'border:2px solid #9CA3AF;background:transparent;border-radius:50%;transform:translateX(-50%);z-index:3;" '
+                  f'title="Initial SL ₹{lv["initial"]:,.2f}"></div>')
+        if lv.get("thesis"):
+            h += (f'<div style="position:absolute;left:{_p(lv["thesis"]):.1f}%;top:-2px;width:12px;height:12px;'
+                  f'background:#F97316;border-radius:50%;transform:translateX(-50%);z-index:4;" '
+                  f'title="Thesis SL ₹{lv["thesis"]:,.2f}{" (below the hard SL - superseded)" if lv.get("thesis_sup") else " - close below = exit"}"></div>')
+        if lv.get("rec"):
+            h += (f'<div style="position:absolute;left:{_p(lv["rec"]):.1f}%;top:-2px;width:12px;height:12px;'
+                  f'background:#D946EF;border-radius:50%;transform:translateX(-50%);z-index:4;" '
+                  f'title="Rec Dhan SL (3×ATR) ₹{lv["rec"]:,.2f}"></div>')
+        return h
+
+    def _rs_v67_text(lv):
+        def _m(v):   # paise matter on a sub-100 ETF
+            return f"{v:,.2f}" if v < 100 else f"{v:,.0f}"
+        parts = []
+        if lv.get("rec"):
+            q = f' · same risk: {int(lv["rec_qty"])} sh' if lv.get("rec_qty") else ""
+            parts.append(f'Rec Dhan SL (3×ATR): <span style="color:#D946EF;font-weight:bold;">₹{_m(lv["rec"])}</span>'
+                         f'<span style="color:var(--faint);font-size:0.72rem;">{q}</span>')
+        elif lv.get("rec_note"):
+            parts.append(f'<span style="color:var(--faint);">{lv["rec_note"]}</span>')
+        if lv.get("thesis"):
+            parts.append(f'Thesis: <span style="color:#F97316;font-weight:bold;">₹{_m(lv["thesis"])}</span>'
+                         + (' <span style="color:var(--faint);font-size:0.72rem;">(superseded)</span>' if lv.get("thesis_sup") else ""))
+        if lv.get("initial"):
+            parts.append(f'Initial: <span style="color:#9CA3AF;font-weight:bold;">₹{_m(lv["initial"])}</span>')
+        return " | ".join(parts)
+
+    _RS_TRACK = "background:#64748B;border:1px solid #94A3B8"
+
     st.markdown('<div class="page-title">🛡️ Risk Shield — Risk Management & Entries</div>', unsafe_allow_html=True)
     st.markdown('<div class="page-desc">Live monitoring of OCO exits, pullback entries, and unprotected holdings from Dhan GTT orders.</div>', unsafe_allow_html=True)
 
@@ -564,6 +632,8 @@ if True:
                                 # frozen R unit (13-Oct-2026): the first stop below entry,
                                 # never updated by the nightly Dhan sync.
                                 "initial_sl": float(r.get("Initial SL")) if pd.notna(r.get("Initial SL", None)) else None,
+                                # THESIS (15-Oct-2026): the close-basis exit, drawn on the timeline
+                                "thesis_sl": float(r.get("Thesis SL")) if pd.notna(r.get("Thesis SL", None)) else None,
                                 # entry date anchors the Chandelier at entry (7-Oct-2026)
                                 "entry_date": (r.get("EntryDate") if pd.notna(r.get("EntryDate", None)) else
                                                r.get("Entry Date") if pd.notna(r.get("Entry Date", None)) else None),
@@ -2152,6 +2222,7 @@ if True:
                                     rec_t1 = None
                                     rec_t2 = None
                                     rec_line = ""
+                                    _lv1 = {}   # v67 levels, reset per holding (15-Oct-2026)
 
                                     if ltp and atr_val and atr_val == atr_val and atr_val > 0:
                                         # ONE target policy (10-Aug-2026, Jay: "the Rec SL below the
@@ -2202,7 +2273,14 @@ if True:
                                         # Rec SL is LTP - sl_mult x ATR by construction, so naming the multiple makes
                                         # the basis explicit rather than leaving a bare number to compare
                                         # against the entry-relative hard SL beside it.
-                                        rec_line = f'<div style="font-size:0.78rem;margin-top:8px;color:var(--ink-2);">Rec SL: <span style="color:#C084FC;font-weight:bold;">₹{atr_sl:,.0f}</span> <span style="color:var(--faint);font-size:0.72rem;">({sl_mult:.1f}×ATR from LTP)</span>{t1_str}{t2_str}</div>'
+                                        # 15-Oct-2026: the purple "Rec SL (4xATR)" is gone - it was the
+                                        # ENTRY-stop formula (anchored at entry, though labelled "from
+                                        # LTP"). The stop to type into Dhan is v67's 3xATR Rec Dhan SL.
+                                        _lv1 = _rs_v67_levels(sym, ltp, (_held_qty or total_qty or None),
+                                                              journal_overrides.get(sym, {}) if isinstance(journal_overrides, dict) else {})
+                                        _lvtxt1 = _rs_v67_text(_lv1)
+                                        _t12 = (t1_str + t2_str).lstrip(" |")
+                                        rec_line = f'<div style="font-size:0.78rem;margin-top:8px;color:var(--ink-2);">{_lvtxt1}{(" | " if _lvtxt1 and _t12 else "") + _t12}</div>'
                                             
                                     if ltp:
                                         ema20 = _tech.get("ema20") if _tech else None
@@ -2212,7 +2290,9 @@ if True:
                                         all_lows = []
                                         if sl_vals: all_lows.extend(sl_vals)
                                         if buy_price: all_lows.append(buy_price)
-                                        if atr_sl: all_lows.append(atr_sl)
+                                        _lv1x = _lv1 or {}
+                                        for _k1 in ("thesis", "initial", "rec"):
+                                            if _lv1x.get(_k1): all_lows.append(_lv1x[_k1])
                                         if ema20: all_lows.append(ema20)
                                         chandelier = _tech.get("chandelier_exit") if _tech else None
                                         if chandelier: all_lows.append(chandelier)
@@ -2257,9 +2337,7 @@ if True:
                                                     markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:4px;height:20px;background:var(--bear);border-radius:1px;transform:translateX(-50%);box-shadow:0 0 8px #EF4444;" title="Time Stop HIT! Held {days_held}d (0.5R = ₹{time_stop_price:,.2f})"></div>'
                                                 else:
                                                     markers_html += f'<div style="position:absolute;left:{ts_pos:.1f}%;top:-6px;width:3px;height:20px;background:var(--warn);border-radius:1px;transform:translateX(-50%);" title="Time Stop (0.5R) ₹{time_stop_price:,.2f}"></div>'
-                                            if atr_sl:
-                                                atr_pos = (atr_sl - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{atr_pos:.1f}%;top:-2px;width:12px;height:12px;background:#C084FC;border-radius:50%;transform:translateX(-50%);" title="AI Rec SL ₹{atr_sl:,.0f}"></div>'
+                                            markers_html += _rs_v67_markers(_lv1x, bar_min, bar_range)
                                             for sv in sl_vals:
                                                 pos = (sv - bar_min) / bar_range * 100
                                                 markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:var(--bear);border-radius:50%;transform:translateX(-50%);" title="SL ₹{sv:,.0f}"></div>'
@@ -2280,7 +2358,7 @@ if True:
                                                 t2_pos = (rec_t2 - bar_min) / bar_range * 100
                                                 markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--warn);border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
                                                 
-                                            progress_bar_html = f'<div style="width:100%;background: var(--surface-2);height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                            progress_bar_html = f'<div style="width:100%;{_RS_TRACK};height:6px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
 
                                     # Trail SL recommendation
                                     reco_parts = []
@@ -2508,7 +2586,9 @@ if True:
                                         if bp and atr_val:
                                             time_stop_price = bp + (0.5 * atr_val * sl_mult)
                                         
-                                        bar_min_vals = [rec_sl, bp, ltp] + ([ema20] if ema20 else [])
+                                        _lv2 = _rs_v67_levels(sym, ltp, None,
+                                                              journal_overrides.get(sym, {}) if isinstance(journal_overrides, dict) else {})
+                                        bar_min_vals = [bp, ltp] + ([ema20] if ema20 else []) +                                             [_lv2[_k2] for _k2 in ("thesis", "initial", "rec") if _lv2.get(_k2)]
                                         bar_max_vals = [rec_t2, bp, ltp] + ([ema20] if ema20 else [])
                                         if time_stop_price:
                                             bar_min_vals.append(time_stop_price)
@@ -2542,8 +2622,7 @@ if True:
                                             entry_pos = (bp - bar_min) / bar_range * 100
                                             markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--faint);border-radius:50%;transform:translateX(-50%);" title="Entry ₹{bp:,.0f}"></div>'
                                             
-                                            sl_pos = (rec_sl - bar_min) / bar_range * 100
-                                            markers_html += f'<div style="position:absolute;left:{sl_pos:.1f}%;top:-3px;width:14px;height:14px;background:#C084FC;border-radius:50%;transform:translateX(-50%);" title="Rec SL ₹{rec_sl:,.0f}"></div>'
+                                            markers_html += _rs_v67_markers(_lv2, bar_min, bar_range)
                                             
                                             ltp_pos = (ltp - bar_min) / bar_range * 100
                                             markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#38BDF8;border:2px solid var(--surface);border-radius:50%;transform:translateX(-50%);box-shadow:0 0 8px #38BDF8;" title="LTP ₹{ltp:,.0f}"></div>'
@@ -2554,7 +2633,7 @@ if True:
                                             t2_pos = (rec_t2 - bar_min) / bar_range * 100
                                             markers_html += f'<div style="position:absolute;left:{t2_pos:.1f}%;top:-3px;width:14px;height:14px;background:var(--bull);border-radius:50%;transform:translateX(-50%);" title="Rec T2 ₹{rec_t2:,.0f}"></div>'
                                             
-                                        pb_html = f'<div style="width:100%;background: var(--surface-2);height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                        pb_html = f'<div style="width:100%;{_RS_TRACK};height:6px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
                                         
                                         badge_html = _rs_type_badge(tt_label, _tt_src)
                                         
@@ -2565,7 +2644,8 @@ if True:
                                                 return ''
                                             return f' <span style="color:var(--faint)">({(t - _px) / _rk:.1f}R)</span>'
                                         t1_str = f' | Rec T1: <span style="color:var(--bull);font-weight:bold;">₹{rec_t1:,.0f}</span>{_rr(rec_t1)}' if rec_t1 else ''
-                                        rec_line = f'<div style="font-size:0.78rem;color:var(--ink-2);margin-top:6px;line-height:1.6;">Rec SL: <span style="color:#C084FC;font-weight:bold;">₹{rec_sl:,.0f}</span>{t1_str} | Rec T2: <span style="color:var(--bull);font-weight:bold;">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}</div>'
+                                        _lvtxt2 = _rs_v67_text(_lv2)
+                                        rec_line = f'<div style="font-size:0.78rem;color:var(--ink-2);margin-top:6px;line-height:1.6;">{_lvtxt2}{" | " if _lvtxt2 else ""}{t1_str.lstrip(" |")}{" | " if t1_str else ""}Rec T2: <span style="color:var(--bull);font-weight:bold;">₹{rec_t2:,.0f}</span>{_rr(rec_t2)}</div>'
                                     elif bp and ltp:
                                         ema20 = _tech.get("ema20") if _tech else None
                                         
@@ -2593,7 +2673,7 @@ if True:
                                             markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--faint);border-radius:50%;transform:translateX(-50%);" title="Entry ₹{bp:,.0f}"></div>'
                                             ltp_pos = (ltp - bar_min) / bar_range * 100
                                             markers_html += f'<div style="position:absolute;left:{ltp_pos:.1f}%;top:-4px;width:16px;height:16px;background:#38BDF8;border:2px solid var(--surface);border-radius:50%;transform:translateX(-50%);box-shadow:0 0 8px #38BDF8;" title="LTP ₹{ltp:,.0f}"></div>'
-                                        pb_html = f'<div style="width:100%;background: var(--surface-2);height:8px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
+                                        pb_html = f'<div style="width:100%;{_RS_TRACK};height:6px;border-radius:4px;position:relative;margin:18px 0 14px 0;">{markers_html}</div>'
                                 
                                     expand_btn = '<label class="expand-btn" title="Toggle Fullscreen" style="cursor:pointer;float:right;margin-top:-5px;color:var(--faint);">⛶<input type="checkbox" class="expand-toggle" style="display:none;"></label>'
                                     ai_key = f"ai_unprotected_review_{sym}"
