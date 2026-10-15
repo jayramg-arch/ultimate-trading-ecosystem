@@ -258,6 +258,10 @@ def render(items: list[dict]) -> str:
     src_n = {k: sum(1 for i in items if i["source"] == k) for k in ("s4-alert", "manual", "board/cli", "board", "cli")}
     nogo = sum(1 for i in items if not i["s4go"])
     agreed = sum(1 for i in items if i["agreed"].lower() in ("y", "yes", "1", "true"))
+    # The number that means something (15-Oct-2026, Jay): of the TAKE / TAKE-reduced rulings,
+    # how many he actually took. A skip on WAIT/PASS is automatic and says nothing.
+    take_rows = [i for i in items if i["rclass"] in ("take", "reduced")]
+    took = sum(1 for i in take_rows if i["my_call"].upper().startswith("TAKEN"))
     out = ['<meta charset="utf-8"><title>The Reviewer Log</title>',
            '<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>',
            '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;1,6..72,400&display=swap">',
@@ -268,11 +272,11 @@ def render(items: list[dict]) -> str:
            '<div class="counts"><div class="count"><b>%d</b><span>Reviews</span></div><div class="count"><b>%d</b><span>Days</span></div>'
            '<div class="count"><b>%d</b><span>Take</span></div><div class="count"><b>%d</b><span>Take · reduced</span></div>'
            '<div class="count"><b>%d</b><span>Wait</span></div><div class="count"><b>%d</b><span>Pass / No trade</span></div>'
-           '<div class="count"><b>%d</b><span>Marked by Jay (rest = skipped)</span></div>%s'
+           '<div class="count"><b>%d</b><span>Marked TAKEN by Jay (rest = skipped)</span></div>%s'
            '<div class="count"><b>%d</b><span>From S4 alerts</span></div><div class="count"><b>%d</b><span>Board / CLI / manual</span></div>'
            '<div class="count"><b>%d</b><span>S4 not GO at read</span></div></div></div></header>'
            % (n, len(days), tally["take"], tally["reduced"], tally["wait"], tally["pass"] + tally["notrade"], scored,
-              ('<div class="count"><b>%d</b><span>Agreed with the reviewer</span></div>' % agreed),
+              ('<div class="count"><b>%d / %d</b><span>TAKE rulings you took</span></div>' % (took, len(take_rows))),
               src_n["s4-alert"], n - src_n["s4-alert"], nogo),
            '<div class="wrap"><div class="tools"><input id="q" type="search" placeholder="filter · symbol, ruling, TF, date…">',
            ''.join('<span class="chip" data-rc="%s">%s</span>' % (k, lbl) for k, lbl in
