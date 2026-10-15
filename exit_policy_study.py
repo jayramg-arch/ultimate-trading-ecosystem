@@ -36,6 +36,7 @@ COST_PER_LEG = 0.10          # matches replay.COST_PER_LEG_DEFAULT
 ATR_LEN = 14
 IS_END = pd.Timestamp("2024-06-01")     # IS = anchors before this; OOS = on/after
 DETAILS_DEFAULT = "validation_runs/validation_20260728_191035_details.csv"
+BENCH = "^CRSLDX"            # Nifty 500 - the matched benchmark replay.py uses
 
 
 # ── configurations (FIXED — see the prereg; do not add cells after seeing results) ──
@@ -265,6 +266,21 @@ def main():
             print(f"  fetched {i} …", file=sys.stderr)
     print(f"frames: {len(frames)}/{d['Symbol'].nunique()}")
 
+    # PER-CONFIG BENCHMARK (15-Oct-2026). Matched-horizon alpha needs the benchmark leg to
+    # exit WITH the trade. The first version charged every config the recorded benchmark,
+    # i.e. E0's hold length, while the alternatives held far shorter - the 26-Jul horizon
+    # bug, reintroduced, and biased toward the conclusion reported. Now each config's
+    # benchmark runs from the entry bar for that config's own `days` (as sl_trail_grid.py).
+    bclose = dp.fetch_ohlcv(BENCH, period="10y", interval="1d")["Close"]
+    bvals = bclose.to_numpy(float)
+
+    def bench_for(ts, days):
+        j0 = int(bclose.index.searchsorted(ts, side="right")) - 1
+        j1 = min(j0 + int(days), len(bvals) - 1)
+        if j0 < 0 or j1 <= j0:
+            return 0.0
+        return (bvals[j1] - bvals[j0]) / bvals[j0] * 100.0
+
     rows = []
     for _, r in d.iterrows():
         f = frames.get(r["Symbol"])
@@ -299,6 +315,9 @@ def main():
                 rec[f"{name}__days"] = out["days"]
                 rec[f"{name}__init"] = out["hit_init"]
                 rec[f"{name}__t1"] = out["hit_t1"]
+                rec[f"{name}__bench"] = bench_for(r["ts"], out["days"])
+                _risk = (ep - slp) / ep * 100.0
+                rec[f"{name}__R"] = out["ret"] / _risk if _risk > 0 else np.nan
         rows.append(rec)
 
     R = pd.DataFrame(rows)
@@ -312,13 +331,18 @@ def main():
     ok = (med <= 0.25) and (within >= 0.95)
     print(f"  {'PASS — comparison is valid' if ok else 'FAIL — STUDY VOID, do not read the table below'}\n")
 
-    # alpha = config return - the SAME matched benchmark leg
+    # benchmark check: E0's recomputed leg against the recorded one
+    bd = (R["E0_control__bench"] - R["bench"]).abs()
+    print(f"  benchmark leg: median |E0 recomputed - recorded| = {bd.median():.3f}pp, "
+          f"within 0.5pp = {(bd <= 0.5).mean()*100:.1f}%" + chr(10))
+
+    # alpha = config return - that CONFIG's own matched benchmark leg
     for name in CONFIGS:
-        R[f"a_{name}"] = R[name] - R["bench"]
+        R[f"a_{name}"] = R[name] - R[f"{name}__bench"]
 
     def block(sub, label):
         print(f"--- {label}  (n={len(sub)}) ---")
-        hdr = f"  {'config':18} {'meanA':>7} {'medA':>7} {'win%':>6} {'PF':>6} {'days':>6} {'initSL%':>8} {'T1%':>6}"
+        hdr = f"  {'config':18} {'meanA':>7} {'medA':>7} {'win%':>6} {'PF':>6} {'days':>6} {'initSL%':>8} {'T1%':>6} {'meanR':>6} {'medR':>6}"
         print(hdr)
         base = sub["a_E0_control"].mean()
         for name in CONFIGS:
@@ -327,7 +351,7 @@ def main():
             pf_p = w[w > 0].sum(); pf_n = -w[w <= 0].sum()
             pf = (pf_p / pf_n) if pf_n > 0 else np.inf
             dd = f"{name:18} {a.mean():+7.2f} {a.median():+7.2f} {(a>0).mean()*100:6.1f} {pf:6.2f} " \
-                 f"{sub[f'{name}__days'].mean():6.1f} {sub[f'{name}__init'].mean()*100:8.1f} {sub[f'{name}__t1'].mean()*100:6.1f}"
+                 f"{sub[f'{name}__days'].mean():6.1f} {sub[f'{name}__init'].mean()*100:8.1f} {sub[f'{name}__t1'].mean()*100:6.1f} "                  f"{sub[f'{name}__R'].mean():+6.2f} {sub[f'{name}__R'].median():+6.2f}"
             mark = "  <-- control" if name == "E0_control" else (f"   ({a.mean()-base:+.2f}pp)")
             print("  " + dd + mark)
         print()
