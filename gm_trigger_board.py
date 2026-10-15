@@ -1374,7 +1374,7 @@ def rrg_live(daily_df) -> dict:
 
     The quadrant is what the retired manual RRG flag used to supply (Risk Shield's
     trade-type rung, 25-Sep-2026); the verdict is the original rrg_tradeable_live."""
-    out = {"quadrant": None, "tradeable": None}
+    out = {"quadrant": None, "tradeable": None, "rs": None, "mom": None}
     _rrg_live_impl(daily_df, out)
     return out
 
@@ -1420,6 +1420,10 @@ def _rrg_live_impl(daily_df, out):
                "WEAKENING" if rv >= 100 else
                "LAGGING" if mv < 100 else "IMPROVING")
         out["quadrant"] = cur
+        # RS-Ratio and momentum too (15-Oct-2026): the ONE RS other modules should read -
+        # "rs" is RS-Ratio - 100 (> 0 = outperforming Nifty 500), the DNA's meaning of the
+        # legacy "mansfield" field. The exit scan had its own classic Mansfield.
+        out["rs"], out["mom"] = round(rv - 100.0, 3), round(mv - 100.0, 3)
         out["tradeable"] = bool(_traj(r, m, cur, 4)[4])
         return out["tradeable"]
     except Exception as e:

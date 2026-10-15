@@ -553,6 +553,17 @@ def analyze_market():
                 except Exception:
                     rs_rating = 0.0
             
+            # HOUSE RS (15-Oct-2026): JdK RS-Ratio - 100 vs Nifty 500 on confirmed weeks
+            # (gm_trigger_board.rrg_live) - the RS every other surface reads. The local
+            # Mansfield above (vs Nifty 50, x10 scale) stays only as the fallback.
+            try:
+                import gm_trigger_board as _gtb
+                _rl = _gtb.rrg_live(df)
+                if _rl.get("rs") is not None:
+                    rs_rating = round(float(_rl["rs"]), 2)
+            except Exception:
+                pass
+
             # 5. Sentiment
             sent, headlines = get_news_sentiment(stock)
             
@@ -733,7 +744,7 @@ def generate_gemini_prompt_file(macro, portfolio, account):
             f" | value Rs {_inr(ps.get('CurrentValue'))} | P&L {ps.get('PnL_pct', 0):+.1f}%"
             f" | R {('%+.2f' % r) if r is not None else 'n/a'}\n"
             f"  Price: CMP Rs {_inr(i['CMP'], 2)} | {t.get('Stage')} | 30-week SMA Rs {_inr(t.get('Support_SMA30'), 2)}"
-            f" | {t.get('Dist_High')}% below the 52-week high | Mansfield RS {t.get('RS_Rating')}"
+            f" | {t.get('Dist_High')}% below the 52-week high | RS-Ratio {t.get('RS_Rating')} (JdK vs Nifty 500, >0 = outperforming)"
             f" | volume {t.get('Vol_Status')}{' | squeeze' if t.get('Squeeze') else ''}\n"
             f"  Stops: Dhan (disaster) Rs {_inr(ps.get('DhanSL'), 2)} | thesis (exit on a Daily close below)"
             f" Rs {_inr(ps.get('ThesisSL'), 2)} | initial plan Rs {_inr(ps.get('InitialSL'), 2)}"

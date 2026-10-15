@@ -86,7 +86,8 @@ def test_manual_rrg_flag_is_fully_retired():
 def test_rrg_live_returns_quadrant_and_verdict_shape():
     import gm_trigger_board as g
     out = g.rrg_live(None)                         # too little data -> unknown, not a verdict
-    assert out == {"quadrant": None, "tradeable": None}
+    # rs / mom added 15-Oct-2026 (the house JdK RS for the exit scan and the briefing)
+    assert out == {"quadrant": None, "tradeable": None, "rs": None, "mom": None}
 
 
 # ── AUD-OCT-02 (4-Oct-2026): stop rules have one home ─────────────────────────────

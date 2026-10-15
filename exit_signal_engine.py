@@ -368,7 +368,20 @@ def scan_position(row: pd.Series, df_cnx_d: pd.DataFrame, df_cnx_w: pd.DataFrame
             stage = None
         if stage is None:
             stage = _weinstein_stage(df_w) if not df_w.empty else 0
-        rs    = _mansfield_rs(df_w, df_cnx_w) if not df_w.empty else np.nan
+        # HOUSE RS (15-Oct-2026): JdK RS-Ratio - 100 on confirmed weeks (gm_trigger_board.
+        # rrg_live, strike_cal) - the DNA's RS and what the board / S4 / Risk Shield read. The
+        # local classic Mansfield disagreed in SIGN on M&MFIN (-2.44 vs +6.69 LEADING) and
+        # NESTLEIND, raising false "RS FADE" actions. Local kept only as a fallback.
+        rs = np.nan
+        try:
+            import gm_trigger_board as _gtb
+            _rv = _gtb.rrg_live(df_d).get("rs")
+            if _rv is not None:
+                rs = float(_rv)
+        except Exception:
+            pass
+        if rs != rs:
+            rs = _mansfield_rs(df_w, df_cnx_w) if not df_w.empty else np.nan
 
         result["LTP"]             = round(ltp, 2)
         result["ATR14"]           = round(atr, 2)
@@ -399,7 +412,7 @@ def scan_position(row: pd.Series, df_cnx_d: pd.DataFrame, df_cnx_w: pd.DataFrame
 
         # ── RS FADE check ────────────────────────────────────────────────────
         if result["Mansfield_RS"] is not None and result["Mansfield_RS"] < 0:
-            reasons.append(f"🟠 RS FADE: Mansfield RS = {result['Mansfield_RS']:.2f} (negative vs CNX500)")
+            reasons.append(f"🟠 RS FADE: RS-Ratio {result['Mansfield_RS']:+.2f} vs Nifty 500 (JdK, below 100)")
 
         if reasons:
             result["Exit_Flag"]    = "ACTION"
