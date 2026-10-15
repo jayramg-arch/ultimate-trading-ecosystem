@@ -438,3 +438,27 @@ def capital_protection_active(history: dict) -> bool:
         return False
     s = pd.Series([v for _, v in sorted(history.items())])
     return bool(s.iloc[-1] < s.ewm(span=20, adjust=False).mean().iloc[-1])
+
+
+def r_unit_stop(row, atr):
+    """(stop that defines 1R, is_policy) - the ONE R unit (14/15-Oct-2026).
+
+    The FROZEN entry stop (journal initial_sl) when one was recorded below entry; else the
+    policy stop entry - 1.5x (swing) / 4x (positional) daily ATR. Never the live stop: a
+    trailed stop sits above entry on a winner, so R measured from it is near zero and the
+    multiple explodes (the exit scan printed SAILIFE at 34,255R)."""
+    def _f(x):
+        try:
+            v = float(x)
+            return v if v == v and v > 0 else None
+        except (TypeError, ValueError):
+            return None
+    g = row.get if hasattr(row, "get") else (lambda k, d=None: d)
+    entry = _f(g("buy_price") if g("buy_price") is not None else g("BuyPrice"))
+    ini = _f(g("initial_sl") if g("initial_sl") is not None else g("Initial SL"))
+    if entry and ini and ini < entry:
+        return ini, False
+    swing = "swing" in str(g("timeframe") or g("Timeframe") or "").lower()
+    if entry and atr and atr > 0:
+        return entry - atr * (1.5 if swing else 4.0), True
+    return None, False

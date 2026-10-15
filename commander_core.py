@@ -1896,3 +1896,95 @@ def render_pa_banner(ctx, recovery: bool = False) -> str:
     return (f"<div style='border:1.5px solid {bdr};border-left:5px solid {col};background:{bg};border-radius:8px;"
             f"padding:8px 14px;margin:8px 0;font-size:13.5px;color:var(--ink);font-weight:600;'>"
             f"<b style='color:{col};font-weight:800;'>🔥 PA PATTERNS LIVE (Σ +{tier_sum}):</b> {chips}</div>")
+
+
+# ── RISK SHIELD timeline helpers (moved from commander_pages/risk_shield.py, 15-Oct-2026) ──
+# ── V67 LEVELS ON THE TIMELINE (15-Oct-2026, Jay: "v67 shows Thesis SL, Recommended SL,
+# Trail SL, Disaster SL, T1 and T2 - why are they not replicated to the Risk Shield?").
+# Thesis and Initial come from the journal; the Rec Dhan SL is house_policy.rec_dhan_stop
+# with the Noise Watchdog's ATR - the SAME call tv_push_v67_trail makes, so the chart and
+# this page cannot show two different recommended stops. It REPLACES the old purple
+# "Rec SL (4.0xATR)", which was the entry-stop formula and answered a different question.
+def _rs_v67_levels(sym, ltp, qty, jov):
+    out = {"thesis": None, "thesis_sup": False, "initial": None,
+           "rec": None, "rec_qty": None, "rec_x": False, "rec_note": ""}
+    jov = jov or {}
+    stop = jov.get("stoploss")
+    th, ini = jov.get("thesis_sl"), jov.get("initial_sl")
+    if th and th > 0 and not (stop and abs(th - stop) <= 0.0005 * stop):
+        out["thesis"], out["thesis_sup"] = th, bool(stop and th < stop)
+    if ini and ini > 0:
+        out["initial"] = ini
+    try:
+        import house_policy as _hp_v
+        from ai_risk_manager import get_atr as _ga_v
+        _atr_v = _ga_v(sym)
+        if ltp and _atr_v and _atr_v > 0:
+            _r = _hp_v.rec_dhan_stop(ltp, stop, _atr_v, qty)
+            if _r:
+                out["rec"], out["rec_qty"] = _r[0], _r[1]
+            elif stop:
+                out["rec_note"] = f"Dhan stop already {(ltp - stop) / _atr_v:.1f}×ATR below LTP (≥3×)"
+    except Exception as _e_v:
+        out["rec_note"] = "Rec Dhan SL n/a"
+    return out
+
+def _rs_v67_markers(lv, bar_min, bar_range):
+    h = ""
+    if not bar_range or bar_range <= 0:
+        return h
+    def _p(v):
+        return (v - bar_min) / bar_range * 100
+    if lv.get("initial"):
+        h += (f'<div style="position:absolute;left:{_p(lv["initial"]):.1f}%;top:-3px;width:14px;height:14px;'
+              f'border:2px solid #9CA3AF;background:transparent;border-radius:50%;transform:translateX(-50%);z-index:3;" '
+              f'title="Initial SL ₹{lv["initial"]:,.2f}"></div>')
+    if lv.get("thesis"):
+        h += (f'<div style="position:absolute;left:{_p(lv["thesis"]):.1f}%;top:-2px;width:12px;height:12px;'
+              f'background:#F97316;border-radius:50%;transform:translateX(-50%);z-index:4;" '
+              f'title="Thesis SL ₹{lv["thesis"]:,.2f}{" (below the hard SL - superseded)" if lv.get("thesis_sup") else " - close below = exit"}"></div>')
+    if lv.get("rec"):
+        h += (f'<div style="position:absolute;left:{_p(lv["rec"]):.1f}%;top:-2px;width:12px;height:12px;'
+              f'background:#D946EF;border-radius:50%;transform:translateX(-50%);z-index:4;" '
+              f'title="Rec Dhan SL (3×ATR) ₹{lv["rec"]:,.2f}"></div>')
+    return h
+
+def _rs_v67_text(lv):
+    def _m(v):   # paise matter on a sub-100 ETF
+        return f"{v:,.2f}" if v < 100 else f"{v:,.0f}"
+    parts = []
+    if lv.get("rec"):
+        q = f' · same risk: {int(lv["rec_qty"])} sh' if lv.get("rec_qty") else ""
+        parts.append(f'Rec Dhan SL (3×ATR): <span style="color:#D946EF;font-weight:bold;">₹{_m(lv["rec"])}</span>'
+                     f'<span style="color:var(--faint);font-size:0.72rem;">{q}</span>')
+    elif lv.get("rec_note"):
+        parts.append(f'<span style="color:var(--faint);">{lv["rec_note"]}</span>')
+    if lv.get("thesis"):
+        parts.append(f'Thesis: <span style="color:#F97316;font-weight:bold;">₹{_m(lv["thesis"])}</span>'
+                     + (' <span style="color:var(--faint);font-size:0.72rem;">(superseded)</span>' if lv.get("thesis_sup") else ""))
+    if lv.get("initial"):
+        parts.append(f'Initial: <span style="color:#9CA3AF;font-weight:bold;">₹{_m(lv["initial"])}</span>')
+    return " | ".join(parts)
+
+def _rs_risk_drift(entry, initial, disaster, qty):
+    """INCREASED RISK vs the initial SL (15-Oct-2026, Jay): how far the Dhan (disaster)
+    stop has moved from the stop the trade was planned on. Widened = more rupees at risk
+    than the plan; trailed to/above entry = the plan's risk is off the table."""
+    try:
+        entry, initial, disaster = float(entry), float(initial), float(disaster)
+    except (TypeError, ValueError):
+        return ""
+    if not (entry > 0 and 0 < initial < entry and disaster > 0):
+        return ""
+    r0 = entry - initial
+    if disaster >= entry:
+        return ' · <span style="color:var(--bull);font-weight:bold;">plan risk off (stop ≥ entry)</span>'
+    pct = ((entry - disaster) / r0 - 1.0) * 100.0
+    extra = (initial - disaster) * float(qty or 0)
+    if abs(pct) < 0.5:
+        return ' · <span style="color:var(--faint);">risk = initial plan</span>'
+    if pct > 0:
+        return (f' · Risk vs initial SL: <span style="font-family:JetBrains Mono;color:var(--bear);font-weight:bold;">'
+                f'+{pct:.0f}%</span>' + (f' <span style="color:var(--faint);">(+₹{extra:,.0f})</span>' if extra > 0 else ""))
+    return (f' · Risk vs initial SL: <span style="font-family:JetBrains Mono;color:var(--bull);font-weight:bold;">'
+            f'{pct:.0f}%</span>')

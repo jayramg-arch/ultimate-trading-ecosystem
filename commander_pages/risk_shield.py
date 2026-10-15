@@ -5,72 +5,9 @@
 # commander_pages.run('risk_shield', globals()), so it sees exactly the globals it saw inline.
 # The body stays under `if True:` so no line was re-indented. Edit the page HERE.
 if True:
-    # ── V67 LEVELS ON THE TIMELINE (15-Oct-2026, Jay: "v67 shows Thesis SL, Recommended SL,
-    # Trail SL, Disaster SL, T1 and T2 - why are they not replicated to the Risk Shield?").
-    # Thesis and Initial come from the journal; the Rec Dhan SL is house_policy.rec_dhan_stop
-    # with the Noise Watchdog's ATR - the SAME call tv_push_v67_trail makes, so the chart and
-    # this page cannot show two different recommended stops. It REPLACES the old purple
-    # "Rec SL (4.0xATR)", which was the entry-stop formula and answered a different question.
-    def _rs_v67_levels(sym, ltp, qty, jov):
-        out = {"thesis": None, "thesis_sup": False, "initial": None,
-               "rec": None, "rec_qty": None, "rec_x": False, "rec_note": ""}
-        jov = jov or {}
-        stop = jov.get("stoploss")
-        th, ini = jov.get("thesis_sl"), jov.get("initial_sl")
-        if th and th > 0 and not (stop and abs(th - stop) <= 0.0005 * stop):
-            out["thesis"], out["thesis_sup"] = th, bool(stop and th < stop)
-        if ini and ini > 0:
-            out["initial"] = ini
-        try:
-            from ai_risk_manager import get_atr as _ga_v
-            _atr_v = _ga_v(sym)
-            if ltp and _atr_v and _atr_v > 0:
-                _r = _HP.rec_dhan_stop(ltp, stop, _atr_v, qty)
-                if _r:
-                    out["rec"], out["rec_qty"] = _r[0], _r[1]
-                elif stop:
-                    out["rec_note"] = f"Dhan stop already {(ltp - stop) / _atr_v:.1f}×ATR below LTP (≥3×)"
-        except Exception as _e_v:
-            out["rec_note"] = "Rec Dhan SL n/a"
-        return out
-
-    def _rs_v67_markers(lv, bar_min, bar_range):
-        h = ""
-        if not bar_range or bar_range <= 0:
-            return h
-        def _p(v):
-            return (v - bar_min) / bar_range * 100
-        if lv.get("initial"):
-            h += (f'<div style="position:absolute;left:{_p(lv["initial"]):.1f}%;top:-3px;width:14px;height:14px;'
-                  f'border:2px solid #9CA3AF;background:transparent;border-radius:50%;transform:translateX(-50%);z-index:3;" '
-                  f'title="Initial SL ₹{lv["initial"]:,.2f}"></div>')
-        if lv.get("thesis"):
-            h += (f'<div style="position:absolute;left:{_p(lv["thesis"]):.1f}%;top:-2px;width:12px;height:12px;'
-                  f'background:#F97316;border-radius:50%;transform:translateX(-50%);z-index:4;" '
-                  f'title="Thesis SL ₹{lv["thesis"]:,.2f}{" (below the hard SL - superseded)" if lv.get("thesis_sup") else " - close below = exit"}"></div>')
-        if lv.get("rec"):
-            h += (f'<div style="position:absolute;left:{_p(lv["rec"]):.1f}%;top:-2px;width:12px;height:12px;'
-                  f'background:#D946EF;border-radius:50%;transform:translateX(-50%);z-index:4;" '
-                  f'title="Rec Dhan SL (3×ATR) ₹{lv["rec"]:,.2f}"></div>')
-        return h
-
-    def _rs_v67_text(lv):
-        def _m(v):   # paise matter on a sub-100 ETF
-            return f"{v:,.2f}" if v < 100 else f"{v:,.0f}"
-        parts = []
-        if lv.get("rec"):
-            q = f' · same risk: {int(lv["rec_qty"])} sh' if lv.get("rec_qty") else ""
-            parts.append(f'Rec Dhan SL (3×ATR): <span style="color:#D946EF;font-weight:bold;">₹{_m(lv["rec"])}</span>'
-                         f'<span style="color:var(--faint);font-size:0.72rem;">{q}</span>')
-        elif lv.get("rec_note"):
-            parts.append(f'<span style="color:var(--faint);">{lv["rec_note"]}</span>')
-        if lv.get("thesis"):
-            parts.append(f'Thesis: <span style="color:#F97316;font-weight:bold;">₹{_m(lv["thesis"])}</span>'
-                         + (' <span style="color:var(--faint);font-size:0.72rem;">(superseded)</span>' if lv.get("thesis_sup") else ""))
-        if lv.get("initial"):
-            parts.append(f'Initial: <span style="color:#9CA3AF;font-weight:bold;">₹{_m(lv["initial"])}</span>')
-        return " | ".join(parts)
-
+    # helpers live in commander_core (Streamlit-free; page size guard, 15-Oct-2026)
+    from commander_core import (_rs_v67_levels, _rs_v67_markers, _rs_v67_text,
+                                _rs_risk_drift)
     _RS_TRACK = "background:#64748B;border:1px solid #94A3B8"
 
     st.markdown('<div class="page-title">🛡️ Risk Shield — Risk Management & Entries</div>', unsafe_allow_html=True)
@@ -1658,10 +1595,22 @@ if True:
                                     risk_exposure = sum((o.get("sl_qty") or o.get("qty") or 0) * (ltp - o["sl_trigger"]) for o in orders if ltp and o["sl_trigger"] is not None)
 
                                     # R-Multiple
-                                    if holding and buy_price:
-                                        total_risk_at_entry = sum((o.get("sl_qty") or o.get("qty") or 0) * (buy_price - o["sl_trigger"]) for o in orders if o["sl_trigger"] is not None)
-                                        r_multiple = (ltp - buy_price) * total_qty / total_risk_at_entry if total_risk_at_entry > 0 else 0.0
-                                        r_multiple_str = f"{r_multiple:+.2f}R"
+                                    # 15-Oct-2026: R from the FROZEN R unit (risk_common.r_unit_stop:
+                                    # initial_sl, else the policy stop). It was the live Dhan stops - on a
+                                    # trailed winner they sit above entry, the "risk" went negative and
+                                    # ANANDRATHI at ~2.9R printed +0.00R.
+                                    _jov_r = journal_overrides.get(sym, {}) if isinstance(journal_overrides, dict) else {}
+                                    try:
+                                        _atr_r = float(ltp) * float((hist_data.get(sym) or {}).get("atr_pct") or 0) / 100.0
+                                    except Exception:
+                                        _atr_r = 0.0
+                                    import risk_common as _rc_r
+                                    _r_stop, _r_pol = _rc_r.r_unit_stop(
+                                        {"buy_price": buy_price, "initial_sl": (_jov_r or {}).get("initial_sl"),
+                                         "timeframe": (_jov_r or {}).get("timeframe")}, _atr_r)
+                                    if holding and buy_price and ltp and _r_stop and _r_stop < buy_price:
+                                        r_multiple = (ltp - buy_price) / (buy_price - _r_stop)
+                                        r_multiple_str = f"{r_multiple:+.2f}R" + (" (policy R)" if _r_pol else "")
                                     else:
                                         r_multiple = 0.0; r_multiple_str = "N/A"
                                     r_color = "var(--bull)" if r_multiple > 0 else "var(--bear)" if r_multiple < 0 else "var(--muted)"
@@ -2393,7 +2342,8 @@ if True:
                                         f'<span style="font-size:0.8rem;color:var(--faint);margin-left:8px;vertical-align:middle;">{qty_str}</span></div>'
                                         f'<div style="text-align:right;padding-right:20px;"><div style="font-size:0.78rem;color:var(--faint);">'
                                         f'R-Mult: <span style="font-family:JetBrains Mono;color:{r_color};font-weight:bold;">{r_multiple_str}</span>'
-                                        f' · Risk: <span style="font-family:JetBrains Mono;color:var(--bear);font-weight:bold;">₹{risk_exposure:,.2f}</span></div></div></div>'
+                                        f' · Risk: <span style="font-family:JetBrains Mono;color:var(--bear);font-weight:bold;">₹{risk_exposure:,.2f}</span>'
+                                        f'{_rs_risk_drift(buy_price, (journal_overrides.get(sym, {}) if isinstance(journal_overrides, dict) else {}).get("initial_sl"), (min(sl_vals) if sl_vals else None), (_held_qty or total_qty))}</div></div></div>'
                                         f'{progress_bar_html}'
                                         f'{rec_line}'
                                         f'<div style="font-size:0.82rem;color:var(--ink-2);margin-top:6px;line-height:1.6;">'

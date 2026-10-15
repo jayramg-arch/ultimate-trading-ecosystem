@@ -16,3 +16,8 @@ backgroundColor = "#0F1618"        # --ground
 secondaryBackgroundColor = "#161F21"  # --surface   cards, sidebar, table rows
 textColor = "#E3EBEC"              # --ink
 font = "sans serif"
+
+# Tables (15-Oct-2026): dataframes are a canvas grid CSS cannot reach, so the header
+# band and border live here - surface-3 and a step above rule (commander_theme TABLE_CSS).
+dataframeHeaderBackgroundColor = "#222E31"
+dataframeBorderColor = "#2E3D40"

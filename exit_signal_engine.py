@@ -394,13 +394,19 @@ def scan_position(row: pd.Series, df_cnx_d: pd.DataFrame, df_cnx_w: pd.DataFrame
             result["Exit_Reasons"] = ["✅ All clear"]
 
         # ── E5: build actionable trim/trail recommendations ─────────────────
-        if bp > 0 and sl > 0 and ltp > 0:
-            risk_per_share = max(bp - sl, 0.01)
+        # R from the FROZEN R unit (15-Oct-2026): initial_sl, else the policy stop. It
+        # was the live journal stop - on a trailed winner that sits ABOVE entry, so the
+        # risk floored at 0.01 and SAILIFE / ANANDRATHI / LAURUSLABS read 34,000-40,000R
+        # and tripped the "book half" rung on a number that meant nothing.
+        import risk_common as _rc
+        r_stop, _r_pol = _rc.r_unit_stop(row, atr)
+        if bp > 0 and r_stop and ltp > 0:
+            risk_per_share = max(bp - r_stop, 0.01)
             r_mult = round((ltp - bp) / risk_per_share, 2)
             result["R_Multiple"] = r_mult
             sl_breached = sl > 0 and ltp <= sl
             recs = recommend_actions(
-                buy_price=bp, stop_loss=sl, ltp=ltp, atr=atr,
+                buy_price=bp, stop_loss=r_stop, ltp=ltp, atr=atr,
                 stage=stage, mansfield_rs=result["Mansfield_RS"],
                 df_d=df_d, sl_breached=sl_breached,
                 setup=str(row.get("setup") or ""), timeframe=str(row.get("Timeframe") or row.get("timeframe") or ""),
@@ -408,8 +414,11 @@ def scan_position(row: pd.Series, df_cnx_d: pd.DataFrame, df_cnx_w: pd.DataFrame
             )
             result["Recommendations"] = recs
             if recs and result["Exit_Flag"] != "ACTION":
-                # If only the recommender fired (e.g. price hit 1R) flag for review
+                # If only the recommender fired (e.g. price hit 1R) flag for review.
+                # 15-Oct-2026: REPLACE the "All clear" placeholder rather than append to
+                # it - the table read "All clear | exit fully" on ten positions.
                 result["Exit_Flag"] = "ACTION"
+                result["Exit_Reasons"] = [r for r in result["Exit_Reasons"] if "All clear" not in r]
                 result["Exit_Reasons"].append(
                     "📌 " + recs[0]["reason"]
                 )

@@ -141,7 +141,26 @@ def tokens_css() -> str:
         "  --radius:3px;\n"
         "}\n"
         ":root[data-theme=\"light\"]{\n" + _decls(LIGHT) + "}\n"
+        + TABLE_CSS
     )
+
+
+# -- tables (15-Oct-2026, Jay: "reformat all the tables for a better look") ---------------
+# Applies to every HTML / markdown table (st.table, tables inside st.markdown). Inline
+# styles on a page's own table still win. Streamlit DATAFRAMES are a canvas grid CSS cannot
+# reach - their header band and border come from .streamlit/config.toml
+# (dataframeHeaderBackgroundColor / dataframeBorderColor), set to the same tokens.
+_T = '[data-testid="stMarkdownContainer"] {0},[data-testid="stTable"] {0}'
+TABLE_CSS = (
+    _T.format("table") + "{border-collapse:collapse;width:100%;font-size:0.84rem;"
+    "margin:6px 0 12px;border:1px solid var(--rule);}\n"
+    + _T.format("th") + "{background:var(--surface-3);color:var(--ink);font-weight:700;"
+    "text-align:left;padding:8px 10px;border-bottom:2px solid var(--acc-rule);white-space:nowrap;}\n"
+    + _T.format("td") + "{padding:6px 10px;border-bottom:1px solid var(--rule);color:var(--ink-2);"
+    "font-variant-numeric:tabular-nums;}\n"
+    + _T.format("tbody tr:nth-child(even) td") + "{background:var(--surface-2);}\n"
+    + _T.format("tbody tr:hover td") + "{background:var(--acc-bg);color:var(--ink);}\n"
+)
 
 
 def assert_theme_parity():

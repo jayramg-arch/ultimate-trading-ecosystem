@@ -238,10 +238,19 @@ if True:
             hmap['PnL_Str'] = hmap['PnLPct'].apply(lambda x: f"{x:+.2f}%")
             fig = px.treemap(hmap, path=[px.Constant("Portfolio"), "Sector", "Symbol"],
                              values="Deployment", color="PnLPct",
-                             color_continuous_scale="RdYlGn", color_continuous_midpoint=0,
+                             # 15-Oct-2026 (Jay: "very faint - light background with white
+                             # text"). RdYlGn's middle is pale yellow, so near-flat positions
+                             # (most of the book) were unreadable. A DARK diverging scale keeps
+                             # white text legible on every cell.
+                             color_continuous_scale=[(0.0, "#7F1D1D"), (0.35, "#B91C1C"),
+                                                     (0.5, "#334155"), (0.65, "#15803D"),
+                                                     (1.0, "#14532D")],
+                             color_continuous_midpoint=0,
                              custom_data=["PnL_Str", "Quantity", "BuyPrice"])
             fig.update_traces(
-                textfont=dict(color="#E3EBEC", size=13, family="Inter"),
+                textfont=dict(color="#FFFFFF", size=13, family="Inter"),
+                texttemplate="<b>%{label}</b><br>%{customdata[0]}",
+                marker=dict(line=dict(color="#0F172A", width=1)),
                 hovertemplate="<b>%{label}</b><br>Capital Deployed: ₹%{value:,.0f}<br>Unrealized PnL: %{customdata[0]}<br>Qty: %{customdata[1]} | Buy Price: ₹%{customdata[2]:,.2f}"
             )
             fig.update_layout(margin=dict(t=10,l=0,r=0,b=0), height=320,

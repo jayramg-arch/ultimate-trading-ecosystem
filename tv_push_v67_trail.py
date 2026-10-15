@@ -167,22 +167,9 @@ def snapshot_or_restore(restore: bool) -> int:
 
 
 def r_unit_stop(row, atr) -> tuple[float | None, bool]:
-    """(stop that defines 1R, is_policy) - the Risk Shield's R unit (14-Oct-2026).
-    The FROZEN entry stop (journal initial_sl) when one was recorded below entry; else the
-    policy stop entry - 1.5x (swing) / 4x (positional) daily ATR. Never a live stop."""
-    def _f(x):
-        try:
-            v = float(x)
-            return v if v == v and v > 0 else None
-        except (TypeError, ValueError):
-            return None
-    entry, ini = _f(row.get("buy_price")), _f(row.get("initial_sl"))
-    if entry and ini and ini < entry:
-        return ini, False
-    swing = "swing" in str(row.get("timeframe") or "").lower()
-    if entry and atr and atr > 0:
-        return entry - atr * (1.5 if swing else 4.0), True
-    return None, False
+    """The R unit - risk_common.r_unit_stop (shared with the exit scan, 15-Oct-2026)."""
+    import risk_common as _rc
+    return _rc.r_unit_stop(row, atr)
 
 
 def canon_targets(row, atr) -> tuple[float | None, float | None]:
