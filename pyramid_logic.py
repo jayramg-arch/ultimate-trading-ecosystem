@@ -2,7 +2,7 @@
 
 Single source of truth for the Pyramid/Trim page, called from TWO places:
   • weinstein_commander_web_v4.0.py  → inline page  (elif page == 'PYRAMID')
-  • pages/5_pyramid.py               → standalone Streamlit page
+  • pages/5_pyramid.py               → RETIRED 15-Oct-2026 (_archive/legacy_pages/)
 
 Five-rung ladder (2026-07, Jay + Gemini) — best-of-each logic, RRG is a
 SELECTION tool, never a forced exit:
