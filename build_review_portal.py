@@ -156,7 +156,12 @@ def load_reviews() -> list[dict]:
             "source": (r.get("source") or "board/cli").strip() or "board/cli",
             "s4go": ("TRIGGER | GO" in s4) or s4.startswith("GO"),
             "provider": (r.get("provider") or "").replace("gemini:", ""),
-            "my_call": (r.get("my_call") or "").strip(), "agreed": (r.get("agreed") or "").strip(),
+            # DEFAULT CALL (15-Oct-2026, Jay): a review is SKIPPED unless he marks it TAKEN
+            # (s4_take). "agreed" follows s4_take --skip: a skip agrees with WAIT/PASS/NO TRADE
+            # and disagrees with a TAKE ruling.
+            "my_call": (r.get("my_call") or "").strip() or "SKIPPED (default)",
+            "agreed": (r.get("agreed") or "").strip() or ("N" if ruling.upper().startswith("TAKE") else "Y"),
+            "call_default": not (r.get("my_call") or "").strip(),
             "checks": checks, "warn": warn, "phase1": phase1,
             # FLOW-GATE (12-Oct-2026): the model ruled TAKE and S5's FAILED BREAKOUT at the
             # entry level overruled it - logged for the pre-registered check.
@@ -249,7 +254,7 @@ def render(items: list[dict]) -> str:
         days.setdefault(it["date"], []).append(it)
     n = len(items)
     tally = {k: sum(1 for i in items if i["rclass"] == k) for k in ("take", "reduced", "wait", "pass", "notrade")}
-    scored = sum(1 for i in items if i["my_call"] or i["agreed"])
+    scored = sum(1 for i in items if not i.get("call_default"))      # marked by Jay (s4_take)
     src_n = {k: sum(1 for i in items if i["source"] == k) for k in ("s4-alert", "manual", "board/cli", "board", "cli")}
     nogo = sum(1 for i in items if not i["s4go"])
     agreed = sum(1 for i in items if i["agreed"].lower() in ("y", "yes", "1", "true"))
@@ -263,11 +268,11 @@ def render(items: list[dict]) -> str:
            '<div class="counts"><div class="count"><b>%d</b><span>Reviews</span></div><div class="count"><b>%d</b><span>Days</span></div>'
            '<div class="count"><b>%d</b><span>Take</span></div><div class="count"><b>%d</b><span>Take · reduced</span></div>'
            '<div class="count"><b>%d</b><span>Wait</span></div><div class="count"><b>%d</b><span>Pass / No trade</span></div>'
-           '<div class="count"><b>%d</b><span>Scored by Jay</span></div>%s'
+           '<div class="count"><b>%d</b><span>Marked by Jay (rest = skipped)</span></div>%s'
            '<div class="count"><b>%d</b><span>From S4 alerts</span></div><div class="count"><b>%d</b><span>Board / CLI / manual</span></div>'
            '<div class="count"><b>%d</b><span>S4 not GO at read</span></div></div></div></header>'
            % (n, len(days), tally["take"], tally["reduced"], tally["wait"], tally["pass"] + tally["notrade"], scored,
-              ('<div class="count"><b>%d</b><span>Agreed</span></div>' % agreed) if scored else "",
+              ('<div class="count"><b>%d</b><span>Agreed with the reviewer</span></div>' % agreed),
               src_n["s4-alert"], n - src_n["s4-alert"], nogo),
            '<div class="wrap"><div class="tools"><input id="q" type="search" placeholder="filter · symbol, ruling, TF, date…">',
            ''.join('<span class="chip" data-rc="%s">%s</span>' % (k, lbl) for k, lbl in
