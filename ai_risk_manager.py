@@ -51,7 +51,7 @@ def get_atr(symbol, period=14):
         
         ranges = pd.concat([high_low, high_close, low_close], axis=1)
         true_range = ranges.max(axis=1)
-        atr_series = true_range.rolling(period).mean()
+        atr_series = true_range.ewm(alpha=1.0 / period, min_periods=period, adjust=False).mean()
         atr = atr_series.iloc[-1]
         
         return float(atr)

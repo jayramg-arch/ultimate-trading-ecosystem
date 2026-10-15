@@ -300,7 +300,9 @@ def _mansfield_rs(df_w: pd.DataFrame, df_cnx_w: pd.DataFrame) -> float:
 def _atr14(df_d: pd.DataFrame) -> float:
     h, l, c = df_d["High"], df_d["Low"], df_d["Close"]
     tr = pd.concat([h - l, (h - c.shift()).abs(), (l - c.shift()).abs()], axis=1).max(axis=1)
-    return float(tr.ewm(span=14, adjust=False).mean().iloc[-1])
+    # Wilder (alpha = 1/14) - the house ATR (S4 ta.atr, bull_screener.compute_atr). It was
+    # span=14 (alpha = 2/15), a faster EMA: NESTLEIND read 46.35 vs 38.78 (15-Oct-2026).
+    return float(tr.ewm(alpha=1.0 / 14, min_periods=14, adjust=False).mean().iloc[-1])
 
 
 # ── Load open positions ───────────────────────────────────────────────────────
