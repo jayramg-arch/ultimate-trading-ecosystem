@@ -72,8 +72,10 @@ if True:
         if not _holdings_raw.strip():
             st.info("No holdings loaded. Switch to **Auto-load from Dhan** or enter positions manually.")
         else:
-            _port_tab1, _port_tab2, _port_tab3, _port_tab4 = st.tabs([
-                "📊 Overview", "📉 Risk & VaR", "🔥 Stress Test", "🔄 Walk-Forward"
+            # Walk-Forward tab RETIRED 15-Oct-2026: a toy "price > SMA50 & SMA200" rule, not the
+            # system's definition - the validated backtest is Watchlist -> Replay / Track Record.
+            _port_tab1, _port_tab2, _port_tab3 = st.tabs([
+                "📊 Overview", "📉 Risk & VaR", "🔥 Stress Test"
             ])
 
             # ── TAB 1 — OVERVIEW ────────────────────────────────────────────
@@ -333,88 +335,6 @@ if True:
                         st.info("No scenario data returned — check holdings format or internet connection.")
                 else:
                     st.info("Click **Run Stress Test** to simulate your portfolio across 6 historical market events.")
-
-            # ── TAB 4 — WALK-FORWARD BACKTEST ───────────────────────────────
-            with _port_tab4:
-                section("Walk-Forward Weinstein Stage 2 Backtest")
-                st.caption("Enters stocks when price > SMA50 & SMA200. Equal-weight. Rebalances on schedule.")
-
-                _wf_c1, _wf_c2, _wf_c3 = st.columns(3)
-                with _wf_c1:
-                    _wf_start = st.date_input("Start Date", value=pd.Timestamp("2022-01-01"), key="wf_start")
-                with _wf_c2:
-                    _wf_rebal = st.selectbox("Rebalance", ["Weekly (1w)","Bi-Weekly (2w)","Monthly (4w)"],
-                                              index=2, key="wf_rebal")
-                    _wf_rebal_weeks = {"Weekly (1w)": 1, "Bi-Weekly (2w)": 2, "Monthly (4w)": 4}[_wf_rebal]
-                with _wf_c3:
-                    _wf_univ_choice = st.selectbox("Universe", ["Use my holdings","Nifty 50 subset","Custom"], key="wf_univ")
-
-                if _wf_univ_choice == "Custom":
-                    _wf_custom = st.text_area("Custom universe (one symbol per line)",
-                                               height=80, key="wf_custom_syms",
-                                               placeholder="RELIANCE\nINFY\nTCS")
-                    _wf_universe_raw = _wf_custom
-                elif _wf_univ_choice == "Use my holdings":
-                    _parsed_h = parse_holdings(_holdings_raw)
-                    _wf_universe_raw = "\n".join(h["symbol"] for h in _parsed_h)
-                else:
-                    _wf_universe_raw = "\n".join([
-                        "RELIANCE","TCS","HDFCBANK","ICICIBANK","INFY",
-                        "HINDUNILVR","ITC","SBIN","BHARTIARTL","KOTAKBANK",
-                        "LT","AXISBANK","ASIANPAINT","MARUTI","TITAN",
-                        "BAJFINANCE","WIPRO","ULTRACEMCO","POWERGRID","NTPC",
-                    ])
-
-                _wf_run = st.button("🔄 Run Backtest", key="wf_run", type="primary")
-
-                if _wf_run:
-                    with st.spinner("Running walk-forward backtest (may take 60–120s for large universes)..."):
-                        try:
-                            _wf_res = run_walkforward_backtest(
-                                _wf_universe_raw,
-                                start=str(_wf_start),
-                                rebalance_weeks=_wf_rebal_weeks,
-                            )
-                        except Exception as _wfe:
-                            _wf_res = {}; st.error(f"Backtest failed: {_wfe}")
-
-                    if _wf_res:
-                        # Stats header
-                        _wf_cols = st.columns(5)
-                        _wf_cols[0].metric("Strategy CAGR",  f"{_wf_res['cagr_pct']:+.1f}%")
-                        _wf_cols[1].metric("Benchmark CAGR", f"{_wf_res['benchmark_cagr_pct']:+.1f}%",
-                                           delta=f"{_wf_res['cagr_pct']-_wf_res['benchmark_cagr_pct']:+.1f}% vs Nifty")
-                        _wf_cols[2].metric("Sharpe",         f"{_wf_res['sharpe']:.2f}")
-                        _wf_cols[3].metric("Max Drawdown",   f"{_wf_res['max_drawdown_pct']:.1f}%")
-                        _wf_cols[4].metric("Avg Positions",  f"{_wf_res['avg_positions']:.0f}")
-
-                        st.markdown("---")
-                        # Equity curve chart
-                        _eq = pd.DataFrame(_wf_res["equity_curve"])
-                        _fig_eq = go.Figure()
-                        _fig_eq.add_trace(go.Scatter(
-                            x=_eq["date"], y=_eq["portfolio_value"],
-                            name="Strategy", line=dict(color="#15803D", width=2),
-                        ))
-                        _fig_eq.add_trace(go.Scatter(
-                            x=_eq["date"], y=_eq["benchmark_value"],
-                            name="Nifty50 (buy & hold)", line=dict(color="#1D4ED8", width=1.5, dash="dot"),
-                        ))
-                        _fig_eq.add_hline(y=100, line_dash="dot", line_color="#5C6B6E", line_width=1)
-                        _fig_eq.update_layout(
-                            height=380, margin=dict(t=10,l=0,r=0,b=0),
-                            paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
-                            xaxis=dict(gridcolor="#E2E8F0"),
-                            yaxis=dict(gridcolor="#E2E8F0", title="Indexed (Base 100)"),
-                            legend=dict(font=dict(size=10, color="#E3EBEC"), bgcolor="rgba(0,0,0,0)"),
-                            font=dict(color="#E3EBEC"),
-                        )
-                        st.plotly_chart(_fig_eq, use_container_width=True)
-                        st.caption(f"Total return: Strategy {_wf_res['total_return_pct']:+.1f}% | Nifty {_wf_res['benchmark_total_return_pct']:+.1f}% | Rebalances: {_wf_res['num_rebalances']}")
-                    elif _wf_run:
-                        st.info("No backtest results — check universe symbols or widen the date range.")
-                else:
-                    st.info("Configure the parameters above and click **Run Backtest** to begin.")
 
         # ── Portfolio Export ─────────────────────────────────────────────────
         st.markdown("---")

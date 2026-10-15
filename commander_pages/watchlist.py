@@ -287,8 +287,10 @@ if True:
     st.markdown("---")
     section("Sync & Tools")
 
-    _wl1, _wl2, _wl3, _wl4, _wl5, _wl6, _wl7, _wl8 = st.tabs(
-        ["🏗️ Generate", "☁️ Sync Cloud", "🏆 Smart Rank",
+    # Smart Rank tab RETIRED 15-Oct-2026: a second 0-100 ranker with its own stage/RS logic;
+    # the Golden Matcher board's Overall is the one ranking.
+    _wl1, _wl2, _wl4, _wl5, _wl6, _wl7, _wl8 = st.tabs(
+        ["🏗️ Generate", "☁️ Sync Cloud",
          "🏭 Sectors DB", "💾 Data Cache", "⚙️ Pipeline Status",
          "⏪ Replay", "📜 Track Record"]
     )
@@ -350,100 +352,6 @@ if True:
             if st.button("🏆  Email Golden Matches\nSend latest AI 5-Star picks to your inbox.\n→  Send Now", use_container_width=True, key="wl_em_match"):
                 launch_script("gmail_dispatcher.py", "--mode matches")
 
-    with _wl3:
-        section("Smart Rank — Weinstein Setup Scorer")
-        st.caption("Scores each stock 0–100 across Stage 2 status, RS vs CNX500, "
-                   "52W position, volume surge and SMA200 slope. "
-                   "Auto-loads symbols from watchlist CSVs in your project folder.")
-
-        if not _RANKER_OK:
-            st.error("❌ watchlist_ranker module not available.")
-        else:
-            # Symbol source
-            _wr_auto = load_watchlist_symbols()
-            _wr_src  = st.radio("Symbol source",
-                                ["📂 Auto-load from watchlist CSVs",
-                                 "✏️ Manual entry"],
-                                horizontal=True, key="wr_src")
-
-            if _wr_src == "📂 Auto-load from watchlist CSVs":
-                if _wr_auto:
-                    st.caption(f"Found **{len(_wr_auto)}** symbols in watchlist CSVs")
-                    _wr_syms = _wr_auto
-                else:
-                    st.warning("No watchlist CSVs found. Run HUNTER scanners first, or switch to manual entry.")
-                    _wr_syms = []
-            else:
-                _wr_raw = st.text_area("Enter symbols (one per line or comma-separated)",
-                                       height=120, key="wr_manual",
-                                       placeholder="RELIANCE\nINFY\nHDFCBANK\nTCS")
-                _wr_syms = [s.strip() for s in
-                            _wr_raw.replace(",", "\n").split("\n") if s.strip()]
-
-            _wr_period = st.selectbox("Lookback period", ["3mo", "6mo", "1y"],
-                                      index=1, key="wr_period")
-
-            if _wr_syms and st.button("🏆 Rank Setups", key="wr_run",
-                                       type="primary", use_container_width=True):
-                with st.spinner(f"Scoring {len(_wr_syms)} stocks — fetching price data…"):
-                    try:
-                        _wr_df = rank_watchlist(_wr_syms, period=_wr_period)
-                    except Exception as _wre:
-                        _wr_df = pd.DataFrame()
-                        st.error(f"Ranking failed: {_wre}")
-
-                if not _wr_df.empty:
-                    st.session_state["wr_last_df"] = _wr_df
-                else:
-                    st.warning("No results — check symbol names or network.")
-
-            # Display cached result
-            if st.session_state.get("wr_last_df") is not None:
-                _wr_res = st.session_state["wr_last_df"]
-
-                # Summary metrics
-                _wr_s2  = int((_wr_res["Stage"].str.contains("Stage 2")).sum())
-                _wr_top = int((_wr_res["Score"] >= 65).sum())
-                _wr_c1, _wr_c2, _wr_c3, _wr_c4 = st.columns(4, gap="small")
-                _wr_c1.metric("Stocks Ranked",  len(_wr_res))
-                _wr_c2.metric("Stage 2",        _wr_s2)
-                _wr_c3.metric("Grade A+ / A",   _wr_top)
-                _wr_c4.metric("Top Score",
-                              f"{_wr_res['Score'].iloc[0]:.1f}" if len(_wr_res) else "–")
-
-                st.markdown("---")
-                # Colour-coded table
-                def _wr_colour(val):
-                    if isinstance(val, str):
-                        if "Stage 2" in val: return "color: var(--bull)"
-                        if "Stage 4" in val: return "color: var(--bear)"
-                        if "A+" in val:      return "color: var(--bull); font-weight:700"
-                        if val == "⭐⭐ A":   return "color: var(--acc)"
-                    return ""
-
-                _wr_disp = _wr_res[["Symbol","Score","Grade","Stage","LTP",
-                                     "RS_3M%","RS_Edge%","52W_Pos%","Vol_Surge"]].copy()
-                # 10 May 2026: round numeric columns to 2 decimals so the table
-                # reads cleanly (was showing values like 1.42857142857… for
-                # Vol_Surge etc.).
-                _wr_num_cols = ["Score", "LTP", "RS_3M%", "RS_Edge%",
-                                 "52W_Pos%", "Vol_Surge"]
-                _wr_styler = (_wr_disp.style
-                              .applymap(_wr_colour, subset=["Grade","Stage"])
-                              .format({c: "{:.2f}" for c in _wr_num_cols
-                                        if c in _wr_disp.columns}))
-                st.dataframe(
-                    _wr_styler,
-                    use_container_width=True, hide_index=True,
-                )
-                st.download_button(
-                    "📥 Download Rankings (CSV)",
-                    data=_wr_res.to_csv(index=False).encode("utf-8"),
-                    file_name=f"WatchlistRank_{datetime.now().strftime('%Y%m%d')}.csv",
-                    mime="text/csv", key="wr_dl",
-                )
-
-    # ── TAB 4 — SECTORS DB (unified Pine ↔ Python sector mapping) ────────
     with _wl4:
         section("Unified Sector Database")
         st.caption(

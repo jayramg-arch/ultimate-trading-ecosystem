@@ -972,3 +972,22 @@ canonical one on the live book, then repoint the copies. Page-by-page review is 
 - **RESOLVED (Jay): retired** — moved to `_archive/legacy_pages/`, sidebar links removed. `pages/5_pyramid` and `6_rrg` remain (unlinked). **Legacy "Mobile / Standalone" pages** (`pages/1_home`, `2_xray`, `3_journal`, `4_autopsy`, linked in the sidebar) are older parallel copies with their own formatters, token reads and stats (3_journal still prints "₹-,44,394"). Retire them (the GM has `?mobile=1`), or bring them onto the shared code?
 - **RESOLVED (Jay): IKS = IT** (healthcare solutions) — board map already curated Nifty IT; journal row corrected (backup `..._20261015_2138_iks_sector.db`). **IKS sector**: the board map says Nifty IT; the journal said Pharma. Healthcare-services business — confirm which bucket the 25% cap should count it in.
 - **RESOLVED (Jay): added to auto-pilot** as Phase 5.5 (`XRAY_AUTOPILOT=0` skips); run tonight, 13 names. **Hunter → X-Ray tab** results are from 11 Jul: click-to-run, not in the auto-pilot (the board computes X-Ray live). Add it to the auto-pilot, or leave on demand?
+
+### Part 3 — duplicate pages / tabs / options (15 Oct, night; Jay: "retain the most relevant, retire the rest")
+| Retired | Kept (canonical) | Why |
+|---|---|---|
+| Legacy `pages/` 1_home, 2_xray, 3_journal, 4_autopsy, 5_pyramid, 6_rrg | Dashboard, X-RAY, JOURNAL, AUTOPSY, Risk Shield (pyramid), RRG Studio | older parallel copies (own formatters / token reads / stats) |
+| FUNDAMENTALS page (route redirects to X-RAY) | X-RAY | same `fetch_stock_fundamentals` data, snapshot and screener; its Valuation Scorecard + AI analysis button moved into X-RAY |
+| BACKTEST page (route redirects to WATCHLIST) | Watchlist → Replay / Track Record | yfinance forward-return lab parallel to the house replay engine; returned "no eligible signals" |
+| Portfolio → Walk-Forward tab | Watchlist → Replay / 12-Month Validation | toy "price > SMA50 & SMA200" rule, not the system's definition |
+| Watchlist → Smart Rank tab | Golden Matcher board Overall | second 0-100 ranker with private stage/RS logic |
+| Command → Exit Signal Engine | Dashboard exit scan (with REVIEW rows) | same engine, console + CSV copy |
+| Command → E-02 Trailing Stop Engine | Risk Shield tiles (Chandelier per position) | same risk_common Chandelier |
+| Command → GTT Orders Live View | Risk Shield → Active Exits "At Dhan now" | same order book |
+| Command → Ledger tab + its Sync to TV | Journal (Sync to TV that pushes to the charts) | Command's only rewrote the Pine file |
+| Command launcher: Dhan Webhook Gateway | START_ALERT_REVIEWER / Fix Webhook | a second receiver clashes on :8000 (the 14-Oct duplicate window) |
+| Command launcher: console Sniper | AI Lab → Sniper Entry (through pre_trade_gate) | same job; web version is gated |
+
+Kept on purpose (look alike, not duplicates): ET Prime + MC Pro in News / Pre / Post / Hunter / X-Ray (each filtered for its page); AI Lab's Proposer → Atomic Entry → Sniper (one flow); Hunter's Golden Matcher tab (PRODUCES the lists) vs the GM page (CONSUMES them); Hunter's bulk X-Ray (watchlist scorecards) vs X-Ray → Screen (criteria screener).
+
+For Jay's call (overlap, different angle): FII/DII in Macro (cumulative history) and Post-Market (today + 5-day); Portfolio Overview's sector allocation vs the Dashboard heatmap; Portfolio Rotation Guard (Command; also auto-pilot) vs Risk Shield's ladder — a fifth position grade; Pre-Market → Options tab vs OPTIONS page; three sector-rotation views (Macro RRG/leaderboard, ETF rotation, Breadth sectors).

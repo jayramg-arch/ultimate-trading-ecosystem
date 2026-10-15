@@ -7,14 +7,16 @@
 if True:
     st.markdown('<div class="page-title">⚡ Command Center</div>', unsafe_allow_html=True)
     st.markdown('<div class="page-desc">Active trade management and execution protocols.</div>', unsafe_allow_html=True)
-    _cm1, _cm2, _cm3 = st.tabs(["⚡ Active Ops", "📒 Ledger", "🔔 Price Alerts"])
+    # 15-Oct-2026 DUPLICATE RETIREMENT (Jay: "retain the most relevant, retire the rest"):
+    # Exit Signal Engine -> Dashboard; E-02 Trailing Stop + GTT Live View -> Risk Shield;
+    # Ledger tab + its Sync to TV -> Journal (which pushes to the charts); Webhook Gateway
+    # launcher -> START_ALERT_REVIEWER / Fix Webhook (a second receiver clashes on :8000);
+    # console Sniper -> AI Lab's Sniper Entry (through the pre-trade gate).
+    _cm1, _cm3 = st.tabs(["⚡ Active Ops", "🔔 Price Alerts"])
 
     with _cm1:
         section("Active Operations")
-        c1, c2, c3, c4, c5 = st.columns(5, gap="small")
-        with c1:
-            if st.button("🎯  Sniper Entry AI v2\nOrder execution with Institutional AI analysis.\n→  Launch", use_container_width=True, key="cmd_sniper"):
-                launch_script("sniper_trigger.py")
+        c2, c3, c4 = st.columns(3, gap="small")
         with c2:
             if st.button("🛡️  GTT Auto-Shield\nAuto-protect holdings using Journal levels.\n→  Launch", use_container_width=True, key="cmd_gtt"):
                 launch_script("gtt_auto_shield.py")
@@ -24,54 +26,6 @@ if True:
         with c4:
             if st.button("🤖  Market Monitor Agent\nLive intraday scans and Telegram alerts.\n→  Launch", use_container_width=True, key="cmd_monitor"):
                 launch_script("market_monitor_agent.py")
-        with c5:
-            if st.button("🔌  Dhan Webhook Gateway\nExpose port 8000 via ngrok for TV alerts.\n→  Launch", use_container_width=True, key="cmd_webhook"):
-                launch_script("dhan_tv_webhook.py")
-
-        # ── MISS-1: EXIT SIGNAL ENGINE ───────────────────────────────────────
-        st.markdown("---")
-        section("MISS-1 · Exit Signal Engine")
-        st.caption(
-            "Watchdog scanner for open positions. Flags SL-breach, target hit, "
-            "stage decay (Stage 2 → 3/4), and RS fade (positive → negative) alerts."
-        )
-        _exit_csv = os.path.join(_APP_DIR, "Exit_Signals.csv")
-        _ec1, _ec2 = st.columns([1, 3], gap="small")
-        with _ec1:
-            # NOTE (31-Jul-2026): this used to launch with `--silent`. The engine
-            # honours that flag by redirecting ALL stdout to a sink, so the console
-            # window that `launch_script` opens printed NOTHING and sat there blank —
-            # the scan ran fine and wrote Exit_Signals.csv, but it looked dead. The
-            # silent contract exists for the in-process import path (line ~4557),
-            # NOT for a user-launched console. Run it loud so the scan is visible;
-            # the engine's own input("Press Enter") then holds the window open.
-            if st.button("🚨  Scan Exit Signals\nCheck all open positions for exit triggers.\n→  Scan Now",
-                         use_container_width=True, key="cmd_exit_scan", type="primary"):
-                launch_script("exit_signal_engine.py")
-                st.info("Scan running in the console window. When it finishes, "
-                        "click ↻ Reload results below.")
-            if st.button("↻  Reload results", use_container_width=True, key="cmd_exit_reload"):
-                st.rerun()
-        with _ec2:
-            if os.path.exists(_exit_csv):
-                try:
-                    _df_exit = pd.read_csv(_exit_csv)
-                    _action  = _df_exit[_df_exit.get("Exit_Flag", pd.Series()) == "ACTION"] if "Exit_Flag" in _df_exit.columns else pd.DataFrame()
-                    if not _action.empty:
-                        # pd.Timestamp(mtime, unit='s') is UTC — it rendered every
-                        # scan 5h30m in the past (an 08:42 IST run read "03:12"),
-                        # which made a scan that HAD just run look like it never did.
-                        # datetime.fromtimestamp() is local (IST) time.
-                        _scan_at = datetime.fromtimestamp(os.path.getmtime(_exit_csv))
-                        st.warning(f"⚠️ **{len(_action)} position(s) need attention** — last scan: "
-                                   f"{_scan_at.strftime('%d %b %H:%M')}")
-                        _exit_show = [c for c in ["Symbol","LTP","Weinstein_Stage","Mansfield_RS","StopLoss","Target","Exit_Reasons"] if c in _action.columns]
-                        st.dataframe(_action[_exit_show], use_container_width=True, hide_index=True)
-                    else:
-                        st.success("✅ All positions clear — no exit signals.")
-                except Exception:
-                    st.info("Run Exit Scan to generate results.")
-
         # ── PULLBACK FINDER ─────────────────────────────────────────────────
         # The Trigger Board answers WHEN (and a trigger bar is a wide-range up-bar
         # near the recent high, so it is breakout-biased BY CONSTRUCTION — measured
@@ -120,89 +74,6 @@ if True:
             else:
                 st.info("No scan yet — press **Find Pullbacks**.")
 
-        # ── E-02: TRAILING STOP ENGINE ──────────────────────────────────────
-        st.markdown("---")
-        section("E-02 · Trailing Stop Engine")
-        st.caption("The SAME Chandelier the Risk Shield, the pyramid ladder and the GTT trailer use "
-                   "(risk_common: swing 14-bar / positional 22-bar highest CLOSE − Wilder ATR × the "
-                   "catalyst multiplier, +0.5 in a bear regime). SL > Entry = Locked Profit state.")
-        # 25-Sep-2026: this was a fifth stop engine - highest HIGH since entry minus an
-        # ADR-bucket multiplier - so one position showed two different suggested stops.
-        df_active_cmd = app_state.df_active_global
-        if not df_active_cmd.empty:
-            trail_rows = []
-            syms_cmd   = tuple(df_active_cmd['Symbol'].unique().tolist())
-            live_prices_cmd = get_batch_ltps(syms_cmd)
-            _bear_cmd = bool(_HP.regime().get("bear"))
-            import data_provider as dp
-            for _, row in df_active_cmd.iterrows():
-                sym       = row['Symbol']
-                bp        = float(row.get('BuyPrice', 0) or 0)
-                qty       = float(row.get('Quantity', 0) or 0)
-                curr_sl   = float(row.get('StopLoss', 0) or 0)
-                ltp       = live_prices_cmd.get(sym) or live_prices_cmd.get(clean_symbol(sym)) or bp
-                atr_val   = 0.0
-                atr_trail_sl, _mult_cmd, _src_cmd = None, None, None
-                try:
-                    hist = dp.fetch_ohlcv(sym, period="2y", interval="1d", auto_adjust=True, use_cache=True)
-                    if hist is not None and len(hist) > 30:
-                        _swing_cmd = _rc.resolve_trade_type(
-                            timeframe=row.get('Timeframe') or None, setup=row.get('Setup') or None,
-                            entry=bp or None, stop=curr_sl or None)[0]
-                        _a200 = (len(hist) < 200) or float(hist['Close'].iloc[-1]) > float(hist['Close'].rolling(200).mean().iloc[-1])
-                        _cm = row.get('Custom CE Mult')
-                        _cm = float(_cm) if (_cm is not None and str(_cm).strip() not in ("", "nan", "None")) else None
-                        atr_trail_sl, _mult_cmd, _src_cmd = _rc.chandelier_exit(
-                            hist['High'], hist['Low'], hist['Close'], setup=str(row.get('Setup') or ""),
-                            bear=_bear_cmd, custom_mult=_cm, above200=_a200, swing=_swing_cmd,
-                            entry_date=(row.get('EntryDate') or row.get('Entry Date') or None))
-                        _tr = pd.concat([hist['High'] - hist['Low'], (hist['High'] - hist['Close'].shift()).abs(),
-                                         (hist['Low'] - hist['Close'].shift()).abs()], axis=1).max(axis=1)
-                        atr_val = float(_tr.ewm(alpha=1 / 14, adjust=False).mean().iloc[-1])
-                        _msl = row.get('Manual SL Override')
-                        if _msl is not None and str(_msl).strip() not in ("", "nan", "None") and float(_msl) > 0 \
-                                and atr_trail_sl is not None:
-                            atr_trail_sl = max(atr_trail_sl, float(_msl))    # Floor semantics, as the trailer
-                except Exception as e:
-                    logger.warning(f"E-02 Chandelier {sym}: {e}")
-                if atr_trail_sl is None:
-                    atr_trail_sl = curr_sl
-                suggested_sl = max(atr_trail_sl, curr_sl)   # never trail backwards
-
-                # Status — breach is always against Current SL (actual active stop),
-                # NOT against suggested_sl (which is a recommendation only).
-                if ltp < curr_sl:
-                    status = "⚠️ SL BREACHED"
-                elif suggested_sl > ltp:
-                    # Price has fallen through where the ATR trail would have stopped you,
-                    # but the actual SL was never moved up — warn user to update or exit.
-                    status = f"📉 TRAIL LAPSED — update SL or exit"
-                elif curr_sl > bp:
-                    status = f"🔒 LOCKED (+₹{format_inr_int((curr_sl-bp)*qty)})"
-                elif suggested_sl > curr_sl:
-                    status = f"📈 TRAIL → ₹{format_inr(suggested_sl)}"
-                else:
-                    status = "✅ AT ENTRY SL"
-
-                trail_rows.append({
-                    'Symbol':       sym,
-                    'Entry':        round(bp, 2),
-                    'LTP':          round(ltp, 2),
-                    'Current SL':   round(curr_sl, 2),
-                    'Chandelier':   round(atr_trail_sl, 2),
-                    'Mult':         (f"{_mult_cmd:g}× {_src_cmd}" if _mult_cmd else "—"),
-                    'Suggested SL': round(suggested_sl, 2),
-                    'ATR':          round(atr_val, 2),
-                    'Status':       status
-                })
-
-            if trail_rows:
-                df_trail = pd.DataFrame(trail_rows)
-                st.dataframe(df_trail, use_container_width=True, hide_index=True, height=340)
-                st.info("💡 Update 'Current SL' values in your Journal then re-run GTT Auto-Shield to push updated levels to Dhan.")
-        else:
-            st.info("No open positions found in journal.")
-
         st.markdown("---")
         # ── MISS-2: PORTFOLIO ROTATION GUARD UI ─────────────────────────────
         section("Portfolio Rotation Guard")
@@ -229,106 +100,11 @@ if True:
                     st.info("Run Rotation Guard to view portfolio grading.")
 
         st.markdown("---")
-        section("GTT Orders — Live View")
-        _gtt_c1, _gtt_c2 = st.columns([1, 5])
-        with _gtt_c1:
-            _gtt_refresh = st.button("🔄 Fetch GTTs", key="gtt_refresh", type="primary")
-        with _gtt_c2:
-            st.caption("Pulls active GTT orders from Dhan. Refreshes on click.")
-
-        if _gtt_refresh or st.session_state.get("gtt_loaded"):
-            with st.spinner("Fetching GTT orders from Dhan…"):
-                try:
-                    from dhan_auth import get_dhan_client as _gdc
-                    _dhan_gtt  = _gdc()
-                    # 10 May 2026 fix: Dhan SDK exposes GTTs under
-                    # `get_forever()` (Dhan terminology = "Forever Orders").
-                    # Previously called the non-existent `get_gtt_list()` →
-                    # AttributeError → empty fallback → "No GTTs found"
-                    # message even when many were pending.
-                    _gtt_resp  = _dhan_gtt.get_forever()
-                    if isinstance(_gtt_resp, dict) and _gtt_resp.get("status") == "success":
-                        _gtt_data = _gtt_resp.get("data") or []
-                    else:
-                        _gtt_data = []
-                        if isinstance(_gtt_resp, dict):
-                            st.warning(f"Dhan returned non-success: "
-                                        f"{_gtt_resp.get('remarks', _gtt_resp)}")
-                    st.session_state["gtt_loaded"] = True
-                    st.session_state["gtt_data"]   = _gtt_data
-                except Exception as _gtte:
-                    st.error(f"GTT fetch failed: {_gtte}")
-                    _gtt_data = []
-
-            _gtt_data = st.session_state.get("gtt_data", [])
-            if _gtt_data:
-                # Each row in `data` is a single leg of a Forever Order
-                # (e.g. an OCO order produces 2 legs: STOP_LOSS_LEG + TARGET_LEG).
-                _gtt_rows = []
-                for _gtt_r in _gtt_data:   # was `_g` - it shadowed the shared _g() helper
-                    _ot = _gtt_r.get("orderType", "")  # SINGLE or OCO
-                    _leg = _gtt_r.get("legName", "")   # STOP_LOSS_LEG / TARGET_LEG / ENTRY_LEG
-                    _txn = _gtt_r.get("transactionType", "")  # BUY/SELL
-                    # Type column: combine action + leg context for clarity
-                    _type_label = f"{_txn} · {_ot}"
-                    if _leg and _leg != "ENTRY_LEG":
-                        _type_label += f" · {_leg.replace('_LEG','').replace('_',' ').title()}"
-                    _gtt_rows.append({
-                        "Symbol":     _gtt_r.get("tradingSymbol", ""),
-                        "Type":       _type_label,
-                        "Trigger ₹":  _gtt_r.get("triggerPrice", ""),
-                        "Price ₹":    _gtt_r.get("price", ""),
-                        "Qty":        _gtt_r.get("quantity", ""),
-                        "Status":     _gtt_r.get("orderStatus", ""),
-                        "Created":    str(_gtt_r.get("createTime", ""))[:10],
-                        "Order ID":   _gtt_r.get("orderId", ""),
-                    })
-                _df_gtt = pd.DataFrame(_gtt_rows)
-                # Sort: PENDING first, then by Symbol
-                if "Status" in _df_gtt.columns:
-                    _df_gtt["_sp"] = (_df_gtt["Status"] == "PENDING").map(
-                        {True: 0, False: 1}
-                    )
-                    _df_gtt = _df_gtt.sort_values(["_sp", "Symbol"]).drop(columns=["_sp"])
-                st.dataframe(_df_gtt, use_container_width=True, hide_index=True)
-                _n_pending = int((_df_gtt["Status"] == "PENDING").sum()) \
-                              if "Status" in _df_gtt.columns else len(_df_gtt)
-                st.caption(f"{_n_pending} pending GTT(s) of {len(_df_gtt)} total | "
-                           "To cancel, use the Dhan app or Journal GTT Shield.")
-            else:
-                st.info("No GTT orders returned by Dhan API. "
-                        "If you have active GTTs in the Dhan app, check that "
-                        "your access token isn't expired (sidebar → 🔑 Token detail).")
-
-        st.markdown("---")
         section("External Apps")
         if st.button("📓  Open Full Journal\nActive trades, closed history, performance lab.\n→  Open", use_container_width=True, key="cmd_journal"):
             # 23-Sep: navigates instead of spawning a second Streamlit process.
             _goto_page("JOURNAL")
             st.rerun()
-
-    with _cm2:
-        col1, col2 = st.columns([0.7, 0.3])
-        with col1:
-            section("Live Trade Ledger")
-        with col2:
-            st.write("") # Spacer
-            if st.button("🔄 Sync to TV", help="Sync Active Ledger to Pine Script Dashboard", use_container_width=True):
-                with st.spinner("Syncing..."):
-                    try:
-                        import subprocess
-                        subprocess.run([_PYTHON_EXE, "db_portfolio_sync.py"], capture_output=True, text=True, check=True)
-                        st.success("✅ Synced! Copy code from `Weinstein and Swing Pro Dashboard v67.4.12.pine`")
-                    except Exception as e:
-                        st.error(f"❌ Sync failed: {e}")
-                        
-        df_j = load_journal_db()
-        if not df_j.empty:
-            show = [c for c in ["Symbol","Type","BuyPrice","Quantity","Status",
-                                 "Sector","StopLoss","Target","PlannedRR","Timeframe"] if c in df_j.columns]
-            st.dataframe(df_j[show], use_container_width=True, height=500, hide_index=True)
-        else:
-            st.info("No open trades found in the system.")
 
     with _cm3:
         # ── PRICE ALERTS ─────────────────────────────────────────────────────

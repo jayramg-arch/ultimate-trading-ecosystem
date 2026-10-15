@@ -115,6 +115,17 @@ if True:
                     _xr_r4[2].metric("Debt/Equity",    f"{_xr_fd.get('debt_equity',0):.2f}x"        if _xr_fd.get('debt_equity')    else "N/A")
                     _xr_r4[3].metric("Current Ratio",  f"{_xr_fd.get('current_ratio',0):.2f}"       if _xr_fd.get('current_ratio')  else "N/A")
 
+                    # AI analysis - moved from the retired Fundamentals page (15-Oct-2026)
+                    if _GEMINI_OK:
+                        st.markdown("---")
+                        if st.button("🤖 Generate AI Analysis", key="xr_ai_btn", type="primary"):
+                            with st.spinner("Generating Gemini analysis..."):
+                                try:
+                                    from gemini_reporter import generate_stock_analysis
+                                    _render_ai_report(generate_stock_analysis(_xr_sym, _xr_fd))
+                                except Exception as _ae:
+                                    st.error(f"AI analysis failed: {_ae}")
+
         # ── TAB 2 — INCOME STATEMENT ────────────────────────────────────────
         with _xr_t2:
             if not _xr_sym:
@@ -260,6 +271,25 @@ if True:
                             )
                 elif "error" in _xr_sc:
                     st.warning("Insufficient financial data from yfinance to calculate X-Ray.")
+
+                # VALUATION SCORECARD - moved from the retired Fundamentals page (15-Oct-2026)
+                try:
+                    _xr_vs = get_valuation_scorecard(fetch_stock_fundamentals(_xr_sym) or {}) or {}
+                except Exception as _vse:
+                    _xr_vs = {}
+                if _xr_vs:
+                    _vs_bd = _xr_vs.get("breakdown", {}) or {}
+                    _vs_rt = _xr_vs.get("rating", "N/A")
+                    _vs_col = ("var(--bull)" if "BUY" in str(_vs_rt).upper() else
+                               "var(--bear)" if "SELL" in str(_vs_rt).upper() else "var(--warn)")
+                    section(f"Valuation Scorecard — {_vs_rt}  ·  {_xr_vs.get('score', 0)} / {sum(_vs_bd.values()) if _vs_bd else '?'}")
+                    for _vm, _vp in _vs_bd.items():
+                        st.markdown(
+                            f'<div style="padding:5px 0;border-bottom:1px solid var(--rule);display:flex;gap:8px">'
+                            f'<span>{"✅" if _vp > 0 else "❌"}</span>'
+                            f'<span style="flex:1;font-size:0.82rem;color:var(--ink)">{_vm.replace("_", " ").title()}</span>'
+                            f'<span style="font-size:0.78rem;color:{_vs_col}">{_vp:+d} pts</span></div>',
+                            unsafe_allow_html=True)
 
         # ── TAB 5 — SCREEN (absorbed from former Fundamentals page) ─────────
         with _xr_t5:

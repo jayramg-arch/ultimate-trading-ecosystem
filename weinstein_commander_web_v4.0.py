@@ -1402,7 +1402,6 @@ with st.sidebar:
         ("🔬  ANALYSIS", [
             ("🔬 AUTOPSY",     "AUTOPSY"),
             ("📄 PAPER TRADES", "PAPER"),
-            ("📈 BACKTEST",    "BACKTEST"),
             ("🧪 AI LAB",      "AI LAB"),
         ]),
         ("📁  RECORDS", [
@@ -4266,8 +4265,10 @@ elif page == 'AUTOPSY':
 # ════════════════════════════════════════════════════════════════════════════
 #  MISS-5: SIGNAL BACKTEST LAB
 # ════════════════════════════════════════════════════════════════════════════
+# RETIRED 15-Oct-2026: a yfinance forward-return lab for Recovery signals, parallel to
+# Watchlist -> Replay (the house replay engine). A stale ?p=BACKTEST lands there.
 elif page == 'BACKTEST':
-    commander_pages.run("backtest", globals())   # page body: commander_pages/backtest.py
+    commander_pages.run("watchlist", globals())
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -4320,11 +4321,11 @@ elif page == 'NEWS':
     commander_pages.run("news", globals())   # page body: commander_pages/news.py
 
 
-# ══════════════════════════════════════════════════════════════════════════════
-#  v4.0 Phase-2 — FUNDAMENTALS HUB
-# ══════════════════════════════════════════════════════════════════════════════
+# FUNDAMENTALS HUB - RETIRED 15-Oct-2026 (duplicate of X-RAY: same fetch_stock_fundamentals
+# data, same snapshot and screener). Its two unique blocks - the Valuation Scorecard and the
+# AI analysis button - moved into X-RAY. A stale ?p=FUNDAMENTALS link lands on X-RAY.
 elif page == 'FUNDAMENTALS':
-    commander_pages.run("fundamentals", globals())   # page body: commander_pages/fundamentals.py
+    commander_pages.run("x_ray", globals())
 
 
 # ══════════════════════════════════════════════════════════════════════════════
