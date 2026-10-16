@@ -177,6 +177,64 @@ def step(st: dict, p: dict, f: dict, g: dict, opts: dict) -> list:
     return orders
 
 
+def summary_text(test: bool = False) -> str:
+    """The Friday Telegram summary (16-Oct-2026, Jay): each book's equity and orders, the regime,
+    the Nifty 500 over the same span and the top of the rank. Plain text, one screen."""
+    def inr(v):
+        s_ = "%d" % round(abs(v))
+        if len(s_) > 3:
+            head, tail = s_[:-3], s_[-3:]
+            parts = []
+            while len(head) > 2:
+                parts.insert(0, head[-2:])
+                head = head[:-2]
+            if head:
+                parts.insert(0, head)
+            s_ = ",".join(parts) + "," + tail
+        return ("-" if v < 0 else "") + "Rs " + s_
+    lines, regime, decided, watch, n500 = [], None, None, [], None
+    for name in BOOKS:
+        st = load_state(name)
+        h = st["history"][-1] if st["history"] else {}
+        eq = h.get("equity", st["cash"])
+        pend = st.get("pending") or {}
+        if pend:
+            regime, decided = pend.get("regime_up"), pend.get("decided")
+            watch = watch or [w[0] for w in pend.get("watch", [])[:8]]
+        nb = len(pend.get("buys", [])) if pend else 0
+        ns = len(pend.get("sells", [])) if pend else 0
+        lines.append("%s  %s (%+.2f%%)  %d held · next: buy %d / sell %d" % (
+            name, inr(eq), (eq / st["start_capital"] - 1) * 100, len(st["pos"]), nb, ns))
+        if st["history"] and len(st["history"]) > 1 and n500 is None:
+            a, b = st["history"][0].get("nifty500"), st["history"][-1].get("nifty500")
+            if a and b:
+                n500 = (b / a - 1) * 100
+    head = "%sv2 PAPER BOOKS - week to %s" % ("[TEST] " if test else "", decided or "-")
+    rg = ("Nifty 500 ABOVE its 200-day SMA - buys allowed" if regime else
+          "Nifty 500 BELOW its 200-day SMA - no new buys")
+    body = [head, rg] + lines
+    if n500 is not None:
+        body.append("Nifty 500 over the same span: %+.2f%%" % n500)
+    if watch:
+        body.append("Top of the rank: " + ", ".join(watch))
+    body.append("Orders: reports/p1_paper/orders_%s.md (paper only - nothing goes to Dhan)"
+                % (decided or "").replace("-", ""))
+    return "\n".join(body)
+
+
+def send_summary(test: bool = False) -> bool:
+    txt = summary_text(test)
+    print(txt)
+    if os.getenv("P1_TELEGRAM", "1") == "0":
+        return False
+    try:
+        import s4_review
+        return bool(s4_review.telegram(txt))
+    except Exception as e:
+        print("telegram failed: %s" % e)
+        return False
+
+
 def run() -> int:
     import v2_backtest as v2
     import pro_systems_backtest as ps
@@ -185,9 +243,13 @@ def run() -> int:
     g = ps.pro_features(p, f)
     last = p["Close"].index[-1].date()
     all_orders, regime = [], None
+    new_decision = False
     for name, opts in BOOKS.items():
         st = load_state(name)
+        before = (st.get("pending") or {}).get("decided")
         orders = step(st, p, f, g, opts)
+        if (st.get("pending") or {}).get("decided") not in (None, before):
+            new_decision = True
         save_state(st)
         all_orders += orders
         if st.get("pending"):
@@ -220,6 +282,8 @@ def run() -> int:
                                                                 o["shares"], f"{o['approx_value']:,}"))
         _io_write(os.path.join(REPORT_DIR, "orders_%s.md" % tag), "\n".join(lines) + "\n")
         print("orders written: reports/p1_paper/orders_%s.md (%d lines)" % (tag, len(all_orders)))
+    if new_decision:                      # a Friday close was decided in THIS run - say so once
+        send_summary()
     return 0
 
 
@@ -240,7 +304,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--reset", action="store_true")
+    ap.add_argument("--telegram-test", action="store_true", help="send the current summary, marked [TEST]")
     a = ap.parse_args()
+    if a.telegram_test:
+        return 0 if send_summary(test=True) else 1
     if a.reset:
         for name in BOOKS:
             fp = os.path.join(STATE_DIR, "%s.json" % name)
