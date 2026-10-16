@@ -1,0 +1,26 @@
+V2: trades 1573  open positions at end 7
+B3: trades 990  open positions at end 30
+C: trades 562  open positions at end 8
+variant half  CAGR%  maxDD%  MAR  vol%  Sharpe  trades
+     V2 full  17.70  -33.29 0.53 20.54    0.89  1573.0
+     V2   H1  18.22  -33.29 0.55 19.88    0.94     NaN
+     V2   H2  17.18  -31.49 0.55 21.18    0.84     NaN
+     B3 full  18.30  -38.29 0.48 20.61    0.92   990.0
+     B3   H1  20.21  -38.29 0.53 21.35    0.97     NaN
+     B3   H2  16.44  -29.51 0.56 19.88    0.86     NaN
+      C full  22.89  -36.29 0.63 20.00    1.13   562.0
+      C   H1  26.29  -36.29 0.72 22.19    1.16     NaN
+      C   H2  19.61  -29.24 0.67 17.55    1.09     NaN
+      R full  14.38  -32.80 0.44 16.69    0.89     NaN
+      R   H1  11.47  -32.80 0.35 17.30    0.71     NaN
+      R   H2  17.33  -19.93 0.87 16.09    1.07     NaN
+     B2 full  22.11  -42.17 0.52 19.99    1.10     NaN
+     B2   H1  19.95  -42.17 0.47 22.63    0.91     NaN
+     B2   H2  24.30  -20.95 1.16 17.00    1.36     NaN
+     B1 full  11.05  -38.30 0.29 16.58    0.71     NaN
+     B1   H1  12.01  -38.30 0.31 19.51    0.68     NaN
+     B1   H2  10.11  -18.84 0.54 13.07    0.80     NaN
+H1: V2 MAR 0.55 vs B2 0.47 / B3 0.53; CAGR 18.22 vs B1 12.01 -> pass
+H2: V2 MAR 0.55 vs B2 1.16 / B3 0.56; CAGR 17.18 vs B1 10.11 -> FAIL
+
+VERDICT  V2 FAILS the pre-registered rule
