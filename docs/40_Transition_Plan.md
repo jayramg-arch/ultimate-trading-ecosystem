@@ -74,3 +74,7 @@ full. Each stage is reversible: a live drawdown deeper than the backtest's worst
 
 - **P1E started** as a third paper book (forward only, docs/PREREG_p1e_ensemble_forward.md).
 - **Phase 13 board reviews paused** by default (`BOARD_REVIEWS=1` turns them back on).
+- **Survivorship correction (17 Oct):** P1 SURVIVES on a point-in-time top-500 universe (CAGR 19.3 %,
+  max DD −22.4 %, MAR 0.86 vs Nifty 500 0.29 and Momentum-30 replica 0.40). Expectations for the
+  v2 core are now set on these numbers, not the 21.9 % / 1.16 from today's list
+  (docs/PREREG_survivorship_tournament.md).
