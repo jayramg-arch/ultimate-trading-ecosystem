@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Section 4 — Futures &amp; Options OI Cheat-Sheet (One-Pager)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Oswald:wght@600;700&family=Public+Sans:wght@400;600;700&display=swap">
+
+  <style>
+    :root {
+      --ground: #F3F1F2;
+      --surface: #FFFFFF;
+      --surface-2: #FAF8F9;
+      --surface-3: #EDEAEC;
+      --ink: #171315;
+      --ink-2: #3F3940;
+      --muted: #6D656C;
+      --faint: #9C949B;
+      --rule: #DCD6DA;
+      --acc: #A32B4E;
+      --acc-bg: #FBE8ED;
+      --acc-rule: #E3AFC0;
+      --go: #0F7A52;
+      --go-bg: #E2F1EA;
+      --go-rule: #9AC9B4;
+      --wait: #9A5B00;
+      --wait-bg: #FBF0DE;
+      --wait-rule: #DFBB80;
+      --no: #9E2F16;
+      --no-bg: #FAEAE5;
+      --no-rule: #DFB2A2;
+      --mono: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+      --disp: 'Oswald', sans-serif;
+      --body: 'Public Sans', sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 14px;
+      background: var(--ground);
+      color: var(--ink);
+      font-family: var(--body);
+      font-size: 11px;
+      line-height: 1.35;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .sheet {
+      max-width: 980px;
+      margin: 0 auto;
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: 6px;
+      padding: 16px 20px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    }
+
+    /* Header Strip */
+    .hdr {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 2px solid var(--ink);
+      padding-bottom: 8px;
+      margin-bottom: 8px;
+    }
+    .hdr-title {
+      font-family: var(--disp);
+      font-size: 22px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 0;
+      color: var(--ink);
+    }
+    .hdr-sub {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--acc);
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .hdr-badge {
+      font-family: var(--mono);
+      font-size: 9px;
+      background: var(--surface-3);
+      padding: 3px 8px;
+      border-radius: 4px;
+      border: 1px solid var(--rule);
+      font-weight: 600;
+    }
+
+    /* Principle Banner */
+    .doctrine-bar {
+      background: var(--acc-bg);
+      border: 1px solid var(--acc-rule);
+      border-left: 4px solid var(--acc);
+      padding: 6px 12px;
+      border-radius: 3px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .doctrine-bar strong {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--acc);
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+    }
+    .doctrine-bar span {
+      font-size: 10.5px;
+      color: var(--ink-2);
+    }
+
+    /* Grid layout */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1.15fr 1fr;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+
+    .card {
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      background: var(--surface-2);
+      padding: 8px 10px;
+    }
+    .card-title {
+      font-family: var(--disp);
+      font-size: 13px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 0 0 6px 0;
+      padding-bottom: 4px;
+      border-bottom: 1px solid var(--rule);
+      display: flex;
+      justify-content: space-between;
+    }
+    .card-title span.tag {
+      font-family: var(--mono);
+      font-size: 9px;
+      color: var(--muted);
+      font-weight: normal;
+    }
+
+    /* Compact Table */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 9.5px;
+      margin: 4px 0 6px 0;
+    }
+    th {
+      font-family: var(--mono);
+      background: var(--surface-3);
+      padding: 3px 5px;
+      text-align: left;
+      font-weight: 700;
+      border-bottom: 1px solid var(--rule);
+      color: var(--ink);
+    }
+    td {
+      padding: 3px 5px;
+      border-bottom: 1px solid var(--rule);
+      vertical-align: top;
+    }
+    tr:last-child td { border-bottom: none; }
+
+    /* Pill styling */
+    .pill {
+      font-family: var(--mono);
+      font-size: 8.5px;
+      font-weight: 700;
+      padding: 1px 4px;
+      border-radius: 3px;
+      display: inline-block;
+      white-space: nowrap;
+    }
+    .pill-go { background: var(--go-bg); color: var(--go); border: 1px solid var(--go-rule); }
+    .pill-wait { background: var(--wait-bg); color: var(--wait); border: 1px solid var(--wait-rule); }
+    .pill-no { background: var(--no-bg); color: var(--no); border: 1px solid var(--no-rule); }
+    .pill-neutral { background: var(--surface-3); color: var(--ink-2); border: 1px solid var(--rule); }
+
+    /* Key Points */
+    .point-list {
+      margin: 0;
+      padding-left: 14px;
+      font-size: 9.5px;
+      color: var(--ink-2);
+    }
+    .point-list li { margin-bottom: 3px; }
+    .point-list li:last-child { margin-bottom: 0; }
+
+    /* Visual corridor diagram */
+    .corridor {
+      background: var(--surface);
+      border: 1px dashed var(--rule);
+      border-radius: 3px;
+      padding: 4px 8px;
+      margin: 6px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--mono);
+      font-size: 9px;
+    }
+    .corridor-node { text-align: center; }
+    .corridor-arrow { color: var(--muted); font-size: 12px; }
+
+    /* Bottom Section */
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 12px;
+      padding-top: 6px;
+      border-top: 1px solid var(--rule);
+    }
+
+    .step-box {
+      background: var(--surface);
+      border: 1px solid var(--rule);
+      border-radius: 3px;
+      padding: 5px 8px;
+      margin-bottom: 4px;
+      font-size: 9.5px;
+    }
+    .step-box strong { font-family: var(--mono); color: var(--acc); font-size: 9.5px; }
+
+    .example-card {
+      background: var(--surface-3);
+      border: 1px solid var(--rule);
+      border-radius: 4px;
+      padding: 6px 10px;
+      font-size: 9px;
+      font-family: var(--mono);
+    }
+    .example-title {
+      font-weight: 700;
+      color: var(--ink);
+      border-bottom: 1px solid var(--rule);
+      padding-bottom: 3px;
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      font-size: 9.5px;
+    }
+
+    /* Print Optimization (Strict 1-Page Budget) */
+    @media print {
+      @page {
+        size: A4 portrait;
+        margin: 6mm 8mm 6mm 8mm;
+      }
+      body {
+        background: #FFFFFF !important;
+        padding: 0 !important;
+        font-size: 9pt;
+      }
+      .sheet {
+        border: none !important;
+        box-shadow: none !important;
+        padding: 0 !important;
+        max-width: 100% !important;
+      }
+      .no-print { display: none !important; }
+    }
+
+    .btn-print {
+      float: right;
+      font-family: var(--mono);
+      font-size: 10px;
+      font-weight: 700;
+      background: var(--ink);
+      color: #fff;
+      border: none;
+      padding: 4px 10px;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .btn-print:hover { background: var(--acc); }
+  </style>
+</head>
+<body>
+
+<div class="sheet">
+  <!-- Header Strip -->
+  <div class="hdr">
+    <div>
+      <h1 class="hdr-title">Weinstein Commander · Section 4 Field Manual</h1>
+      <div class="hdr-sub">Futures &amp; Options Open Interest Cheat-Sheet (Rows 9 &amp; 10)</div>
+    </div>
+    <div style="text-align:right;">
+      <button class="btn-print no-print" onclick="window.print()">🖨️ Print / Save PDF</button>
+      <div class="hdr-badge" style="margin-top:4px;">100.107.62.98:8502/docs/portal</div>
+    </div>
+  </div>
+
+  <!-- Doctrine Bar -->
+  <div class="doctrine-bar">
+    <div><strong>Core Doctrine:</strong> <span>Derivatives GRADE, they NEVER GATE.</span></div>
+    <div><span>Price Action dictates the setup; F&amp;O reveals near-month institutional friction.</span></div>
+  </div>
+
+  <!-- Top 2-Column Matrix -->
+  <div class="grid-2">
+
+    <!-- Column 1: Row 9 Futures OI -->
+    <div class="card">
+      <div class="card-title">
+        <span>Row 9 · Futures OI &amp; Positioning Basis</span>
+        <span class="tag">Daily Close vs ΔOI</span>
+      </div>
+
+      <!-- 4-State Table -->
+      <table>
+        <thead>
+          <tr>
+            <th>State</th>
+            <th>Px</th>
+            <th>OI</th>
+            <th>Institutional Reading</th>
+            <th>Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="pill pill-go">Long Build-up</span></td>
+            <td>▲</td>
+            <td>▲</td>
+            <td>Fresh money buying with conviction</td>
+            <td>Breakout has fuel; trade high conviction.</td>
+          </tr>
+          <tr>
+            <td><span class="pill pill-wait">Short Covering</span></td>
+            <td>▲</td>
+            <td>▼</td>
+            <td>Trapped shorts exiting; no new buying</td>
+            <td><strong>Do not chase.</strong> Fades are frequent.</td>
+          </tr>
+          <tr>
+            <td><span class="pill pill-no">Short Build-up</span></td>
+            <td>▼</td>
+            <td>▲</td>
+            <td>Bears aggressively pressing declines</td>
+            <td><strong>Treat bounces as suspect.</strong> Heavy supply.</td>
+          </tr>
+          <tr>
+            <td><span class="pill pill-neutral">Long Unwinding</span></td>
+            <td>▼</td>
+            <td>▼</td>
+            <td>Longs liquidating without active shorts</td>
+            <td>Drifting, exhausted tape; wait for value.</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- Positioning Basis -->
+      <div style="font-weight:700; font-family:var(--disp); font-size:11px; margin:4px 0 2px 0; text-transform:uppercase;">
+        Positioning Basis (Trapped Money Calculator)
+      </div>
+      <ul class="point-list">
+        <li><strong>Long Basis (basis L):</strong> Weighted price of contracts bought on up-closes.
+          <br>• If <code>Price &lt; basis L</code>: Marginal long is <em>underwater</em>; sells to break even (<strong>Resistance</strong>).
+          <br>• If <code>Price &gt; basis L</code>: Longs are in profit; buy to defend dips (<strong>Support</strong>).
+        </li>
+        <li><strong>Short Basis (basis S):</strong> Weighted price of contracts sold on down-closes. Price sustaining above it traps shorts, creating short-covering acceleration fuel.</li>
+        <li><strong>Built Share (bld %):</strong> Share of 20 daily prints adding net contracts. <code>&ge;40%</code> = active reliable book; <code>&lt;40%</code> = stale, unwinding book (ignore).</li>
+      </ul>
+    </div>
+
+    <!-- Column 2: Row 10 Options OI -->
+    <div class="card">
+      <div class="card-title">
+        <span>Row 10 · Options OI &amp; Writers' Walls</span>
+        <span class="tag">Near-Month Expiry</span>
+      </div>
+
+      <!-- Corridor Diagram -->
+      <div class="corridor">
+        <div class="corridor-node">
+          <div style="color:var(--go); font-weight:700;">PUT WALL (writers S)</div>
+          <div style="color:var(--muted); font-size:8px;">Institutional Floor</div>
+        </div>
+        <div class="corridor-arrow">◄──</div>
+        <div class="corridor-node">
+          <div style="font-weight:700; color:var(--ink);">SPOT PRICE</div>
+          <div style="color:var(--muted); font-size:8px;">Trading Corridor</div>
+        </div>
+        <div class="corridor-arrow">──►</div>
+        <div class="corridor-node">
+          <div style="color:var(--no); font-weight:700;">CALL WALL (writers R)</div>
+          <div style="color:var(--muted); font-size:8px;">Institutional Ceiling</div>
+        </div>
+      </div>
+
+      <ul class="point-list" style="margin-top:4px;">
+        <li><strong>Put-Call Ratio (PCR):</strong> Total Put OI &divide; Total Call OI.
+          <br>• <code>&lt; 0.70</code> <span class="pill pill-no">Call-Heavy 🔴</span>: Massive call writing. Rallies capped.
+          <br>• <code>0.70 – 1.30</code> <span class="pill pill-neutral">Balanced ⚪</span>: Neutral tape; no strong derivatives bias.
+          <br>• <code>&gt; 1.30</code> <span class="pill pill-go">Put-Heavy 🟢</span>: Writers underwriting downside; strong floor.
+        </li>
+        <li><strong>Call Wall (writers R):</strong> Strike with peak Call OI. A concrete ceiling chart patterns cannot see. <em>If T1 sits above it, your reward is fighting option writers.</em></li>
+        <li><strong>Put Wall (writers S):</strong> Strike with peak Put OI. Validates stop-loss placement if your SL rests safely behind this wall.</li>
+        <li><strong>Max Pain:</strong> Strike where option buyers lose maximum money.
+          <br>• <em>Rule:</em> <strong>An expiry magnet, NEVER a price target.</strong> Pulls price inward during expiry week.
+        </li>
+        <li><strong>ATM Shift (ATM &Delta;OI):</strong> <code>+</code> = Writers adding (consolidation drift); <code>&minus;</code> = Writers fleeing (path clear for drive).</li>
+      </ul>
+    </div>
+
+  </div>
+
+  <!-- Bottom Section: Execution Sequence + Example -->
+  <div class="bottom-grid">
+
+    <!-- 4-Step Execution Checklist -->
+    <div>
+      <div style="font-family:var(--disp); font-size:12.5px; font-weight:700; text-transform:uppercase; margin-bottom:5px;">
+        The 4-Step Execution Protocol (Band V Plan &amp; Risk)
+      </div>
+
+      <div class="step-box">
+        <strong>STEP 1: STATE CHECK</strong> — Is it <em>Long Build-up</em>?
+        <br>&bull; <em>YES:</em> Enter with full aggression. &bull; <em>NO (Short Build-up / Covering):</em> Enter only on pullbacks to value.
+      </div>
+
+      <div class="step-box">
+        <strong>STEP 2: BASIS HURDLE</strong> — Is price below <em>basis L</em>?
+        <br>&bull; <em>YES:</em> Expect immediate selling churn at <code>basis L</code> (trapped longs scratching breakeven).
+        <br>&bull; <em>NO:</em> <code>basis L</code> acts as active support beneath; anchor your trailing plan to it.
+      </div>
+
+      <div class="step-box">
+        <strong>STEP 3: CALL WALL VS T1</strong> — Does <em>writers R</em> sit below technical T1?
+        <br>&bull; <em>YES:</em> Check <code>R to the wall</code>. Plan mandatory partial scale-out (25%–50%) at or before the wall!
+        <br>&bull; <em>NO:</em> Clear air to T1; hold standard runner for 3R+.
+      </div>
+
+      <div class="step-box">
+        <strong>STEP 4: STOP SHIELDING</strong> — Does your Stop Loss rest below the <em>Put Wall (writers S)</em>?
+        <br>&bull; <em>YES:</em> Institutionally protected: put writers must be overrun before your stop is threatened.
+        <br>&bull; <em>NO:</em> Unshielded stop: widen stop past the put wall or trim size.
+      </div>
+    </div>
+
+    <!-- Real-World Example -->
+    <div>
+      <div style="font-family:var(--disp); font-size:12.5px; font-weight:700; text-transform:uppercase; margin-bottom:5px;">
+        Live Case: UNOMINDA (125m) Decoded
+      </div>
+      <div class="example-card">
+        <div class="example-title">Data from Section 4 Panel</div>
+        <div>&bull; <strong>Spot:</strong> 1230.0 &bull; <strong>Setup:</strong> RECOVERY (Auto-113)</div>
+        <div>&bull; <strong>Futures OI:</strong> Short build-up +0.4%</div>
+        <div>&bull; <strong>Basis:</strong> L 1239.5 | S 1126.2 (Combined 1259.2)</div>
+        <div>&bull; <strong>Options:</strong> PCR 0.61 🔴 | Max Pain: 1240.0 (+0.8%)</div>
+        <div>&bull; <strong>Walls:</strong> S 1200.0 &rarr; R 1300.0</div>
+        <div>&bull; <strong>Plan:</strong> T1 1403.4 (3.0R) | SL 1172.2 (-4.7%)</div>
+        <div style="border-top:1px dashed var(--rule); margin-top:4px; padding-top:4px; color:var(--acc); font-weight:700;">
+          EXECUTION RULING:
+        </div>
+        <div>1. <strong>T1 Truncation:</strong> Pure technical T1 is 1403.4 (3.0R), but Call Wall is at 1300.0 (&rarr; only 1.2R runway). Book partial at 1300.0!</div>
+        <div>2. <strong>Immediate Friction:</strong> Long Basis (1239.5) &amp; Max Pain (1240.0) form a 10-pt hurdle. Expect a grinding drift, not a spike.</div>
+        <div>3. <strong>Stop Safety:</strong> SL at 1172.2 sits safely below Put Wall (1200.0). Fully shielded by institutional writers.</div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+</body>
+</html>

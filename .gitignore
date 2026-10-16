@@ -199,3 +199,6 @@ data/cash_bhav/
 # screener.in company pages cached by screener_history.py (paid-session content; data, not code)
 data/screener_pages/
 logs/reviewer_banner.pid
+
+# p1_paper.py --reset keeps the old book as *.reset_<stamp> (16-Oct-2026)
+data/p1_paper/*.reset_*
