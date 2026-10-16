@@ -1942,7 +1942,7 @@ def _rs_v67_markers(lv, bar_min, bar_range):
     if lv.get("thesis"):
         h += (f'<div style="position:absolute;left:{_p(lv["thesis"]):.1f}%;top:-2px;width:12px;height:12px;'
               f'background:#F97316;border-radius:50%;transform:translateX(-50%);z-index:4;" '
-              f'title="Thesis SL ₹{format_inr(lv["thesis"])}{" (below the hard SL - superseded)" if lv.get("thesis_sup") else " - close below = exit"}"></div>')
+              f'title="Thesis SL ₹{format_inr(lv["thesis"])}{" (below the Disaster SL - superseded, the Dhan order fires first)" if lv.get("thesis_sup") else " - close below = exit"}"></div>')
     if lv.get("rec"):
         h += (f'<div style="position:absolute;left:{_p(lv["rec"]):.1f}%;top:-2px;width:12px;height:12px;'
               f'background:#D946EF;border-radius:50%;transform:translateX(-50%);z-index:4;" '

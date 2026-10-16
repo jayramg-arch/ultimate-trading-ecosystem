@@ -386,9 +386,13 @@ def _rec_stop(sym, d, stop, qty, chand):
         if d is None or d.empty:
             return ""
         ltp = float(d["Close"].iloc[-1])
-        r = _hp.rec_dhan_stop(ltp, stop, get_atr(sym), qty)
+        atr = get_atr(sym)
+        r = _hp.rec_dhan_stop(ltp, stop, atr, qty)
         if not r:
-            return ""
+            # 'Rok' (16-Oct-2026, Jay): the stop is ALREADY at least 3x ATR below LTP, so the
+            # recommendation IS the current Dhan stop - v67 says so on the Disaster SL label.
+            # Only when the check could actually run (a stop, an ATR, a price).
+            return "Rok" if (stop and atr and ltp > 0) else ""
         x = ":x" if (chand is not None and float(chand) >= ltp) else ""
         return "R%.2f:%s%s" % (r[0], "" if r[1] is None else int(r[1]), x)
     except Exception as e:

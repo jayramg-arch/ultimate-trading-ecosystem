@@ -1,7 +1,7 @@
 # commander_pages/paper_trades.py - the PAPER TRADES page of Web Commander (13-Oct-2026).
 #
 # Every TAKE taken on paper the way Jay takes a trade: Risk Allocator quantity, OCO-1 at T1,
-# OCO-2 at T2, a stop-only runner, the thesis close, the hard SL and the house trail - with a
+# OCO-2 at T2, a stop-only runner, the thesis close, the Disaster SL and the house trail - with a
 # post-mortem per trade. Engine: paper_trades.py (Streamlit-free, writes
 # data/paper_trades.csv; rebuilt nightly by auto-pilot Phase 12g and by the button here).
 # Runs in the app's namespace via commander_pages.run('paper_trades', globals()).
@@ -15,7 +15,7 @@ if True:
     st.markdown('<div class="page-title">📄 Paper Trades · the ecosystem on paper</div>', unsafe_allow_html=True)
     st.markdown('<div class="page-desc">Every TAKE, taken the way you take it: Risk Allocator quantity · OCO-1 at T1 · '
                 'OCO-2 at T2 · a stop-only runner on the house trail · out on a close below the thesis or a touch '
-                'of the hard SL // nothing is ordered</div>', unsafe_allow_html=True)
+                'of the Disaster SL // nothing is ordered</div>', unsafe_allow_html=True)
 
     _b1, _b2 = st.columns([1, 3])
     if _b1.button("🔄 Rebuild", help="Re-reads the Reviewer Log and walks every TAKE to the last close (~1 min)"):
@@ -56,9 +56,9 @@ if True:
                  f"PF {_s['profit_factor']:.2f}" if _s.get("profit_factor") is not None else "PF —", delta_color="off")
     _a[4].metric("Avg win / loss", f"{_inr(_s.get('avg_win'))} / {_inr(_s.get('avg_loss'))}")
     _a[5].metric("Mean R", f"{_s['R_mean']:+.2f}R", f"hard-SL only {_s['R_hard_only_mean']:+.2f}R", delta_color="off",
-                 help="Two-tier (thesis close or hard SL) vs the same trades with the thesis ignored")
+                 help="Two-tier (thesis close or Disaster SL) vs the same trades with the thesis ignored")
     st.caption(f"T1 reached {_pct(_s.get('t1_rate'))} · T2 reached {_pct(_s.get('t2_rate'))} · exits: "
-               f"{_s.get('hard_exits', 0)} hard SL · {_s.get('trail_exits', 0)} trail · {_s.get('thesis_exits', 0)} thesis close · "
+               f"{_s.get('hard_exits', 0)} Disaster SL · {_s.get('trail_exits', 0)} trail · {_s.get('thesis_exits', 0)} thesis close · "
                f"median stop {_s.get('median_risk_atr_d') or '—'}× daily ATR · "
                + " · ".join(f"{k} {v}" for k, v in (_s.get("verdicts") or {}).items())
                + f" · not traded: {_s['repeat']} repeats, {_s['no_fill']} unfilled, {_s['no_levels']} no levels")
@@ -98,7 +98,7 @@ if True:
             column_config={"symbol": "Symbol", "verdict": "Status", "fill_px": "Avg", "last_close": "LTP",
                            "pnl_pct": st.column_config.NumberColumn("P&L %", format="%+.2f"),
                            "R_two_tier": st.column_config.NumberColumn("R", format="%+.2f"),
-                           "stop": "Hard SL", "trail_stop": "Trail SL", "thesis": "Thesis SL",
+                           "stop": "Disaster SL", "trail_stop": "Trail SL", "thesis": "Thesis SL",
                            "oco1": "OCO-1", "oco2": "OCO-2", "runner": "Runner", "bars_held": "Bars",
                            "trend_now": "Trend now", "review_ts": "Taken", "ruling": "Ruling"})
     else:
@@ -139,7 +139,7 @@ if True:
             st.markdown(f"**Ruling** — {_r.get('ruling') or '—'}")
             st.markdown(f"**Trend now** — {_r.get('trend_now') or '—'}")
             st.markdown(f"**Plan** — entry {_r['entry']} · filled {_r['fill_px']} ({_r['order']}, {_r['fill_ts']}) · "
-                        f"hard SL {_r['stop']} · thesis {_r['thesis']} · T1 {_r['t1']} · T2 {_r['t2']} · "
+                        f"Disaster SL {_r['stop']} · thesis {_r['thesis']} · T1 {_r['t1']} · T2 {_r['t2']} · "
                         f"stop {_r.get('risk_atr_d')}× ATR(D)")
         with _c2:
             st.markdown(f"**Result** — {_inr(_r['pnl_total'])} ({_r['R_two_tier']:+.2f}R) · exit: {_r['exit']} "
@@ -170,13 +170,13 @@ if True:
             "- **Size** — house risk (stock 0.5%, ETF 0.75% of the sizing capital) capped at the per-trade rupee cap, "
             "as the Risk Allocator sizes it; **half** on a 'TAKE · reduced size' ruling.\n"
             "- **Orders** — the Allocator's default split: OCO-1 at T1 and OCO-2 at T2 (positional 25% each, swing 33%), "
-            "each with the hard SL; the balance is a stop-only runner. Every target leg gets at least one share.\n"
+            "each with the Disaster SL; the balance is a stop-only runner. Every target leg gets at least one share.\n"
             "- **Levels** — Reviewer TAKE: the reviewer's own plan. S4 TAKE IT: S4's panel plan. Thesis = S4's INVAL. "
             "Missing targets → the canon (positional 3R/5R, swing 2R/4R).\n"
             "- **Clock** — Daily bars for every trade: risk and trade management are Daily only (swing names "
             "time their entry on 75m/125m, but are managed on the Daily close).\n"
             "- **Fill** — the plan entry within ~3 sessions: a limit at/below the last close, else a buy-stop.\n"
-            "- **Exits** — hard SL on a touch (gaps at the open; stop-first when one bar reaches both a stop and a "
+            "- **Exits** — Disaster SL on a touch (gaps at the open; stop-first when one bar reaches both a stop and a "
             "target); the house Chandelier trail (positional 22 bars × 4.5 ATR, swing 14 × 1.5), tighten-only; a "
             "CLOSE below the thesis exits every remaining leg.\n"
             "- **Review** — thesis = the review's DECIDING FACTOR (S4: its verdict); trend now = today's weekly stage "
