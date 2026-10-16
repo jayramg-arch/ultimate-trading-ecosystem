@@ -69,3 +69,8 @@ full. Each stage is reversible: a live drawdown deeper than the backtest's worst
 | 15 Jan 2027 | GO vs non-GO by regime (scheduled); legacy-book review date |
 | 16 Jan 2027 | earliest date the three-month paper condition can be met |
 | 16 Apr 2027 | six-month re-read of P1 vs P1F (scheduled) |
+
+## Decisions taken (16 Oct 2026)
+
+- **P1E started** as a third paper book (forward only, docs/PREREG_p1e_ensemble_forward.md).
+- **Phase 13 board reviews paused** by default (`BOARD_REVIEWS=1` turns them back on).

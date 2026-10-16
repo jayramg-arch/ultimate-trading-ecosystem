@@ -84,7 +84,7 @@ def weak_fundamentals(sym: str, d) -> bool:
 
 
 def p1_weekly(d, cl, f, g, equity, cash, held_value: dict, floor: bool = False, bff: str | None = None,
-              lookback: int = 90, top_pct: float = 0.20, risk: float = 0.001):
+              lookback: int = 90, top_pct: float = 0.20, risk: float = 0.001, ensemble: bool = False):
     """THE P1 weekly rules (Clenow, Stocks on the Move) - one function shared by the backtest
     and the live paper portfolio (p1_paper.py), so the two cannot drift.
 
@@ -103,7 +103,11 @@ def p1_weekly(d, cl, f, g, equity, cash, held_value: dict, floor: bool = False, 
                 continue
             if (bff == "weak" and qual == "WEAK") or (bff == "strong" and score < 4):
                 el[s] = False
-    sc = g["clenow%d" % lookback].loc[d][el].dropna().sort_values(ascending=False)
+    if ensemble:      # P1E (PREREG_p1e_ensemble_forward): mean percentile rank over 60/90/120
+        sc = pd.DataFrame({lb: g["clenow%d" % lb].loc[d][el] for lb in (60, 90, 120)}).dropna()
+        sc = sc.rank(pct=True).mean(axis=1).sort_values(ascending=False)
+    else:
+        sc = g["clenow%d" % lookback].loc[d][el].dropna().sort_values(ascending=False)
     top = set(sc.index[:max(1, math.ceil(top_pct * len(sc)))])
     sells = [s for s in held_value if s not in top]
     buys = []

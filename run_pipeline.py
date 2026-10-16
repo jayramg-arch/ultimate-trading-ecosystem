@@ -1344,8 +1344,11 @@ def main():
     # receiver when it is up, else reviewed directly. BOARD_REVIEWS=0 skips.
     logger.info("\n[PHASE 13] BOARD REVIEWS (5/5 GO on Daily / 125m / 75m -> AI reviewer)...")
     with run.phase("Phase 13 — board reviews") as p:
-        if os.getenv("BOARD_REVIEWS", "1") == "0":
-            p.status = "SKIP"; p.message = "BOARD_REVIEWS=0"
+        # PAUSED by default (16-Oct-2026, Jay - Doc 40 sec 4): the reviewer has no measured edge and the
+        # board GOs are no longer entry signals, so the nightly AI reviews only cost API. BOARD_REVIEWS=1
+        # turns them back on.
+        if os.getenv("BOARD_REVIEWS", "0") == "0":
+            p.status = "SKIP"; p.message = "paused (Doc 40) - BOARD_REVIEWS=1 to run"
         else:
             try:
                 import subprocess as _sp

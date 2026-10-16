@@ -25,12 +25,13 @@ if True:
             import p1_paper as _p1
             _cols = st.columns(len(_p1.BOOKS))
             _hist = {}
-            for _c, (_nm, _fl) in zip(_cols, _p1.BOOKS.items()):
+            for _c, (_nm, _op) in zip(_cols, _p1.BOOKS.items()):
                 _stt = _p1.load_state(_nm)
                 _h = _stt["history"][-1] if _stt["history"] else {}
                 _eq = _h.get("equity", _stt["cash"])
                 _ret = (_eq / _stt["start_capital"] - 1) * 100
-                _c.metric(f"{_nm}{' · floor' if _fl else ' · primary'}", _pt.inr(_eq), f"{_ret:+.2f}% since start",
+                _tag = {"P1": " · primary", "P1F": " · floor", "P1E": " · ensemble"}.get(_nm, "")
+                _c.metric(f"{_nm}{_tag}", _pt.inr(_eq), f"{_ret:+.2f}% since start",
                           help=f"cash {_pt.inr(_stt['cash'])} · {len(_stt['pos'])} positions · last close {_stt['last_date']}")
                 _hist[_nm] = _pd.DataFrame(_stt["history"])
                 if _stt["pos"]:

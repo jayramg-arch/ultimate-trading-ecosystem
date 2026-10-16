@@ -34,7 +34,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 STATE_DIR = os.path.join(HERE, "data", "p1_paper")
 REPORT_DIR = os.path.join(HERE, "reports", "p1_paper")
-BOOKS = {"P1": False, "P1F": True}          # name -> fundamental floor
+# name -> p1_weekly options. P1 primary; P1F + fundamental floor (control); P1E the ensemble
+# (PREREG_p1e_ensemble_forward, started 16-Oct-2026: mean rank of 60/90/120, top 25 %).
+BOOKS = {"P1": {"floor": False}, "P1F": {"floor": True},
+         "P1E": {"floor": False, "ensemble": True, "top_pct": 0.25}}
 START_DATE = dt.date(2026, 10, 16)          # first signal close (a Friday)
 
 
@@ -108,7 +111,7 @@ def _is_week_end(d: dt.date) -> bool:
     return n.isocalendar()[:2] != d.isocalendar()[:2]
 
 
-def step(st: dict, p: dict, f: dict, g: dict, floor: bool) -> list:
+def step(st: dict, p: dict, f: dict, g: dict, opts: dict) -> list:
     """Advance one book through every completed session after st['last_date']. Returns the
     order lines decided at the latest week-end close (empty if none)."""
     import pro_systems_backtest as ps
@@ -156,7 +159,7 @@ def step(st: dict, p: dict, f: dict, g: dict, floor: bool) -> list:
         if _is_week_end(d.date()):
             cl = C.loc[d]
             sells, buys, ranked = ps.p1_weekly(d, cl, f, g, equity, st["cash"],
-                                               {s: q["sh"] * q["last"] for s, q in st["pos"].items()}, floor=floor)
+                                               {s: q["sh"] * q["last"] for s, q in st["pos"].items()}, **opts)
             st["pending"] = {"decided": str(d.date()), "sells": sells, "buys": [[s, round(a)] for s, a in buys],
                              "regime_up": bool(g["b_up200"].get(d, False)), "eligible": int(len(ranked)),
                              # the top of the rank - what it would buy once the regime allows
@@ -182,9 +185,9 @@ def run() -> int:
     g = ps.pro_features(p, f)
     last = p["Close"].index[-1].date()
     all_orders, regime = [], None
-    for name, floor in BOOKS.items():
+    for name, opts in BOOKS.items():
         st = load_state(name)
-        orders = step(st, p, f, g, floor)
+        orders = step(st, p, f, g, opts)
         save_state(st)
         all_orders += orders
         if st.get("pending"):
@@ -201,7 +204,8 @@ def run() -> int:
             "ABOVE" if regime else "BELOW", "new buys allowed" if regime else "NO NEW BUYS this week (holdings may still be sold)"))
         for name in BOOKS:
             od = [o for o in all_orders if o["book"] == name]
-            lines += ["", "## %s%s" % (name, " (with the fundamental floor)" if BOOKS[name] else " (primary)")]
+            _lbl = {"P1": " (primary)", "P1F": " (with the fundamental floor)", "P1E": " (ensemble 60/90/120, top 25 %)"}
+            lines += ["", "## %s%s" % (name, _lbl.get(name, ""))]
             stn = load_state(name)
             w = (stn.get("pending") or {}).get("watch") or []
             if w:
