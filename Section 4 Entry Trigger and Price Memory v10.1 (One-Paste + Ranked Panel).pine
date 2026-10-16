@@ -853,10 +853,10 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v10.13 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.13", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v10.14 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.14", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.30"
+string S4_VER      = "v11.31"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -3258,11 +3258,26 @@ bool _fundHave = str.length(is_rec ? _gmRff : _gmBff) > 0
 // which want `simple` — a function return is always `series`.
 f_fold2994() =>
     int tsum = is_rec ? ((kCLIMAX?3:0)+(kSPR?3:0)+(k2B?3:0)+(kSOS?3:0)+(kENG?2:0)+(kHSUP?2:0)+(k3B?2:0)+(kPP?2:0)+(kVDU?1:0)+(kRECLAIM?3:0)) : ((kHTF?4:0)+(kSC?2:0)+(kVCP?3:0)+(kPP?2:0)+(kENG?2:0)+(kLIQ?2:0)+(k3B?2:0)+(kLAU?3:0)+(kIN3?2:0)+(kNR7?1:0)+(kIBNR7?2:0)+(kSPR?3:0)+(kGAP?3:0)+(kU50?2:0)+(kH50?2:0)+(kH200?2:0)+(kBC?2:0))
-    bool any_pa = is_rec ? (kCLIMAX or kSPR or k2B or kSOS or kENG or kHSUP or k3B or kPP or kVDU or kRECLAIM) : (kHTF or kSC or kVCP or kPP or kENG or kLIQ or k3B or kLAU or kIN3 or kNR7 or kIBNR7 or kSPR or kGAP or kU50 or kH50 or kH200 or kBC)
-    bool pa_fire = any_pa and not any_pa[1]
+    bool any_now = is_rec ? (kCLIMAX or kSPR or k2B or kSOS or kENG or kHSUP or k3B or kPP or kVDU or kRECLAIM) : (kHTF or kSC or kVCP or kPP or kENG or kLIQ or k3B or kLAU or kIN3 or kNR7 or kIBNR7 or kSPR or kGAP or kU50 or kH50 or kH200 or kBC)
+    // DAILY PA RECENCY + COMBO BAR (v11.31, 16-Oct-2026 - board parity, Jay: "S4 should
+    // reflect what we decided on the board"). docs/PREREG_pa_recency_daily.md PASSED: a PA
+    // 1-3 sessions back did as well as one today, so on a DAILY chart it satisfies P (age
+    // printed on TRIGGER). The decision candle is then the PA bar through this bar taken
+    // as ONE candle; a STRONG one (close in the top third, upper wick < 25% - the board's
+    // bar_grade) passes B even when this bar alone is weak. OR, never a veto. Intraday
+    // charts are unchanged (recency untested there). History of any_now is the battery as
+    // evaluated on that bar - what the board's re-run on an earlier slice reads.
+    int pa_age = any_now ? 0 : not timeframe.isdaily ? -1 : any_now[1] ? 1 : any_now[2] ? 2 : any_now[3] ? 3 : -1
+    bool any_pa = any_now or pa_age > 0
+    int  _cbN  = math.max(pa_age, 0) + 1
+    float _cbH = ta.highest(high, _cbN)
+    float _cbL = ta.lowest(low, _cbN)
+    float _cbR = _cbH - _cbL
+    bool comboStrong = pa_age > 0 and _cbR > 0 and (close - _cbL) / _cbR >= 2.0 / 3.0 and (_cbH - math.max(open[math.max(pa_age, 0)], close)) / _cbR < 0.25
+    bool pa_fire = any_now and not any_now[1]
     bool pa_bull_excl   = kHTF or kSC or kVCP or kLIQ or kLAU or kIN3 or kNR7 or kIBNR7 or kGAP or kU50 or kH50 or kH200 or kBC
     bool pa_rec_excl    = kCLIMAX or k2B or kSOS or kHSUP or kVDU or kRECLAIM
-    bool pa_shared_only = any_pa and not (is_rec ? pa_rec_excl : pa_bull_excl)
+    bool pa_shared_only = any_now and not (is_rec ? pa_rec_excl : pa_bull_excl)
     float _flagHi   = ta.highest(high, flag_cons)
     float _flagLo   = ta.lowest(low, flag_cons)
     float _flagVol  = ta.sma(volume, flag_cons)
@@ -3284,8 +3299,8 @@ f_fold2994() =>
     bool bearFlag   = show_flag and d_pat and _tight and _bearPole and _bearDrift and _volDry and _bearProp
     float _gph = ta.pivothigh(high, geo_pv, geo_pv)
     float _gpl = ta.pivotlow(low,  geo_pv, geo_pv)
-    [tsum, any_pa, pa_fire, pa_shared_only, _flagHi, _flagLo, bullFlag, bearFlag, _gph, _gpl]
-[tsum, any_pa, pa_fire, pa_shared_only, _flagHi, _flagLo, bullFlag, bearFlag, _gph, _gpl] = f_fold2994()
+    [tsum, any_pa, pa_fire, pa_shared_only, _flagHi, _flagLo, bullFlag, bearFlag, _gph, _gpl, pa_age, comboStrong]
+[tsum, any_pa, pa_fire, pa_shared_only, _flagHi, _flagLo, bullFlag, bearFlag, _gph, _gpl, pa_age, comboStrong] = f_fold2994()
 // Dedicated, LARGER pivot pool for the auto-trendlines (the geometry read stays at 6 —
 // a channel/wedge only needs the last few; a trendline may span many higher-lows). Same
 // pivots (_gph/_gpl), bigger cap so the envelope fit can reach a major swing anchor.
@@ -3940,7 +3955,7 @@ f_fold3649() =>
     // spinning top (green, 36% upper wick) and IPCALAB (green, closed 30% up its
     // range). B is a coarse veto, not a bar-quality opinion; the chart read keeps
     // its veto power over the panel.
-    bool  bar_ok   = pb_ctx ? (close > nz(z_inDZdist, low) or close >= open) : (close >= open or _bqClpos >= 0.5)
+    bool  bar_ok   = (pb_ctx ? (close > nz(z_inDZdist, low) or close >= open) : (close >= open or _bqClpos >= 0.5)) or comboStrong
     // EMA20 veto. INSIDE the fold beside the other gates so it snapshots to the
     // closed bar with them - reading it live while everything else reads [_so] is
     // the stale-bar class of bug that cost v4.1.
@@ -4366,7 +4381,7 @@ f_fold3954() =>
     string path_txt = any_pa_v ? (shared_v ? "  ⇄both" : ("  " + (is_rec_v ? "Rec" : "Bull") + "-only")) : ""
     string pb_txt = pb_ctx_v ? (gm_pb ? "  ·PB(GM)" : "  ·PB") : ""
     string role_txt = roleMism_v ? "  ⚠role" : ""
-    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : not ema_ok[_so] ? "below EMA20" : not fund_ok[_so] ? "fundamentals" : "weak/red bar") + "   " + (any_pa_v?"🟢":"⚪") + "P " + (support_v?"🟢":"⚪") + "L " + (vol_dead[_so] ? "?" : vol_ok_v ? "🟢" : "⚪") + "V " + (bar_ok_v?"🟢":"⚪") + "B " + (not _gOkTrail[_so] ? "?" : _rrgTr[_so] ? "🟢" : "⚪") + "Q " + fundChip[_so] + "F" + "  " + (timing_v ? "🟢" : "⚪") + "⏱" + pb_txt + path_txt + cf_txt + role_txt
+    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : not ema_ok[_so] ? "below EMA20" : not fund_ok[_so] ? "fundamentals" : "weak/red bar") + "   " + (any_pa_v?"🟢":"⚪") + "P " + (support_v?"🟢":"⚪") + "L " + (vol_dead[_so] ? "?" : vol_ok_v ? "🟢" : "⚪") + "V " + (bar_ok_v?"🟢":"⚪") + "B " + (not _gOkTrail[_so] ? "?" : _rrgTr[_so] ? "🟢" : "⚪") + "Q " + fundChip[_so] + "F" + "  " + (timing_v ? "🟢" : "⚪") + "⏱" + (pa_age[_so] > 0 ? "  PA " + str.tostring(pa_age[_so]) + "b" + (comboStrong[_so] ? " combo-bar" : "") : "") + pb_txt + path_txt + cf_txt + role_txt
     color trig_col = go_v ? C_GO : C_WARN
     color rv_col = chart_rv_v >= 1.25 ? C_OK : vol_ok_v ? (pb_ctx_v ? C_OK : C_WARN) : C_NO
     [trigAge, trig_txt, trig_col, rv_col]
