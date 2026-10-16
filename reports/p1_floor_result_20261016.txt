@@ -1,0 +1,4 @@
+P1 {'CAGR%': np.float64(2.68), 'maxDD%': np.float64(-17.28), 'MAR': np.float64(0.16), 'vol%': np.float64(13.7), 'Sharpe': np.float64(0.26), 'trades': 855}
+P1F {'CAGR%': np.float64(2.19), 'maxDD%': np.float64(-17.1), 'MAR': np.float64(0.13), 'vol%': np.float64(13.25), 'Sharpe': np.float64(0.23), 'trades': 921}
+B1 {'CAGR%': np.float64(0.91), 'maxDD%': np.float64(-18.84), 'MAR': np.float64(0.05), 'vol%': np.float64(14.39), 'Sharpe': np.float64(0.14)}
+VERDICT  H FAIL -> P1 is the live primary; P1F runs beside it

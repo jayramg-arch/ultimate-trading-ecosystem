@@ -38,3 +38,15 @@ Does refusing fundamentally weak names keep P1's result (or improve it)?
 - One run. The P1 numbers for this window are new (the tournament reported 2018–2026 halves,
   not this window), and P1F has never been run. Known limits: a 2.4-year window (one market
   cycle at most); survivorship from today's list (equal for both); screener restatements.
+
+## RESULT (16 Oct 2026, run once) — H FAIL (narrowly) → P1 is the primary, P1F runs beside it
+
+| 2024-06-03 .. 2026-10-16 | CAGR | max DD | MAR | Sharpe | trades |
+|---|---|---|---|---|---|
+| P1 (price only) | 2.68 % | −17.28 % | 0.16 | 0.26 | 855 |
+| P1F (fundamental floor) | 2.19 % | −17.10 % | 0.13 | 0.23 | 921 |
+| Nifty 500 | 0.91 % | −18.84 % | 0.05 | 0.14 | – |
+
+MAR(P1F) 0.13 < 0.90 × 0.16 = 0.144 → FAIL by a hair; the CAGR condition (−0.49 pp vs −2.0) held.
+Both portfolios beat the index in a weak window. Forward re-read of P1 vs P1F after 6 months.
+Output: `reports/p1_floor_result_20261016.txt`.

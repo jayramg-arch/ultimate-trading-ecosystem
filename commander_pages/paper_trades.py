@@ -17,6 +17,46 @@ if True:
                 'OCO-2 at T2 · a stop-only runner on the house trail · out on a close below the thesis or a touch '
                 'of the Disaster SL // nothing is ordered</div>', unsafe_allow_html=True)
 
+    # ── v2 core: the weekly paper portfolio (16-Oct-2026, docs/PREREG_pro_systems_tournament.md) ──
+    with st.expander("📊 v2 core · weekly paper portfolio — Clenow 'Stocks on the Move' (P1, and P1F with the "
+                     "fundamental floor)", expanded=True):
+        try:
+            import json as _json
+            import p1_paper as _p1
+            _cols = st.columns(len(_p1.BOOKS))
+            _hist = {}
+            for _c, (_nm, _fl) in zip(_cols, _p1.BOOKS.items()):
+                _stt = _p1.load_state(_nm)
+                _h = _stt["history"][-1] if _stt["history"] else {}
+                _eq = _h.get("equity", _stt["cash"])
+                _ret = (_eq / _stt["start_capital"] - 1) * 100
+                _c.metric(f"{_nm}{' · floor' if _fl else ' · primary'}", _pt.inr(_eq), f"{_ret:+.2f}% since start",
+                          help=f"cash {_pt.inr(_stt['cash'])} · {len(_stt['pos'])} positions · last close {_stt['last_date']}")
+                _hist[_nm] = _pd.DataFrame(_stt["history"])
+                if _stt["pos"]:
+                    _c.dataframe(_pd.DataFrame([{"symbol": k, "shares": round(v["sh"], 1), "entry": round(v["entry"], 2),
+                                                 "last": round(v["last"], 2), "P&L %": round((v["last"] / v["entry"] - 1) * 100, 1),
+                                                 "since": v["entry_date"]} for k, v in _stt["pos"].items()]),
+                                 hide_index=True, use_container_width=True)
+            _h0 = _hist.get("P1")
+            if _h0 is not None and len(_h0) > 1:
+                _fig = _go.Figure()
+                for _nm, _hh in _hist.items():
+                    _fig.add_trace(_go.Scatter(x=_hh["date"], y=_hh["equity"] / _hh["equity"].iloc[0] * 100, name=_nm))
+                _fig.add_trace(_go.Scatter(x=_h0["date"], y=_h0["nifty500"] / _h0["nifty500"].iloc[0] * 100,
+                                           name="Nifty 500", line=dict(dash="dot")))
+                _fig.update_layout(height=260, margin=dict(l=10, r=10, t=10, b=10), yaxis_title="start = 100")
+                st.plotly_chart(_fig, use_container_width=True)
+            _ord = sorted(f for f in _os.listdir(_p1.REPORT_DIR) if f.startswith("orders_") and f.endswith(".md"))                 if _os.path.isdir(_p1.REPORT_DIR) else []
+            if _ord:
+                with open(_os.path.join(_p1.REPORT_DIR, _ord[-1]), encoding="utf-8") as _fh:
+                    st.markdown(_fh.read())
+            st.caption("Rules = pro_systems_backtest.p1_weekly, the same function the tournament ran. Rebuilt nightly "
+                       "(auto-pilot Phase 12i); orders are decided at the week's last close and filled on paper at the "
+                       "next open. Nothing is sent to Dhan.")
+        except Exception as _e:
+            st.warning(f"Weekly portfolio unavailable: {_e}")
+
     _b1, _b2 = st.columns([1, 3])
     if _b1.button("🔄 Rebuild", help="Re-reads the Reviewer Log and walks every TAKE to the last close (~1 min)"):
         with st.spinner("Walking every TAKE through its bars..."):
@@ -32,7 +72,8 @@ if True:
                 f"size = house risk (stock 0.5% / ETF 0.75%) capped per trade, half on 'TAKE · reduced size'")
 
     _df = _pd.read_csv(_pt.OUT)
-    _cohorts = [c for c in _pt.COHORTS if c in set(_df.get("cohort", _pd.Series(dtype=str)).astype(str))]
+    _cohorts = [c for c in list(_pt.COHORTS) + [getattr(_pt, "BASELINE_COHORT", "")]
+                if c and c in set(_df.get("cohort", _pd.Series(dtype=str)).astype(str))]
     _sel = st.radio("Cohort", _cohorts, horizontal=True, key="paper_cohort",
                     help="Reviewer TAKE = the AI's final ruling after every house gate. "
                          "S4 TAKE IT = S4's own panel verdict on the same read, which no gate rewrites - "

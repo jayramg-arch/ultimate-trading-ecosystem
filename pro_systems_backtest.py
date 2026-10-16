@@ -81,6 +81,35 @@ def weak_fundamentals(sym: str, d) -> bool:
     return r["quality"] == "OK" and r["passed"] <= 2
 
 
+def p1_weekly(d, cl, f, g, equity, cash, held_value: dict, floor: bool = False):
+    """THE P1 weekly rules (Clenow, Stocks on the Move) - one function shared by the backtest
+    and the live paper portfolio (p1_paper.py), so the two cannot drift.
+
+    Returns (sells, buys, ranked): sells = held names to sell at the next open; buys = [(sym,
+    rupee amount)] in rank order while cash lasts (new buys only when the Nifty 500 is above
+    its 200-day SMA); ranked = the eligible list, best first, as a Series of scores."""
+    el = (cl > g["sma100"].loc[d]) & ~g["gap90"].loc[d] & g["liq"].loc[d] & f["has"].loc[d]
+    if floor:
+        for s in el[el].index:
+            if weak_fundamentals(s, d):
+                el[s] = False
+    sc = g["clenow"].loc[d][el].dropna().sort_values(ascending=False)
+    top = set(sc.index[:max(1, math.ceil(0.2 * len(sc)))])
+    sells = [s for s in held_value if s not in top]
+    buys = []
+    if bool(g["b_up200"].get(d, False)):
+        cash = cash + sum(held_value[s] for s in sells) * (1 - v2.COST)
+        for s in sc.index:
+            if s in held_value:
+                continue
+            a = _sizes(equity, cl[s], g["atr20"].at[d, s], 0.001)
+            if a <= 0 or a > cash:
+                break
+            buys.append((s, a))
+            cash -= a * (1 + v2.COST)
+    return sells, buys, sc
+
+
 def _sizes(equity, px, atr, risk):
     return equity * risk / atr * px if (atr == atr and atr > 0 and px == px) else 0.0
 
@@ -117,24 +146,9 @@ def run_sys(name, p, f, g, start, end):
         cl = C.loc[d]
         sells, buys = [], []
         if name in ("P1", "P1F") and d in wk:
-            el = (cl > g["sma100"].loc[d]) & ~g["gap90"].loc[d] & g["liq"].loc[d] & f["has"].loc[d]
-            if name == "P1F":
-                for s in el[el].index:
-                    if weak_fundamentals(s, d):
-                        el[s] = False
-            sc = g["clenow"].loc[d][el].dropna().sort_values(ascending=False)
-            top = set(sc.index[:max(1, math.ceil(0.2 * len(sc)))])
-            sells = [s for s in bk.pos if s not in top]
-            if bool(g["b_up200"].get(d, False)):
-                cash = bk.cash + sum(bk.pos[s]["sh"] * bk.pos[s]["last"] for s in sells) * (1 - v2.COST)
-                for s in sc.index:
-                    if s in bk.pos:
-                        continue
-                    a = _sizes(E, cl[s], g["atr20"].at[d, s], 0.001)
-                    if a <= 0 or a > cash:
-                        break
-                    buys.append((s, a, None))
-                    cash -= a * (1 + v2.COST)
+            sells, b1, _ = p1_weekly(d, cl, f, g, E, bk.cash,
+                                     {s: q["sh"] * q["last"] for s, q in bk.pos.items()}, floor=(name == "P1F"))
+            buys = [(s, a, None) for s, a in b1]
         elif name == "P2":
             for s in bk.pos:
                 lo20 = g["lo20"].at[d, s]

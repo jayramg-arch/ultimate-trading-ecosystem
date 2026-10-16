@@ -1316,6 +1316,28 @@ def main():
                 logger.warning(f"⚠️  signal-log outcomes skipped: {e}")
                 p.status = "SKIP"; p.message = f"skipped: {e}"[:160]
 
+    # 12i. v2 CORE PAPER PORTFOLIO (16-Oct-2026). Clenow "Stocks on the Move" (P1) and P1F (with
+    # the fundamental floor), chosen by the pre-registered tournament: fills last week's orders at
+    # the next open, marks both books, and on a week's last close writes the Monday order list
+    # (reports/p1_paper/orders_<date>.md). Paper only - nothing is sent to Dhan. P1_PAPER=0 skips.
+    logger.info("\n[PHASE 12i] v2 CORE PAPER PORTFOLIO (Stocks on the Move, P1 + P1F)...")
+    with run.phase("Phase 12i — v2 core paper portfolio") as p:
+        if os.getenv("P1_PAPER", "1") == "0":
+            p.status = "SKIP"; p.message = "P1_PAPER=0"
+        else:
+            try:
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                               "p1_paper.py")], timeout=30 * 60)
+                _lines = [l.strip() for l in (_r.stdout or "").strip().splitlines() if l.strip()]
+                for _ln in _lines[-4:]:
+                    logger.info(f"   ↳ {_ln}")
+                p.message = " | ".join(l for l in _lines if l.startswith(("P1:", "P1F:")))[:160] or "done"
+                if _r.returncode != 0:
+                    p.status = "WARN"
+            except Exception as e:
+                logger.warning(f"⚠️  v2 paper portfolio skipped: {e}")
+                p.status = "SKIP"; p.message = f"skipped: {e}"[:160]
+
     # 13. BOARD REVIEWS (2-Oct-2026, Jay): every 5/5 GO on the Daily, 125m and 75m boards just
     # rebuilt by Phase 12 is queued on the AI reviewer, labelled "board" in the Reviewer Log
     # (his evening REVIEW.bat routine, which logged them as "manual"). Queued on the alert
