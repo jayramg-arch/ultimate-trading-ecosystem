@@ -1,0 +1,10 @@
+rows after de-dup 535 · matured & scored 461
+  Daily GO : n   28  mean -0.425R  median -0.520R  stopped  32.1%
+  Daily NOP: n   35  mean -0.408R  median -0.397R  stopped  31.4%
+  75m   GO : n  157  mean -0.372R  median -0.478R  stopped  43.3%
+  75m   NOP: n   58  mean -0.323R  median -0.728R  stopped  46.6%
+  125m  GO : n  125  mean -0.393R  median -0.508R  stopped  44.0%
+  125m  NOP: n   58  mean -0.348R  median -0.823R  stopped  48.3%
+
+POOLED  GO n 310  NOP n 151  |  NOP-GO mean +0.033R  CI [-0.155, +0.232]  stop-out gap +1.1pp  (median gap -0.071R, descriptive)
+VERDICT  H PASS -> P-less is supported on the live boards; turning P into a tag is Jay's call

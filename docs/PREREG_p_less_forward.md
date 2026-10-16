@@ -68,3 +68,24 @@ placebo shuffles (no real labels), each criterion failed this often with NO real
 **Change:** the median condition is replaced by **stop-out rate(NOP) − stop-out rate(GO) ≤ +10
 percentage points**. The mean and CI conditions are unchanged. Nothing else changes, and the
 real split had not been computed when this was written.
+
+## RESULT (16 Oct 2026, first run) — H PASS (low power) → P-less supported; forward run 15 Dec
+
+535 rows after de-dup, 461 matured and scored (signals 18 Aug .. mid-Oct; Daily rows need 20
+sessions so only 63 matured).
+
+| board | GO mean / median R (n) | NOP mean / median R (n) | stopped GO / NOP |
+|---|---|---|---|
+| Daily | −0.425 / −0.520 (28) | −0.408 / −0.397 (35) | 32.1 / 31.4 % |
+| 75m | −0.372 / −0.478 (157) | −0.323 / −0.728 (58) | 43.3 / 46.6 % |
+| 125m | −0.393 / −0.508 (125) | −0.348 / −0.823 (58) | 44.0 / 48.3 % |
+| **pooled** | (310) | (151) | stop-out gap **+1.1 pp** |
+
+- NOP − GO mean **+0.033 R**, CI **−0.155 .. +0.232**; stop-out gap +1.1 pp → PASS.
+- Placebo (amended test, seed 7) still FAILED, narrowly (stop-out gap +10.5 pp, CI low
+  −0.311): the test errs toward FAIL under no difference, so this does not inflate the PASS.
+- Low power: the CI still allows NOP to be up to 0.155 R worse. Both groups are NEGATIVE in
+  this BEAR/NEUTRAL window — this measures P's value, not the system's edge.
+- Decision per the rule: P-less is supported; turning P into a tag is Jay's call. The forward
+  confirmation runs on **2026-12-15**: `python p_less_study.py --run --after 2026-10-16`.
+Output: `reports/p_less_result_20261016.txt`.
