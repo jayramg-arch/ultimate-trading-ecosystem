@@ -9,21 +9,21 @@ def _ctx(**kw):
          "pa_recent": {"sigma": 3, "age": 2},   # ... but a pattern fired 2 bars ago
          "support": {"at_support": True, "in_fresh_dz": True},
          "relvol": 1.4, "bar_ok": True,
-         "_board_tf": "75m"}             # the cap is intraday-only since 16-Oct-2026
+         "_board_tf": "75m"}
     c.update(kw)
     return c
 
 
-def test_recency_cap_alone_is_named_recent_pa_not_no_funda():
+def test_recency_row_with_every_gate_is_a_go_with_its_age():
+    # 16-Oct-2026: no recency cap any more (both recency pre-registrations passed).
     s = s4go_status(0, _ctx(), True, "bull", fund_ok=True)
-    assert s.startswith("4/5 · recent PA"), s
+    assert s.startswith("5/5 GO · PA 2b"), s
     assert "no funda" not in s
-    assert "PA 2b" in s, "the age tag must still print"
 
 
 def test_etf_recency_row_does_not_claim_a_fundamentals_failure():
     s = s4go_status(0, _ctx(), True, "bull", fund_ok=None, is_etf=True)
-    assert "recent PA" in s and "no funda" not in s, s
+    assert s.startswith("5/5 GO") and "no funda" not in s, s
     assert "F n/a" in s
 
 

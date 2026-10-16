@@ -1,0 +1,30 @@
+
+##### 75m: signals after de-dup 32029 · split at 2024-07-02
+== H1st (2023-07-12 .. 2024-07-02)
+  A: n  4738  mean +0.247R  median +0.117R  stopped  22.8%
+  R: n  4878  mean +0.255R  median +0.130R  stopped  22.7%
+  E: n  3963  mean +0.232R  median +0.101R  stopped  22.7%
+  F: n  2452  mean +0.207R  median +0.099R  stopped  22.7%
+  R-A mean +0.008R  CI [-0.034, +0.052]  median gap +0.012R  -> PASS
+== H2nd (2024-07-03 .. 2026-07-02)
+  A: n  4666  mean +0.039R  median -0.074R  stopped  28.8%
+  R: n  4813  mean +0.035R  median -0.050R  stopped  28.5%
+  E: n  3977  mean +0.020R  median -0.068R  stopped  29.6%
+  F: n  2542  mean +0.043R  median -0.050R  stopped  28.6%
+  R-A mean -0.004R  CI [-0.041, +0.034]  median gap +0.025R  -> PASS
+
+##### 125m: signals after de-dup 26559 · split at 2024-07-15
+== H1st (2023-07-25 .. 2024-07-15)
+  A: n  4119  mean +0.215R  median +0.107R  stopped  22.9%
+  R: n  4275  mean +0.214R  median +0.109R  stopped  23.3%
+  E: n  3172  mean +0.193R  median +0.109R  stopped  23.5%
+  F: n  1732  mean +0.146R  median +0.048R  stopped  24.0%
+  R-A mean -0.001R  CI [-0.046, +0.045]  median gap +0.001R  -> PASS
+== H2nd (2024-07-16 .. 2026-07-02)
+  A: n  4045  mean +0.037R  median -0.074R  stopped  28.9%
+  R: n  4238  mean +0.019R  median -0.058R  stopped  29.0%
+  E: n  3205  mean +0.036R  median -0.052R  stopped  29.0%
+  F: n  1773  mean +0.065R  median -0.046R  stopped  28.4%
+  R-A mean -0.018R  CI [-0.061, +0.024]  median gap +0.016R  -> PASS
+
+VERDICT  H75 PASS  ·  H125 PASS  -> lift the 4/5 cap on: 75m, 125m

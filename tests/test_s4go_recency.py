@@ -53,7 +53,7 @@ def test_live_pa_is_unannotated_go():
     assert _status(5, ctx(), True) == "5/5 GO"
 
 
-def test_recent_pa_is_findable_but_capped_below_four_of_four():
+def test_recent_pa_reaches_five_of_five_with_its_age():
     """Recency keeps the name on the board — it does NOT let it claim a GO.
 
     24-Aug-2026, Jay: "a discrepancy of 1 or 2 gates is ok, but not 3 out of 4
@@ -63,11 +63,10 @@ def test_recent_pa_is_findable_but_capped_below_four_of_four():
 
     The name still ranks above a genuine 3/4 in practice because the age tag is
     printed and the watch value is intact — what is gone is the false promise."""
-    # INTRADAY keeps the cap (16-Oct-2026: Daily lifted it after PREREG_pa_recency_daily).
+    # 16-Oct-2026: the cap is GONE on every board (PREREG_pa_recency_daily + _intraday both
+    # passed). A recency row reaches 5/5 GO and always carries its age.
     out = _status(0, ctx(pa_recent={"age": 2, "sigma": 5}, _board_tf="75m"), True)
-    assert out.startswith("4/5"), out
-    assert "PA 2b" in out, out
-    assert not out.startswith("5/5"), "a 2-bar-old trigger must never read as a GO"
+    assert out.startswith("5/5 GO · PA 2b"), out
 
 
 def test_only_a_live_pa_can_reach_four_of_four():

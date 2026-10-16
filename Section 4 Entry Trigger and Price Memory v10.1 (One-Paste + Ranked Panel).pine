@@ -853,10 +853,10 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v10.14 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.14", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v10.15 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.15", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.31"
+string S4_VER      = "v11.32"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -3267,13 +3267,15 @@ f_fold2994() =>
     // bar_grade) passes B even when this bar alone is weak. OR, never a veto. Intraday
     // charts are unchanged (recency untested there). History of any_now is the battery as
     // evaluated on that bar - what the board's re-run on an earlier slice reads.
-    int pa_age = any_now ? 0 : not timeframe.isdaily ? -1 : any_now[1] ? 1 : any_now[2] ? 2 : any_now[3] ? 3 : -1
+    // v11.32 (16-Oct-2026): every chart TF - PREREG_pa_recency_intraday PASSED on 75m and 125m.
+    int pa_age = any_now ? 0 : any_now[1] ? 1 : any_now[2] ? 2 : any_now[3] ? 3 : -1
     bool any_pa = any_now or pa_age > 0
     int  _cbN  = math.max(pa_age, 0) + 1
     float _cbH = ta.highest(high, _cbN)
     float _cbL = ta.lowest(low, _cbN)
     float _cbR = _cbH - _cbL
-    bool comboStrong = pa_age > 0 and _cbR > 0 and (close - _cbL) / _cbR >= 2.0 / 3.0 and (_cbH - math.max(open[math.max(pa_age, 0)], close)) / _cbR < 0.25
+    // combo-bar stays DAILY-only: the board's intraday recency record carries no combo grade.
+    bool comboStrong = timeframe.isdaily and pa_age > 0 and _cbR > 0 and (close - _cbL) / _cbR >= 2.0 / 3.0 and (_cbH - math.max(open[math.max(pa_age, 0)], close)) / _cbR < 0.25
     bool pa_fire = any_now and not any_now[1]
     bool pa_bull_excl   = kHTF or kSC or kVCP or kLIQ or kLAU or kIN3 or kNR7 or kIBNR7 or kGAP or kU50 or kH50 or kH200 or kBC
     bool pa_rec_excl    = kCLIMAX or k2B or kSOS or kHSUP or kVDU or kRECLAIM

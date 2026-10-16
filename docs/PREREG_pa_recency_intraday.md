@@ -62,3 +62,26 @@ trigger timeframe, as a PA on the current bar? If yes for a timeframe, its cap i
 - Disclosure: before this file was committed, the scan was smoke-tested on ONE symbol
   (TITAN, 3 windows) to check it runs. Only its signal COUNTS per cohort were printed
   (75m A 291 / R 413; 125m A 169 / R 238); no outcome was printed. TITAN stays in.
+
+## RESULT (16 Oct 2026, run once) — H75 PASS · H125 PASS → cap lifted on both boards
+
+347,796 signals built; after de-dup 32,029 (75m) and 26,559 (125m), 2023-07 .. 2026-07.
+Placebo first: passed, as expected for a shuffle.
+
+| | 75m 1st half | 75m 2nd half | 125m 1st half | 125m 2nd half |
+|---|---|---|---|---|
+| A  PA on the bar | +0.247 / +0.117 (4,738) | +0.039 / −0.074 (4,666) | +0.215 / +0.107 (4,119) | +0.037 / −0.074 (4,045) |
+| R  PA 1–3 bars back | +0.255 / +0.130 (4,878) | +0.035 / −0.050 (4,813) | +0.214 / +0.109 (4,275) | +0.019 / −0.058 (4,238) |
+| E  PA 4–6 back | +0.232 / +0.101 | +0.020 / −0.068 | +0.193 / +0.109 | +0.036 / −0.052 |
+| F  none in 6 | +0.207 / +0.099 | +0.043 / −0.050 | +0.146 / +0.048 | +0.065 / −0.046 |
+
+(mean / median R over 5 sessions, n in brackets)
+
+- R − A: 75m +0.008 R (CI −0.034..+0.052) and −0.004 R (CI −0.041..+0.034); 125m −0.001 R
+  (CI −0.046..+0.045) and −0.018 R (CI −0.061..+0.024). Median gaps all ≥ 0. PASS everywhere.
+- Decision per the rule: both boards lift the 4/5 cap (a recency row can read `5/5 GO · PA nb`);
+  S4 gets the allowance on 75m/125m charts too.
+- Observation, NOT a conclusion: as on the Daily test, F (no PA in six bars) sits close to A
+  (2nd halves slightly above). The allowance is safe; it is not evidence the PA gate selects
+  better entries.
+Output: `reports/pa_recency_intraday_result_20261016.txt`.

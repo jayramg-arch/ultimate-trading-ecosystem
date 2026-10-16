@@ -1626,9 +1626,8 @@ def _s4go_core(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     # today - so a Daily recency row may reach 5/5 GO (tagged with its age) and flows to the
     # filter and the Phase-13 reviews. The S4 chart reads the current bar only and will NOT
     # show GO on such a name; the age tag says why. Intraday keeps the cap (untested there).
-    _daily_row = str(ctx.get("_board_tf") or "Daily") not in ("75m", "125m")
-    if _pa_age is not None and not _daily_row:
-        n = min(n, 4)
+    # 16-Oct-2026 (PREREG_pa_recency_intraday: H75 + H125 PASS): the 75m and 125m boards lift
+    # it too - a PA 1-3 bars back did as well as one on the current bar. No cap anywhere now.
     # KNIFE-EDGE tag. Patterns sitting on their threshold flip on a difference smaller
     # than the routine Dhan-vs-TradingView gap — NAM-INDIA read Σ6 here and Σ2 on the
     # chart for the same bar. Marking them stops that reading as a bug and stops a
