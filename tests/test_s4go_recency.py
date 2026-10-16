@@ -63,7 +63,8 @@ def test_recent_pa_is_findable_but_capped_below_four_of_four():
 
     The name still ranks above a genuine 3/4 in practice because the age tag is
     printed and the watch value is intact — what is gone is the false promise."""
-    out = _status(0, ctx(pa_recent={"age": 2, "sigma": 5}), True)
+    # INTRADAY keeps the cap (16-Oct-2026: Daily lifted it after PREREG_pa_recency_daily).
+    out = _status(0, ctx(pa_recent={"age": 2, "sigma": 5}, _board_tf="75m"), True)
     assert out.startswith("4/5"), out
     assert "PA 2b" in out, out
     assert not out.startswith("5/5"), "a 2-bar-old trigger must never read as a GO"
@@ -159,3 +160,11 @@ if __name__ == "__main__":
         print("  ", f)
     print("PASS" if not fails else "FAIL")
     raise SystemExit(1 if fails else 0)
+
+
+def test_daily_recency_row_reaches_five_of_five_go():
+    """16-Oct-2026 (Jay: "if it stays at 4/5 I'll not get those entries"): on the DAILY
+    board the cap is lifted - PREREG_pa_recency_daily passed - and the row reads GO with
+    its age, so the 5/5 filter and the Phase-13 reviews ("N/N GO") pick it up."""
+    out = _status(0, ctx(pa_recent={"age": 2, "sigma": 5}, _board_tf="Daily"), True)
+    assert out.startswith("5/5 GO · PA 2b"), out

@@ -1262,7 +1262,7 @@ if True:
             st.checkbox(f"All gates (5/5) only  ·  {_go_tot} of {len(_bdf_hdr)} rows",
                         value=True, key="gm_bf_go_only",
                         help="Default ON: only names where all five gates pass - both a live "
-                             "'5/5 GO' and a recent '5/5 · PA 3b'. The fifth is fundamentals, "
+                             "'5/5 GO' and, on Daily, a recent '5/5 GO · PA 3b'. The fifth is fundamentals, "
                              "the same floor S4 shows as its F chip. Sorted by Overall "
                              "descending. Untick to see the near-misses (4/5, 3/5) and the "
                              "upstream vetoes (Stage, RRG, funda). Applies to the grid AND the CSV.")

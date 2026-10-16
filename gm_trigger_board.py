@@ -1621,7 +1621,13 @@ def _s4go_core(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     # the one label that promises the chart will agree. Cap it at 3/4 and keep the age
     # tag: the name still ranks as a watch, it just stops claiming to be a GO. Without
     # this, recency + the free bar pass + the location proxy stacked to a 3-gate gap.
-    if _pa_age is not None:
+    # DAILY LIFTS THE CAP (16-Oct-2026, Jay: "if it stays at 4/5 I'll not get those
+    # entries"). PREREG_pa_recency_daily passed - a PA 1-3 sessions back did as well as one
+    # today - so a Daily recency row may reach 5/5 GO (tagged with its age) and flows to the
+    # filter and the Phase-13 reviews. The S4 chart reads the current bar only and will NOT
+    # show GO on such a name; the age tag says why. Intraday keeps the cap (untested there).
+    _daily_row = str(ctx.get("_board_tf") or "Daily") not in ("75m", "125m")
+    if _pa_age is not None and not _daily_row:
         n = min(n, 4)
     # KNIFE-EDGE tag. Patterns sitting on their threshold flip on a difference smaller
     # than the routine Dhan-vs-TradingView gap — NAM-INDIA read Σ6 here and Σ2 on the
@@ -1695,7 +1701,7 @@ def _s4go_core(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
         # design - never "F?", which is reserved for a stock whose fetch failed.
         _fq = " · F n/a" if is_etf else (" · F?" if fund_ok is None else "")
         _pbt = (" · PB" if _pb else "") + _fq + _mtag
-        return f"5/5 GO{_pbt}" if not _pa_age else f"5/5 · PA {_pa_age}b{_pbt}"
+        return f"5/5 GO{_pbt}" if not _pa_age else f"5/5 GO · PA {_pa_age}b{' combo-bar' if _combo_bar else ''}{_pbt}"
     # The RECENCY CAP above can be the only reason n < 5: every gate passed, but the PA
     # is a few bars old, so the row stops at 4/5. The old chain then fell through to
     # "no funda" (MOREALTY 75m, 12-Oct: '4/5 · no funda · F n/a · PA 2b' - an ETF, whose
