@@ -1,0 +1,32 @@
+L60  top 10% risk 0.05% -> MAR 0.14 / -0.03 / 0.34  CAGR 4.0%  DD -28.6%
+L60  top 10% risk 0.10% -> MAR 0.61 / 0.26 / 1.37  CAGR 14.9%  DD -24.4%
+L60  top 10% risk 0.20% -> MAR 0.89 / 0.65 / 1.67  CAGR 22.6%  DD -25.4%
+L60  top 20% risk 0.05% -> MAR 0.44 / 0.16 / 1.15  CAGR 11.3%  DD -25.4%
+L60  top 20% risk 0.10% -> MAR 0.73 / 0.41 / 1.50  CAGR 16.9%  DD -23.2%
+L60  top 20% risk 0.20% -> MAR 0.94 / 0.80 / 1.62  CAGR 23.4%  DD -25.1%
+L60  top 30% risk 0.05% -> MAR 0.51 / 0.26 / 1.14  CAGR 13.0%  DD -25.4%
+L60  top 30% risk 0.10% -> MAR 0.81 / 0.59 / 1.46  CAGR 19.3%  DD -23.8%
+L60  top 30% risk 0.20% -> MAR 0.76 / 0.57 / 1.64  CAGR 23.8%  DD -31.4%
+L90  top 10% risk 0.05% -> MAR 0.24 / 0.09 / 0.50  CAGR 6.6%  DD -26.9%
+L90  top 10% risk 0.10% -> MAR 0.72 / 0.41 / 1.38  CAGR 16.6%  DD -23.2%
+L90  top 10% risk 0.20% -> MAR 0.98 / 0.72 / 1.74  CAGR 23.8%  DD -24.4%
+L90  top 20% risk 0.05% -> MAR 0.57 / 0.32 / 0.84  CAGR 12.6%  DD -22.3%
+L90  top 20% risk 0.10% -> MAR 1.16 / 1.00 / 1.43  CAGR 21.9%  DD -18.9%
+L90  top 20% risk 0.20% -> MAR 1.12 / 0.98 / 1.73  CAGR 26.3%  DD -23.5%
+L90  top 30% risk 0.05% -> MAR 0.72 / 0.53 / 1.38  CAGR 16.2%  DD -22.6%
+L90  top 30% risk 0.10% -> MAR 1.06 / 0.95 / 1.58  CAGR 22.9%  DD -21.6%
+L90  top 30% risk 0.20% -> MAR 0.91 / 0.81 / 1.69  CAGR 26.2%  DD -28.8%
+L120 top 10% risk 0.05% -> MAR 0.18 / 0.07 / 0.32  CAGR 5.0%  DD -27.4%
+L120 top 10% risk 0.10% -> MAR 0.59 / 0.39 / 1.02  CAGR 15.6%  DD -26.4%
+L120 top 10% risk 0.20% -> MAR 0.82 / 0.86 / 0.97  CAGR 20.9%  DD -25.4%
+L120 top 20% risk 0.05% -> MAR 0.51 / 0.33 / 0.90  CAGR 11.7%  DD -22.8%
+L120 top 20% risk 0.10% -> MAR 0.87 / 0.78 / 1.46  CAGR 21.0%  DD -24.0%
+L120 top 20% risk 0.20% -> MAR 0.81 / 0.78 / 1.23  CAGR 23.0%  DD -28.5%
+L120 top 30% risk 0.05% -> MAR 0.77 / 0.59 / 1.10  CAGR 16.7%  DD -21.6%
+L120 top 30% risk 0.10% -> MAR 1.15 / 1.11 / 1.19  CAGR 23.4%  DD -20.3%
+L120 top 30% risk 0.20% -> MAR 0.86 / 1.02 / 0.79  CAGR 23.7%  DD -27.4%
+
+1. beats Mom30 MAR and Nifty CAGR: 22 of 26 (need 21) -> ok
+2. neighbour median MAR H1 0.58 (need 0.70) · H2 1.30 (need 1.00) -> FAIL
+3. P1 MAR 1.16 vs 1.30 x neighbour median 0.99 -> FAIL
+VERDICT  P1 is NOT ROBUST

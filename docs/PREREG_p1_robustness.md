@@ -39,3 +39,20 @@ P1 is ROBUST only if all three hold:
   needed before any money.
 - The grid is a check, not a search: the best-scoring neighbour is NOT adopted. P1 stays at
   90 / 20 % / 0.10 % whatever the grid shows.
+
+## RESULT (16 Oct 2026, run once) — P1 is NOT ROBUST (passes 1, fails 2 and 3)
+
+- **1. Beats the plain alternatives:** 22 of 26 neighbours beat the Momentum-30 replica's MAR and
+  the Nifty 500's CAGR (need 21) — **pass**. The approach itself is broadly sound.
+- **2. No cliff:** neighbour median MAR H1 **0.58** (needed 0.70) — **fail**; H2 1.30 (needed 1.00) — pass.
+- **3. Not a spike:** P1's MAR 1.16 vs 1.30 × neighbour median 0.76 = 0.99 — **fail**.
+
+Full grid: `reports/pro_systems/robustness.csv`, `reports/p1_robustness_result_20261016.txt`.
+Where the weakness sits: risk 0.05 % per ATR (positions too small, mostly cash: MAR 0.14–0.77)
+and the tight 10 % cut-off (heavy churn), mostly in 2018–22. Settings around 20–30 % cut-off and
+0.10–0.20 % risk hold MAR 0.8–1.15.
+
+**Reading:** P1's 1.16 is an optimistic point estimate; ~0.75 (the neighbour median) is the
+honest expectation — still above the Momentum-30 replica (0.48) and the Nifty 500 (0.29).
+**Decision per the rule:** P1 stays paper-only; real money needs a NEW pre-registration
+(forward, not on this grid). The best neighbour is not adopted.
