@@ -34,6 +34,7 @@ rewrites a signal field. If a row is wrong, it stays wrong and visible.
 from __future__ import annotations
 
 import csv
+import re
 import logging
 import os
 from datetime import date, datetime
@@ -76,7 +77,16 @@ def gate_bucket(s4go: str) -> str:
     and '2/4 · no loc' within a session is the same state for our purposes; a name going
     2/4 -> 4/4 is not."""
     s = str(s4go or "").strip()
-    return s.split(" ")[0] if s else "?"
+    if not s:
+        return "?"
+    # 16-Oct-2026: the bucket is the GATE COUNT wherever it sits. Labels can open with a
+    # plan-clock tag ("⏱D · 5/5 GO"), and taking the first word made every such row's
+    # bucket "⏱D" - so a name going 3/5 -> 5/5 on the wrong clock was one state, not two.
+    # A stage-blocked row ("⛔ Stage 4 · gates 3/5") stays "⛔": its count is not a timing state.
+    if s.startswith("⛔"):
+        return "⛔"
+    m = re.search(r"(?<![\d/])(\d/\d)(?![\d/])", s)
+    return m.group(1) if m else s.split(" ")[0]
 
 
 def _read_keys() -> set:
