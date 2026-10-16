@@ -47,6 +47,7 @@ import os
 import re
 import sys
 
+import numpy as np
 import pandas as pd
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -65,7 +66,18 @@ COHORTS = {
     # house gate rewrites. Since 6-Oct the exposure rule has kept the reviewer at WAIT, so
     # this is the cohort that keeps measuring the system in a Bear tape.
     "S4 TAKE IT": "s4",
+    # 16-Oct-2026 (Doc 38 item 1): the SAME S4 signals, admitted and sized the way TODAY's house
+    # rules would have on each fill date - regime tier (BEAR no entry, NEUTRAL half risk and 3 a
+    # week), the open-risk budget, and the stop floors (positional 4x / swing 1.5x ATR(D)). The
+    # other cohorts take every signal at full size, i.e. a policy that is not the one being run.
+    "S4 TAKE IT · house rules": "s4_policy",
 }
+# Doc 38 item 2: every name on the Daily board (stage-qualified), bought at the next open with
+# the house positional stop, targets and trail - NO GO gate, NO reviewer. The gap between this
+# and the GO-timed cohorts is what the timing layer is worth, measured live.
+BASELINE_COHORT = "Qualified · no timing"
+BASELINE_SINCE = dt.date(2026, 8, 18)          # the five-gate board era of logs/gm_signal_log.csv
+SIGNAL_LOG = os.path.join(HERE, "logs", "gm_signal_log.csv")
 
 
 # ── small helpers ───────────────────────────────────────────────────────────
@@ -399,7 +411,11 @@ def build() -> pd.DataFrame:
             sel = log[log["_w"].eq("TAKE")]
         else:
             sel = log[log["_txt"].map(lambda t: "TAKE IT" in _s4_verdict(t).upper())]
-        rows += _trade(sel, cohort, kind)
+        rows += _trade(sel, cohort, "s4" if kind == "s4_policy" else kind, policy=(kind == "s4_policy"))
+    try:
+        rows += _baseline()
+    except Exception as e:
+        print("baseline cohort skipped: %s" % e)
     out = pd.DataFrame(rows)
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     tmp = OUT + ".tmp"
@@ -408,9 +424,44 @@ def build() -> pd.DataFrame:
     return out
 
 
-def _trade(takes: pd.DataFrame, cohort: str, kind: str) -> list:
+def _regime_scores() -> pd.Series:
+    """Daily regime score (0-10) from the MarketRegime table - the score the exposure rule reads."""
+    try:
+        import sqlite3
+        import journal_path as jp
+        with sqlite3.connect(jp.JOURNAL_DB) as c:
+            m = pd.read_sql("select date, score from MarketRegime", c)
+        m["date"] = pd.to_datetime(m["date"], errors="coerce")
+        m = m.dropna().sort_values("date").drop_duplicates("date", keep="last")
+        return m.set_index("date")["score"].astype(float)
+    except Exception:
+        return pd.Series(dtype=float)
+
+
+def _tier_on(scores: pd.Series, day) -> tuple:
+    """(name, new_ok, risk_mult, max_new_week) on a date. No score on record -> BEAR (the rule's
+    own strict reading of missing data)."""
+    import house_policy as hp
+    sc = None
+    if len(scores):
+        v = scores.asof(pd.Timestamp(day))
+        sc = None if pd.isna(v) else float(v)
+    if sc is None:
+        sc = 0.0
+    for min_s, name, new_ok, mult, cap, _adds, _cap in hp.EXPOSURE_TIERS:
+        if sc >= min_s:
+            return name, new_ok, mult, cap
+    return "BEAR", False, 0.0, 0
+
+
+def _trade(takes: pd.DataFrame, cohort: str, kind: str, policy: bool = False) -> list:
     import entry_shadow as es
     rows, open_until, trend_cache = [], {}, {}
+    if policy:
+        import house_policy as hp
+        scores = _regime_scores()
+        capital = hp.sizing_capital()[0]
+        week_n, book = {}, []          # admitted per ISO week; [(exit_date or None, risk_rs)]
     for _, r in takes.iterrows():
         sym = str(r["symbol"]).upper().replace("NSE:", "")
         ts = r["_ts"].to_pydatetime()
@@ -446,7 +497,30 @@ def _trade(takes: pd.DataFrame, cohort: str, kind: str) -> list:
         rec.update(fill_ts=str(df.index[pos])[:16], fill_px=round(px, 2), order=kind_o, _fill_pos=pos)
         if px <= stop:
             rec["status"] = "gapped through stop"; rows.append(rec); continue
-        qty = size(sym, px, stop, reduced)
+        if policy:
+            fd = pd.Timestamp(df.index[pos]).date()
+            tname, new_ok, mult, wcap = _tier_on(scores, fd)
+            rec["tier"] = tname
+            if not new_ok:
+                rec["status"] = "blocked · %s tier" % tname; rows.append(rec); continue
+            wk = tuple(fd.isocalendar()[:2])
+            if wcap is not None and week_n.get(wk, 0) >= wcap:
+                rec["status"] = "blocked · weekly cap %d" % wcap; rows.append(rec); continue
+            _a0 = es._daily_atr(sym, fd)
+            floor = hp.SWING_STOP_FLOOR_ATR_D if lv["type"] == "swing" else hp.POS_STOP_FLOOR_ATR_D
+            if _a0 and px - floor * _a0 < stop:          # the house floor widens a tight plan stop
+                stop = px - floor * _a0
+                lv["stop"], lv["t1"], lv["t2"] = stop, None, None
+                lv["entry"] = px
+                _canon_fill(lv)
+                rec.update(stop=round(stop, 2), t1=lv["t1"], t2=lv["t2"])
+            qty = int(size(sym, px, stop, reduced) * mult)
+            heat = sum(rk for xd, rk in book if xd is None or xd > fd)
+            budget = hp.HEAT_BUDGET_PCT.get(tname, 3.0) / 100.0 * capital
+            if qty >= 1 and heat + qty * (px - stop) > budget:
+                rec["status"] = "blocked · open-risk budget"; rows.append(rec); continue
+        else:
+            qty = size(sym, px, stop, reduced)
         if qty < 1:
             rec["status"] = "size 0 (risk cap)"; rows.append(rec); continue
         q1, q2, qr = legs(qty, lv["type"])
@@ -490,10 +564,89 @@ def _trade(takes: pd.DataFrame, cohort: str, kind: str) -> list:
         rec["trend_now"] = trend_cache[sym]
         rec.update(postmortem(rec, s, sh, df, alt))
         open_until[sym] = (pd.Timestamp(s["exit_ts"]).to_pydatetime() if closed and s["exit_ts"] else None)
+        if policy:
+            _fd = pd.Timestamp(df.index[pos]).date()
+            week_n[tuple(_fd.isocalendar()[:2])] = week_n.get(tuple(_fd.isocalendar()[:2]), 0) + 1
+            book.append((pd.Timestamp(s["exit_ts"]).date() if closed and s["exit_ts"] else None,
+                         qty * (px - stop)))
         rec.pop("_fill_pos", None)
         rows.append(rec)
     for rr in rows:
         rr.pop("_fill_pos", None)
+    return rows
+
+
+def _baseline() -> list:
+    """Doc 38 item 2 - every stage-qualified Daily-board name, bought at the next session's open.
+    Positional plan: stop entry - 4x ATR(D), canon T1/T2 (3R/5R), house Chandelier, full house
+    size. One paper position per symbol at a time. No GO gate, no reviewer, no exposure rule -
+    it measures the NAMES, so its gap to the GO-timed cohorts is the timing layer's value."""
+    import entry_shadow as es
+    import house_policy as hp
+    if not os.path.exists(SIGNAL_LOG):
+        return []
+    g = pd.read_csv(SIGNAL_LOG)
+    g = g[(g["tf"] == "Daily") & ~g["s4go"].astype(str).str.startswith("⛔")].copy()
+    g["_d"] = pd.to_datetime(g["signal_date"], errors="coerce").dt.date
+    g = g[g["_d"] >= BASELINE_SINCE].sort_values(["_d", "signal_time"]).drop_duplicates(["_d", "symbol"])
+    rows, open_until, trend_cache = [], {}, {}
+    tr = _trail_params("positional")
+    for _, r in g.iterrows():
+        sym = str(r["symbol"]).upper().replace("NSE:", "")
+        d0 = r["_d"]
+        if sym in open_until and (open_until[sym] is None or d0 <= open_until[sym]):
+            continue
+        df = es._bars(sym, "D", d0)
+        if df is None or df.empty:
+            continue
+        nxt = np.where(df.index.date > d0)[0]
+        if not len(nxt):
+            continue
+        pos = int(nxt[0])
+        px = float(df["Open"].iloc[pos])
+        a0 = es._daily_atr(sym, d0)
+        if not a0 or not px > 0:
+            continue
+        stop = px - hp.POS_STOP_FLOOR_ATR_D * a0
+        lv = {"entry": px, "stop": stop, "t1": None, "t2": None, "type": "positional", "src": "baseline"}
+        _canon_fill(lv)
+        qty = size(sym, px, stop, False)
+        if qty < 1:
+            continue
+        q1, q2, qr = legs(qty, "positional")
+        s = simulate(df, pos, px, stop, lv["t1"], lv["t2"], None, False, q1, q2, qr, trail=tr)
+        closed = s["exit"] != "open"
+        rec = {"cohort": BASELINE_COHORT, "review_ts": str(d0), "symbol": sym, "review_tf": "D",
+               "ruling": "board: " + str(r["s4go"])[:60], "reduced": False,
+               "entry": round(px, 2), "stop": round(stop, 2), "t1": lv["t1"], "t2": lv["t2"],
+               "plan_type": "positional", "levels_from": "baseline 4xATR(D) + canon", "clock": "D",
+               "fill_ts": str(df.index[pos])[:16], "fill_px": round(px, 2), "order": "next open",
+               "qty": qty, "q_oco1": q1, "q_oco2": q2, "q_runner": qr, "invested": round(qty * px),
+               "risk_rs": round(qty * (px - stop)), "risk_atr_d": round((px - stop) / a0, 2),
+               "era": "baseline", "trail_stop": round(s["trail_stop"], 2),
+               "status": "closed" if closed else "open", "oco1": s["oco1"], "oco2": s["oco2"],
+               "runner": s["runner"], "t1_hit": s["t1_hit"], "t2_hit": s["t2_hit"],
+               "exit": s["exit"], "exit_ts": s["exit_ts"],
+               "exit_px": None if s["exit_px"] is None else round(s["exit_px"], 2),
+               "last_close": round(s["last"], 2), "open_qty": s["open_qty"],
+               "pnl_realised": round(s["realised"]), "pnl_open": round(s["unrealised"]),
+               "pnl_total": round(s["total"]), "pnl_pct": round(s["total"] / (qty * px) * 100, 2),
+               "R_two_tier": None if s["R"] is None else round(s["R"], 2),
+               "pnl_hard_only": round(s["total"]), "exit_hard_only": s["exit"],
+               "R_hard_only": None if s["R"] is None else round(s["R"], 2),
+               "mfe_R": round(s["mfe"], 2), "mae_R": round(s["mae"], 2),
+               "bars_held": ((s["exit_pos"] if closed else len(df) - 1) - pos)}
+        if sym not in trend_cache:
+            trend_cache[sym] = _trend_now(sym)
+        rec["trend_now"] = trend_cache[sym]
+        rec["_fill_pos"] = pos
+        try:
+            rec.update(postmortem(rec, s, s, df, None))
+        except Exception:
+            pass
+        rec.pop("_fill_pos", None)
+        open_until[sym] = (pd.Timestamp(s["exit_ts"]).date() if closed and s["exit_ts"] else None)
+        rows.append(rec)
     return rows
 
 
