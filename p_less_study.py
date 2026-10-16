@@ -112,9 +112,12 @@ def analyse(placebo: bool, after: str | None) -> int:
     ci = _boot(N, G, np.random.default_rng(11)) if len(G) and len(N) else (np.nan, np.nan)
     dm = N.r.mean() - G.r.mean() if len(G) and len(N) else np.nan
     dmed = N.r.median() - G.r.median() if len(G) and len(N) else np.nan
-    h = (not thin) and dm >= -0.10 and dmed >= -0.15 and ci[0] > -0.30
+    # AMENDMENT 1 (16-Oct, before the real run): the median gap false-failed 9/40 placebo
+    # shuffles (45% of outcomes sit at exactly -1R); replaced by the stop-out rate gap.
+    dst = (N.stopped.mean() - G.stopped.mean()) * 100 if len(G) and len(N) else np.nan
+    h = (not thin) and dm >= -0.10 and dst <= 10.0 and ci[0] > -0.30
     print(f"\nPOOLED  GO n {len(G)}  NOP n {len(N)}  |  NOP-GO mean {dm:+.3f}R  CI [{ci[0]:+.3f}, {ci[1]:+.3f}]"
-          f"  median gap {dmed:+.3f}R")
+          f"  stop-out gap {dst:+.1f}pp  (median gap {dmed:+.3f}R, descriptive)")
     print(f"VERDICT  H {'PASS' if h else ('THIN' if thin else 'FAIL')} -> "
           + ("P-less is supported on the live boards; turning P into a tag is Jay's call" if h
              else "P stays a gate"))
