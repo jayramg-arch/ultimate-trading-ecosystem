@@ -55,3 +55,23 @@ none of those tests touched.
   next-open entry; a fixed 20-session horizon rather than the trail. F is defined by the
   absence of a PA, so it is not a random sample of uptrend days either.
 - No outcome from this window has been computed before this file was committed.
+
+## RESULT (16 Oct 2026, run once) — H FAIL → the PA gate times, it does not select
+
+198,968 signals built, 81,028 after de-dup (nifty500, 2018-05-28 .. 2023-04-28, split at
+2021-05-03). Placebo first: FAILED, as required.
+
+| | A  PA today | F  no PA in 6 sessions | A − F (mean) |
+|---|---|---|---|
+| 2018-05 .. 2021-05 | +0.166 / +0.072 (14,611) | +0.214 / +0.088 (2,935) | −0.049 R, CI −0.167..+0.030 |
+| 2021-05 .. 2023-04 | +0.109 / +0.025 (14,436) | +0.056 / +0.001 (2,992) | +0.054 R, CI +0.016..+0.091 |
+
+(mean / median R20, n in brackets. R and E, PA 1–6 back, sit with A in both halves.)
+
+- H fails in both halves: the first half points the wrong way; the second half has a small
+  edge whose CI excludes zero, but at +0.05 R it is half the pre-registered +0.10 R bar.
+- Read with the three earlier windows (2023-05 onward), the PA gate does not pick better
+  trades inside a qualified uptrend; it marks a moment. Recorded in the Golden Rules.
+- Per the decision rule, NO code change follows. Turning P from a gate into a tag would
+  change what reaches 5/5 and what fires an alert — Jay's call, made separately.
+Output: `reports/pa_select_result_20261016.txt`.

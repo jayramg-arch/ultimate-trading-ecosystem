@@ -1,0 +1,17 @@
+signals after de-dup: 81028 · split at 2021-05-03
+
+== H1st (2018-05-28 .. 2021-05-03)
+  A: n 14611  mean +0.166R  median +0.072R  stopped  12.9%
+  R: n 15798  mean +0.159R  median +0.078R  stopped  12.7%
+  E: n  7269  mean +0.151R  median +0.082R  stopped  13.2%
+  F: n  2935  mean +0.214R  median +0.088R  stopped  13.8%
+  A-F mean -0.049R  CI [-0.167, +0.030]  median gap -0.016R  -> FAIL
+
+== H2nd (2021-05-04 .. 2023-04-28)
+  A: n 14436  mean +0.109R  median +0.025R  stopped  12.9%
+  R: n 15595  mean +0.103R  median +0.028R  stopped  12.8%
+  E: n  7392  mean +0.090R  median +0.013R  stopped  13.1%
+  F: n  2992  mean +0.056R  median +0.001R  stopped  13.3%
+  A-F mean +0.054R  CI [+0.016, +0.091]  median gap +0.024R  -> FAIL
+
+VERDICT  H FAIL -> the PA gate is a TIMING cue, not a selector (no code change from this test)
