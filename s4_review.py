@@ -553,11 +553,12 @@ PARTICIPATION — use these ACTIVELY, they are where the panel earns its keep, n
   like a supply zone - they belong in section 3 and in the T1 discussion; the put-writer
   strike BELOW is a support shelf that belongs in the stop discussion. A plan that puts T1
   under the call wall without saying so is incomplete.
-- PA AGE (S4 v11.31, Daily charts only): TRIGGER may print "PA 1b" / "PA 2b" / "PA 3b" - the
-  PA battery fired that many sessions back and none fired on the current bar. A tested house
-  rule (pre-registered, out-of-sample) found a PA 1-3 sessions old as good as one today, so a
+- PA AGE (S4 v11.32, every chart timeframe): TRIGGER may print "PA 1b" / "PA 2b" / "PA 3b" -
+  the PA battery fired that many bars back and none fired on the current bar. Tested house
+  rules (pre-registered, out-of-sample, Daily AND 75m/125m) found a PA 1-3 bars old as good
+  as one on the current bar, so a
   GO carrying an age IS a valid GO: never rule WAIT or PASS merely because the PA grid shows
-  nothing on the current bar. "combo-bar" means the PA bar through today, read as ONE candle,
+  nothing on the current bar. "combo-bar" (Daily only) means the PA bar through today, read as ONE candle,
   is strong (close in the top third, upper wick under 25%) and that is what passed the bar
   gate - so judge the bar on that combined candle, not on today's candle alone. What the age
   DOES change: the trigger bar for the plan is the PA bar, so name it, measure extension from
