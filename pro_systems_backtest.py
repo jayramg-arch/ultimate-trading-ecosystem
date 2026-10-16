@@ -81,7 +81,7 @@ def weak_fundamentals(sym: str, d) -> bool:
     return r["quality"] == "OK" and r["passed"] <= 2
 
 
-def p1_weekly(d, cl, f, g, equity, cash, held_value: dict, floor: bool = False):
+def p1_weekly(d, cl, f, g, equity, cash, held_value: dict, floor: bool = False, bff: str | None = None):
     """THE P1 weekly rules (Clenow, Stocks on the Move) - one function shared by the backtest
     and the live paper portfolio (p1_paper.py), so the two cannot drift.
 
@@ -92,6 +92,13 @@ def p1_weekly(d, cl, f, g, equity, cash, held_value: dict, floor: bool = False):
     if floor:
         for s in el[el].index:
             if weak_fundamentals(s, d):
+                el[s] = False
+    if bff in ("weak", "strong"):                 # PREREG_p1_bff_floor
+        for s in el[el].index:
+            score, qual = bff_grade(s, d)
+            if score is None or qual == "INSUFFICIENT":
+                continue
+            if (bff == "weak" and qual == "WEAK") or (bff == "strong" and score < 4):
                 el[s] = False
     sc = g["clenow"].loc[d][el].dropna().sort_values(ascending=False)
     top = set(sc.index[:max(1, math.ceil(0.2 * len(sc)))])
@@ -108,6 +115,26 @@ def p1_weekly(d, cl, f, g, equity, cash, held_value: dict, floor: bool = False):
             buys.append((s, a))
             cash -= a * (1 + v2.COST)
     return sells, buys, sc
+
+
+_FIN: dict = {}
+
+
+def bff_grade(sym: str, d) -> tuple:
+    """PREREG_p1_bff_floor: (score or None, quality) of the ANNUAL point-in-time BFF on date d."""
+    import fundamental_replay as fr
+    if sym not in _FIN:
+        try:
+            import sector_lookup as sl
+            si = (sl.get_sector_index(sym) or "").upper()
+            _FIN[sym] = ("BANKNIFTY" in si) or ("FINANCE" in si) or ("FINSERV" in si)
+        except Exception:
+            _FIN[sym] = False
+    try:
+        r = fr.bff_as_of(sym, str(pd.Timestamp(d).date()), is_financial=_FIN[sym], basis="annual")
+    except Exception:
+        return None, "INSUFFICIENT"
+    return r.get("score"), str(r.get("quality") or "INSUFFICIENT")
 
 
 def _sizes(equity, px, atr, risk):
@@ -145,9 +172,10 @@ def run_sys(name, p, f, g, start, end):
         E = eq[-1]
         cl = C.loc[d]
         sells, buys = [], []
-        if name in ("P1", "P1F") and d in wk:
+        if name in ("P1", "P1F", "P1G", "P1S") and d in wk:
             sells, b1, _ = p1_weekly(d, cl, f, g, E, bk.cash,
-                                     {s: q["sh"] * q["last"] for s, q in bk.pos.items()}, floor=(name == "P1F"))
+                                     {s: q["sh"] * q["last"] for s, q in bk.pos.items()}, floor=(name == "P1F"),
+                                     bff={"P1G": "weak", "P1S": "strong"}.get(name))
             buys = [(s, a, None) for s, a in b1]
         elif name == "P2":
             for s in bk.pos:
@@ -197,7 +225,31 @@ def main() -> int:
     ap.add_argument("--plumbing", action="store_true")
     ap.add_argument("--run", action="store_true")
     ap.add_argument("--floor", action="store_true", help="PREREG_p1_fundamental_floor: P1 vs P1F")
+    ap.add_argument("--bff", action="store_true", help="PREREG_p1_bff_floor: P1 vs P1G / P1S, both halves")
     a = ap.parse_args()
+    if a.bff:
+        p = v2.load_panel()
+        f = v2.features(p)
+        g = pro_features(p, f)
+        T = {}
+        for name in ("P1", "P1G", "P1S"):
+            e, bk = run_sys(name, p, f, g, START, END)
+            for half, (s0, s1) in {"full": (START, END), "H1": (START, SPLIT - pd.Timedelta(days=1)), "H2": (SPLIT, END)}.items():
+                m = v2.metrics(e.loc[s0:s1])
+                T[(name, half)] = m
+                print(name, half, m, ("trades %d" % bk.trades) if half == "full" else "", flush=True)
+        def ni(v):
+            return all(T[(v, h)]["MAR"] >= 0.90 * T[("P1", h)]["MAR"] and T[(v, h)]["CAGR%"] >= T[("P1", h)]["CAGR%"] - 2.0
+                       for h in ("H1", "H2"))
+        h1, h2 = ni("P1G"), ni("P1S")
+        pick = "P1"
+        if h1:
+            pick = "P1G"
+        if h2 and all(T[("P1S", h)]["MAR"] > T[("P1G", h)]["MAR"] for h in ("H1", "H2")):
+            pick = "P1S"
+        print("H1 (weak floor) %s · H2 (strong only) %s -> live primary: %s" % (
+            "PASS" if h1 else "FAIL", "PASS" if h2 else "FAIL", pick))
+        return 0
     if a.floor:
         p = v2.load_panel()
         f = v2.features(p)

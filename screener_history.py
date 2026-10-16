@@ -173,6 +173,98 @@ def rff_pit(tables: dict, as_of) -> dict:
             "quality": "OK" if len(known) >= MIN_CHECKS else "INSUFFICIENT"}
 
 
+def _sales_row(df):
+    """Industrials label the top line 'sales', lenders 'revenue'."""
+    r = _row(df, "sales")
+    return r if r is not None else _row(df, "revenue")
+
+
+def bff_fields(tables: dict, as_of, basis: str = "auto") -> dict | None:
+    """The five BFF inputs AS OF a date (16-Oct-2026 - fundamental_replay.bff_as_of called an
+    `as_of` here that a later commit had removed, so the point-in-time BFF had been dead).
+
+    basis "ttm"    - growth = last 4 published quarters vs the 4 before (needs 8 quarters; the
+                     page holds ~13, so this only works from about May 2025). Net profit = TTM.
+    basis "annual" - growth = latest published financial year vs the one before; works back
+                     ~10 years, which is what a 2018-2026 backtest needs.
+    basis "auto"   - ttm when 8 quarters are published, else annual (closest to the live BFF,
+                     which reads screener's TTM growth row).
+    OPM now/prev = the last two published annual OPMs (as the live BFF). ROCE = (profit before
+    tax + interest) / average capital employed (equity + reserves + borrowings) over the last
+    two published year-ends. Publication lags: quarters +45 days, annuals +60 days."""
+    t = pd.Timestamp(as_of)
+    out = {"basis": None, "profit_growth_pct": None, "sales_growth_pct": None, "opm_now": None,
+           "opm_prev": None, "roce_pct": None, "net_profit": None, "quarter_end": None}
+    q, pl, bs = tables.get("quarters"), tables.get("profit-loss"), tables.get("balance-sheet")
+
+    def _g(a, b):
+        return None if (a is None or b is None or b <= 0) else (a / b - 1.0) * 100.0
+
+    used_ttm = False
+    if basis in ("ttm", "auto") and q is not None and not q.empty:
+        pub = sorted(_published(q.columns, t, Q_LAG_DAYS))
+        if len(pub) >= 8:
+            cur, prv = pub[-4:], pub[-8:-4]
+            ni, sl = _row(q, "net profit"), _sales_row(q)
+            if ni is not None and all(pd.notna(ni[c]) for c in cur + prv):
+                out["net_profit"] = float(sum(ni[c] for c in cur))
+                out["profit_growth_pct"] = _g(out["net_profit"], float(sum(ni[c] for c in prv)))
+            if sl is not None and all(pd.notna(sl[c]) for c in cur + prv):
+                out["sales_growth_pct"] = _g(float(sum(sl[c] for c in cur)), float(sum(sl[c] for c in prv)))
+            out["quarter_end"] = str(cur[-1].date())
+            used_ttm = True
+    if basis == "ttm" and not used_ttm:
+        return None
+    if pl is not None and not pl.empty:
+        apub = sorted(_published(pl.columns, t, A_LAG_DAYS))
+        if len(apub) >= 2:
+            c1, c0 = apub[-1], apub[-2]
+            if not used_ttm:
+                ni, sl = _row(pl, "net profit"), _sales_row(pl)
+                if ni is not None and pd.notna(ni[c1]):
+                    out["net_profit"] = float(ni[c1])
+                    if pd.notna(ni[c0]):
+                        out["profit_growth_pct"] = _g(float(ni[c1]), float(ni[c0]))
+                if sl is not None and pd.notna(sl[c1]) and pd.notna(sl[c0]):
+                    out["sales_growth_pct"] = _g(float(sl[c1]), float(sl[c0]))
+            opm = _row(pl, "opm")
+            if opm is not None and pd.notna(opm[c1]) and pd.notna(opm[c0]):
+                out["opm_now"], out["opm_prev"] = float(opm[c1]), float(opm[c0])
+            pbt, it = _row(pl, "profit before tax"), _row(pl, "interest")
+            if bs is not None and not bs.empty and pbt is not None and it is not None \
+                    and pd.notna(pbt[c1]) and pd.notna(it[c1]):
+                eqc = _row(bs, "equity capital")
+                if eqc is None:
+                    eqc = _row(bs, "share capital")
+                res, bor = _row(bs, "reserve"), _row(bs, "borrowing")
+
+                def _ce(c):
+                    if c not in bs.columns or eqc is None or res is None:
+                        return None
+                    v = [eqc[c], res[c], (bor[c] if bor is not None else 0.0)]
+                    return None if any(pd.isna(x) for x in v) else float(sum(v))
+                ce = [x for x in (_ce(c1), _ce(c0)) if x is not None and x > 0]
+                if ce:
+                    out["roce_pct"] = (float(pbt[c1]) + float(it[c1])) / (sum(ce) / len(ce)) * 100.0
+    out["basis"] = "ttm" if used_ttm else "annual"
+    known = [k for k in ("profit_growth_pct", "sales_growth_pct", "opm_now", "roce_pct", "net_profit")
+             if out[k] is not None]
+    return out if known else None
+
+
+_TABLE_CACHE: dict = {}
+
+
+def as_of(symbol: str, anchor, basis: str = "auto") -> dict | None:
+    """bff_fields for a symbol, the parsed page cached per process."""
+    sym = _clean(symbol)
+    if sym not in _TABLE_CACHE:
+        html = fetch_page(sym)
+        _TABLE_CACHE[sym] = parse_tables(html) if html else None
+    t = _TABLE_CACHE[sym]
+    return bff_fields(t, anchor, basis) if t else None
+
+
 def rff_pit_symbol(symbol: str, as_of) -> dict:
     html = fetch_page(symbol)
     if not html:

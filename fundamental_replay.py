@@ -369,7 +369,7 @@ def fundamentals_as_of(symbol: str, anchor: str) -> dict:
 
 
 # ─── Conviction scoring (port of brute_force_match_pro.calculate_conviction_score)
-def bff_as_of(symbol: str, anchor: str, is_financial: bool = False) -> dict:
+def bff_as_of(symbol: str, anchor: str, is_financial: bool = False, basis: str = "auto") -> dict:
     """BFF computed POINT-IN-TIME from screener.in's own history tables.
 
     WHY NOT compute_bff: it reads TODAY's page. Scoring a 2024 anchor with 2026
@@ -398,7 +398,7 @@ def bff_as_of(symbol: str, anchor: str, is_financial: bool = False) -> dict:
                 "checks": {}, "drivers": [], "as_of": anchor, "source": "screener-history",
                 "is_financial": is_financial, "reason": reason}
 
-    f = sh.as_of(symbol, anchor)
+    f = sh.as_of(symbol, anchor, basis)   # basis: "auto" | "ttm" | "annual" (16-Oct-2026)
     if not f:
         return _blank("no history at anchor")
 
