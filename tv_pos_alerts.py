@@ -181,9 +181,15 @@ def run(dry: bool = False, limit: int | None = None) -> int:
         return 1
     old_ids = first.get("old_ids", [])
     created, failed = [], []
+    # 16-Oct-2026: the 15-Oct run CREATED its 36 and then died before deleting the previous
+    # 44 - 80 on the account, no log line, and the pipeline kept no stderr. Every step is now
+    # guarded, the delete runs in small batches, and the log line is written whatever happens.
     if not dry:
         for i in range(0, len(tv), BATCH):
-            r = call({"mode": "create", "items": tv[i:i + BATCH]})
+            try:
+                r = call({"mode": "create", "items": tv[i:i + BATCH]})
+            except Exception as e:
+                r = {"err": "%s: %s" % (type(e).__name__, e)}
             if r.get("err"):
                 failed.append("batch %d: %s" % (i // BATCH + 1, r["err"]))
                 break
@@ -191,10 +197,14 @@ def run(dry: bool = False, limit: int | None = None) -> int:
             failed += r.get("failed", [])
     deleted = 0
     if created and old_ids:
-        r = call({"mode": "delete", "items": [], "del": old_ids})
-        deleted = r.get("deleted", 0)
-        if r.get("err"):
-            failed.append("delete old: " + r["err"])
+        for i in range(0, len(old_ids), 25):
+            try:
+                r = call({"mode": "delete", "items": [], "del": old_ids[i:i + 25]})
+            except Exception as e:
+                r = {"err": "%s: %s" % (type(e).__name__, e)}
+            deleted += r.get("deleted", 0)
+            if r.get("err"):
+                failed.append("delete old (batch %d): %s" % (i // 25 + 1, r["err"]))
     line = "alerts on the account %s · ours before %d · created %d · deleted %d · failed %d" % (
         first.get("total_before"), len(old_ids), len(created), deleted, len(failed))
     print(("DRY RUN - " if dry else "") + line)

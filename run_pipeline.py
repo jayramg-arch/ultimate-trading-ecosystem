@@ -1139,13 +1139,22 @@ def main():
                 import subprocess as _sp
                 _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                            "tv_pos_alerts.py")],
-                             capture_output=True, text=True, timeout=20 * 60)
-                _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
+                             capture_output=True, text=True, timeout=20 * 60,
+                             encoding="utf-8", errors="replace",
+                             env=dict(os.environ, PYTHONIOENCODING="utf-8"))
+                _lines = [l.strip() for l in (_r.stdout or "").strip().splitlines() if l.strip()]
                 for _ln in _lines:
                     logger.info(f"   ↳ {_ln}")
                 p.message = next((l for l in _lines if l.startswith("alerts on the account")), _lines[-1] if _lines else "done")[:160]
                 if _r.returncode != 0:
                     p.status = "WARN"
+                    # 16-Oct-2026: stderr was discarded, so the 15-Oct crash (alerts created,
+                    # old set never deleted - 80 on the account) left no trace anywhere.
+                    _err = [l for l in (_r.stderr or "").strip().splitlines() if l.strip()][-6:]
+                    for _ln in _err:
+                        logger.warning(f"   ↳ stderr: {_ln}")
+                    if _err:
+                        p.message = ("CRASHED: " + _err[-1])[:160]
             except Exception as e:
                 logger.warning(f"⚠️  positional GO alerts skipped: {e}")
                 p.status = "SKIP"
