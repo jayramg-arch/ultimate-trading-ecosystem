@@ -1598,6 +1598,18 @@ def _s4go_core(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     # data, but a missing bar read is exactly the ⧖D daily-fallback case, and there it
     # inflated the count on the timeframe that had failed to load.
     g_bar = bool(_bar)
+    # COMBO BAR (16-Oct-2026, Jay: "if the bars combo is bullish it should pass the bar
+    # gate"). On a recency row the decision bar is the PA bar through today taken as ONE
+    # candle, so a STRONG combo passes even when the latest candle alone is weak. An OR,
+    # never a veto: the latest bar still passes on its own. Evidence, stated plainly:
+    # PREREG_pa_combo H2 FAILED - a strong combo did not pick better trades than a weak
+    # one - so this loosens an alert trigger at no measured cost; it is not an edge.
+    # Daily rows only (the record is the daily pa_combo; intraday recency has no grade).
+    _combo_bar = False
+    if (not g_bar and _pa_age is not None and isinstance(_recent, dict)
+            and _recent.get("grade") == "strong"):
+        g_bar = True
+        _combo_bar = True
     # FUNDAMENTALS — the fifth gate. None is a judgement about our DATA, never about the
     # company, so it passes and says so; that is the same rule _gm_bff_gate and S4's
     # fundGate both use, and the opposite would empty the board on a screener.in outage.
@@ -1648,7 +1660,7 @@ def _s4go_core(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     # REMOVE THIS the moment the re-baseline reports; a permanent warning becomes wallpaper.
     if path == "recovery" and RECOVERY_NO_EDGE:
         _mtag += " · ⚠noedge"     # measured 10-Aug-2026 run: -0.88% mean, CI excludes zero
-    _age_tag = (f" · PA {_pa_age}b" if _pa_age else "") + (" · PB" if _pb else "") + _mtag
+    _age_tag = (f" · PA {_pa_age}b" if _pa_age else "") + (" combo-bar" if _combo_bar else "") + (" · PB" if _pb else "") + _mtag
     # GATE 5 (R). DISPLAY and VETO are deliberately separate: with the veto off the tag
     # must still print, or a disabled gate silently removes the very information Jay is
     # now eyeballing. _rrg_ok() answers the GATE (and is always True when RRG_GATE is
