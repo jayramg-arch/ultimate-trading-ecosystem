@@ -1,0 +1,10 @@
+P1 full {'CAGR%': np.float64(21.88), 'maxDD%': np.float64(-18.89), 'MAR': np.float64(1.16), 'vol%': np.float64(18.0), 'Sharpe': np.float64(1.19)} trades 3503
+P1 H1 {'CAGR%': np.float64(18.92), 'maxDD%': np.float64(-18.89), 'MAR': np.float64(1.0), 'vol%': np.float64(17.73), 'Sharpe': np.float64(1.06)} 
+P1 H2 {'CAGR%': np.float64(24.67), 'maxDD%': np.float64(-17.27), 'MAR': np.float64(1.43), 'vol%': np.float64(18.33), 'Sharpe': np.float64(1.29)} 
+P1G full {'CAGR%': np.float64(18.44), 'maxDD%': np.float64(-20.35), 'MAR': np.float64(0.91), 'vol%': np.float64(17.1), 'Sharpe': np.float64(1.07)} trades 4349
+P1G H1 {'CAGR%': np.float64(12.56), 'maxDD%': np.float64(-20.35), 'MAR': np.float64(0.62), 'vol%': np.float64(16.54), 'Sharpe': np.float64(0.79)} 
+P1G H2 {'CAGR%': np.float64(24.35), 'maxDD%': np.float64(-16.96), 'MAR': np.float64(1.44), 'vol%': np.float64(17.67), 'Sharpe': np.float64(1.32)} 
+P1S full {'CAGR%': np.float64(6.22), 'maxDD%': np.float64(-23.95), 'MAR': np.float64(0.26), 'vol%': np.float64(13.41), 'Sharpe': np.float64(0.52)} trades 9759
+P1S H1 {'CAGR%': np.float64(1.19), 'maxDD%': np.float64(-19.34), 'MAR': np.float64(0.06), 'vol%': np.float64(11.62), 'Sharpe': np.float64(0.16)} 
+P1S H2 {'CAGR%': np.float64(11.39), 'maxDD%': np.float64(-23.95), 'MAR': np.float64(0.48), 'vol%': np.float64(14.99), 'Sharpe': np.float64(0.8)} 
+H1 (weak floor) FAIL · H2 (strong only) FAIL -> live primary: P1

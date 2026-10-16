@@ -37,3 +37,19 @@ TTM basis needs 8 published quarters and exists only from ~May 2025.
   P1 control). If H2 also passes and P1S has the higher MAR in both halves, P1S is the primary.
 - Neither passes → P1 stays primary; the floors stay on paper only as P1F (RFF) beside it.
 - One run; no re-tuning of thresholds after seeing results.
+
+## RESULT (16 Oct 2026, run once) — H1 FAIL · H2 FAIL → P1 (price only) stays the primary
+
+| variant | CAGR full | max DD | MAR H1 | MAR H2 | CAGR H1 | CAGR H2 | trades |
+|---|---|---|---|---|---|---|---|
+| P1 | 21.88 % | −18.89 % | 1.00 | 1.43 | 18.92 % | 24.67 % | 3,503 |
+| P1G (no WEAK BFF) | 18.44 % | −20.35 % | 0.62 | 1.44 | 12.56 % | 24.35 % | 4,349 |
+| P1S (STRONG BFF only) | 6.22 % | −23.95 % | 0.06 | 0.48 | 1.19 % | 11.39 % | 9,759 |
+
+- The weak floor cost 6.4 pp a year in 2018–22 (MAR 1.00 → 0.62) and was neutral in 2022–26.
+- Strong-only wrecked the system in both halves.
+- With the RFF floor result (Jun-2024..Oct-2026, −0.5 pp), the reading is consistent: in a
+  momentum system, today's weak or slow-growth names include tomorrow's turnaround leaders, and
+  a fundamental gate removes exactly those. P1 stays price-only; P1F stays on paper as the
+  forward check.
+Output: `reports/p1_bff_floor_result_20261016.txt`.
