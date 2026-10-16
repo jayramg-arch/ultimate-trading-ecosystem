@@ -52,3 +52,19 @@ Are those rows as good as the 5/5 rows the boards admit today, on the live board
 - Known biases: one regime (Aug–Oct 2026, mostly BEAR/NEUTRAL); next-session-open entry; a
   fixed horizon, not the trail; before 2 Oct the boards had no plan clock, so early intraday
   rows include positional names scored on the swing rule (both groups alike).
+
+## AMENDMENT 1 (16 Oct 2026, before the real run — placebo output only)
+
+The first placebo FAILED, which a shuffle should not do. Cause: about 45 % of outcomes sit at
+exactly −1 R (stopped), so a group median jumps between −1.0 and about −0.4 on noise. Over 40
+placebo shuffles (no real labels), each criterion failed this often with NO real difference:
+
+| criterion | false fails |
+|---|---|
+| median gap ≥ −0.15 R | 9 / 40 (23 %) — unusable |
+| mean gap ≥ −0.10 R | 5 / 40 (12 %) — conservative, kept |
+| stop-out rate worse by > 10 pp | 0 / 40 |
+
+**Change:** the median condition is replaced by **stop-out rate(NOP) − stop-out rate(GO) ≤ +10
+percentage points**. The mean and CI conditions are unchanged. Nothing else changes, and the
+real split had not been computed when this was written.
