@@ -37,13 +37,15 @@ def pro_features(p: dict, f: dict) -> dict:
     # Clenow: annualised exponential-regression slope x R^2 over 90 sessions
     y = np.log(C)
     t = pd.Series(np.arange(len(C), dtype=float), index=C.index)
-    my, mt = y.rolling(90).mean(), t.rolling(90).mean()
-    cov = y.mul(t, axis=0).rolling(90).mean() - my.mul(mt, axis=0)
-    var_t = t.rolling(90).var(ddof=0)
-    sd_y = y.rolling(90).std(ddof=0)
-    slope = cov.div(var_t, axis=0)
-    r = cov.div(sd_y.mul(np.sqrt(var_t), axis=0))
-    g["clenow"] = (np.exp(slope * 252) - 1) * r ** 2
+    for lb in (60, 90, 120):                       # 90 = P1; 60/120 = PREREG_p1_robustness
+        my, mt = y.rolling(lb).mean(), t.rolling(lb).mean()
+        cov = y.mul(t, axis=0).rolling(lb).mean() - my.mul(mt, axis=0)
+        var_t = t.rolling(lb).var(ddof=0)
+        sd_y = y.rolling(lb).std(ddof=0)
+        slope = cov.div(var_t, axis=0)
+        r = cov.div(sd_y.mul(np.sqrt(var_t), axis=0))
+        g["clenow%d" % lb] = (np.exp(slope * 252) - 1) * r ** 2
+    g["clenow"] = g["clenow90"]
     g["gap90"] = C.pct_change().abs().rolling(90).max() > 0.15
     # Turtle
     g["hi55"] = C.shift(1).rolling(55).max()
@@ -81,7 +83,8 @@ def weak_fundamentals(sym: str, d) -> bool:
     return r["quality"] == "OK" and r["passed"] <= 2
 
 
-def p1_weekly(d, cl, f, g, equity, cash, held_value: dict, floor: bool = False, bff: str | None = None):
+def p1_weekly(d, cl, f, g, equity, cash, held_value: dict, floor: bool = False, bff: str | None = None,
+              lookback: int = 90, top_pct: float = 0.20, risk: float = 0.001):
     """THE P1 weekly rules (Clenow, Stocks on the Move) - one function shared by the backtest
     and the live paper portfolio (p1_paper.py), so the two cannot drift.
 
@@ -100,8 +103,8 @@ def p1_weekly(d, cl, f, g, equity, cash, held_value: dict, floor: bool = False, 
                 continue
             if (bff == "weak" and qual == "WEAK") or (bff == "strong" and score < 4):
                 el[s] = False
-    sc = g["clenow"].loc[d][el].dropna().sort_values(ascending=False)
-    top = set(sc.index[:max(1, math.ceil(0.2 * len(sc)))])
+    sc = g["clenow%d" % lookback].loc[d][el].dropna().sort_values(ascending=False)
+    top = set(sc.index[:max(1, math.ceil(top_pct * len(sc)))])
     sells = [s for s in held_value if s not in top]
     buys = []
     if bool(g["b_up200"].get(d, False)):
@@ -109,7 +112,7 @@ def p1_weekly(d, cl, f, g, equity, cash, held_value: dict, floor: bool = False, 
         for s in sc.index:
             if s in held_value:
                 continue
-            a = _sizes(equity, cl[s], g["atr20"].at[d, s], 0.001)
+            a = _sizes(equity, cl[s], g["atr20"].at[d, s], risk)
             if a <= 0 or a > cash:
                 break
             buys.append((s, a))
@@ -141,7 +144,7 @@ def _sizes(equity, px, atr, risk):
     return equity * risk / atr * px if (atr == atr and atr > 0 and px == px) else 0.0
 
 
-def run_sys(name, p, f, g, start, end):
+def run_sys(name, p, f, g, start, end, params: dict | None = None):
     O, L, C = p["Open"], p["Low"], p["Close"]
     days = C.index[(C.index >= start) & (C.index <= end)]
     wk, mo = v2._week_ends(days), set(pd.Series(days, index=days).groupby(days.to_period("M")).max())
@@ -175,7 +178,7 @@ def run_sys(name, p, f, g, start, end):
         if name in ("P1", "P1F", "P1G", "P1S") and d in wk:
             sells, b1, _ = p1_weekly(d, cl, f, g, E, bk.cash,
                                      {s: q["sh"] * q["last"] for s, q in bk.pos.items()}, floor=(name == "P1F"),
-                                     bff={"P1G": "weak", "P1S": "strong"}.get(name))
+                                     bff={"P1G": "weak", "P1S": "strong"}.get(name), **(params or {}))
             buys = [(s, a, None) for s, a in b1]
         elif name == "P2":
             for s in bk.pos:
@@ -226,7 +229,39 @@ def main() -> int:
     ap.add_argument("--run", action="store_true")
     ap.add_argument("--floor", action="store_true", help="PREREG_p1_fundamental_floor: P1 vs P1F")
     ap.add_argument("--bff", action="store_true", help="PREREG_p1_bff_floor: P1 vs P1G / P1S, both halves")
+    ap.add_argument("--robust", action="store_true", help="PREREG_p1_robustness: the 27-setting neighbourhood")
     a = ap.parse_args()
+    if a.robust:
+        p = v2.load_panel()
+        f = v2.features(p)
+        g = pro_features(p, f)
+        rows = []
+        for lb in (60, 90, 120):
+            for tp in (0.10, 0.20, 0.30):
+                for rk in (0.0005, 0.001, 0.002):
+                    e, bk = run_sys("P1", p, f, g, START, END, params={"lookback": lb, "top_pct": tp, "risk": rk})
+                    r = {"lookback": lb, "top_pct": tp, "risk_pct": rk * 100, "trades": bk.trades,
+                         "centre": (lb, tp, rk) == (90, 0.20, 0.001)}
+                    for half, (s0, s1) in {"full": (START, END), "H1": (START, SPLIT - pd.Timedelta(days=1)), "H2": (SPLIT, END)}.items():
+                        m = v2.metrics(e.loc[s0:s1])
+                        r["MAR_" + half], r["CAGR_" + half], r["DD_" + half] = m["MAR"], m["CAGR%"], m["maxDD%"]
+                    rows.append(r)
+                    print("L%-3d top %2d%% risk %.2f%% -> MAR %.2f / %.2f / %.2f  CAGR %.1f%%  DD %.1f%%" % (
+                        lb, tp * 100, rk * 100, r["MAR_full"], r["MAR_H1"], r["MAR_H2"], r["CAGR_full"], r["DD_full"]), flush=True)
+        T = pd.DataFrame(rows)
+        os.makedirs(OUT, exist_ok=True)
+        T.to_csv(os.path.join(OUT, "robustness.csv"), index=False)
+        c = T[T.centre].iloc[0]
+        nb = T[~T.centre]
+        c1 = int(((nb.MAR_full > 0.48) & (nb.CAGR_full > 11.05)).sum())
+        c2 = all(nb["MAR_" + h].median() >= 0.70 * c["MAR_" + h] for h in ("H1", "H2"))
+        c3 = c["MAR_full"] <= 1.30 * nb.MAR_full.median()
+        print("\n1. beats Mom30 MAR and Nifty CAGR: %d of 26 (need 21) -> %s" % (c1, "ok" if c1 >= 21 else "FAIL"))
+        print("2. neighbour median MAR H1 %.2f (need %.2f) · H2 %.2f (need %.2f) -> %s" % (
+            nb.MAR_H1.median(), 0.70 * c.MAR_H1, nb.MAR_H2.median(), 0.70 * c.MAR_H2, "ok" if c2 else "FAIL"))
+        print("3. P1 MAR %.2f vs 1.30 x neighbour median %.2f -> %s" % (c.MAR_full, 1.30 * nb.MAR_full.median(), "ok" if c3 else "FAIL"))
+        print("VERDICT  P1 is " + ("ROBUST (a plateau)" if (c1 >= 21 and c2 and c3) else "NOT ROBUST"))
+        return 0
     if a.bff:
         p = v2.load_panel()
         f = v2.features(p)
