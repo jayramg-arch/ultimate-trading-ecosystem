@@ -120,6 +120,7 @@ When an alert fires, run §4.
 |---|---|---|
 | **Weekend** | Read RRG / sector rotation. Refresh the manual weekly reads. | Weinstein is a weekly framework; the stage and RS that gate everything are weekly numbers. |
 | **Weekend** | Review `logs/trade_reviews.csv` — the decisions, including passes. | After ~20 rows it can tell you whether your instinct beats the system. Nothing else can. |
+| **Friday close (auto)** | **v2 core paper portfolio** — auto-pilot Phase 12i decides the next orders for P1 (and P1F); read `reports/p1_paper/orders_<date>.md` or the Paper Trades page panel over the weekend. | The v2 core (Doc 40). Paper only until its gates clear; while the Nifty 500 is below its 200-day SMA it makes no buys. |
 | **Weekly** | ETF screener + rotation (`etf_screener.py`, `etf_rotation.py`). | Separate alpha source; rotation-driven, not stock-picking. |
 | **Monthly** | Attribution (AUTOPSY → 📐 Attribution). | P&L decomposed by setup / stage / RS / conviction — only meaningful for SYSTEM-tagged trades. |
 | **When code changes** | Re-baseline validation. | Any signal change invalidates prior Strategy Tester and walk-forward numbers. |

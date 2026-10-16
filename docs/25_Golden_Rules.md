@@ -13,6 +13,23 @@
 
 ---
 
+## PART 0 — THE v2 CORE (16 Oct 2026): read this before the rest
+
+The rules below were written for the trigger system (board → S4 GO → reviewer). On 16 Oct the
+evidence moved the centre of the ecosystem (Docs 38–40):
+
+- **The timing layer has no measured edge.** Five pre-registered tests: GO, PA, the reviewer and
+  entry timing did not pick better trades. Treat a GO as a moment to look, never as a reason.
+- **The v2 core is a weekly ranked portfolio** — Clenow's *Stocks on the Move*: new buys only when
+  the Nifty 500 is above its 200-day SMA; eligible names above their 100-DMA with no 15 % gap; ranked
+  by trend quality (90-day slope × R²); equal risk per position (0.10 % of equity per ATR); sold when
+  out of the top 20 % or below the 100-DMA. It beat every alternative 2018–2026 on return per unit of
+  drawdown — but the exact setting is optimistic (expect ~0.75, not 1.16), so it is **paper-only**.
+- **No fundamental filter on the core** — both floors tested cost return.
+- **No new entries until the market has recovered:** a weekly close of the Nifty 500 above its
+  200-day SMA AND the exposure tier at NEUTRAL or better (Doc 40).
+- Everything in Parts 1–11 still governs the **current holdings** and any discretionary trade.
+
 ## PART 1 — THE TEN RULES (the one-page version)
 
 1. **The watchlists QUALIFY. The board TIMES. S4 is the plan of record.** Never re-litigate

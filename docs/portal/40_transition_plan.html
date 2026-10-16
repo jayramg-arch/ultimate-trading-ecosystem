@@ -1,0 +1,165 @@
+<meta charset="utf-8">
+<title>Transition plan</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --ground:#EEF1F4; --surface:#FFFFFF; --surface-2:#F6F8FA;
+  --ink:#0E1319; --ink-2:#3A4552; --muted:#66727F; --rule:#D6DDE4; --rule-soft:#E6EBF0;
+  --go:#0F7A66; --go-bg:#E4F2EE; --go-rule:#9FCFC2;
+  --wait:#A96500; --wait-bg:#FBF0DE; --wait-rule:#E0BE86;
+  --no:#B23025; --no-bg:#FBE9E7;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --grot:'Bricolage Grotesque','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+    --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+    --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+    --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+    --no:#EF6259; --no-bg:#34191A;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+  --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+  --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+  --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+  --no:#EF6259; --no-bg:#34191A;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--serif);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px}
+
+header.mast{border-bottom:1px solid var(--rule);background:var(--surface)}
+.mast-in{max-width:960px;margin:0 auto;padding:46px 24px 36px}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 12px}
+h1{font-family:var(--grot);font-weight:800;font-size:clamp(32px,5vw,50px);line-height:1.03;
+  letter-spacing:-.02em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.dek b{color:var(--ink);font-weight:600}
+
+main{padding:44px 0 90px}
+section{margin:0 0 62px;scroll-margin-top:20px}
+.pt{font-family:var(--mono);font-size:11.5px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 6px}
+h2{font-family:var(--grot);font-weight:700;font-size:clamp(22px,2.6vw,29px);line-height:1.15;
+  letter-spacing:-.015em;margin:0 0 10px;text-wrap:balance}
+h3{font-family:var(--grot);font-weight:600;font-size:17.5px;margin:30px 0 8px}
+p{margin:0 0 14px;max-width:68ch}
+.lede{font-size:18px;color:var(--ink-2);max-width:64ch}
+.m{font-family:var(--mono);font-size:.86em;background:var(--surface-2);
+  border:1px solid var(--rule-soft);border-radius:3px;padding:1px 5px;white-space:nowrap}
+
+/* ── timeline ─────────────────────────────────────────── */
+.tl{position:relative;margin:26px 0 0;padding-left:0}
+.tl::before{content:"";position:absolute;left:78px;top:8px;bottom:8px;width:1px;background:var(--rule)}
+.ev{display:grid;grid-template-columns:78px 1fr;gap:0;position:relative;margin:0 0 4px}
+.ev .clk{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;
+  color:var(--muted);padding:15px 16px 0 0;text-align:right;white-space:nowrap}
+.ev .bd{border:1px solid transparent;padding:13px 0 13px 22px;position:relative}
+.ev .bd::before{content:"";position:absolute;left:-4px;top:19px;width:9px;height:9px;
+  border-radius:50%;background:var(--ground);border:1.5px solid var(--rule)}
+.ev .t{font-family:var(--grot);font-weight:600;font-size:16.5px;margin:0 0 3px}
+.ev .d{font-size:15px;color:var(--ink-2);max-width:62ch;margin:0}
+.ev .d + .d{margin-top:6px}
+.ev .who{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);display:inline-block;margin-left:9px;vertical-align:1px;font-weight:500}
+
+/* the human step is the whole point of the page */
+.ev.you .bd{background:var(--go-bg);border:1px solid var(--go-rule);border-left-width:3px;
+  padding-left:20px;border-radius:2px}
+.ev.you .bd::before{background:var(--go);border-color:var(--go);width:11px;height:11px;left:-5.5px}
+.ev.you .t{color:var(--ink)}
+.ev.you .who{color:var(--go);font-weight:600}
+.ev.off .bd::before{background:var(--wait);border-color:var(--wait)}
+
+ol.mini{margin:10px 0 0;padding-left:19px;display:flex;flex-direction:column;gap:7px}
+ol.mini li{font-size:15px;color:var(--ink-2)}
+ol.mini li b{color:var(--ink)}
+ol.mini li::marker{font-family:var(--mono);font-size:12px;color:var(--go)}
+
+/* ── tables ───────────────────────────────────────────── */
+.tw{overflow-x:auto;margin:20px 0;border:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%;background:var(--surface);font-size:15px}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);text-align:left;font-weight:600;padding:11px 14px;
+  border-bottom:1px solid var(--rule);white-space:nowrap;background:var(--surface-2)}
+td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.5}
+tr:last-child td{border-bottom:0}
+td.n{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
+  white-space:nowrap;color:var(--ink-2)}
+td.warn{color:var(--no)}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--wait);background:var(--wait-bg);
+  padding:15px 18px;margin:20px 0;font-size:15.5px}
+.note .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--wait);display:block;margin-bottom:6px;font-weight:600}
+.note p{margin:0;max-width:none}
+
+pre{font-family:var(--mono);font-size:13.5px;line-height:1.85;background:var(--surface);
+  border:1px solid var(--rule);border-left:3px solid var(--go);padding:18px 20px;
+  overflow-x:auto;margin:20px 0;color:var(--ink-2)}
+pre b{color:var(--ink);font-weight:600}
+
+footer{border-top:1px solid var(--rule);padding:26px 0 60px;font-size:15px;color:var(--muted);max-width:68ch}
+footer em{color:var(--ink-2)}
+
+@media(max-width:720px){
+  body{font-size:16px}
+  .tl::before{left:60px}
+  .ev{grid-template-columns:60px 1fr}
+  .ev .clk{font-size:11.5px;padding-right:12px}
+  .ev .bd{padding-left:18px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<style>
+ul.how,ol.how{margin:6px 0 10px;padding-left:20px}
+.how li{font-size:15px;color:var(--ink-2);margin:0 0 6px;max-width:72ch}
+section p{max-width:72ch}
+</style>
+<header class="mast"><div class="mast-in">
+  <p class="eyebrow">Doc 40 · Plan · 16 Oct 2026</p>
+  <h1>Transition plan</h1>
+  <p class="dek">From the trigger system to the v2 core: guardrails for holding the current book, a mechanical definition of a recovered market, the gates and stages before real money goes into the v2 core, and what each existing tool becomes.</p>
+</div></header>
+<div class="wrap"><main>
+<section id="where-the-evidence-stands">
+<p class="pt">Where the evidence stands</p>
+<div class="tw"><table><thead><tr><th>Question</th><th>Answer</th><th>Source</th></tr></thead><tbody><tr><td>Does the entry-timing layer (GO, PA, reviewer) add an edge?</td><td>No — five tests</td><td>Docs 38–39, PREREG_pa_*, PREREG_p_less_forward</td></tr><tr><td>Which architecture won?</td><td>Clenow "Stocks on the Move" (P1): regime gate + trend-quality rank + ATR risk parity + weekly rank exits</td><td>PREREG_pro_systems_tournament</td></tr><tr><td>Is P1's exact setting reliable?</td><td><b>No — not robust.</b> 22 of 26 nearby settings beat the benchmarks, but the headline (MAR 1.16) is an optimistic peak; expect ~0.75</td><td>PREREG_p1_robustness</td></tr><tr><td>Do fundamental floors help P1?</td><td>No — both cost return (RFF −0.5 pp; BFF weak-floor −6.4 pp/yr in 2018–22)</td><td>PREREG_p1_fundamental_floor, PREREG_p1_bff_floor</td></tr></tbody></table></div>
+</section>
+<section id="1-the-current-book-legacy-positions-jay-s-decision-hold-for-">
+<p class="pt">1. The current book (legacy positions) — Jay's decision: hold for recovery</p>
+<p>Jay is choosing to hold the current positions for a recovery and close some near break-even, because a further drawdown on capital is not affordable. That is his call. The plan only asks that holding is done with the protections that make it survivable:</p>
+<ul class="how"><li><b>The Disaster SL stays resting at Dhan on every holding</b> and is never cancelled or widened to "give it room". Holding for recovery means not selling at the thesis level; it does not mean removing the floor under the position.</li><li><b>No averaging down</b> on a losing holding.</li><li><b>A review date, not an open-ended wait:</b> each holding is looked at again at the first weekly close with the Nifty 500 back above its 200-day SMA, and in any case on <b>15 Jan 2027</b>.</li><li>A note to keep beside it: the market does not know the entry price. At each review the question is "would I buy this today with this money?" — the break-even level is not part of that answer.</li></ul>
+</section>
+<section id="2-new-entries-none-until-the-market-recovers">
+<p class="pt">2. New entries — none until the market recovers</p>
+<p><b>"Recovered" is defined mechanically</b> so the decision is not made in the moment:</p>
+<ul class="how"><li>the Nifty 500 closes a week <b>above its 200-day SMA</b> (P1's own regime gate), <b>and</b></li><li>the exposure rule's tier is <b>NEUTRAL or OPEN</b> (regime score 3+).</li></ul>
+<p>Until both hold, no new entries in either system. The P1 paper book enforces the first by itself.</p>
+</section>
+<section id="3-path-to-real-money-for-the-v2-core">
+<p class="pt">3. Path to real money for the v2 core</p>
+<p>P1 is paper-only today (robustness failed). Real money needs all of these:</p>
+<ol class="how"><li><b>Three months of paper</b> (from 16 Oct 2026 → <b>16 Jan 2027</b> at the earliest).</li><li><b>The market has recovered</b> (definition above).</li><li><b>The paper book has done its job:</b> since its start, P1 paper is at or above the Nifty 500 and its drawdown is shallower than the index's.</li><li><b>A forward pre-registration that answers the robustness doubt.</b> Proposed: a third paper book, <b>P1E — an ensemble</b> (the average rank of the 60/90/120-session lookbacks, a 25 % cut-off, 0.10 % risk), registered now and judged only on data from now on. Ensembles are the standard professional answer to parameter risk: no single setting has to be right.</li></ol>
+<p><b>Stages once cleared:</b> one-third of the trading capital into the chosen book → two-thirds after three more months if the live book tracks its paper twin (within 3 percentage points) → full. Each stage is reversible: a live drawdown deeper than the backtest's worst (−19 % for P1, −24 % allowed for the ensemble) stops the scale-up.</p>
+</section>
+<section id="4-what-happens-to-the-existing-tools-proposals-jay-approves-">
+<p class="pt">4. What happens to the existing tools (proposals — Jay approves each)</p>
+<div class="tw"><table><thead><tr><th>Tool</th><th>Today</th><th>Proposed role under v2</th></tr></thead><tbody><tr><td>GM boards, S4, S5</td><td>choose and time entries</td><td><b>execution aids</b> for the weekly P1 buy list (place sensible limits; avoid buying straight into a wall) — never a veto on the list</td></tr><tr><td>S4 GO watchlist alerts, GM-POS GO alerts</td><td>trade triggers</td><td>keep running for the legacy book's monitoring; no longer entry signals</td></tr><tr><td>AI reviewer + Phase 13 board reviews</td><td>rules on every GO</td><td><b>pause Phase 13</b> (<code>BOARD_REVIEWS=0</code>) to save API cost; use the reviewer only as a checklist on the weekly P1 buy list</td></tr><tr><td>Risk Shield, exposure rule, Disaster SL</td><td>live</td><td><b>unchanged</b> — they protect both books</td></tr><tr><td>Paper Trades</td><td>trigger cohorts</td><td>the v2 panel is the main view; trigger cohorts stay as the control record</td></tr></tbody></table></div>
+</section>
+<section id="5-dates">
+<p class="pt">5. Dates</p>
+<div class="tw"><table><thead><tr><th>Date</th><th>What</th></tr></thead><tbody><tr><td>Every Friday close</td><td>P1/P1F decide the next orders (auto-pilot Phase 12i)</td></tr><tr><td>15 Dec 2026</td><td>P-as-a-tag forward check (scheduled)</td></tr><tr><td>15 Jan 2027</td><td>GO vs non-GO by regime (scheduled); legacy-book review date</td></tr><tr><td>16 Jan 2027</td><td>earliest date the three-month paper condition can be met</td></tr><tr><td>16 Apr 2027</td><td>six-month re-read of P1 vs P1F (scheduled)</td></tr></tbody></table></div>
+</section>
+</main></div>
+<footer><em>Source: docs/40_Transition_Plan.md.</em></footer>

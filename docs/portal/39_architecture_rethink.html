@@ -1,0 +1,169 @@
+<meta charset="utf-8">
+<title>Architecture rethink</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --ground:#EEF1F4; --surface:#FFFFFF; --surface-2:#F6F8FA;
+  --ink:#0E1319; --ink-2:#3A4552; --muted:#66727F; --rule:#D6DDE4; --rule-soft:#E6EBF0;
+  --go:#0F7A66; --go-bg:#E4F2EE; --go-rule:#9FCFC2;
+  --wait:#A96500; --wait-bg:#FBF0DE; --wait-rule:#E0BE86;
+  --no:#B23025; --no-bg:#FBE9E7;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --grot:'Bricolage Grotesque','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+    --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+    --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+    --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+    --no:#EF6259; --no-bg:#34191A;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+  --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+  --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+  --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+  --no:#EF6259; --no-bg:#34191A;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--serif);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px}
+
+header.mast{border-bottom:1px solid var(--rule);background:var(--surface)}
+.mast-in{max-width:960px;margin:0 auto;padding:46px 24px 36px}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 12px}
+h1{font-family:var(--grot);font-weight:800;font-size:clamp(32px,5vw,50px);line-height:1.03;
+  letter-spacing:-.02em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.dek b{color:var(--ink);font-weight:600}
+
+main{padding:44px 0 90px}
+section{margin:0 0 62px;scroll-margin-top:20px}
+.pt{font-family:var(--mono);font-size:11.5px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 6px}
+h2{font-family:var(--grot);font-weight:700;font-size:clamp(22px,2.6vw,29px);line-height:1.15;
+  letter-spacing:-.015em;margin:0 0 10px;text-wrap:balance}
+h3{font-family:var(--grot);font-weight:600;font-size:17.5px;margin:30px 0 8px}
+p{margin:0 0 14px;max-width:68ch}
+.lede{font-size:18px;color:var(--ink-2);max-width:64ch}
+.m{font-family:var(--mono);font-size:.86em;background:var(--surface-2);
+  border:1px solid var(--rule-soft);border-radius:3px;padding:1px 5px;white-space:nowrap}
+
+/* ── timeline ─────────────────────────────────────────── */
+.tl{position:relative;margin:26px 0 0;padding-left:0}
+.tl::before{content:"";position:absolute;left:78px;top:8px;bottom:8px;width:1px;background:var(--rule)}
+.ev{display:grid;grid-template-columns:78px 1fr;gap:0;position:relative;margin:0 0 4px}
+.ev .clk{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;
+  color:var(--muted);padding:15px 16px 0 0;text-align:right;white-space:nowrap}
+.ev .bd{border:1px solid transparent;padding:13px 0 13px 22px;position:relative}
+.ev .bd::before{content:"";position:absolute;left:-4px;top:19px;width:9px;height:9px;
+  border-radius:50%;background:var(--ground);border:1.5px solid var(--rule)}
+.ev .t{font-family:var(--grot);font-weight:600;font-size:16.5px;margin:0 0 3px}
+.ev .d{font-size:15px;color:var(--ink-2);max-width:62ch;margin:0}
+.ev .d + .d{margin-top:6px}
+.ev .who{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);display:inline-block;margin-left:9px;vertical-align:1px;font-weight:500}
+
+/* the human step is the whole point of the page */
+.ev.you .bd{background:var(--go-bg);border:1px solid var(--go-rule);border-left-width:3px;
+  padding-left:20px;border-radius:2px}
+.ev.you .bd::before{background:var(--go);border-color:var(--go);width:11px;height:11px;left:-5.5px}
+.ev.you .t{color:var(--ink)}
+.ev.you .who{color:var(--go);font-weight:600}
+.ev.off .bd::before{background:var(--wait);border-color:var(--wait)}
+
+ol.mini{margin:10px 0 0;padding-left:19px;display:flex;flex-direction:column;gap:7px}
+ol.mini li{font-size:15px;color:var(--ink-2)}
+ol.mini li b{color:var(--ink)}
+ol.mini li::marker{font-family:var(--mono);font-size:12px;color:var(--go)}
+
+/* ── tables ───────────────────────────────────────────── */
+.tw{overflow-x:auto;margin:20px 0;border:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%;background:var(--surface);font-size:15px}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);text-align:left;font-weight:600;padding:11px 14px;
+  border-bottom:1px solid var(--rule);white-space:nowrap;background:var(--surface-2)}
+td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.5}
+tr:last-child td{border-bottom:0}
+td.n{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
+  white-space:nowrap;color:var(--ink-2)}
+td.warn{color:var(--no)}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--wait);background:var(--wait-bg);
+  padding:15px 18px;margin:20px 0;font-size:15.5px}
+.note .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--wait);display:block;margin-bottom:6px;font-weight:600}
+.note p{margin:0;max-width:none}
+
+pre{font-family:var(--mono);font-size:13.5px;line-height:1.85;background:var(--surface);
+  border:1px solid var(--rule);border-left:3px solid var(--go);padding:18px 20px;
+  overflow-x:auto;margin:20px 0;color:var(--ink-2)}
+pre b{color:var(--ink);font-weight:600}
+
+footer{border-top:1px solid var(--rule);padding:26px 0 60px;font-size:15px;color:var(--muted);max-width:68ch}
+footer em{color:var(--ink-2)}
+
+@media(max-width:720px){
+  body{font-size:16px}
+  .tl::before{left:60px}
+  .ev{grid-template-columns:60px 1fr}
+  .ev .clk{font-size:11.5px;padding-right:12px}
+  .ev .bd{padding-left:18px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<style>
+ul.how,ol.how{margin:6px 0 10px;padding-left:20px}
+.how li{font-size:15px;color:var(--ink-2);margin:0 0 6px;max-width:72ch}
+section p{max-width:72ch}
+</style>
+<header class="mast"><div class="mast-in">
+  <p class="eyebrow">Doc 39 · Doctrine · 16 Oct 2026</p>
+  <h1>Architecture rethink</h1>
+  <p class="dek">The build was trigger-centric; the edge lives in what you own and how much. Benchmarks we never measured against, what serious systems have that we did not, and the rank → portfolio → execute design that led to the tournament.</p>
+</div></header>
+<div class="wrap"><main>
+<section id="what-the-evidence-says-about-the-system-we-built">
+<p class="pt">What the evidence says about the system we built</p>
+<div class="tw"><table><thead><tr><th>Layer</th><th>Effort spent</th><th>Measured edge</th></tr></thead><tbody><tr><td>Qualification (stage, catalyst, trend template, RS)</td><td>moderate</td><td><b>the only positive one</b>: about +1% a trade vs the index historically, CI includes zero</td></tr><tr><td>Entry timing (S4 GO, PA battery, zones, AVWAP, OI, footprint, S5)</td><td><b>most of the build</b></td><td>none in five tests (entry optimizer A–D, S4-GO replay, PA-selects, P-less, live GO vs non-GO)</td></tr><tr><td>AI reviewer</td><td>large</td><td>none: TAKE ≈ WAIT ≈ PASS on 10-session returns</td></tr><tr><td>Stops and exits</td><td>large</td><td>the 4×ATR floor and Chandelier trail are right; tight stops were the main leak</td></tr><tr><td>Regime / exposure rule</td><td>recent</td><td>keeps you out of falling tapes — it would have cut 52 trades to about 7</td></tr><tr><td>Portfolio construction (what to own, how much, when to swap)</td><td><b>almost none</b></td><td>never built</td></tr></tbody></table></div>
+<p>The architecture is <b>trigger-centric</b>: it asks "is this the right moment to buy this name?" and answers with ever more metrics. Serious systematic equity managers ask a different question: "of everything I could own, which 10–20 are strongest right now, and is the market letting me be invested?" Their edge comes from <i>what they own and how much</i>, not from the minute they buy — which is exactly what our five timing tests found.</p>
+</section>
+<section id="why-more-gates-was-never-going-to-work">
+<p class="pt">Why "more gates" was never going to work</p>
+<p>You noticed it: dozens of metrics, four gates. Gates are binary — a name either passes or does not, and everything the metric knew about <i>how much</i> better one name is than another is thrown away. Adding gates makes the funnel narrower and the sample smaller, which is how systems get overfit. The professional answer is a <b>ranking</b>: combine the few metrics that have evidence behind them into one score across the <i>whole</i> universe, and own the top of the list.</p>
+<p>One caution from our own work (Doc 36): inside a pre-selected list of momentum names, no metric ranked future returns. Ranking works across a broad universe, not within a list that has already been filtered to look alike. That is a reason to rank the whole Nifty 500, not the 50-name board.</p>
+</section>
+<section id="benchmarks-what-we-have-been-competing-against-without-measu">
+<p class="pt">Benchmarks — what we have been competing against without measuring</p>
+<div class="tw"><table><thead><tr><th>Benchmark</th><th>What it is</th><th>Why it matters</th></tr></thead><tbody><tr><td>Nifty 500</td><td>the market</td><td>the floor: if we cannot beat it after costs, we are paying to underperform</td></tr><tr><td><b>Nifty 200 Momentum 30</b> (and its ETFs)</td><td>30 strongest stocks by 6- and 12-month momentum, rebalanced twice a year, no timing</td><td>the honest competitor: a passive version of what we are trying to do</td></tr><tr><td>Minervini / O'Neil practice</td><td>market direction first, leaders by RS rank, earnings acceleration, cut losers, let winners run, concentrate</td><td>the discretionary standard our DNA is based on</td></tr><tr><td>Trend-following overlay (dual momentum)</td><td>be invested only when the index trend is up</td><td>what our exposure rule now does</td></tr></tbody></table></div>
+<p>Last year every one of them lost money (Nifty 500 −5.5%, Nifty 50 −9.5%, Momentum 30 −8.3%). That does not excuse the system — it sets the bar it must clear over a full cycle.</p>
+</section>
+<section id="what-is-missing-the-parts-serious-systems-have-and-we-do-not">
+<p class="pt">What is missing (the parts serious systems have and we do not)</p>
+<ol class="how"><li><b>A portfolio layer.</b> Rank, hold the top N, swap the weakest for the strongest on a schedule. Your Sell-to-Buy rotation matrix is in the DNA and was never built.</li><li><b>A cross-sectional strength rank.</b> We use the RRG quadrant (a rotation picture) where the evidence supports a percentile rank of 6- and 12-month risk-adjusted return across the universe (IBD's RS rating, the momentum index's method).</li><li><b>Earnings momentum as an input.</b> Post-earnings drift and earnings acceleration are among the most robust effects in equities; our earnings data is display-only (BFF) or a risk flag.</li><li><b>A benchmark comparison in every report.</b> Paper Trades, the Live Record and the journal report R and rupees, never "vs Nifty 500" and "vs Momentum 30".</li><li><b>A schedule.</b> Positional systems rebalance weekly or monthly; ours reacts to 75-minute bars.</li></ol>
+</section>
+<section id="the-proposed-architecture-v2-rank-portfolio-execute">
+<p class="pt">The proposed architecture (v2): rank → portfolio → execute</p>
+<div class="tw"><table><thead><tr><th>Layer</th><th>Job</th><th>What it reuses</th></tr></thead><tbody><tr><td>L0 Regime</td><td>how much to be invested (100% / 50% / mostly cash)</td><td>the exposure rule, as is</td></tr><tr><td>L1 Eligibility</td><td>a few coarse yes/no filters: Stage 2, above a rising 200-DMA, liquidity, a fundamentals floor</td><td>stage engine, BFF/RFF, liquidity</td></tr><tr><td><b>L2 Rank</b> (new)</td><td>one score across all eligible Nifty 500 names: vol-adjusted 6/12-month momentum, earnings growth and acceleration, distance from the 52-week high, trend quality</td><td>existing data; new combination</td></tr><tr><td><b>L3 Portfolio</b> (new)</td><td>hold the top 10–15, sector cap, equal risk; each week swap a holding that falls out of the top 30 or breaks trend for the best name not held</td><td>sector map, correlation gate, heat budget</td></tr><tr><td>L4 Execution</td><td>buy the chosen names during the rebalance week at a sensible price (pullback limit, no chasing)</td><td>GM / S4 as an execution assistant, not a gate</td></tr><tr><td>Exits</td><td>rank exit + 4×ATR stop + Chandelier trail</td><td>house stop rules, as is</td></tr></tbody></table></div>
+<p>The board, S4, S5 and the reviewer do not disappear: they become the <i>execution and checking</i> tools for names the rank has already chosen, instead of the thing that chooses them.</p>
+</section>
+<section id="how-we-find-out-before-you-risk-money-pre-registered-run-onc">
+<p class="pt">How we find out before you risk money (pre-registered, run once)</p>
+<p>A point-in-time rotation backtest, Nifty 500, 2018–2026, weekly rebalance, real costs, compared with: (a) the Nifty 500, (b) a replica of the Momentum 30 method on the same data, (c) today's system. Pass only if v2 beats both benchmarks on return per unit of drawdown in both halves of the period. <b>If v2 cannot beat a plain momentum replica, the honest conclusion is to own the momentum ETF and stop building</b> — that would also be a result.</p>
+<p>Known limit stated now: today's Nifty 500 list on an older window flatters every variant (survivorship), equally; the comparison between variants is what counts.</p>
+</section>
+<section id="what-to-stop-doing">
+<p class="pt">What to stop doing</p>
+<ul class="how"><li>Adding panel fields, gates and patterns to S4/S5 in search of an edge in the entry.</li><li>Reading a reviewer TAKE as a signal.</li><li>Judging the system on 10-session trade outcomes instead of on the portfolio against a benchmark.</li></ul>
+</section>
+</main></div>
+<footer><em>Source: docs/39_Architecture_Rethink.md.</em></footer>
