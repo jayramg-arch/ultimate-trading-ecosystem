@@ -37,7 +37,7 @@ def build_panel() -> dict:
         syms = json.load(f)
     syms = [str(s if isinstance(s, str) else (s.get("symbol") or s.get("Symbol"))).replace(".NS", "")
             for s in syms if s]
-    bench = dp.fetch_ohlcv("^CRSLDX", period="10y", interval="1d", use_cache=True)
+    bench = dp.fetch_ohlcv("^CRSLDX", period="10y", interval="1d", use_cache=False)   # the cache holds a 5y copy
     cal = pd.DatetimeIndex(pd.to_datetime(bench.index).tz_localize(None) if getattr(bench.index, "tz", None)
                            else pd.to_datetime(bench.index)).normalize()
     fr = {k: {} for k in ("Open", "High", "Low", "Close", "Volume")}
@@ -62,7 +62,7 @@ def build_panel() -> dict:
     b = bench.copy()
     b.index = cal
     p["bench"] = b["Close"]
-    p["nifty50"] = dp.fetch_ohlcv("^NSEI", period="10y", interval="1d", use_cache=True)["Close"]
+    p["nifty50"] = dp.fetch_ohlcv("^NSEI", period="10y", interval="1d", use_cache=False)["Close"]
     p["nifty50"].index = pd.to_datetime(p["nifty50"].index).normalize()
     p["nifty50"] = p["nifty50"].reindex(cal)
     os.makedirs(os.path.dirname(PANEL), exist_ok=True)
