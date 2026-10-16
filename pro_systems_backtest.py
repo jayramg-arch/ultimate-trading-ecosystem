@@ -63,6 +63,24 @@ def pro_features(p: dict, f: dict) -> dict:
     return g
 
 
+_TABLES: dict = {}
+FLOOR_START = pd.Timestamp("2024-06-03")
+
+
+def weak_fundamentals(sym: str, d) -> bool:
+    """PREREG_p1_fundamental_floor: point-in-time RFF read (screener_history.rff_pit); WEAK =
+    quality OK and <= 2 of the 5 checks passed. A read that is not OK never excludes."""
+    import screener_history as sh
+    if sym not in _TABLES:
+        html = sh.fetch_page(sym)
+        _TABLES[sym] = sh.parse_tables(html) if html else None
+    t = _TABLES[sym]
+    if t is None:
+        return False
+    r = sh.rff_pit(t, d)
+    return r["quality"] == "OK" and r["passed"] <= 2
+
+
 def _sizes(equity, px, atr, risk):
     return equity * risk / atr * px if (atr == atr and atr > 0 and px == px) else 0.0
 
@@ -98,8 +116,12 @@ def run_sys(name, p, f, g, start, end):
         E = eq[-1]
         cl = C.loc[d]
         sells, buys = [], []
-        if name == "P1" and d in wk:
+        if name in ("P1", "P1F") and d in wk:
             el = (cl > g["sma100"].loc[d]) & ~g["gap90"].loc[d] & g["liq"].loc[d] & f["has"].loc[d]
+            if name == "P1F":
+                for s in el[el].index:
+                    if weak_fundamentals(s, d):
+                        el[s] = False
             sc = g["clenow"].loc[d][el].dropna().sort_values(ascending=False)
             top = set(sc.index[:max(1, math.ceil(0.2 * len(sc)))])
             sells = [s for s in bk.pos if s not in top]
@@ -160,7 +182,25 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--plumbing", action="store_true")
     ap.add_argument("--run", action="store_true")
+    ap.add_argument("--floor", action="store_true", help="PREREG_p1_fundamental_floor: P1 vs P1F")
     a = ap.parse_args()
+    if a.floor:
+        p = v2.load_panel()
+        f = v2.features(p)
+        g = pro_features(p, f)
+        out = {}
+        for name in ("P1", "P1F"):
+            e, bk = run_sys(name, p, f, g, FLOOR_START, END)
+            m = v2.metrics(e)
+            m["trades"] = bk.trades
+            out[name] = m
+            print(name, m, flush=True)
+        b = p["bench"].loc[FLOOR_START:END].dropna()
+        print("B1", v2.metrics(b / b.iloc[0]))
+        h = out["P1F"]["MAR"] >= 0.90 * out["P1"]["MAR"] and out["P1F"]["CAGR%"] >= out["P1"]["CAGR%"] - 2.0
+        print("VERDICT  H " + ("PASS -> P1F (with the fundamental floor) is the live primary" if h
+                               else "FAIL -> P1 is the live primary; P1F runs beside it"))
+        return 0
     if not (a.plumbing or a.run):
         ap.print_help()
         return 0
