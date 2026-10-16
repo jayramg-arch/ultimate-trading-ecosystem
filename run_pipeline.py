@@ -217,6 +217,28 @@ def release_pipeline_lock():
         pass
 
 
+def _run_logged(cmd, **kw):
+    """subprocess.run for the auto-pilot's child jobs (16-Oct-2026). Every call site captured
+    stdout and DISCARDED stderr, so a job that crashed left no trace: on 15 Oct the GM-POS GO
+    alert job created its alerts, died before deleting yesterday's set, and the run log showed
+    one header line. Children run in UTF-8 (a '·' or '₹' can no longer kill them) and, when one
+    exits non-zero, the last lines of its stderr go into the run log."""
+    import subprocess as _subp
+    kw.setdefault("capture_output", True)
+    kw.setdefault("text", True)
+    kw.setdefault("encoding", "utf-8")
+    kw.setdefault("errors", "replace")
+    kw.setdefault("env", dict(os.environ, PYTHONIOENCODING="utf-8"))
+    r = _subp.run(cmd, **kw)
+    if r.returncode != 0:
+        _lg = logging.getLogger("AutoPilot")
+        _tail = [l for l in (r.stderr or "").splitlines() if l.strip()][-6:]
+        _lg.warning("   ↳ child exited %s: %s" % (r.returncode, " ".join(map(str, cmd[1:2]))[-80:]))
+        for _ln in _tail:
+            _lg.warning("   ↳ stderr: " + _ln)
+    return r
+
+
 def main():
     logger, log_path = setup_logging()
     logger.info(f"[log] Auto-Pilot console log -> {log_path}")
@@ -1021,7 +1043,7 @@ def main():
             try:
                 import subprocess as _sp
                 _t0 = time.time()
-                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                            "gm_evening_headless.py")],
                              capture_output=True, text=True, timeout=45 * 60)
                 _tail = (_r.stdout.strip().splitlines() or [""])[-1]
@@ -1056,7 +1078,7 @@ def main():
         else:
             try:
                 import subprocess as _sp
-                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                            "tv_gm_alerts.py")],
                              capture_output=True, text=True, timeout=10 * 60)
                 _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
@@ -1085,7 +1107,7 @@ def main():
         else:
             try:
                 import subprocess as _sp
-                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                            "tv_zone_alerts.py")],
                              capture_output=True, text=True, timeout=10 * 60)
                 _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
@@ -1111,7 +1133,7 @@ def main():
         else:
             try:
                 import subprocess as _sp
-                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                            "tv_thesis_alerts.py")],
                              capture_output=True, text=True, timeout=10 * 60)
                 _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
@@ -1137,7 +1159,7 @@ def main():
         else:
             try:
                 import subprocess as _sp
-                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                            "tv_pos_alerts.py")],
                              capture_output=True, text=True, timeout=20 * 60,
                              encoding="utf-8", errors="replace",
@@ -1151,8 +1173,6 @@ def main():
                     # 16-Oct-2026: stderr was discarded, so the 15-Oct crash (alerts created,
                     # old set never deleted - 80 on the account) left no trace anywhere.
                     _err = [l for l in (_r.stderr or "").strip().splitlines() if l.strip()][-6:]
-                    for _ln in _err:
-                        logger.warning(f"   ↳ stderr: {_ln}")
                     if _err:
                         p.message = ("CRASHED: " + _err[-1])[:160]
             except Exception as e:
@@ -1171,7 +1191,7 @@ def main():
         else:
             try:
                 import subprocess as _sp
-                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                            "entry_shadow.py")],
                              capture_output=True, text=True, timeout=20 * 60)
                 _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
@@ -1195,7 +1215,7 @@ def main():
         else:
             try:
                 import subprocess as _sp
-                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                            "log_analytics.py")],
                              capture_output=True, text=True, timeout=10 * 60)
                 _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
@@ -1220,7 +1240,7 @@ def main():
         else:
             try:
                 import subprocess as _sp
-                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                            "paper_trades.py")],
                              capture_output=True, text=True, timeout=15 * 60)
                 _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
@@ -1242,7 +1262,7 @@ def main():
     with run.phase("Phase 12e — trade log") as p:
         try:
             import subprocess as _sp
-            _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "trade_log.py")],
+            _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "trade_log.py")],
                          capture_output=True, text=True, timeout=10 * 60)
             _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
             for _ln in _lines:
@@ -1263,7 +1283,7 @@ def main():
         else:
             try:
                 import subprocess as _sp
-                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tv_push_v67_trail.py")],
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "tv_push_v67_trail.py")],
                              capture_output=True, text=True, timeout=10 * 60)
                 _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
                 for _ln in _lines[-6:]:
@@ -1272,6 +1292,28 @@ def main():
                 if _r.returncode != 0:
                     p.status = "WARN"
             except Exception as e:
+                p.status = "SKIP"; p.message = f"skipped: {e}"[:160]
+
+    # 12h. SIGNAL-LOG OUTCOMES (16-Oct-2026, Jay). Every board rebuild appends every row to
+    # logs/gm_signal_log.csv, but the outcome pass had never been scheduled - 17k rows with no
+    # results, so the live record of the boards could not be read. Each row is re-scored every
+    # night until it has 20 forward sessions, then frozen. Read-only on prices; SIGNAL_OUTCOMES=0 skips.
+    logger.info("\n[PHASE 12h] SIGNAL-LOG OUTCOMES (board rows scored against what followed)...")
+    with run.phase("Phase 12h — signal-log outcomes") as p:
+        if os.getenv("SIGNAL_OUTCOMES", "1") == "0":
+            p.status = "SKIP"; p.message = "SIGNAL_OUTCOMES=0"
+        else:
+            try:
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                               "gm_signal_log.py"), "--fill"], timeout=30 * 60)
+                _lines = [l.strip() for l in (_r.stdout or "").strip().splitlines() if l.strip()]
+                for _ln in _lines[:3]:
+                    logger.info(f"   ↳ {_ln}")
+                p.message = next((l for l in _lines if l.startswith("outcomes filled")), "done")[:160]
+                if _r.returncode != 0:
+                    p.status = "WARN"
+            except Exception as e:
+                logger.warning(f"⚠️  signal-log outcomes skipped: {e}")
                 p.status = "SKIP"; p.message = f"skipped: {e}"[:160]
 
     # 13. BOARD REVIEWS (2-Oct-2026, Jay): every 5/5 GO on the Daily, 125m and 75m boards just
@@ -1285,7 +1327,7 @@ def main():
         else:
             try:
                 import subprocess as _sp
-                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                                            "board_reviews.py")],
                              capture_output=True, text=True, timeout=90 * 60)
                 _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
@@ -1316,7 +1358,7 @@ def main():
         else:
             try:
                 import subprocess as _sp
-                _r = _sp.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "evening_digest.py")],
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "evening_digest.py")],
                              capture_output=True, text=True, timeout=10 * 60)
                 _tail = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()][-1:] or ["done"]
                 p.message = _tail[0][:160]

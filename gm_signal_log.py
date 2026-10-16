@@ -201,7 +201,8 @@ def summary() -> dict:
         return {"error": str(e)}
     if not len(df):
         return {"rows": 0, "symbols": 0, "days": 0, "filled": 0}
-    go = df[df["gate_bucket"].astype(str).str.startswith("4/4")]
+    # the GO bucket is "5/5" since 18-Aug-2026 (five gates); "4/4" on older rows
+    go = df[df["gate_bucket"].astype(str).str.match(r"(?:4/4|5/5)")]
     return {
         "rows": int(len(df)),
         "symbols": int(df["symbol"].nunique()),
@@ -211,8 +212,8 @@ def summary() -> dict:
         "go_breakout": int((go["playbook"] == "breakout").sum()) if len(go) else 0,
         "go_recovery": int((go["playbook"] == "recovery").sum()) if len(go) else 0,
         "filled": int(df["outcome_asof"].notna().sum()),
-        "first": str(df["signal_date"].min()),
-        "last": str(df["signal_date"].max()),
+        "first": str(df["signal_date"].dropna().astype(str).min()),
+        "last": str(df["signal_date"].dropna().astype(str).max()),
     }
 
 
@@ -236,15 +237,28 @@ def fill_outcomes(min_bars: int = 5, today=None) -> int:
     if not len(df):
         return 0
     d_today = today or date.today()
-    todo = df[df["outcome_asof"].isna() | (df["outcome_asof"].astype(str) == "")]
+    # 16-Oct-2026: this never ran (17k rows, no outcomes), and when it did it scored a row ONCE,
+    # five days in, so ret_20d stayed blank forever. A row is now re-scored every night until it
+    # has 20 forward sessions, then frozen. Prices are fetched once per symbol per run.
+    _asof = df["outcome_asof"].astype(str).str.strip()
+    _r20 = df["ret_20d_pct"].astype(str).str.strip() if "ret_20d_pct" in df.columns else _asof
+    final = (_asof.ne("") & _asof.ne("nan")) & (_r20.ne("") & _r20.ne("nan"))
+    todo = df[~final]
     filled = 0
+    _px_cache: dict = {}
     for idx, r in todo.iterrows():
         try:
             sd = pd.to_datetime(r["signal_date"]).date()
             if (d_today - sd).days < min_bars:
                 continue                       # too soon — leave it blank, never estimate
-            px = dp.fetch_ohlcv(str(r["symbol"]), period="1y", interval="1d",
-                                use_cache=True, auto_adjust=True)
+            _sym = str(r["symbol"])
+            if _sym not in _px_cache:
+                try:
+                    _px_cache[_sym] = dp.fetch_ohlcv(_sym, period="1y", interval="1d",
+                                                     use_cache=True, auto_adjust=True)
+                except Exception:
+                    _px_cache[_sym] = None
+            px = _px_cache[_sym]
             if px is None or not len(px):
                 continue
             fwd = px[px.index.date > sd]
@@ -295,7 +309,11 @@ def fill_outcomes(min_bars: int = 5, today=None) -> int:
         except Exception as e:
             _log.warning(f"gm_signal_log: outcome fill failed for {r.get('symbol')}: {e}")
     if filled:
-        df.to_csv(LOG_PATH, index=False)
+        try:
+            from io_utils import atomic_write_text
+            atomic_write_text(LOG_PATH, df.to_csv(index=False))
+        except Exception:
+            df.to_csv(LOG_PATH, index=False)
     return filled
 
 
