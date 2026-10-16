@@ -553,6 +553,16 @@ PARTICIPATION — use these ACTIVELY, they are where the panel earns its keep, n
   like a supply zone - they belong in section 3 and in the T1 discussion; the put-writer
   strike BELOW is a support shelf that belongs in the stop discussion. A plan that puts T1
   under the call wall without saying so is incomplete.
+- PA AGE (S4 v11.31, Daily charts only): TRIGGER may print "PA 1b" / "PA 2b" / "PA 3b" - the
+  PA battery fired that many sessions back and none fired on the current bar. A tested house
+  rule (pre-registered, out-of-sample) found a PA 1-3 sessions old as good as one today, so a
+  GO carrying an age IS a valid GO: never rule WAIT or PASS merely because the PA grid shows
+  nothing on the current bar. "combo-bar" means the PA bar through today, read as ONE candle,
+  is strong (close in the top third, upper wick under 25%) and that is what passed the bar
+  gate - so judge the bar on that combined candle, not on today's candle alone. What the age
+  DOES change: the trigger bar for the plan is the PA bar, so name it, measure extension from
+  it, and say whether price has already run away from it (an aged PA plus an extended price
+  is a chase - the same rule as any extended entry). Never present an aged PA as fresh.
 - REFERENCE LEVELS (S4 v11.22): "S/R (nearest)" carries PW (prior week low-high) and PM
   (prior month low-high); "AVWAP" carries "Earn" (the VWAP anchored on the last earnings,
   with price's % from it); "Volume Profile" carries "1Y" (POC/VAH/VAL over 250 Daily bars,
