@@ -803,6 +803,13 @@ Thin tails: n=22 and n=11 in the top two bins, p90 is 2.72 ATR.
   +0.52%), and as a score input it was null (held-out ρ +0.013, p 0.74). 49% of qualified
   picks read DISTRIBUTION at signal time, because Wyckoff events fire at high-volume pivot
   highs, which is structurally what a breakout looks like.
+- **The PA gate times; it does not select (16 Oct 2026).** Four windows, 2018 to 2026, Daily
+  and 75m/125m: inside a qualified uptrend a bar with *no PA in six bars* did about as well
+  as a bar where a PA fired. Pre-registered on the unseen 2018-23 window: A − F was −0.05R
+  and +0.05R in the two halves, against a +0.10R bar — FAIL. A PA 1–3 bars back is as good
+  as one now (Daily and intraday tests both passed), so the boards and S4 accept it with its
+  age. Use the PA as the *moment* to look, not as a reason the trade is better. Whether P
+  should stay a gate at all is an open decision. (`docs/PREREG_pa_selects.md`)
 
 ### And what the journal does NOT say
 
