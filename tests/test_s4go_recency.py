@@ -76,7 +76,7 @@ def test_only_a_live_pa_can_reach_four_of_four():
 
 def test_without_recency_the_same_name_is_lost():
     """Regression guard — this is the pre-fix behaviour."""
-    assert _status(0, ctx(), True) == "4/5 · no PA"  # loc+vol+bar pass; PA is the only miss
+    assert _status(0, ctx(), True) == "5/5 GO · no PA"  # loc+vol+bar pass; P is a TAG since 16-Oct-2026
 
 
 def test_age_shown_on_partial_scores_too():
@@ -108,12 +108,12 @@ def test_live_pa_never_borrows_an_age():
 
 
 def test_zero_sigma_recency_is_not_a_fire():
-    assert _status(0, ctx(pa_recent={"age": 2, "sigma": 0}), True) == "4/5 · no PA"
+    assert _status(0, ctx(pa_recent={"age": 2, "sigma": 0}), True) == "5/5 GO · no PA"
 
 
 def test_malformed_recency_is_ignored_not_crashed():
     for bad in (None, {}, "recent", [], {"age": 2}):
-        assert _status(0, ctx(pa_recent=bad), True) == "4/5 · no PA", bad
+        assert _status(0, ctx(pa_recent=bad), True) == "5/5 GO · no PA", bad
 
 
 # ── path separation: the two batteries must not cross-feed ───────────────────
@@ -127,14 +127,14 @@ def test_recovery_path_reads_the_recovery_recency():
     c = ctx(recovery_pa_recent={"age": 1, "sigma": 4})
     assert "PA 1b" in _status(0, c, True, path="recovery")
     _bull = _status(0, c, True, path="bull")
-    assert _bull.startswith("4/5 · no PA") and "PA 1b" not in _bull
+    assert _bull.startswith("5/5 GO · no PA") and "PA 1b" not in _bull
 
 
 def test_bull_path_reads_the_bull_recency():
     c = ctx(pa_recent={"age": 1, "sigma": 4})
     assert "PA 1b" in _status(0, c, True, path="bull")
     _rec = _status(0, c, True, path="recovery")
-    assert _rec.startswith("4/5 · no PA") and "PA 1b" not in _rec
+    assert _rec.startswith("5/5 GO · no PA") and "PA 1b" not in _rec
 
 
 def test_default_path_is_bull():
@@ -167,3 +167,17 @@ def test_daily_recency_row_reaches_five_of_five_go():
     its age, so the 5/5 filter and the Phase-13 reviews ("N/N GO") pick it up."""
     out = _status(0, ctx(pa_recent={"age": 2, "sigma": 5}, _board_tf="Daily"), True)
     assert out.startswith("5/5 GO · PA 2b"), out
+
+
+def test_p_tag_switch_restores_the_gate():
+    """16-Oct-2026: P became a tag (P_IS_TAG). The switch must put the gate back exactly,
+    because the 15-Dec forward run reverts it if the live comparison fails."""
+    import gm_trigger_board as g
+    old = g.P_IS_TAG
+    try:
+        g.P_IS_TAG = False
+        assert _status(0, ctx(), True) == "4/5 · no PA"
+        g.P_IS_TAG = True
+        assert _status(0, ctx(), True) == "5/5 GO · no PA"
+    finally:
+        g.P_IS_TAG = old

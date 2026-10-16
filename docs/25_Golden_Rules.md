@@ -808,8 +808,9 @@ Thin tails: n=22 and n=11 in the top two bins, p90 is 2.72 ATR.
   as a bar where a PA fired. Pre-registered on the unseen 2018-23 window: A − F was −0.05R
   and +0.05R in the two halves, against a +0.10R bar — FAIL. A PA 1–3 bars back is as good
   as one now (Daily and intraday tests both passed), so the boards and S4 accept it with its
-  age. Use the PA as the *moment* to look, not as a reason the trade is better. Whether P
-  should stay a gate at all is an open decision. (`docs/PREREG_pa_selects.md`)
+  age. Use the PA as the *moment* to look, not as a reason the trade is better. **Since 16 Oct
+  P is a TAG, not a gate** (live boards: PREREG_p_less_forward PASSED) - a GO can read
+  `5/5 GO · no PA`; forward confirmation 15 Dec. (`docs/PREREG_pa_selects.md`)
 
 ### And what the journal does NOT say
 

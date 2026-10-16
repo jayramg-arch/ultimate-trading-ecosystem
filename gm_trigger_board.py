@@ -989,6 +989,13 @@ PB_EXPANSION = {
 }
 PB_RV_FLOOR = 0.5      # S4 pb_rv_floor
 RV_FLOOR    = 1.0      # S4 rv_floor
+# P IS A TAG, NOT A GATE (16-Oct-2026, Jay). PREREG_pa_selects FAILED (2018-23: the PA gate does
+# not pick better trades) and PREREG_p_less_forward PASSED on the live boards (rows with every
+# gate but P did as well as 5/5). P now always counts as passed and an absent PA is TAGGED
+# '· no PA'. The 5/5 scale is kept so every filter, alert and review that parses it still
+# works. Forward confirmation 2026-12-15 (p_less_study.py --after 2026-10-16): if it fails,
+# set this False (and S4's P_IS_TAG) to restore the gate.
+P_IS_TAG = True
 
 # One switch for the recovery-book warning. AUD-PY-07 (20-Sep-2026): the re-baseline
 # REPORTED (run 20260810_153105, 24mo nifty500, windows 90/120): 400 trades, mean matched
@@ -1572,6 +1579,9 @@ def _s4go_core(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     if not g_pa and isinstance(_recent, dict) and (_recent.get("sigma") or 0) > 0:
         g_pa = True
         _pa_age = int(_recent.get("age") or 0)
+    _no_pa = not g_pa                 # kept for the tag and the PA-only tags below
+    if P_IS_TAG:
+        g_pa = True
     g_loc = bool((ctx.get("support") or {}).get("at_support"))
     # Pullback context relaxes the volume floor and swaps the bar test, exactly as S4
     # does. Dry-up CONFIRMS a pullback; demanding average volume is what kept them off
@@ -1634,7 +1644,7 @@ def _s4go_core(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
     # coin-flip Σ reading as conviction. It never changes the gate count: a marginal
     # pattern still fired, and the S4 chart is still the plan of record.
     _marg = [m for m in (ctx.get("pa_marginal") or []) if m]
-    _mtag = f" · {len(_marg)}⚖" if (_marg and g_pa) else ""
+    _mtag = f" · {len(_marg)}⚖" if (_marg and not _no_pa) else ""
     # DAILY-FALLBACK TAG. If the trigger-TF read failed, the PA behind this verdict
     # is the DAILY battery, not the timeframe named on the board. Say so — an
     # unmarked fallback is how "no PA" on the 75m board meant "no PA on Daily".
@@ -1643,7 +1653,7 @@ def _s4go_core(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
         _mtag += " · ⧖D"   # PA from the DAILY battery — intraday read failed
     # ROLE COHERENCE — display only, and it never touches the gate count. See
     # _role_mismatch: in a demand zone with nothing but an expansion pattern behind it.
-    _mtag += " · ⚠role" if (g_pa and _role_mismatch(ctx, path)) else ""
+    _mtag += " · ⚠role" if (not _no_pa and _role_mismatch(ctx, path)) else ""
     # HTF NESTING — the board's answer to S4's TF-ranked confluence term. A location
     # sheltered by a higher-timeframe demand zone is the stronger one, and the board
     # previously had no cross-TF term at all. Grading only: it never moves the gate
@@ -1699,7 +1709,7 @@ def _s4go_core(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
         # F tag (29-Sep-2026): an ETF has no company fundamentals, so its F is "n/a" by
         # design - never "F?", which is reserved for a stock whose fetch failed.
         _fq = " · F n/a" if is_etf else (" · F?" if fund_ok is None else "")
-        _pbt = (" · PB" if _pb else "") + _fq + _mtag
+        _pbt = (" · no PA" if _no_pa else "") + (" · PB" if _pb else "") + _fq + _mtag
         return f"5/5 GO{_pbt}" if not _pa_age else f"5/5 GO · PA {_pa_age}b{' combo-bar' if _combo_bar else ''}{_pbt}"
     # The RECENCY CAP above can be the only reason n < 5: every gate passed, but the PA
     # is a few bars old, so the row stops at 4/5. The old chain then fell through to
@@ -1709,7 +1719,7 @@ def _s4go_core(sigma_pa, ctx, intra_ok, path: str = "bull", archetypes=None,
              else "no vol" if not g_vol else "weak bar" if not g_bar
              else "no funda" if not g_fund else "recent PA")
     _fq = " · F n/a" if is_etf else (" · F?" if fund_ok is None else "")
-    return f"{n}/5 · {_miss}{_fq}{_age_tag}"
+    return f"{n}/5 · {_miss}{' · no PA' if (_no_pa and _miss != 'no PA') else ''}{_fq}{_age_tag}"
 
 
 

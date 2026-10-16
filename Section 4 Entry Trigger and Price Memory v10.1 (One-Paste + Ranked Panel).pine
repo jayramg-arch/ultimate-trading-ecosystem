@@ -853,10 +853,10 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v10.15 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.15", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v10.16 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.16", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.32"
+string S4_VER      = "v11.33"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -3303,6 +3303,11 @@ f_fold2994() =>
     float _gpl = ta.pivotlow(low,  geo_pv, geo_pv)
     [tsum, any_pa, pa_fire, pa_shared_only, _flagHi, _flagLo, bullFlag, bearFlag, _gph, _gpl, pa_age, comboStrong]
 [tsum, any_pa, pa_fire, pa_shared_only, _flagHi, _flagLo, bullFlag, bearFlag, _gph, _gpl, pa_age, comboStrong] = f_fold2994()
+// P IS A TAG, NOT A GATE (v11.33, 16-Oct-2026, Jay) - board parity (gm_trigger_board.P_IS_TAG).
+// PREREG_pa_selects FAILED (the PA gate does not pick better trades) and PREREG_p_less_forward
+// PASSED on the live boards. GO no longer requires a PA; TRIGGER says 'no PA' when none fired.
+// Forward confirmation 2026-12-15: if it fails, set this false to restore the gate.
+bool P_IS_TAG = true
 // Dedicated, LARGER pivot pool for the auto-trendlines (the geometry read stays at 6 —
 // a channel/wedge only needs the last few; a trendline may span many higher-lows). Same
 // pivots (_gph/_gpl), bigger cap so the envelope fit can reach a major swing anchor.
@@ -3968,7 +3973,7 @@ f_fold3649() =>
     // trigger belongs on the ETF by agreement, and index volume is constituent
     // turnover rather than participation in the vehicle being bought, so a GO here
     // would be confirmed by the wrong crowd.
-    bool go       = any_pa and support_pass and vol_ok and bar_ok and rrg_ok and ema_ok and fund_ok and not _isIdxC and not ctx_reject
+    bool go       = (any_pa or P_IS_TAG) and support_pass and vol_ok and bar_ok and rrg_ok and ema_ok and fund_ok and not _isIdxC and not ctx_reject
     [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go, ema_ok, locSrc, vol_dead, _isIdxC, _prSym, _iSup, _iRes]
 [coil_on, coil_bo, coil_bd, in_daily_zone, in_weekly_zone, inside_support_zone, support_pass, chart_rv, swingLo10, pb_ctx, vol_ok, ev_ok, intra_ok, timing_ok, bar_ok, go, ema_ok, locSrc, vol_dead, isIdxChart, pairSym, idxSup, idxRes] = f_fold3649()
 
@@ -4383,7 +4388,7 @@ f_fold3954() =>
     string path_txt = any_pa_v ? (shared_v ? "  ⇄both" : ("  " + (is_rec_v ? "Rec" : "Bull") + "-only")) : ""
     string pb_txt = pb_ctx_v ? (gm_pb ? "  ·PB(GM)" : "  ·PB") : ""
     string role_txt = roleMism_v ? "  ⚠role" : ""
-    string trig_txt = (go_v ? "GO" : not any_pa_v ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : not ema_ok[_so] ? "below EMA20" : not fund_ok[_so] ? "fundamentals" : "weak/red bar") + "   " + (any_pa_v?"🟢":"⚪") + "P " + (support_v?"🟢":"⚪") + "L " + (vol_dead[_so] ? "?" : vol_ok_v ? "🟢" : "⚪") + "V " + (bar_ok_v?"🟢":"⚪") + "B " + (not _gOkTrail[_so] ? "?" : _rrgTr[_so] ? "🟢" : "⚪") + "Q " + fundChip[_so] + "F" + "  " + (timing_v ? "🟢" : "⚪") + "⏱" + (pa_age[_so] > 0 ? "  PA " + str.tostring(pa_age[_so]) + "b" + (comboStrong[_so] ? " combo-bar" : "") : "") + pb_txt + path_txt + cf_txt + role_txt
+    string trig_txt = (go_v ? "GO" : (not any_pa_v and not P_IS_TAG) ? "no PA" : not support_v ? "no location" : not vol_ok_v ? "no volume" : not ema_ok[_so] ? "below EMA20" : not fund_ok[_so] ? "fundamentals" : "weak/red bar") + "   " + (any_pa_v?"🟢":"⚪") + "P " + (support_v?"🟢":"⚪") + "L " + (vol_dead[_so] ? "?" : vol_ok_v ? "🟢" : "⚪") + "V " + (bar_ok_v?"🟢":"⚪") + "B " + (not _gOkTrail[_so] ? "?" : _rrgTr[_so] ? "🟢" : "⚪") + "Q " + fundChip[_so] + "F" + "  " + (timing_v ? "🟢" : "⚪") + "⏱" + (pa_age[_so] > 0 ? "  PA " + str.tostring(pa_age[_so]) + "b" + (comboStrong[_so] ? " combo-bar" : "") : not any_pa_v ? "  no PA" : "") + pb_txt + path_txt + cf_txt + role_txt
     color trig_col = go_v ? C_GO : C_WARN
     color rv_col = chart_rv_v >= 1.25 ? C_OK : vol_ok_v ? (pb_ctx_v ? C_OK : C_WARN) : C_NO
     [trigAge, trig_txt, trig_col, rv_col]
@@ -6183,7 +6188,7 @@ if show_panel and d_panel and barstate.islast
     // it fills at market. Same false-comfort the _retestLive guard had. Say which it is.
     string _verdict = isIdxChart ? ("PHASE 1 — structure only. These levels are INDEX levels, not order prices; the plan is made on NSE:" + pairSym)
       : ctx_reject ? (is_held ? "HELD — no new size (first test: Stage 3/4 or weekly DOWN). Manage the position: VERDICT, SUMMARY, MY TRADE." : "REJECTED — first test failed (Stage 3/4 or weekly trend DOWN). No further analysis.")
-      : go_v ? ("GO" + (fund_raw[_so] ? "" : "  ⚠ " + fundNote[_so]) + (use_retest ? (trigAge > 0 ? " — arm buy-limit @ trigger close on the pullback" : " — buy-limit @ this bar's close (fills at MARKET)") : " — arm buy-stop > bar high")) : not any_pa_v ? "NO PA PATTERN" : not support_v ? "NO LOCATION" : not vol_ok_v ? (vol_dead[_so] ? "NO VOLUME DATA — phase-1 index chart, trigger on the ETF" : "NO VOLUME") : not ema_ok[_so] ? "BELOW EMA20" : not rrg_ok ? "RRG — rotation is outside the whitelist" : not fund_ok[_so] ? ("FUNDAMENTALS — " + fundNote[_so]) : "WEAK/RED BAR — no entry"
+      : go_v ? ("GO" + (fund_raw[_so] ? "" : "  ⚠ " + fundNote[_so]) + (use_retest ? (trigAge > 0 ? " — arm buy-limit @ trigger close on the pullback" : " — buy-limit @ this bar's close (fills at MARKET)") : " — arm buy-stop > bar high")) : (not any_pa_v and not P_IS_TAG) ? "NO PA PATTERN" : not support_v ? "NO LOCATION" : not vol_ok_v ? (vol_dead[_so] ? "NO VOLUME DATA — phase-1 index chart, trigger on the ETF" : "NO VOLUME") : not ema_ok[_so] ? "BELOW EMA20" : not rrg_ok ? "RRG — rotation is outside the whitelist" : not fund_ok[_so] ? ("FUNDAMENTALS — " + fundNote[_so]) : "WEAK/RED BAR — no entry"
     // DE-DUPLICATED (Jay, 10-Aug). STATUS used to re-print `P· L· V· B· ⏱ · conf n/23 ·
     // RV x/y · Bull Σ+n` — and every one of those already has its OWN row two inches
     // above: the gate chips are on TRIGGER, conf is the Confluence row, RV is the RV row,
@@ -6385,7 +6390,7 @@ if show_panel and d_panel and barstate.islast
     // Both ladders live in S4Core.blockRead: twelve ternary branches here cost this file
     // a compile (CE10295 counts BRANCHES, not just declarations). Returned as a tuple
     // because they answer one question twice - which gate is red, and what changes it.
-    [_blk, _act] = core.blockRead(any_pa_v, support_v, vol_ok_v, chart_rv_v, rv_floor, ema_ok[_so], rrg_ok, fund_ok[_so], fundNote[_so])
+    [_blk, _act] = core.blockRead(any_pa_v or P_IS_TAG, support_v, vol_ok_v, chart_rv_v, rv_floor, ema_ok[_so], rrg_ok, fund_ok[_so], fundNote[_so])
     // #verdict (30-Jul, Jay): the METRICS DIGEST is GONE, not hidden. Every field it
     // carried — Loc sources / room R / arrival+delta / RV / confluence / PA sum / WCL /
     // Structure / trade-type / extension — already has its own row above, so appending it

@@ -553,6 +553,12 @@ PARTICIPATION — use these ACTIVELY, they are where the panel earns its keep, n
   like a supply zone - they belong in section 3 and in the T1 discussion; the put-writer
   strike BELOW is a support shelf that belongs in the stop discussion. A plan that puts T1
   under the call wall without saying so is incomplete.
+- P IS A TAG (S4 v11.33, 16 Oct 2026): GO no longer requires a PA pattern. Two pre-registered
+  tests (2018-23 history, and the live boards since August) found that inside a qualified
+  uptrend a bar with no PA did as well as one where a PA fired - the PA marks a moment, it does
+  not make the trade better. TRIGGER prints "no PA" on such a GO and the P chip reads ⚪. Never
+  rule WAIT or PASS for the absence of a PA alone; judge location, volume, the bar, room and
+  context exactly as for any GO. A PA that did fire is still worth naming as the trigger bar.
 - PA AGE (S4 v11.32, every chart timeframe): TRIGGER may print "PA 1b" / "PA 2b" / "PA 3b" -
   the PA battery fired that many bars back and none fired on the current bar. Tested house
   rules (pre-registered, out-of-sample, Daily AND 75m/125m) found a PA 1-3 bars old as good
