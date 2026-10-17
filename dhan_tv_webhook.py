@@ -130,7 +130,9 @@ async def handle_s4_review(request: Request):
         # REVIEW.bat posts "SYM S4 GO TF - manual" to the same endpoint; tag it so the
         # Reviewer Log can separate S4's own alerts from hand-requested reviews (2-Oct-2026).
         _b = body if isinstance(body, bytes) else str(body).encode()
-        _src = "manual" if b"- manual" in _b else ("board" if b"- board" in _b else "tv-webhook")
+        # "- v2" (17-Oct-2026): the v2 system's weekly buys, reviewed for execution (Doc 41).
+        _src = ("manual" if b"- manual" in _b else "board" if b"- board" in _b
+                else "v2" if b"- v2" in _b else "tv-webhook")
         res = s4_alert_review.enqueue(sym, tf, source=_src, body=_b.decode("utf-8", "replace"))
         print(f"/s4-review: {sym} {tf} -> {res}")
         return {"status": "queued" if res["queued"] else "skipped", **res, "symbol": sym, "tf": tf}

@@ -1,0 +1,171 @@
+<meta charset="utf-8">
+<title>The v2 System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --ground:#EEF1F4; --surface:#FFFFFF; --surface-2:#F6F8FA;
+  --ink:#0E1319; --ink-2:#3A4552; --muted:#66727F; --rule:#D6DDE4; --rule-soft:#E6EBF0;
+  --go:#0F7A66; --go-bg:#E4F2EE; --go-rule:#9FCFC2;
+  --wait:#A96500; --wait-bg:#FBF0DE; --wait-rule:#E0BE86;
+  --no:#B23025; --no-bg:#FBE9E7;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --grot:'Bricolage Grotesque','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+    --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+    --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+    --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+    --no:#EF6259; --no-bg:#34191A;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+  --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+  --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+  --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+  --no:#EF6259; --no-bg:#34191A;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--serif);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px}
+
+header.mast{border-bottom:1px solid var(--rule);background:var(--surface)}
+.mast-in{max-width:960px;margin:0 auto;padding:46px 24px 36px}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 12px}
+h1{font-family:var(--grot);font-weight:800;font-size:clamp(32px,5vw,50px);line-height:1.03;
+  letter-spacing:-.02em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.dek b{color:var(--ink);font-weight:600}
+
+main{padding:44px 0 90px}
+section{margin:0 0 62px;scroll-margin-top:20px}
+.pt{font-family:var(--mono);font-size:11.5px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 6px}
+h2{font-family:var(--grot);font-weight:700;font-size:clamp(22px,2.6vw,29px);line-height:1.15;
+  letter-spacing:-.015em;margin:0 0 10px;text-wrap:balance}
+h3{font-family:var(--grot);font-weight:600;font-size:17.5px;margin:30px 0 8px}
+p{margin:0 0 14px;max-width:68ch}
+.lede{font-size:18px;color:var(--ink-2);max-width:64ch}
+.m{font-family:var(--mono);font-size:.86em;background:var(--surface-2);
+  border:1px solid var(--rule-soft);border-radius:3px;padding:1px 5px;white-space:nowrap}
+
+/* ── timeline ─────────────────────────────────────────── */
+.tl{position:relative;margin:26px 0 0;padding-left:0}
+.tl::before{content:"";position:absolute;left:78px;top:8px;bottom:8px;width:1px;background:var(--rule)}
+.ev{display:grid;grid-template-columns:78px 1fr;gap:0;position:relative;margin:0 0 4px}
+.ev .clk{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;
+  color:var(--muted);padding:15px 16px 0 0;text-align:right;white-space:nowrap}
+.ev .bd{border:1px solid transparent;padding:13px 0 13px 22px;position:relative}
+.ev .bd::before{content:"";position:absolute;left:-4px;top:19px;width:9px;height:9px;
+  border-radius:50%;background:var(--ground);border:1.5px solid var(--rule)}
+.ev .t{font-family:var(--grot);font-weight:600;font-size:16.5px;margin:0 0 3px}
+.ev .d{font-size:15px;color:var(--ink-2);max-width:62ch;margin:0}
+.ev .d + .d{margin-top:6px}
+.ev .who{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);display:inline-block;margin-left:9px;vertical-align:1px;font-weight:500}
+
+/* the human step is the whole point of the page */
+.ev.you .bd{background:var(--go-bg);border:1px solid var(--go-rule);border-left-width:3px;
+  padding-left:20px;border-radius:2px}
+.ev.you .bd::before{background:var(--go);border-color:var(--go);width:11px;height:11px;left:-5.5px}
+.ev.you .t{color:var(--ink)}
+.ev.you .who{color:var(--go);font-weight:600}
+.ev.off .bd::before{background:var(--wait);border-color:var(--wait)}
+
+ol.mini{margin:10px 0 0;padding-left:19px;display:flex;flex-direction:column;gap:7px}
+ol.mini li{font-size:15px;color:var(--ink-2)}
+ol.mini li b{color:var(--ink)}
+ol.mini li::marker{font-family:var(--mono);font-size:12px;color:var(--go)}
+
+/* ── tables ───────────────────────────────────────────── */
+.tw{overflow-x:auto;margin:20px 0;border:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%;background:var(--surface);font-size:15px}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);text-align:left;font-weight:600;padding:11px 14px;
+  border-bottom:1px solid var(--rule);white-space:nowrap;background:var(--surface-2)}
+td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.5}
+tr:last-child td{border-bottom:0}
+td.n{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
+  white-space:nowrap;color:var(--ink-2)}
+td.warn{color:var(--no)}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--wait);background:var(--wait-bg);
+  padding:15px 18px;margin:20px 0;font-size:15.5px}
+.note .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--wait);display:block;margin-bottom:6px;font-weight:600}
+.note p{margin:0;max-width:none}
+
+pre{font-family:var(--mono);font-size:13.5px;line-height:1.85;background:var(--surface);
+  border:1px solid var(--rule);border-left:3px solid var(--go);padding:18px 20px;
+  overflow-x:auto;margin:20px 0;color:var(--ink-2)}
+pre b{color:var(--ink);font-weight:600}
+
+footer{border-top:1px solid var(--rule);padding:26px 0 60px;font-size:15px;color:var(--muted);max-width:68ch}
+footer em{color:var(--ink-2)}
+
+@media(max-width:720px){
+  body{font-size:16px}
+  .tl::before{left:60px}
+  .ev{grid-template-columns:60px 1fr}
+  .ev .clk{font-size:11.5px;padding-right:12px}
+  .ev .bd{padding-left:18px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<style>
+ul.how,ol.how{margin:6px 0 10px;padding-left:20px}
+.how li{font-size:15px;color:var(--ink-2);margin:0 0 6px;max-width:72ch}
+section p{max-width:72ch}
+</style>
+<header class="mast"><div class="mast-in">
+  <p class="eyebrow">Doc 41 · Design · living document · 17 Oct 2026</p>
+  <h1>The v2 System</h1>
+  <p class="dek">The v2 system — a weekly ranked portfolio (Clenow's Stocks on the Move, ensemble rank) running beside the current system: its layers and the evidence for each, the books and data flow, honest expectations, how it gets fine-tuned, and the open design questions where your input decides.</p>
+</div></header>
+<div class="wrap"><main>
+<p>&gt; Status: <b>paper trading</b>, built beside the current system. Jay's decision (17 Oct): both systems &gt; run in parallel — the current one keeps monitoring trades, its reviewer and its paper record; v2 &gt; is designed and built now and fine-tuned as the P1E results come in. Comments welcome on every &gt; section — the open questions at the end are where Jay's input decides the direction.</p>
+<section id="1-what-v2-is-in-one-paragraph">
+<p class="pt">1. What v2 is, in one paragraph</p>
+<p>A <b>weekly ranked portfolio</b> of NSE stocks, based on Andreas Clenow's <i>Stocks on the Move</i>. Once a week it ranks every eligible stock by the <i>quality</i> of its trend, holds the strongest, sizes each position so all carry the same risk, sells what drops out of the top of the ranking, and stops buying altogether when the market itself is in a downtrend. It does not try to time the perfect entry — five tests showed that timing adds nothing here — it decides <i>what to own and how much</i>.</p>
+</section>
+<section id="2-the-two-systems-side-by-side">
+<p class="pt">2. The two systems side by side</p>
+<div class="tw"><table><thead><tr><th></th><th>Current system</th><th>v2 system</th></tr></thead><tbody><tr><td>Question it answers</td><td>is this the right moment to buy this name?</td><td>which stocks should I own this week, and how much?</td></tr><tr><td>Selection</td><td>watchlists + board gates (location, volume, bar, fundamentals; PA as a tag)</td><td>rank of the whole eligible Nifty 500 by trend quality</td></tr><tr><td>Timing</td><td>S4 GO on 75m/125m/Daily, alerts</td><td>none — orders at the week's close, filled at the next open</td></tr><tr><td>Exits</td><td>Disaster SL, thesis close, Chandelier trail, targets</td><td>weekly: out of the top 25 % or no longer eligible</td></tr><tr><td>Sizing</td><td>0.5 % / 0.75 % risk per trade at the plan stop</td><td>equal risk: 0.10 % of equity per ATR(20)</td></tr><tr><td>Market filter</td><td>exposure rule (regime score tiers)</td><td>Nifty 500 above its 200-day SMA for new buys</td></tr><tr><td>Reviewer</td><td>rules on every GO (TAKE / WAIT / PASS)</td><td>checks the week's buys for execution only</td></tr><tr><td>Paper record</td><td>ANALYSIS › 📄 PAPER · CURRENT SYSTEM</td><td>ANALYSIS › 🧭 PAPER · v2 SYSTEM</td></tr><tr><td>Evidence</td><td>timing layer: no measured edge (Docs 38–39)</td><td>tournament winner; survives survivorship correction (MAR 0.86)</td></tr></tbody></table></div>
+</section>
+<section id="3-architecture-the-layers-in-order">
+<p class="pt">3. Architecture — the layers, in order</p>
+<div class="tw"><table><thead><tr><th>Layer</th><th>Rule today</th><th>Why this rule</th><th>Evidence</th></tr></thead><tbody><tr><td><b>L0 Regime</b></td><td>new buys only when the Nifty 500 closed the week above its 200-day SMA; holdings can stay</td><td>momentum strategies lose most in falling markets; staying out halves the drawdown</td><td>tournament; Clenow</td></tr><tr><td><b>L1 Eligibility</b></td><td>close above its 100-DMA · no single-day move over 15 % in 90 sessions · median daily turnover ≥ ₹5 crore · 260 sessions of history</td><td>only names already trending; gaps distort the trend measure; liquidity for real fills</td><td>tournament</td></tr><tr><td><b>L2 Rank</b></td><td>trend quality = annualised exponential-regression slope × R²; <b>ensemble</b>: percentile ranks at 60, 90 and 120 sessions, averaged</td><td>smooth climbers rank above jumpy ones; the ensemble removes the single-setting risk the robustness test exposed</td><td>PREREG_p1_robustness</td></tr><tr><td><b>L3 Portfolio</b></td><td>weekly: sell holdings outside the top <b>25 %</b> or no longer eligible; buy from the top while cash lasts</td><td>holding winners while they lead, swapping laggards for leaders — the Sell-to-Buy rotation in rule form</td><td>tournament</td></tr><tr><td><b>L3 Sizing</b></td><td>0.10 % of equity ÷ ATR(20) per position (≈ 25–40 positions)</td><td>equal risk per name; volatile names get smaller positions</td><td>tournament; robustness grid</td></tr><tr><td><b>L4 Execution</b></td><td>orders at Friday's close, filled at Monday's open; the reviewer checks the buys</td><td>no timing edge was found, so execution is kept simple and cheap</td><td>Docs 38–39</td></tr><tr><td><b>Fundamentals</b></td><td>displayed, never a filter</td><td>both floors tested cost return (RFF −0.5 pp; BFF −6.4 pp/yr in 2018–22)</td><td>PREREG_p1_*_floor</td></tr></tbody></table></div>
+</section>
+<section id="4-the-books-the-v2-paper-trading-instance">
+<p class="pt">4. The books (the v2 paper-trading instance)</p>
+<div class="tw"><table><thead><tr><th>Book</th><th>What it is</th><th>Role</th></tr></thead><tbody><tr><td><b>P1E</b></td><td>the rules above</td><td><b>the v2 system</b></td></tr><tr><td><b>P1ER</b></td><td>P1E, but a buy is skipped when the reviewer rules WAIT or PASS on it</td><td>measures what the reviewer adds</td></tr><tr><td>P1</td><td>single setting (90 sessions, top 20 %) — the tournament winner</td><td>research control</td></tr><tr><td>P1F</td><td>P1 + point-in-time fundamental floor</td><td>research control</td></tr></tbody></table></div>
+<p>All start at ₹30,00,000 on the 16 Oct 2026 close. Every Friday: orders decided, a Telegram summary, the buys queued on the reviewer (tagged <code>v2</code>), and <code>reports/p1_paper/orders_&lt;date&gt;.md</code>.</p>
+</section>
+<section id="5-data-flow-and-schedule">
+<p class="pt">5. Data flow and schedule</p>
+<ol class="how"><li>Nightly (auto-pilot <b>Phase 12i</b>): <code>p1_paper.py</code> loads two years of daily bars for the Nifty 500, fills last week's orders at the open (Monday), marks every book at each close, writes the rank board <code>data/v2/board.csv</code>.</li><li>On a week's last close: decides the next orders for every book, writes the order list, sends the Telegram summary, and posts P1E's buys to the receiver as <code>SYMBOL S4 GO D - v2</code>.</li><li>The reviewer reads the S4/S5 panels for each name on the Daily chart and gets a <b>V2 CONTEXT</b> block: the selection is done, judge execution only (extension, earnings in the next 5 sessions, a wall within 1 ATR, gaps, illiquidity). Rulings land in the Reviewer Log with source <code>v2</code>.</li><li>Monday's open: P1E buys everything; P1ER skips the names ruled WAIT/PASS.</li><li>The v2 page shows the board, books, orders + reviews, positions and the trade blotter.</li></ol>
+<p>Code: <code>p1_paper.py</code> (engine), <code>pro_systems_backtest.p1_weekly</code> (the rules — the same function the backtests ran, so paper and backtest cannot drift), <code>v2_core.py</code> (board, reviewer context, review lookups), <code>commander_pages/v2_system.py</code> (the page).</p>
+</section>
+<section id="6-what-we-expect-honest-numbers">
+<p class="pt">6. What we expect (honest numbers)</p>
+<p>Survivorship-corrected backtest, 2018–2026, costs included: <b>CAGR ~19 %, worst drawdown ~22 %, return ÷ drawdown ~0.86</b> (P1); the robustness grid says to plan on <b>~0.75</b>. The ensemble P1E read 0.94 on the same data but is judged forward only. Benchmarks: Nifty 500 0.29, Momentum-30 replica 0.40. Expect long spells in cash when the market is below its 200-day SMA — that is the rule working, not failing.</p>
+</section>
+<section id="7-how-v2-gets-fine-tuned-the-rule-for-changes">
+<p class="pt">7. How v2 gets fine-tuned (the rule for changes)</p>
+<ul class="how"><li>Every change is a <b>pre-registered forward test</b>: a new paper book with the change, run beside P1E, judged on data after it starts. No tuning on data already seen.</li><li>First reads: <b>16 Jan 2027</b> (three months) and <b>16 Apr 2027</b> (six months, scheduled).</li><li>Candidate changes already on the list: the cut-off (20 % vs 25 % vs 30 %), a sector cap, a catastrophic stop (see Q5), Wednesday vs Friday rebalancing, and an earnings-momentum factor (point-in-time data now exists from 2024).</li></ul>
+</section>
+<section id="8-open-design-questions-jay-s-input-wanted">
+<p class="pt">8. Open design questions — Jay's input wanted</p>
+<ol class="how"><li><b>Universe.</b> Live v2 ranks today's Nifty 500. The survivorship test used the 500 most-traded NSE names point-in-time. Keep the Nifty 500, or rank the top 500 by turnover (adds names before they enter the index)?</li><li><b>Capital split.</b> When both systems trade real money, how much goes to each? (Proposal: v2 starts at one-third of trading capital per Doc 40; the current system keeps the rest.)</li><li><b>Rebalance day.</b> Friday close → Monday open (today), or Wednesday as Clenow uses (avoids the Monday gap)?</li><li><b>Market filter.</b> 200-day SMA only (tested), or also the house exposure tiers (untested for v2)?</li><li><b>Stops.</b> v2 has no hard stop — exits are weekly. The DNA says ATR stops are mandatory. Options: (a) keep it as tested; (b) add a wide catastrophic stop (e.g. entry − 4 × ATR or −15 %) on the live book only; (c) test (b) as a forward paper book first. <i>(Recommendation: c.)</i></li><li><b>The reviewer's veto.</b> Advisory only (P1E ignores it, P1ER obeys it) until P1E vs P1ER shows whether it helps — agreed?</li><li><b>Position count.</b> At 0.10 % risk per ATR the book holds ~25–40 names. Comfortable, or would you rather fewer, larger positions (higher risk per name)?</li><li><b>Taxes.</b> The backtest ignores tax. Weekly rotation means most gains are short-term (20 % STCG). Should the live version prefer holding past one year where the rank is close (a tax-aware tie-break)?</li><li><b>ETFs.</b> v2 ranks stocks only. Should sector/index ETFs compete in the same rank?</li></ol>
+</section>
+</main></div>
+<footer><em>Source: docs/41_v2_System_Design.md.</em></footer>

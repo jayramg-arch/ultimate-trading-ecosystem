@@ -1901,6 +1901,12 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
         LAST_RESULT = {"rc": 0, "review": review, "path": path, "head": head, "symbol": d["symbol"], "tf": tf_lbl}
         return 0
     pos_txt = position_context(d["symbol"])
+    if str(getattr(args, "source", "")).lower() == "v2":      # Doc 41: a v2 weekly buy - judge execution
+        try:
+            import v2_core
+            pos_txt += v2_core.context(d["symbol"])
+        except Exception as _e:
+            pos_txt += "\n\nV2 CONTEXT unavailable (%s) - judge execution only." % _e
     _prompt = build_prompt(read_txt, pos_txt)
     review, prov = deliberate(_prompt, args.provider)
     # 11-Oct-2026: CUB and ACUTAAS (Daily) both came back "RULING: WAIT for <specific

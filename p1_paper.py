@@ -37,7 +37,11 @@ REPORT_DIR = os.path.join(HERE, "reports", "p1_paper")
 # name -> p1_weekly options. P1 primary; P1F + fundamental floor (control); P1E the ensemble
 # (PREREG_p1e_ensemble_forward, started 16-Oct-2026: mean rank of 60/90/120, top 25 %).
 BOOKS = {"P1": {"floor": False}, "P1F": {"floor": True},
-         "P1E": {"floor": False, "ensemble": True, "top_pct": 0.25}}
+         "P1E": {"floor": False, "ensemble": True, "top_pct": 0.25},
+         # 17-Oct-2026 (Jay, Doc 41): the v2 system routed through the reviewer - P1E's rules, but a
+         # buy is skipped when the reviewer's latest ruling on the name since the decision is
+         # WAIT or PASS. P1E vs P1ER measures what the reviewer adds to the v2 system.
+         "P1ER": {"floor": False, "ensemble": True, "top_pct": 0.25, "reviewed": True}}
 START_DATE = dt.date(2026, 10, 16)          # first signal close (a Friday)
 
 
@@ -112,6 +116,8 @@ def _is_week_end(d: dt.date) -> bool:
 
 
 def step(st: dict, p: dict, f: dict, g: dict, opts: dict) -> list:
+    opts = dict(opts)
+    reviewed = opts.pop("reviewed", False)
     """Advance one book through every completed session after st['last_date']. Returns the
     order lines decided at the latest week-end close (empty if none)."""
     import pro_systems_backtest as ps
@@ -133,7 +139,18 @@ def step(st: dict, p: dict, f: dict, g: dict, opts: dict) -> list:
                     st["trades"].append({"date": str(d.date()), "side": "SELL", "symbol": s, "price": round(px, 2),
                                          "shares": round(q["sh"], 2), "value": round(amt),
                                          "pnl": round(amt - q["sh"] * q["entry"])})
+            rulings = {}
+            if reviewed:
+                try:
+                    import v2_core
+                    rulings = v2_core.latest_reviews(pend.get("decided"))
+                except Exception:
+                    rulings = {}
             for s, amt in pend.get("buys", []):
+                if reviewed and rulings.get(s) in ("WAIT", "PASS"):
+                    st["trades"].append({"date": str(d.date()), "side": "SKIP", "symbol": s,
+                                         "reason": "reviewer " + rulings[s]})
+                    continue
                 px = O.at[d, s] if s in O.columns else float("nan")
                 if not px == px or s in st["pos"]:
                     continue
@@ -193,14 +210,16 @@ def summary_text(test: bool = False) -> str:
             s_ = ",".join(parts) + "," + tail
         return ("-" if v < 0 else "") + "Rs " + s_
     lines, regime, decided, watch, n500 = [], None, None, [], None
-    for name in BOOKS:
+    # v2 system first (P1E, then P1ER through the reviewer), research controls after (17-Oct-2026)
+    for name in [b for b in ("P1E", "P1ER", "P1", "P1F") if b in BOOKS]:
         st = load_state(name)
         h = st["history"][-1] if st["history"] else {}
         eq = h.get("equity", st["cash"])
         pend = st.get("pending") or {}
         if pend:
             regime, decided = pend.get("regime_up"), pend.get("decided")
-            watch = watch or [w[0] for w in pend.get("watch", [])[:8]]
+            if not watch:
+                watch = [w[0] for w in pend.get("watch", [])[:8]]
         nb = len(pend.get("buys", [])) if pend else 0
         ns = len(pend.get("sells", [])) if pend else 0
         lines.append("%s  %s (%+.2f%%)  %d held · next: buy %d / sell %d" % (
@@ -235,6 +254,38 @@ def send_summary(test: bool = False) -> bool:
         return False
 
 
+def write_board(p, f, g) -> None:
+    """data/v2/board.csv - the v2 system's ranked list at the last close (P1E's rules): rank,
+    score, close, ATR, whether it is inside the top-25 % cut, held by P1E, and the weekly action."""
+    import math
+    import v2_core
+    import pro_systems_backtest as ps
+    d = p["Close"].index[-1]
+    cl = p["Close"].loc[d]
+    st = load_state(v2_core.PRIMARY)
+    held = set(st["pos"])
+    _s, _b, ranked = ps.p1_weekly(d, cl, f, g, 1.0, 0.0, {s: 0.0 for s in held}, ensemble=True, top_pct=0.25)
+    n = len(ranked)
+    cut = max(1, math.ceil(0.25 * n))
+    pend = st.get("pending") or {}
+    buys = {b[0] for b in pend.get("buys", [])}
+    sells = set(pend.get("sells", []))
+    rows = []
+    for i, (sym, sc) in enumerate(ranked.items(), 1):
+        rows.append({"as_of": str(d.date()), "rank": i, "symbol": sym, "score": round(float(sc), 4),
+                     "close": round(float(cl[sym]), 2), "atr20": round(float(g["atr20"].at[d, sym]), 2),
+                     "in_cut": i <= cut, "held": sym in held, "eligible": n,
+                     "regime_up": bool(g["b_up200"].get(d, False)),
+                     "action": "BUY" if sym in buys else ("SELL" if sym in sells else ("HOLD" if sym in held else "-"))})
+    for sym in sells - set(ranked.index):
+        rows.append({"as_of": str(d.date()), "rank": None, "symbol": sym, "score": None, "close": None,
+                     "atr20": None, "in_cut": False, "held": True, "eligible": n,
+                     "regime_up": bool(g["b_up200"].get(d, False)), "action": "SELL"})
+    os.makedirs(v2_core.V2_DIR, exist_ok=True)
+    _io_write(v2_core.BOARD, pd.DataFrame(rows).to_csv(index=False))
+    print("v2 board: %d ranked (top-25%% cut %d) as of %s" % (n, cut, d.date()))
+
+
 def run() -> int:
     import v2_backtest as v2
     import pro_systems_backtest as ps
@@ -266,7 +317,8 @@ def run() -> int:
             "ABOVE" if regime else "BELOW", "new buys allowed" if regime else "NO NEW BUYS this week (holdings may still be sold)"))
         for name in BOOKS:
             od = [o for o in all_orders if o["book"] == name]
-            _lbl = {"P1": " (primary)", "P1F": " (with the fundamental floor)", "P1E": " (ensemble 60/90/120, top 25 %)"}
+            _lbl = {"P1": " (research control - the tournament winner)", "P1F": " (research control - fundamental floor)",
+                    "P1E": " (v2 primary - ensemble 60/90/120, top 25 %)", "P1ER": " (v2 + reviewer - P1E skipping WAIT/PASS)"}
             lines += ["", "## %s%s" % (name, _lbl.get(name, ""))]
             stn = load_state(name)
             w = (stn.get("pending") or {}).get("watch") or []
@@ -282,7 +334,17 @@ def run() -> int:
                                                                 o["shares"], f"{o['approx_value']:,}"))
         _io_write(os.path.join(REPORT_DIR, "orders_%s.md" % tag), "\n".join(lines) + "\n")
         print("orders written: reports/p1_paper/orders_%s.md (%d lines)" % (tag, len(all_orders)))
+    try:
+        write_board(p, f, g)
+    except Exception as e:
+        print("v2 board not written: %s" % e)
     if new_decision:                      # a Friday close was decided in THIS run - say so once
+        try:
+            import v2_core
+            pend = load_state(v2_core.PRIMARY).get("pending") or {}
+            print(v2_core.queue_reviews([b[0] for b in pend.get("buys", [])]))
+        except Exception as e:
+            print("v2 reviews not queued: %s" % e)
         send_summary()
     return 0
 

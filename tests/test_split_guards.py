@@ -23,7 +23,7 @@ def test_router_line_budget():
 def test_every_routed_page_exists_and_every_page_is_routed():
     routed = re.findall(r'commander_pages\.run\("([a-z0-9_]+)", globals\(\)\)', _read(APP))
     files = {f[:-3] for f in os.listdir(PAGES) if f.endswith(".py") and f != "__init__.py"}
-    assert len(set(routed)) == 22   # 22: fundamentals + backtest retired (15-Oct-2026)
+    assert len(set(routed)) == 23   # 23: + v2_system (17-Oct-2026); fundamentals + backtest retired (15-Oct)
     assert set(routed) == files
 
 

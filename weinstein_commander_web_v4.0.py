@@ -1401,7 +1401,8 @@ with st.sidebar:
         ]),
         ("🔬  ANALYSIS", [
             ("🔬 AUTOPSY",     "AUTOPSY"),
-            ("📄 PAPER TRADES", "PAPER"),
+            ("📄 PAPER · CURRENT SYSTEM", "PAPER"),
+            ("🧭 PAPER · v2 SYSTEM", "V2"),
             ("🧪 AI LAB",      "AI LAB"),
         ]),
         ("📁  RECORDS", [
@@ -4310,6 +4311,10 @@ elif page == 'HMM':
 # ══════════════════════════════════════════════════════════════════════════════
 elif page == 'PAPER':
     commander_pages.run("paper_trades", globals())   # page body: commander_pages/paper_trades.py
+
+# 17-Oct-2026 — the v2 SYSTEM's own paper-trading page (Doc 41): rank board, books, orders, reviews
+elif page == 'V2':
+    commander_pages.run("v2_system", globals())   # page body: commander_pages/v2_system.py
 
 
 # ══════════════════════════════════════════════════════════════════════════════

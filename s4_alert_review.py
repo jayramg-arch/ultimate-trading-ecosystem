@@ -189,6 +189,8 @@ def _src_label(source: str) -> str:
         return "manual"
     if "board" in s:
         return "board"
+    if s == "v2":
+        return "v2"
     return "s4-alert" if ("webhook" in s or "alert" in s) else (s or "s4-alert")
 
 

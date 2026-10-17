@@ -78,3 +78,12 @@ full. Each stage is reversible: a live drawdown deeper than the backtest's worst
   max DD −22.4 %, MAR 0.86 vs Nifty 500 0.29 and Momentum-30 replica 0.40). Expectations for the
   v2 core are now set on these numbers, not the 21.9 % / 1.16 from today's list
   (docs/PREREG_survivorship_tournament.md).
+
+## Decisions taken (17 Oct 2026) — both systems run in parallel
+
+- **The current system is NOT retired.** Boards, S4, alerts, the reviewer (Phase 13 is back ON) and
+  its paper record all continue. If the market recovers (the definition in §2) before 16 Jan 2027,
+  Jay may trade recovery setups through the current system rather than sit idle.
+- **The v2 system is built now, in parallel**, with its own paper-trading instance and page
+  (ANALYSIS › 🧭 PAPER · v2 SYSTEM), routed through the same reviewer (execution check, tag `v2`).
+  Design and open questions: Doc 41. Fine-tuning follows the P1E results via forward tests.
