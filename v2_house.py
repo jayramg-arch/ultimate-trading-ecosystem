@@ -144,6 +144,8 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
     stocks, etfs = ctx["stocks"], ctx["etfs"]
     el = (cl > g["sma100"].loc[d]) & ~g["gap90"].loc[d] & g["liq"].loc[d] & f["has"].loc[d]
     el = el.reindex(stocks).fillna(False).astype(bool)
+    if flags.get("stage") and ctx.get("stage"):        # B3: v1's first test - weekly Stage 1 or 2 only
+        el = el & ctx["stage"](d).reindex(el.index).isin([1, 2])
     sc = _ens(g, d, list(el[el].index)) if el.any() else pd.Series(dtype=float)
     n = len(sc)
     cut = max(1, math.ceil(H["top_pct"] * n)) if n else 0
@@ -153,11 +155,14 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
         held = (pd.Timestamp(d) - pd.Timestamp(q["entry_date"])).days
         return flags["taxtrim"] and q["last"] > q["entry"] and H["tax_from"] <= held < H["tax_to"]
 
-    sells = []
+    sells, stale = [], []
     for s, q in pos.items():
         if q.get("kind", "stock") != "stock":
             continue
         if s in top or (s in band and _tax_hold(s, q)):
+            continue
+        if ctx.get("stale_keep") and not (cl.get(s, float("nan")) == cl.get(s, float("nan"))):
+            stale.append(s)                  # A: no bar today - kept and flagged, never sold on a gap
             continue
         sells.append(s)
     # ETFs - ranked within the ETF pool only
@@ -219,7 +224,62 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
     def _ind(s):
         return pos[s].get("kind", "stock") == "stock" or ctx["etf_meta"].get(s, {}).get("asset_class") in INDIAN
     room = (tr["cap"] * equity - sum(v for s, v in left.items() if _ind(s))) if tr["cap"] else float("inf")
-    buys = []
+    buys, skipped = [], {}
+    # v1 rules borrowed into v2 (PREREG_v2_borrowed_rules): constants imported from house_policy /
+    # sniper_trigger so they cannot drift from v1.
+    import house_policy as hp
+    st_ = {"n": len([s for s in pos if s not in sells]),
+           "heat": sum(q["sh"] * max(0.0, q["last"] - q["stop"]) for s, q in pos.items()
+                       if s not in sells and q.get("stop")),
+           "sect": {}, "hold": [s for s in left if pos[s].get("kind", "stock") == "stock"]}
+    if flags.get("sector"):
+        for s, v in left.items():
+            sec = ctx.get("sector", {}).get(s)
+            if sec:
+                st_["sect"][sec] = st_["sect"].get(sec, 0.0) + v
+    R = ctx["ret"].loc[:d].tail(250) if (flags.get("corr") and "ret" in ctx) else None
+
+    def _borrow(s, a, kind):
+        """The amount after the borrowed rules, None to skip this name, 'break' to stop buying."""
+        if flags.get("maxpos") and st_["n"] >= hp.MAX_OPEN_POSITIONS:
+            return "break"
+        if flags.get("poscap"):
+            a = min(a, hp.MAX_ALLOC_DEFAULT / hp.CAPITAL_DEFAULT * equity)
+        if kind == "stock" and flags.get("sector"):
+            sec = ctx.get("sector", {}).get(s)
+            if sec and st_["sect"].get(sec, 0.0) + a > hp.SECTOR_CAP_PCT / 100.0 * equity:
+                skipped[s] = "sector cap (%s)" % sec
+                return None
+        if kind == "stock" and R is not None and st_["hold"] and s in R.columns:
+            try:
+                from sniper_trigger import CORRELATION_BLOCK as _cb
+            except Exception:
+                _cb = 0.90
+            c = R[[h for h in st_["hold"] if h in R.columns]].corrwith(R[s]).max()
+            if c == c and c > _cb:
+                skipped[s] = "correlation %.2f" % c
+                return None
+        if flags.get("heat"):
+            a14 = ctx["f"]["atr"].at[d, s]
+            if a14 == a14 and st_["heat"] + a * H["stop_atr"] * a14 / cl[s] > hp.HEAT_BUDGET_PCT["OPEN"] / 100.0 * equity:
+                return "break"
+        if ctx.get("earn_days"):                      # A: results inside the fill week -> defer
+            dd = ctx["earn_days"](s)
+            if dd is not None and 0 <= dd <= 7:
+                skipped[s] = "results in %d days" % dd
+                return None
+        return a
+
+    def _took(s, a, kind):
+        st_["n"] += 1
+        if flags.get("heat"):
+            a14 = ctx["f"]["atr"].at[d, s]
+            st_["heat"] += a * H["stop_atr"] * (a14 if a14 == a14 else 0.0) / cl[s]
+        sec = ctx.get("sector", {}).get(s)
+        if sec:
+            st_["sect"][sec] = st_["sect"].get(sec, 0.0) + a
+        if kind == "stock":
+            st_["hold"].append(s)
     if ind_ok and n:
         order = list(sc.index)
         if flags["fno"]:
@@ -232,7 +292,14 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
             a = ps._sizes(equity, cl[s], g["atr20"].at[d, s], risk)
             if a <= 0 or a > free or a > room:
                 break
+            b = _borrow(s, a, "stock")
+            if b == "break":
+                break
+            if b is None:
+                continue
+            a = b
             buys.append((s, a, "stock"))
+            _took(s, a, "stock")
             free -= a * (1 + v2.COST)
             room -= a
     if flags["etf"] and len(esc):
@@ -255,13 +322,79 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
             a = min(a, sleeve)
             if a <= 0 or a > free:
                 continue
+            b = _borrow(s, a, "etf")
+            if b == "break":
+                break
+            if b is None:
+                continue
+            a = b
             buys.append((s, a, "etf"))
+            _took(s, a, "etf")
             free -= a * (1 + v2.COST)
             sleeve -= a
             if cls in INDIAN:
                 room -= a
     return {"sells": sells, "trims": trims, "buys": buys, "ranked": sc, "cut": cut, "etf_ranked": esc,
-            "etf_cut": ecut, "etf_premium_out": prem_out, "tier": tr, "score": score, "comps": comps, "up200": up200}
+            "etf_cut": ecut, "etf_premium_out": prem_out, "skipped": skipped, "stale": stale, "tier": tr, "score": score, "comps": comps, "up200": up200}
+
+
+# ── borrowed-rule data (PREREG_v2_borrowed_rules) ─────────────────────────────
+def weekly_stage_table(p: dict, cols: list) -> pd.DataFrame:
+    """Weekly Stage (bull_screener's 2x2 - the definition S4 / v67 / GM share) per name, indexed
+    by the W-FRI week label. Reading the last label <= d uses only CONFIRMED weeks: a forming
+    week's label is the coming Friday, which is after d."""
+    import bull_screener as bs
+    out = {}
+    for s in cols:
+        df = pd.DataFrame({k: p[k][s] for k in ("Open", "High", "Low", "Close", "Volume")}).dropna()
+        if len(df) < 200:
+            continue
+        wk = df.resample("W-FRI").agg({"Open": "first", "High": "max", "Low": "min", "Close": "last",
+                                       "Volume": "sum"}).dropna()
+        try:
+            out[s] = bs.compute_weekly_stage_and_wks(wk)[0]
+        except Exception:
+            continue
+    return pd.DataFrame(out)
+
+
+def stage_lookup(W: pd.DataFrame):
+    def at(d):
+        rows = W.loc[:d]
+        return rows.iloc[-1] if len(rows) else pd.Series(dtype=float)
+    return at
+
+
+def atr_ewm(p: dict, n: int) -> pd.DataFrame:
+    C, Hh, L = p["Close"], p["High"], p["Low"]
+    prev = C.shift()
+    tr = np.maximum(Hh - L, np.maximum((Hh - prev).abs(), (L - prev).abs()))
+    return tr.ewm(alpha=1 / n, adjust=False).mean()
+
+
+def sector_map(cols: list) -> dict:
+    try:
+        import sector_lookup as sl
+    except Exception:
+        return {}
+    out = {}
+    for s in cols:
+        try:
+            v = sl.get_sector_name(s)
+        except Exception:
+            v = None
+        if v:
+            out[s] = str(v)
+    return out
+
+
+def trail_level(closes: pd.Series, atr22: float) -> float:
+    """House Chandelier (risk_common, POS): highest close of the last 22 bars ON/AFTER entry
+    minus 4.5 x ATR22. `closes` = the position's closes from entry to today."""
+    import house_policy as hp
+    if not len(closes) or not atr22 == atr22:
+        return float("nan")
+    return float(closes.tail(hp.CHANDELIER_WINDOW_POS).max()) - hp.CHANDELIER_MULT["POS"] * float(atr22)
 
 
 # ── tax (descriptive) ─────────────────────────────────────────────────────────
@@ -352,6 +485,10 @@ def run_book(flags: dict, p: dict, ctx: dict, start, end) -> tuple:
             c = C.at[d, s]
             if c == c:
                 q["last"] = c
+            if flags.get("trail") and q.get("stop"):            # B7: the house Chandelier, tighten only
+                lv = trail_level(C[s].loc[q["entry_date"]:d].dropna(), ctx["atr22"].at[d, s])
+                if lv == lv and lv > q["stop"]:
+                    q["stop"] = lv
         eq.append(bk.value(C, d))
         if d in dec:
             n_dec += 1
@@ -396,10 +533,19 @@ def live_context(p: dict, f: dict, g: dict, stocks: list, etfs: list) -> dict:
         if d not in cache:
             cache[d] = regime_score(d, ri)
         return cache[d]
-    return {"C": Cc, "g": g, "f": f, "stocks": stocks, "etfs": [s for s in etfs if s in pool],
-            "etf_meta": pool, "etf_has": Cc.notna().cumsum() >= v2.MIN_BARS,
-            "etf_turn": (Cc * Vv).rolling(50).median(), "fno": lambda d: fno_live, "score": score,
-            "prem_ok": _prem_ok}
+    def _earn(s):                        # A: earnings_calendar (yfinance, cached); unknown -> None
+        try:
+            import earnings_calendar as ec
+            ec.refresh([s])
+            return ec.days_to_earnings(s)
+        except Exception:
+            return None
+    ctx = {"C": Cc, "g": g, "f": f, "stocks": stocks, "etfs": [s for s in etfs if s in pool],
+           "etf_meta": pool, "etf_has": Cc.notna().cumsum() >= v2.MIN_BARS,
+           "etf_turn": (Cc * Vv).rolling(50).median(), "fno": lambda d: fno_live, "score": score,
+           "prem_ok": _prem_ok, "earn_days": _earn, "stale_keep": True}
+    _add_borrowed(ctx, p, stocks)
+    return ctx
 
 
 def _next_session(d: dt.date) -> dt.date:
@@ -479,6 +625,10 @@ def step_live(st: dict, p: dict, ctx: dict, flags: dict, start: dt.date, reviewe
             c = _px(C, d, s, float("nan"))
             if c == c:
                 q["last"] = c
+            if flags.get("trail") and q.get("stop"):            # B7: the house Chandelier, tighten only
+                lv = trail_level(C[s].loc[pd.Timestamp(q["entry_date"]):d].dropna(), ctx["atr22"].at[d, s])
+                if lv == lv and lv > q["stop"]:
+                    q["stop"] = round(lv, 2)
         equity = st["cash"] + sum(q["sh"] * q["last"] for q in st["pos"].values())
         st["history"].append({"date": str(d.date()), "equity": round(equity), "cash": round(st["cash"]),
                               "positions": len(st["pos"]), "nifty500": round(float(p["bench"].get(d, float("nan"))), 1)})
@@ -567,7 +717,24 @@ def load_backtest() -> tuple:
     ctx = {"C": p["Close"], "g": g, "f": f, "stocks": stocks, "etfs": etfs, "etf_meta": pool,
            "etf_has": Cc.notna().cumsum() >= v2.MIN_BARS, "etf_turn": (Cc * Vv).rolling(50).median(),
            "fno": fno, "score": score}
+    _add_borrowed(ctx, p, stocks)
     return p, f, g, ctx
+
+
+def _add_borrowed(ctx: dict, p: dict, stocks: list) -> None:
+    """Data the borrowed v1 rules read: daily returns (correlation), ATR22 (Chandelier), sector
+    names, and the weekly Stage table (built on first use - it is the slow part)."""
+    ctx["ret"] = p["Close"].pct_change()
+    ctx["atr22"] = atr_ewm(p, 22)
+    ctx["sector"] = sector_map(stocks)
+    box = {}
+
+    def stage(d):
+        if "W" not in box:
+            box["at"] = stage_lookup(weekly_stage_table(p, stocks))
+            box["W"] = True
+        return box["at"](d)
+    ctx["stage"] = stage
 
 
 def main() -> int:
@@ -576,8 +743,9 @@ def main() -> int:
     ap.add_argument("--plumbing", action="store_true")
     ap.add_argument("--run", action="store_true")
     ap.add_argument("--revised", action="store_true", help="the amended V2H, DESCRIPTIVE (post-hoc)")
+    ap.add_argument("--borrowed", action="store_true", help="PREREG_v2_borrowed_rules - once")
     a = ap.parse_args()
-    if not (a.check or a.plumbing or a.run or a.revised):
+    if not (a.check or a.plumbing or a.run or a.revised or a.borrowed):
         ap.print_help()
         return 0
     p, f, g, ctx = load_backtest()
@@ -608,6 +776,48 @@ def main() -> int:
         T = pd.DataFrame(rows)[["book", "half", "CAGR%", "maxDD%", "MAR", "Sharpe", "CAGR after tax%", "trades/yr"]]
         print(T.to_string(index=False))
         print("\nDESCRIPTIVE ONLY: the revised rule set was chosen after seeing the ablations; it is judged forward.")
+        return 0
+    if a.borrowed:                      # PREREG_v2_borrowed_rules - THE run, once
+        def _m(e):
+            r_ = {}
+            for half, (s0, s1) in {"full": (S, E), "H1": (S, SP - pd.Timedelta(days=1)), "H2": (SP, E)}.items():
+                r_[half] = v2.metrics(e.loc[s0:s1])
+            return r_
+        base_e, base_a, base_st = run_book(V2H_REVISED, p, ctx, S, E)
+        res = {"V2H (baseline)": (_m(base_e), base_st, v2.metrics(base_a))}
+        names = {"sector": "B1 sector cap 25 %", "corr": "B2 correlation > 0.90", "stage": "B3 Stage 1/2 only",
+                 "poscap": "B4 per-trade cap 3.33 %", "heat": "B5 open-risk budget 6 %",
+                 "maxpos": "B6 max 25 positions", "trail": "B7 house Chandelier trail"}
+        adopted = []
+        for k, nm in names.items():
+            e, ea, st = run_book(dict(V2H_REVISED, **{k: True}), p, ctx, S, E)
+            m = _m(e)
+            ok = all(m[h]["MAR"] >= res["V2H (baseline)"][0][h]["MAR"] - 0.05 for h in ("H1", "H2"))
+            res[nm + (" ADOPT" if ok else " REJECT")] = (m, st, v2.metrics(ea))
+            if ok:
+                adopted.append(k)
+            print("done", nm, "ADOPT" if ok else "REJECT", flush=True)
+        if adopted:
+            e, ea, st = run_book(dict(V2H_REVISED, **{k: True for k in adopted}), p, ctx, S, E)
+            res["combined: " + "+".join(adopted)] = (_m(e), st, v2.metrics(ea))
+        rows = []
+        for nm, (m, st, ma) in res.items():
+            rows.append({"book": nm, "CAGR%": m["full"]["CAGR%"], "maxDD%": m["full"]["maxDD%"],
+                         "MAR": m["full"]["MAR"], "MAR H1": m["H1"]["MAR"], "MAR H2": m["H2"]["MAR"],
+                         "Sharpe": m["full"]["Sharpe"], "after tax%": ma.get("CAGR%"),
+                         "trades/yr": round(st["trades"] / st["years"], 1)})
+        T = pd.DataFrame(rows)
+        os.makedirs(OUT, exist_ok=True)
+        T.to_csv(os.path.join(OUT, "borrowed_metrics.csv"), index=False)
+        print(T.to_string(index=False))
+        if adopted:
+            b = res["V2H (baseline)"][0]
+            cm = res["combined: " + "+".join(adopted)][0]
+            fine = all(cm[h]["MAR"] >= b[h]["MAR"] - 0.10 for h in ("H1", "H2"))
+            print("\nADOPTED: %s · combination %s" % (", ".join(adopted),
+                  "holds (all adopted rules join V2H)" if fine else "falls >0.10 below baseline -> keep only the single best"))
+        else:
+            print("\nADOPTED: none")
         return 0
     books = dict(BOOK_FLAGS, V2H=V2H_REGISTERED)
     for k in ("wed", "tiers", "fno", "taxtrim", "etf"):
