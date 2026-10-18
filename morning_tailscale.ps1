@@ -17,7 +17,12 @@ function Get-TsState {
 }
 
 $tray = [bool](Get-Process tailscale-ipn -ErrorAction SilentlyContinue)
-if (-not $tray -and (Test-Path $ipn)) { Start-Process $ipn }
+# 18-Oct-2026: started through WMI so the tray app does not attach to MORNING's console
+# (Start-Process left it attached and the MORNING window could not close).
+if (-not $tray -and (Test-Path $ipn)) {
+    $r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = '"' + $ipn + '"' } -ErrorAction SilentlyContinue
+    if (-not $r -or $r.ReturnValue -ne 0) { Start-Process $ipn }
+}
 $s = Get-TsState
 if ($s -eq 'Running') { if ($tray) { exit 0 } else { exit 3 } }
 for ($i = 0; $i -lt 10; $i++) {

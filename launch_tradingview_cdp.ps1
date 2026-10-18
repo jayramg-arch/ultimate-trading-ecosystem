@@ -42,7 +42,24 @@ if ($running) {
     Start-Sleep -Milliseconds 1000
 }
 
-Start-Process -FilePath $exe -ArgumentList "--remote-debugging-port=$Port"
+# 18-Oct-2026: launch through WMI, NOT Start-Process. TradingView (Electron) attaches to
+# its parent's console, so started from MORNING.bat it shared that window: the window
+# could not close while TV ran ("MORNING hung"), and closing it would have killed TV.
+# WMI cannot start the Store exe directly (access denied, rc 2), so WMI starts a WINDOWLESS
+# PowerShell (conhost --headless) and that one starts TV: TV then attaches to an invisible
+# console nobody can close by accident.
+$inner = "Start-Process -FilePath '" + $exe + "' -ArgumentList '--remote-debugging-port=" + $Port + "'"
+$cmd = 'conhost.exe --headless powershell.exe -NoProfile -ExecutionPolicy Bypass -Command "' + $inner + '"'
+$r = Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{ CommandLine = $cmd } -ErrorAction SilentlyContinue
+$up = $false
+for ($i = 0; $i -lt 20; $i++) {
+    Start-Sleep -Milliseconds 500
+    if (Get-Process TradingView -ErrorAction SilentlyContinue) { $up = $true; break }
+}
+if (-not $up) {
+    Write-Host "Detached launch did not start TradingView - falling back to Start-Process (this window may then stay open while TV runs)."
+    Start-Process -FilePath $exe -ArgumentList "--remote-debugging-port=$Port"
+}
 Start-Sleep -Milliseconds 2000
 
 # Verify the port is actually listening (no try/catch - 5.1-safe)
