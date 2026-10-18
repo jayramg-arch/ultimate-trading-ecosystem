@@ -337,7 +337,31 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
             sleeve -= a
             if cls in INDIAN:
                 room -= a
-    return {"sells": sells, "trims": trims, "buys": buys, "ranked": sc, "cut": cut, "etf_ranked": esc,
+    # B8 (PREREG_v2_borrowed_rules Amendment 1): pyramid top-up - the other half of Clenow's
+    # two-way rebalance. On trim days, a holding still inside its cut whose risk fell below half
+    # the target is topped back up to the target, from the cash left after the new buys.
+    adds = []
+    if flags.get("topup") and n_dec % H["trim_every"] == 0:
+        tgt = equity * H["risk"]
+        for s, q in pos.items():
+            if s in sells or not (s in top or s in etop):
+                continue
+            a20 = g["atr20"].at[d, s] if s in g["atr20"].columns else float("nan")
+            if not (a20 == a20 and a20 > 0) or q["sh"] * a20 >= 0.5 * tgt:
+                continue
+            amt = (tgt / a20 - q["sh"]) * cl[s]
+            if flags.get("poscap"):
+                amt = min(amt, hp.MAX_ALLOC_DEFAULT / hp.CAPITAL_DEFAULT * equity - left.get(s, 0.0))
+            sec = ctx.get("sector", {}).get(s)
+            if flags.get("sector") and sec and st_["sect"].get(sec, 0.0) + amt > hp.SECTOR_CAP_PCT / 100.0 * equity:
+                continue
+            if amt <= 0 or amt > free:
+                continue
+            adds.append((s, amt))
+            free -= amt * (1 + v2.COST)
+            if sec:
+                st_["sect"][sec] = st_["sect"].get(sec, 0.0) + amt
+    return {"sells": sells, "trims": trims, "buys": buys, "adds": adds, "ranked": sc, "cut": cut, "etf_ranked": esc,
             "etf_cut": ecut, "etf_premium_out": prem_out, "skipped": skipped, "stale": stale, "tier": tr, "score": score, "comps": comps, "up200": up200}
 
 
@@ -479,6 +503,18 @@ def run_book(flags: dict, p: dict, ctx: dict, start, end) -> tuple:
                     bk.buy(s, px, amt, stop)
                     if s in bk.pos:
                         bk.pos[s]["entry_date"], bk.pos[s]["kind"] = d, kind
+            for s, amt in pend.get("adds", []):                # B8 top-up: same lot, averaged entry
+                px = O.at[d, s]
+                if s in bk.pos and px == px and px > 0:
+                    amt = min(amt, bk.cash / (1 + v2.COST))
+                    if amt > 0:
+                        q = bk.pos[s]
+                        sh = amt / px
+                        q["entry"] = (q["entry"] * q["sh"] + px * sh) / (q["sh"] + sh)
+                        q["sh"] += sh
+                        bk.cash -= amt * (1 + v2.COST)
+                        bk.trades += 1
+                        bk.traded += amt
             pend = None
         for s in list(bk.pos):
             q, lo, op = bk.pos[s], L.at[d, s], O.at[d, s]
@@ -496,7 +532,7 @@ def run_book(flags: dict, p: dict, ctx: dict, start, end) -> tuple:
         if d in dec:
             n_dec += 1
             r = decide(d, ctx, flags, eq[-1], bk.cash, bk.pos, n_dec)
-            pend = {"d": d, "sells": r["sells"], "trims": r["trims"], "buys": r["buys"]}
+            pend = {"d": d, "sells": r["sells"], "trims": r["trims"], "buys": r["buys"], "adds": r.get("adds", [])}
     e = pd.Series(eq, index=days)
     tax = fy_tax(real)
     paid = pd.Series(0.0, index=days)
@@ -747,8 +783,9 @@ def main() -> int:
     ap.add_argument("--run", action="store_true")
     ap.add_argument("--revised", action="store_true", help="the amended V2H, DESCRIPTIVE (post-hoc)")
     ap.add_argument("--borrowed", action="store_true", help="PREREG_v2_borrowed_rules - once")
+    ap.add_argument("--b8", action="store_true", help="PREREG_v2_borrowed_rules Amendment 1 (pyramid top-up) - once")
     a = ap.parse_args()
-    if not (a.check or a.plumbing or a.run or a.revised or a.borrowed):
+    if not (a.check or a.plumbing or a.run or a.revised or a.borrowed or a.b8):
         ap.print_help()
         return 0
     p, f, g, ctx = load_backtest()
@@ -779,6 +816,21 @@ def main() -> int:
         T = pd.DataFrame(rows)[["book", "half", "CAGR%", "maxDD%", "MAR", "Sharpe", "CAGR after tax%", "trades/yr"]]
         print(T.to_string(index=False))
         print("\nDESCRIPTIVE ONLY: the revised rule set was chosen after seeing the ablations; it is judged forward.")
+        return 0
+    if a.b8:                            # PREREG_v2_borrowed_rules Amendment 1 - once
+        rows = []
+        for name, fl in (("V2H live (baseline)", V2H_LIVE), ("V2H live + B8 top-up", dict(V2H_LIVE, topup=True))):
+            e, ea, st = run_book(fl, p, ctx, S, E)
+            r_ = {h: v2.metrics(e.loc[s0:s1]) for h, (s0, s1) in
+                  {"full": (S, E), "H1": (S, SP - pd.Timedelta(days=1)), "H2": (SP, E)}.items()}
+            rows.append({"book": name, "CAGR%": r_["full"]["CAGR%"], "maxDD%": r_["full"]["maxDD%"],
+                         "MAR": r_["full"]["MAR"], "MAR H1": r_["H1"]["MAR"], "MAR H2": r_["H2"]["MAR"],
+                         "Sharpe": r_["full"]["Sharpe"], "after tax%": v2.metrics(ea).get("CAGR%"),
+                         "trades/yr": round(st["trades"] / st["years"], 1)})
+        T = pd.DataFrame(rows)
+        print(T.to_string(index=False))
+        ok = all(T.iloc[1][c] >= T.iloc[0][c] for c in ("MAR H1", "MAR H2"))
+        print("\nB8 %s" % ("ADOPT" if ok else "REJECT"))
         return 0
     if a.borrowed:                      # PREREG_v2_borrowed_rules - THE run, once
         def _m(e):
