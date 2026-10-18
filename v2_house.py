@@ -42,7 +42,7 @@ V2H_REGISTERED = FULL
 V2H_REVISED = dict(FULL, tiers=False, fno=False)
 # PREREG_v2_borrowed_rules (18-Oct, run once): four v1 rules adopted - sector cap, correlation block,
 # per-trade cap, house Chandelier trail; Stage 1/2-only, the open-risk budget and max positions rejected.
-V2H_LIVE = dict(V2H_REVISED, sector=True, corr=True, poscap=True, trail=True)
+V2H_LIVE = dict(V2H_REVISED, sector=True, corr=True, poscap=True, trail=True, topup=True)   # + B8 (Amendment 1)
 BOOK_FLAGS = {"P1E": NONE, "P1ES": dict(NONE, stop=True), "V2H": V2H_LIVE}
 INDIAN = {"BROAD_EQUITY", "SECTOR", "SMART_BETA", "THEMATIC"}
 ETF_SWAP = {"GOLDIETF": "GOLDBEES"}       # curated pick whose price series is corrupt -> clean twin
@@ -244,6 +244,9 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
 
     def _borrow(s, a, kind):
         """The amount after the borrowed rules, None to skip this name, 'break' to stop buying."""
+        if s in ctx.get("exclude", ()):           # held by the CURRENT system: one owner per holding
+            skipped[s] = "held by the current system - see its pyramid rung"
+            return None
         if flags.get("maxpos") and st_["n"] >= hp.MAX_OPEN_POSITIONS:
             return "break"
         if flags.get("poscap"):
@@ -653,6 +656,18 @@ def step_live(st: dict, p: dict, ctx: dict, flags: dict, start: dt.date, reviewe
                                 "kind": kind, "stop": stop}
                 st["trades"].append({"date": str(d.date()), "side": "BUY", "symbol": s, "price": round(px, 2),
                                      "shares": round(sh, 2), "value": round(amt), "kind": kind, "stop": stop})
+            for s, amt in pend.get("adds", []):          # B8 top-up: same lot, averaged entry
+                px = _px(O, d, s, float("nan"))
+                if s in st["pos"] and px == px and px > 0:
+                    amt = min(amt, st["cash"] / (1 + v2.COST))
+                    if amt > 0:
+                        q = st["pos"][s]
+                        sh = amt / px
+                        q["entry"] = (q["entry"] * q["sh"] + px * sh) / (q["sh"] + sh)
+                        q["sh"] += sh
+                        st["cash"] -= amt * (1 + v2.COST)
+                        st["trades"].append({"date": str(d.date()), "side": "ADD", "symbol": s, "price": round(px, 2),
+                                             "shares": round(sh, 2), "value": round(amt)})
             st["pending"] = None
         for s in list(st["pos"]):                     # the resting disaster stop
             q = st["pos"][s]
@@ -688,7 +703,8 @@ def step_live(st: dict, p: dict, ctx: dict, flags: dict, start: dt.date, reviewe
                          "eligible": int(len(r["ranked"])),
                          "watch": [[s, round(float(v), 3), round(float(C.at[d, s]), 2)] for s, v in r["ranked"].head(20).items()],
                          "etf_watch": [[s, round(float(v), 3)] for s, v in r["etf_ranked"].head(8).items()],
-                         "etf_premium_out": r.get("etf_premium_out", {})}
+                         "etf_premium_out": r.get("etf_premium_out", {}),
+                         "adds": [[s, round(a)] for s, a in r.get("adds", [])]}
         rank_pos = {s: i + 1 for i, s in enumerate(r["ranked"].index)}
         for s in r["sells"]:
             orders.append({"book": st["name"], "side": "SELL", "symbol": s, "rank": rank_pos.get(s, "-"),

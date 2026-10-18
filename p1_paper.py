@@ -375,8 +375,19 @@ def v2_workflow(p, hctx, decided_today: bool) -> list:
     lines, rows, status = [], [], {}
     a14 = hctx["f"]["atr"].loc[d]
     r = None
+    # names the CURRENT system holds: one owner per holding (Doc 42 §7 decision 2) - v2 does not open
+    # a second position; its pick is a confirmation for the current system's pyramid ladder instead
+    v1_held = set()
+    try:
+        import trade_class as _tc
+        import house_policy as _hpx
+        _j = _tc.open_positions()
+        v1_held = set(_j.loc[~_j["setup"].map(_hpx.is_v2), "symbol"].astype(str).str.upper())
+    except Exception:
+        pass
     if decided_today:
-        r = vh.decide(d, hctx, vh.BOOK_FLAGS["V2H"], equity, cash, real, int(st.get("n_dec", 1)))
+        r = vh.decide(d, dict(hctx, exclude=v1_held), vh.BOOK_FLAGS["V2H"], equity, cash, real,
+                      int(st.get("n_dec", 1)))
         lines += ["", "## YOUR v2 ORDERS — real money (v2 capital %s, equity %s, %d held)" % (
             _inr(cap), _inr(equity), len(real)),
                   "Decided at the close of %s · place at the open of %s · nothing is sent to Dhan." % (
@@ -395,8 +406,26 @@ def v2_workflow(p, hctx, decided_today: bool) -> list:
                 stp = px - vh.H["stop_atr"] * float(a14.get(s, float("nan")))
                 lines.append("| BUY%s | %s | %d | %s | ≈ %.2f (record the fill: `python v2_take.py %s --price P --qty Q`) |"
                              % (" ETF" if k == "etf" else "", s, int(amt // px), _inr(amt), stp, s))
-        if r.get("skipped"):
-            lines.append("Skipped by the borrowed v1 rules: " + ", ".join("%s (%s)" % kv for kv in r["skipped"].items()))
+        for s, amt in r.get("adds", []):
+            lines.append("| ADD (top-up) | %s | %d | %s | keep the stop |" % (s, int(amt // float(C.at[d, s])), _inr(amt)))
+        skipped = {k: v for k, v in r.get("skipped", {}).items() if not v.startswith("held by the current")}
+        if skipped:
+            lines.append("Skipped by the borrowed v1 rules: " + ", ".join("%s (%s)" % kv for kv in skipped.items()))
+        cut_names = list(r["ranked"].index[:r["cut"]])
+        conf = [s for s in cut_names if s in v1_held]
+        if conf:
+            rung = {}
+            try:
+                _pp = pd.read_csv(os.path.join(HERE, "FINAL_Portfolio_Picks.csv"))
+                rung = dict(zip(_pp["Symbol"].astype(str).str.upper(), _pp["Pyr_Class"].astype(str)))
+            except Exception:
+                pass
+            lines += ["", "**v2 confirms these current-system holdings** (top-25 % of the v2 rank; v2 does not buy "
+                      "them - one owner per holding). Pyramid them only through the current system's ladder:", ""]
+            lines += ["- %s · v2 rank %d · current-system rung **%s**%s" % (
+                s, cut_names.index(s) + 1, rung.get(s, "?"),
+                " → add at the house pyramid risk (1 %) on Risk Shield" if rung.get(s) == "ADD" else "")
+                for s in conf]
         if r.get("etf_premium_out"):
             lines.append("Out of the ETF pool on NAV premium: " + ", ".join(r["etf_premium_out"]))
     # the TradingView list + the chart status: buys, sells, your holdings, then the top of the rank

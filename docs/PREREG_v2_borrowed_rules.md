@@ -88,3 +88,15 @@ MAR(V2H) in BOTH halves; otherwise REJECT. One run.
 open a second position in it (one owner per holding: one stop price, one journal row, one exit
 rule); the v2 pick is reported on the order sheet as a confirmation for the current system's
 pyramid ladder (its rung from `FINAL_Portfolio_Picks.csv`), and the v2 money goes to the next name.
+
+### RESULT of Amendment 1 (18 Oct 2026, run once) — B8 ADOPT by the letter; it almost never acts
+
+| book | CAGR | max DD | MAR | MAR H1 | MAR H2 | after-tax CAGR | trades / yr |
+|---|---|---|---|---|---|---|---|
+| V2H live | 17.34 % | −20.08 % | 0.86 | 0.74 | 1.12 | 15.51 % | 477.2 |
+| V2H live + B8 | 17.34 % | −20.09 % | 0.86 | 0.74 | 1.12 | 15.51 % | 478.3 |
+
+MAR equal in both halves → ADOPT under the rule, but B8 fires about once a year: under equal-risk
+sizing a winner's rupee size already grows with its price (its ATR grows with it), so a holding
+only drops below half its target risk when its volatility collapses. The live V2H carries it
+(`V2H_LIVE`, topup); it changes nothing measurable. Output: `reports/v2_b8_result_20261018.txt`.
