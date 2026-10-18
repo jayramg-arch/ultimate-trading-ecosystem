@@ -154,3 +154,7 @@ ablations, so not evidence): 16.8 % CAGR, max DD −20.8 %, MAR 0.71 · 1.05 (re
   lets the book hold something useful while Indian equities are in a downtrend.
 - Today (16 Oct): 4 ETFs eligible; only **MAFANG** (NYSE FANG+) qualifies as a non-Indian ETF; gold
   and silver are below both their 100- and 200-day averages, so they are correctly out.
+- **NAV premium (Jay, 18 Oct):** an ETF trading more than 3 % away from its NAV is out of the pool.
+  International ETFs currently sit at +14 % to +105 % over NAV (creations suspended at the overseas
+  limit), so their price measures the premium, not the holdings. On 16 Oct this removes MAFANG
+  (+53.8 %) and ITBEES (+3.7 %, likely T-1 NAV noise); gold and silver are within ±1.2 %.

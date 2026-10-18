@@ -161,11 +161,23 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
             continue
         sells.append(s)
     # ETFs - ranked within the ETF pool only
-    esc, ecut, etop = pd.Series(dtype=float), 0, set()
+    esc, ecut, etop, prem_out = pd.Series(dtype=float), 0, set(), {}
     if flags["etf"] and etfs:
         ee = (cl[etfs] > g["sma100"].loc[d][etfs]) & ~g["gap90"].loc[d][etfs] & ctx["etf_has"].loc[d][etfs] \
             & (ctx["etf_turn"].loc[d][etfs] >= H["etf_liq"])
         cand = list(ee[ee].index)
+        # NAV premium (18-Oct, Jay): an ETF trading more than etf_inav's cap (3 %) away from its NAV
+        # is out of the pool - its price no longer tracks what it holds, so its trend score measures
+        # the premium (MAFANG +53.8 %, MONQ50 +104.5 % on 15-Oct NAV: creations suspended at the
+        # overseas-investment ceiling). Out of the pool means no buy, and a holding is sold.
+        # Live only: there is no NAV history for the backtest (ctx has no prem_ok there).
+        prem_out = {}
+        if ctx.get("prem_ok"):
+            for s in list(cand):
+                ok, prem, why = ctx["prem_ok"](s)
+                if not ok:
+                    prem_out[s] = why
+                    cand.remove(s)
         best = {}
         for s in cand:                                   # one per underlying: the most traded
             u = ctx["etf_meta"][s].get("underlying") or s
@@ -249,7 +261,7 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
             if cls in INDIAN:
                 room -= a
     return {"sells": sells, "trims": trims, "buys": buys, "ranked": sc, "cut": cut, "etf_ranked": esc,
-            "etf_cut": ecut, "tier": tr, "score": score, "comps": comps, "up200": up200}
+            "etf_cut": ecut, "etf_premium_out": prem_out, "tier": tr, "score": score, "comps": comps, "up200": up200}
 
 
 # ── tax (descriptive) ─────────────────────────────────────────────────────────
@@ -373,13 +385,21 @@ def live_context(p: dict, f: dict, g: dict, stocks: list, etfs: list) -> dict:
     ri = regime_inputs(p, f["has"][stocks], bench)
     cache = {}
 
+    def _prem_ok(s):                     # etf_inav: T-1 NAV vs price, cap ETF_MAX_PREMIUM_PCT (3 %)
+        try:
+            import etf_inav
+            return etf_inav.is_tradeable(s)
+        except Exception as e:
+            return True, None, "premium unavailable (%s)" % e
+
     def score(d):
         if d not in cache:
             cache[d] = regime_score(d, ri)
         return cache[d]
     return {"C": Cc, "g": g, "f": f, "stocks": stocks, "etfs": [s for s in etfs if s in pool],
             "etf_meta": pool, "etf_has": Cc.notna().cumsum() >= v2.MIN_BARS,
-            "etf_turn": (Cc * Vv).rolling(50).median(), "fno": lambda d: fno_live, "score": score}
+            "etf_turn": (Cc * Vv).rolling(50).median(), "fno": lambda d: fno_live, "score": score,
+            "prem_ok": _prem_ok}
 
 
 def _next_session(d: dt.date) -> dt.date:
@@ -478,7 +498,8 @@ def step_live(st: dict, p: dict, ctx: dict, flags: dict, start: dt.date, reviewe
                          "regime_up": r["up200"], "score": r["score"], "tier": r["tier"]["name"],
                          "eligible": int(len(r["ranked"])),
                          "watch": [[s, round(float(v), 3), round(float(C.at[d, s]), 2)] for s, v in r["ranked"].head(20).items()],
-                         "etf_watch": [[s, round(float(v), 3)] for s, v in r["etf_ranked"].head(8).items()]}
+                         "etf_watch": [[s, round(float(v), 3)] for s, v in r["etf_ranked"].head(8).items()],
+                         "etf_premium_out": r.get("etf_premium_out", {})}
         rank_pos = {s: i + 1 for i, s in enumerate(r["ranked"].index)}
         for s in r["sells"]:
             orders.append({"book": st["name"], "side": "SELL", "symbol": s, "rank": rank_pos.get(s, "-"),

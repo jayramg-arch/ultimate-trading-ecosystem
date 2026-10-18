@@ -358,6 +358,9 @@ def run() -> int:
                              (" · regime score %s (%s)" % (pn["score"], pn.get("tier"))) if pn.get("score") is not None else ""))
             if pn.get("etf_watch"):
                 lines.append("ETF rank: " + ", ".join("%s %.2f" % (x[0], x[1]) for x in pn["etf_watch"]))
+            if pn.get("etf_premium_out"):
+                lines.append("Out of the ETF pool on NAV premium: " + ", ".join(
+                    "%s (%s)" % (k, v) for k, v in pn["etf_premium_out"].items()))
             w = (stn.get("pending") or {}).get("watch") or []
             if w:
                 lines.append("Top of the rank (%d eligible): " % (stn["pending"].get("eligible", 0))

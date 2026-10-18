@@ -139,3 +139,16 @@ cannot pass or fail anything (`python v2_house.py --revised`):
 It is judged forward only, beside P1E and P1ES, on 16 Jan and 16 Apr 2027. The registered rule
 set stays in the code (`v2_house.V2H_REGISTERED`) so the run above reproduces.
 Output: `reports/v2_house_revised_descriptive_20261018.txt`.
+
+## AMENDMENT 2 (18 Oct 2026, before V2H's first forward decision) — NAV premium (Jay)
+
+International ETFs trade far above their NAV: on the 15 Oct NAV, MAFANG +53.8 %, MONQ50 +104.5 %,
+MASPTOP50 +54.8 %, MON100 +14.2 % (fund houses hit the overseas-investment ceiling and suspended
+creations, so arbitrage cannot close the gap). Such a price no longer tracks the holdings: its
+trend score measures the premium — MAFANG ranked first in the ETF pool for exactly that reason.
+**Rule:** an ETF whose price is more than `etf_inav.MAX_PREMIUM_PCT` (3 %) from its NAV is out of
+the ETF pool — not ranked, not bought, and sold if held (selling at a premium is the favourable
+side). Unknown premium does not block (etf_inav's convention). NAV is NSE's T-1 figure, so the 3 %
+cap only trips on structural gaps. Live only — there is no NAV history for the backtest.
+**Caveat on the backtest:** the ETF sleeve's history used premium-inflated prices for the
+international ETFs, so its +0.3 pp is not trustworthy for that part of the sleeve.

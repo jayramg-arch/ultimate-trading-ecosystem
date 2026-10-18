@@ -64,6 +64,17 @@ def test_bear_tier_blocks_indian_buys_but_not_gold():
     assert dict((s, a) for s, a, _k in r["buys"])["GLDX"] > 0
 
 
+def test_nav_premium_takes_an_etf_out_of_the_pool_and_sells_a_holding():
+    d, ctx = _ctx(score=1, up200=False)
+    ctx["prem_ok"] = lambda s: (False, 53.8, "53.8% premium vs NAV") if s == "GLDX" else (True, 0.2, "")
+    held = {"GLDX": {"sh": 100.0, "entry": 90.0, "entry_date": _d("2026-06-01"), "last": 100.0, "kind": "etf"}}
+    r = vh.decide(d, ctx, vh.BOOK_FLAGS["V2H"], 1_000_000, 900_000, held, 1)
+    assert "GLDX" in r["sells"] and "GLDX" in r["etf_premium_out"]
+    assert not any(s == "GLDX" for s, _a, _k in r["buys"])
+    r = vh.decide(d, ctx, vh.BOOK_FLAGS["V2H"], 1_000_000, 1_000_000, {}, 1)
+    assert not r["buys"]
+
+
 def test_fno_first_inside_the_cut_and_half_risk_in_neutral():
     d, ctx = _ctx(score=4, up200=True)
     vh_top = vh.H["top_pct"]
