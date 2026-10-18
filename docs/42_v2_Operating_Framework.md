@@ -70,12 +70,12 @@ Fridays need nothing for v2; P1E and the research books still decide at Friday's
 | C2 | nightly engine + paper books + order sheet + Telegram | `p1_paper.py` | built |
 | C3 | rank board + v2 page | `p1_paper.write_board`, `commander_pages/v2_system.py` | built |
 | C4 | reviewer routing (tag v2, execution-only context) | `v2_core.py`, receiver | built |
-| C5 | real-book orders from the journal | `p1_paper.v2_workflow` | being built |
-| C6 | record a real fill | `v2_take.py` | being built |
-| C7 | TradingView list `V2_System-DDMONYY` | `FINAL_V2_WATCHLIST.csv` + `watchlist_manager` + Phase 7 | to build |
-| C8 | pipeline order: v2 engine before the watchlists | `run_pipeline.py` (Phase 12i → 4.79) | to build |
-| C9 | chart status (Add-ons M2) + its pusher | `Commander_Addons_v1.0.pine`, `tv_push_addons.py` | to build (Jay compiles) |
-| C10 | regime-turn alert | `p1_paper.v2_workflow` | being built |
+| C5 | real-book orders from the journal | `p1_paper.v2_workflow` | built, dry-run tested |
+| C6 | record a real fill | `v2_take.py` | built |
+| C7 | TradingView list `V2_System-DDMONYY` | `FINAL_V2_WATCHLIST.csv` + `watchlist_manager` + Phase 7 | built (first push Tue 20 Oct) |
+| C8 | pipeline order: v2 engine before the watchlists | `run_pipeline.py` (Phase 12i → 4.79) | built |
+| C9 | chart status (Add-ons M2) + its pusher | `Commander_Addons_v1.0.pine` (v1.1), `tv_push_addons.py`, AFTER_COMPILE step 5 | built — **Jay compiles Add-ons v1.1** |
+| C10 | regime-turn alert | `p1_paper.v2_workflow` | built |
 | C11 | Risk Shield / journal sync for `POS-V2` rows | existing (setup prefix POS → positional trail) | works as is |
 
 ## 6. Data contracts

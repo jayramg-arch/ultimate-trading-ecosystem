@@ -24,30 +24,36 @@ set "PY=C:\Users\jayra\TradingData\venv\Scripts\python.exe"
 cd /d "%PROJ%" || (echo [X] Project folder not found & goto :hold)
 
 echo.
-echo  ===== 1/4  BIND S4 SOURCES =====
+echo  ===== 1/5  BIND S4 SOURCES =====
 "%PY%" tv_bind_s4.py
 set "R1=%ERRORLEVEL%"
 
 echo.
-echo  ===== 2/4  PUSH BUNDLES =====
+echo  ===== 2/5  PUSH BUNDLES =====
 "%PY%" tv_push_bundles.py
 set "R2=%ERRORLEVEL%"
 
 echo.
-echo  ===== 3/4  ALERTS (version + list + bundles) =====
+echo  ===== 3/5  ALERTS (version + list + bundles) =====
 "%PY%" tv_gm_alerts.py --upgrade-version
 set "R3=%ERRORLEVEL%"
 
 echo.
-echo  ===== 4/4  V67: settings restore + portfolio slots + Chandelier book =====
+echo  ===== 4/5  V67: settings restore + portfolio slots + Chandelier book =====
 "%PY%" tv_push_v67_trail.py --restore
 set "R4=%ERRORLEVEL%"
+
+echo.
+echo  ===== 5/5  ADD-ONS: v2 status line (M2) =====
+"%PY%" tv_push_addons.py
+set "R5=%ERRORLEVEL%"
 
 echo.
 echo  ===== SUMMARY =====
 if "%R1%"=="0" (echo   [OK] bindings) else (echo   [!!] bindings - read step 1; click into any FAIL tab, then run again)
 if "%R2%"=="0" (echo   [OK] bundles) else (echo   [!!] bundles - read step 2)
 if "%R4%"=="0" (echo   [OK] v67 trail book) else (echo   [!!] v67 trail book - read step 4; compile v67.4.26 if the input was not found)
+if "%R5%"=="0" (echo   [OK] Add-ons v2 status) else (echo   [!!] Add-ons v2 status - step 5; compile Add-ons v1.1 if the M2 input was not found)
 if "%R3%"=="0" (echo   [OK] alerts) else (echo   [!!] alerts - read step 3; if none were found, create the 75m and 125m S4 GO alerts by hand on GM_Swing, then run this again)
 
 :hold

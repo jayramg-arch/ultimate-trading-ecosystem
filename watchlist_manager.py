@@ -57,6 +57,9 @@ WATCHLIST_MAP = {
     # GM_Positional, the 75m/125m alerts watch GM_Swing (tv_gm_alerts.py).
     "FINAL_GM_POSITIONAL.csv":      "GM_Positional",
     "FINAL_GM_SWING.csv":           "GM_Swing",
+    # The v2 system (Doc 42): BUY, SELL, HOLD, then the top of the weekly rank, written by
+    # p1_paper.v2_workflow (auto-pilot Phase 4.79, i.e. BEFORE this export).
+    "FINAL_V2_WATCHLIST.csv":       "V2_System",
     # Portfolio_Stocks.csv is produced by NOTHING - it logged "[SKIP] Not Found"
     # on every run. FINAL_Portfolio_Picks.csv is the live book (pyramid_logic's
     # export, written by run_pipeline Phase 5), which is what this list meant.

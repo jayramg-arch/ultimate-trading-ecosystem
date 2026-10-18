@@ -22,7 +22,7 @@
 //                           bars (where a recent PA fired) - board: Bar
 // -----------------------------------------------------------------------------
 //@version=6
-indicator("Commander Add-ons v1.0", shorttitle = "Add-ons", overlay = true, max_labels_count = 20)
+indicator("Commander Add-ons v1.1", shorttitle = "Add-ons", overlay = true, max_labels_count = 20, max_lines_count = 5)
 
 // "Closed" = confirmed, or past the bar's close time. On Daily, TradingView keeps the day's
 // bar unconfirmed after 15:30; this treats it as closed then (same as S4 v11.27).
@@ -99,6 +99,66 @@ if barstate.islast
 
 
 // ═════════════════════════════════════════════════════════════════════════════
-// M2 ...  next add-on goes here: own group "M2 · <name>", own Enable switch,
+// M2  v2 SYSTEM STATUS (18-Oct-2026, Doc 42 C9)
+// The v2 system (a weekly ranked portfolio) decides at Tuesday's close in Python. This prints its
+// facts on the chart of any v2 name: the group (BUY / SELL / HOLD / WATCH), rank of N, the
+// disaster or trailed stop (drawn as a line), real or paper holding, and the decision date.
+// The input is a single line pushed nightly by tv_push_addons.py from data/v2/addon_status.txt:
+//   _ASOF:<decided>;<fill date>,SYM:<rank>/<n>;<group>;<stop>;<real|paper|>,...
+// Display only: S4's VERDICT / GO rows are the current system's entry rules and do not apply
+// to v2 names - this module is the v2 read.
+// ═════════════════════════════════════════════════════════════════════════════
+string G2 = "M2 · v2 system status"
+m2On     = input.bool(true, "Enable", group = G2)
+v2Status = input.string("", "v2 status (pushed nightly - do not edit)", group = G2, tooltip = "Written by tv_push_addons.py every evening (auto-pilot). Leave it alone - the next push overwrites it.")
+m2Line   = input.bool(true, "Draw the v2 stop", group = G2)
+m2Absent = input.bool(false, "Say so when the name is not a v2 name", group = G2)
+
+f_v2Get(string s, string key) =>
+    string hay = "," + s
+    string k = "," + key + ":"
+    int i = str.pos(hay, k)
+    string out = ""
+    if not na(i)
+        string rest = str.substring(hay, i + str.length(k))
+        int j = str.pos(rest, ",")
+        out := na(j) ? rest : str.substring(rest, 0, j)
+    out
+
+var label m2Lb = na
+var line  m2Ln = na
+if barstate.islast
+    label.delete(m2Lb)
+    line.delete(m2Ln)
+    if m2On and str.length(v2Status) > 0
+        string item = f_v2Get(v2Status, syminfo.ticker)
+        string hdr  = f_v2Get(v2Status, "_ASOF")
+        array<string> h = str.split(hdr, ";")
+        string asOf = array.size(h) > 0 ? array.get(h, 0) : ""
+        string fill = array.size(h) > 1 ? array.get(h, 1) : ""
+        if str.length(item) > 0
+            array<string> f = str.split(item, ";")
+            string rk  = array.size(f) > 0 ? array.get(f, 0) : ""
+            string grp = array.size(f) > 1 ? array.get(f, 1) : ""
+            string stp = array.size(f) > 2 ? array.get(f, 2) : ""
+            string hld = array.size(f) > 3 ? array.get(f, 3) : ""
+            string act = grp == "BUY" ? "BUY at the open" + (str.length(fill) > 0 ? " of " + fill : "") :
+                         grp == "SELL" ? "SELL at the open" + (str.length(fill) > 0 ? " of " + fill : "") :
+                         grp == "HOLD" ? "HOLD" : "watch - top of the rank, not bought"
+            string txt = "v2 · " + act + (str.length(rk) > 0 and not str.startswith(rk, "/") ? " · rank " + rk : "")
+            txt += (str.length(stp) > 0 ? "\nstop " + stp : "") + (hld == "real" ? " · your holding" : hld == "paper" ? " · paper book" : "")
+            txt += "\ndecided " + asOf
+            color bg = grp == "BUY" ? color.new(color.green, 15) : grp == "SELL" ? color.new(color.red, 15) :
+                       grp == "HOLD" ? color.new(color.blue, 15) : color.new(color.gray, 25)
+            m2Lb := label.new(bar_index, low, txt, style = label.style_label_up, color = bg, textcolor = color.white, size = size.small)
+            float sv = str.tonumber(stp)
+            if m2Line and not na(sv)
+                m2Ln := line.new(bar_index - 20, sv, bar_index + 3, sv, color = color.new(color.purple, 0), style = line.style_dashed, width = 1, extend = extend.right)
+        else if m2Absent
+            m2Lb := label.new(bar_index, low, "v2 · not a v2 name (decided " + asOf + ")", style = label.style_label_up, color = color.new(color.gray, 40), textcolor = color.white, size = size.tiny)
+
+
+// ═════════════════════════════════════════════════════════════════════════════
+// M3 ...  next add-on goes here: own group "M3 · <name>", own Enable switch,
 // own section, display only. Add it to the MODULES list in the header.
 // ═════════════════════════════════════════════════════════════════════════════

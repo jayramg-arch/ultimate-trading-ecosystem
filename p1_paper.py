@@ -297,8 +297,172 @@ def write_board(p, f, g) -> None:
                      "atr20": None, "in_cut": False, "held": True, "eligible": n,
                      "regime_up": bool(g["b_up200"].get(d, False)), "action": "SELL"})
     os.makedirs(v2_core.V2_DIR, exist_ok=True)
-    _io_write(v2_core.BOARD, pd.DataFrame(rows).to_csv(index=False))
+    _io_write(v2_core.BOARD, pd.DataFrame(rows).to_csv(index=False, lineterminator="\n"))
     print("v2 board: %d ranked (top-25%% cut %d) as of %s" % (n, cut, d.date()))
+
+
+# ── the v2 workflow for REAL money (18-Oct-2026, Doc 41 §10) ─────────────────
+V2_WATCHLIST = os.path.join(HERE, "FINAL_V2_WATCHLIST.csv")      # -> TradingView "V2_System-DDMONYY"
+V2_STATUS = os.path.join(HERE, "data", "v2", "addon_status.txt")  # -> Add-ons M2 input (tv_push_addons)
+V2_REGIME = os.path.join(HERE, "data", "v2", "regime_last.json")
+
+
+def _inr(v: float) -> str:
+    """Indian grouping, the house format: Rs 10,00,000."""
+    n = int(round(abs(v)))
+    s_ = str(n)
+    if len(s_) > 3:
+        head, tail = s_[:-3], s_[-3:]
+        parts = []
+        while len(head) > 2:
+            parts.insert(0, head[-2:])
+            head = head[:-2]
+        if head:
+            parts.insert(0, head)
+        s_ = ",".join(parts) + "," + tail
+    return ("-" if v < 0 else "") + "₹" + s_
+
+
+def v2_capital() -> float:
+    """Real money in the v2 system: one-third of the house sizing capital (Doc 40 §3, Jay 18-Oct);
+    V2_CAPITAL in .env overrides."""
+    import house_policy as hp
+    v = os.getenv("V2_CAPITAL")
+    return float(v) if v else float(hp.sizing_capital()[0]) / 3.0
+
+
+def real_v2_positions(C, d) -> tuple[dict, float]:
+    """Your real v2 holdings (journal OPEN rows with setup POS-V2, written by v2_take.py) in the
+    shape decide() reads, and the realised P&L of closed v2 rows."""
+    import sqlite3
+    import journal_path as jp
+    pos, realised = {}, 0.0
+    try:
+        con = sqlite3.connect(jp.JOURNAL_DB)
+        J = pd.read_sql_query("SELECT symbol, status, quantity, buy_price, exit_price, entry_date, stoploss, setup "
+                              "FROM journal WHERE setup LIKE 'POS-V2%'", con)
+        con.close()
+    except Exception:
+        return pos, realised
+    import v2_house as vh
+    pool = vh.etf_pool()
+    for _, r in J.iterrows():
+        s = str(r["symbol"]).upper()
+        if str(r["status"]).upper() == "OPEN":
+            last = float(C.at[d, s]) if s in C.columns and C.at[d, s] == C.at[d, s] else float(r["buy_price"])
+            pos[s] = {"sh": float(r["quantity"] or 0), "entry": float(r["buy_price"] or 0),
+                      "entry_date": pd.Timestamp(r["entry_date"] or d), "last": last,
+                      "kind": "etf" if s in pool else "stock", "stop": float(r["stoploss"]) if r["stoploss"] else None}
+        elif r["exit_price"] == r["exit_price"] and r["exit_price"]:
+            realised += (float(r["exit_price"]) - float(r["buy_price"] or 0)) * float(r["quantity"] or 0)
+    return pos, realised
+
+
+def v2_workflow(p, hctx, decided_today: bool) -> list:
+    """Orders for YOUR v2 book (on a V2H decision day), the TradingView watchlist, the Add-ons
+    status line and the regime-turn alert. Returns the order-sheet lines for the real book."""
+    import v2_house as vh
+    d = p["Close"].index[-1]
+    C = p["Close"]
+    st = load_state("V2H")
+    pend = st.get("pending") or {}
+    real, realised = real_v2_positions(C, d)
+    cap = v2_capital()
+    invested = sum(q["sh"] * q["last"] for q in real.values())
+    cost = sum(q["sh"] * q["entry"] for q in real.values())
+    equity = cap + realised + (invested - cost)
+    cash = equity - invested
+    lines, rows, status = [], [], {}
+    a14 = hctx["f"]["atr"].loc[d]
+    r = None
+    if decided_today:
+        r = vh.decide(d, hctx, vh.BOOK_FLAGS["V2H"], equity, cash, real, int(st.get("n_dec", 1)))
+        lines += ["", "## YOUR v2 ORDERS — real money (v2 capital %s, equity %s, %d held)" % (
+            _inr(cap), _inr(equity), len(real)),
+                  "Decided at the close of %s · place at the open of %s · nothing is sent to Dhan." % (
+                      pend.get("decided"), pend.get("fill")),
+                  "Check the reviewer's ruling on the 🧭 v2 page first: WAIT / PASS = skip that buy this week.", ""]
+        if not (r["sells"] or r["trims"] or r["buys"]):
+            lines.append("No orders for your book this week.")
+        else:
+            lines += ["| side | symbol | shares | ≈ value | disaster stop |", "|---|---|---|---|---|"]
+            for s in r["sells"]:
+                lines.append("| SELL | %s | %d | %s | – |" % (s, real[s]["sh"], _inr(real[s]["sh"] * real[s]["last"])))
+            for s, sh in r["trims"]:
+                lines.append("| TRIM | %s | %d | %s | keep |" % (s, int(sh), _inr(sh * real[s]["last"])))
+            for s, amt, k in r["buys"]:
+                px = float(C.at[d, s])
+                stp = px - vh.H["stop_atr"] * float(a14.get(s, float("nan")))
+                lines.append("| BUY%s | %s | %d | %s | ≈ %.2f (record the fill: `python v2_take.py %s --price P --qty Q`) |"
+                             % (" ETF" if k == "etf" else "", s, int(amt // px), _inr(amt), stp, s))
+        if r.get("skipped"):
+            lines.append("Skipped by the borrowed v1 rules: " + ", ".join("%s (%s)" % kv for kv in r["skipped"].items()))
+        if r.get("etf_premium_out"):
+            lines.append("Out of the ETF pool on NAV premium: " + ", ".join(r["etf_premium_out"]))
+    # the TradingView list + the chart status: buys, sells, your holdings, then the top of the rank
+    ranked = pd.Series(dtype=float)
+    try:
+        import v2_core
+        b = v2_core.board()
+        ranked = b.set_index("symbol")["rank"] if len(b) else ranked
+        n_el = int(b["eligible"].iloc[0]) if len(b) else 0
+    except Exception:
+        n_el = 0
+    buys = [x[0] for x in pend.get("buys", [])] + ([s for s, _a, _k in r["buys"]] if r else [])
+    sells = list(pend.get("sells", [])) + (list(r["sells"]) if r else [])
+    held_paper = set(st.get("pos", {}))
+    order = []
+    for sec, names in (("BUY", buys), ("SELL", sells), ("HOLD", list(real) + sorted(held_paper)),
+                       ("WATCH", list(ranked.sort_values().index[:30]) if len(ranked) else [])):
+        for s in names:
+            if s not in [o[0] for o in order]:
+                order.append((s, sec))
+    as_of = str(d.date())
+    for s, sec in order:
+        rk = ranked.get(s)
+        q = real.get(s) or st.get("pos", {}).get(s) or {}
+        stp = q.get("stop")
+        if stp is None and sec == "BUY" and s in C.columns:
+            stp = float(C.at[d, s]) - vh.H["stop_atr"] * float(a14.get(s, float("nan")))
+        rows.append({"Symbol": s, "Section": sec, "Rank": "" if rk is None or rk != rk else int(rk),
+                     "Stop": "" if stp is None or stp != stp else round(float(stp), 2),
+                     "Held": "real" if s in real else ("paper" if s in held_paper else "")})
+        status[s] = "%s/%s;%s;%s;%s" % ("" if rk is None or rk != rk else int(rk), n_el, sec,
+                                        "" if stp is None or stp != stp else "%.2f" % stp,
+                                        "real" if s in real else ("paper" if s in held_paper else ""))
+    _io_write(V2_WATCHLIST, pd.DataFrame(rows, columns=["Symbol", "Section", "Rank", "Stop", "Held"]).to_csv(index=False, lineterminator="\n"))
+    items = []
+    for s, v in status.items():
+        items.append("%s:%s" % (s, v))
+        alias = s.replace("-", "_").replace("&", "_")
+        if alias != s:
+            items.append("%s:%s" % (alias, v))
+    os.makedirs(os.path.dirname(V2_STATUS), exist_ok=True)
+    fill = pend.get("fill") or ""
+    _io_write(V2_STATUS, "_ASOF:%s;%s,%s\n" % (as_of, fill, ",".join(items)))
+    # the regime-turn alert: the day the Nifty 500 crosses its 200-day SMA, say so once
+    up = bool(hctx["g"]["b_up200"].get(d, False))
+    try:
+        last = json.load(open(V2_REGIME, encoding="utf-8")).get("up")
+    except Exception:
+        last = None
+    if last is not None and bool(last) != up:
+        msg = ("v2: Nifty 500 closed %s its 200-day SMA on %s. %s" % (
+            "ABOVE" if up else "BELOW", as_of,
+            "New v2 buys are allowed from the next Wednesday rebalance." if up else
+            "No new v2 buys until it closes back above; holdings follow the weekly rank and their stops."))
+        print(msg)
+        if os.getenv("P1_TELEGRAM", "1") != "0":
+            try:
+                import s4_review
+                s4_review.telegram(msg)
+            except Exception as e:
+                print("regime alert not sent: %s" % e)
+    _io_write(V2_REGIME, json.dumps({"up": up, "date": as_of}))
+    print("v2 watchlist: %d names (%s) · status line %d items · real book %d held, equity %s" % (
+        len(rows), ", ".join("%s %d" % (k, sum(1 for _s, x in order if x == k)) for k in ("BUY", "SELL", "HOLD", "WATCH")),
+        len(items), len(real), _inr(equity)))
+    return lines
 
 
 def run() -> int:
@@ -378,6 +542,20 @@ def run() -> int:
         write_board(p, f, g)
     except Exception as e:
         print("v2 board not written: %s" % e)
+    try:                                  # the real-money workflow (Doc 41 §10)
+        real_lines = v2_workflow(p, hctx, "V2H" in decided_books) if hctx is not None else []
+        if real_lines:
+            fp = os.path.join(REPORT_DIR, "orders_%s.md" % last.strftime("%Y%m%d"))
+            prev = open(fp, encoding="utf-8").read() if os.path.exists(fp) else ""
+            _io_write(fp, prev + "\n".join(real_lines) + "\n")
+    except Exception as e:
+        print("v2 workflow failed: %s" % e)
+    if os.getenv("V2_PUSH_ADDONS", "1") != "0":
+        try:                              # the chart's v2 status line (Add-ons M2) - best effort
+            import tv_push_addons
+            tv_push_addons.main_push()
+        except Exception as e:
+            print("Add-ons v2 status not pushed: %s" % e)
     if new_decision:                      # a decision was made in THIS run - say so once
         try:                              # reviews: P1E's Friday buys (P1ER) and V2H's Tuesday buys
             import v2_core

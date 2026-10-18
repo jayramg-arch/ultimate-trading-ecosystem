@@ -113,3 +113,10 @@ def test_v2h_amended_without_tiers_and_fno():
     assert f["sector"] and f["corr"] and f["poscap"] and f["trail"]
     assert not (f.get("stage") or f.get("heat") or f.get("maxpos"))
     assert vh.V2H_REGISTERED == vh.FULL
+
+
+def test_v2_rupees_use_indian_grouping():
+    import p1_paper as pp
+    assert pp._inr(1000000) == "₹10,00,000"
+    assert pp._inr(30000000) == "₹3,00,00,000"
+    assert pp._inr(-1234.4) == "-₹1,234"
