@@ -43,10 +43,10 @@ BOOKS = {"P1": {"floor": False}, "P1F": {"floor": True},
          # WAIT or PASS. P1E vs P1ER measures what the reviewer adds to the v2 system.
          "P1ER": {"floor": False, "ensemble": True, "top_pct": 0.25, "reviewed": True},
          # 18-Oct-2026 (PREREG_v2_house_rules, engine v2_house.py): P1ES = P1E + a resting 4xATR14
-         # disaster stop (Q5); V2H = P1E + every house rule from Jay's Doc 41 answers (F&O priority,
-         # Wednesday rebalance, exposure tiers, the stop, tax-aware runners + risk trims, ETF sleeve),
-         # obeying the reviewer as a one-week deferral. Backtest 18-Oct: both FAILED their hypotheses;
-         # P1E stays the candidate, these run forward as registered.
+         # disaster stop (Q5); V2H = P1E + the house rules Jay kept on 18-Oct (Wednesday rebalance, the
+         # stop, tax-aware runners + risk trims, ETF sleeve). The exposure tiers and F&O priority were
+         # DROPPED after the registered run showed they carry the cost. V2H obeys the reviewer as a
+         # one-week deferral. P1E stays the candidate; both run forward.
          "P1ES": {"house": "P1ES"},
          "V2H": {"house": "V2H", "reviewed": True}}
 START_DATE = dt.date(2026, 10, 16)          # first signal close (a Friday)
@@ -232,9 +232,8 @@ def summary_text(test: bool = False) -> str:
         ns = len(pend.get("sells", [])) if pend else 0
         lines.append("%s  %s (%+.2f%%)  %d held · next: buy %d / sell %d" % (
             name, inr(eq), (eq / st["start_capital"] - 1) * 100, len(st["pos"]), nb, ns))
-        if pend and name == "V2H" and pend.get("tier"):
-            lines.append("    decided %s, fills %s - regime score %s (%s)" % (
-                pend.get("decided"), pend.get("fill"), pend.get("score"), pend.get("tier")))
+        if pend and name == "V2H" and pend.get("fill"):
+            lines.append("    decided %s, fills at the open of %s" % (pend.get("decided"), pend.get("fill")))
         if st["history"] and len(st["history"]) > 1 and n500 is None:
             a, b = st["history"][0].get("nifty500"), st["history"][-1].get("nifty500")
             if a and b:
@@ -281,11 +280,16 @@ def write_board(p, f, g) -> None:
     pend = st.get("pending") or {}
     buys = {b[0] for b in pend.get("buys", [])}
     sells = set(pend.get("sells", []))
+    try:                                  # F&O tag - display only (18-Oct: the buy priority was dropped)
+        _fh = pd.read_csv(os.path.join(HERE, "data", "fno_history.csv"), usecols=["date", "symbol"])
+        fno = set(_fh.loc[_fh["date"] == _fh["date"].max(), "symbol"].astype(str).str.upper())
+    except Exception:
+        fno = set()
     rows = []
     for i, (sym, sc) in enumerate(ranked.items(), 1):
         rows.append({"as_of": str(d.date()), "rank": i, "symbol": sym, "score": round(float(sc), 4),
                      "close": round(float(cl[sym]), 2), "atr20": round(float(g["atr20"].at[d, sym]), 2),
-                     "in_cut": i <= cut, "held": sym in held, "eligible": n,
+                     "in_cut": i <= cut, "held": sym in held, "fno": sym in fno, "eligible": n,
                      "regime_up": bool(g["b_up200"].get(d, False)),
                      "action": "BUY" if sym in buys else ("SELL" if sym in sells else ("HOLD" if sym in held else "-"))})
     for sym in sells - set(ranked.index):
@@ -345,13 +349,13 @@ def run() -> int:
             _lbl = {"P1": " (research control - the tournament winner)", "P1F": " (research control - fundamental floor)",
                     "P1E": " (v2 primary - ensemble 60/90/120, top 25 %)", "P1ER": " (v2 + reviewer - P1E skipping WAIT/PASS)",
                     "P1ES": " (P1E + 4×ATR disaster stop)",
-                    "V2H": " (house rules - Wednesday rebalance, tiers, F&O first, stop, tax/trim, ETF sleeve)"}
+                    "V2H": " (house rules - Wednesday rebalance, 4×ATR stop, tax-aware runners + trims, ETF sleeve)"}
             lines += ["", "## %s%s" % (name, _lbl.get(name, ""))]
             stn = load_state(name)
             pn = stn.get("pending") or {}
-            if pn.get("tier"):
-                lines.append("Decided %s, fills at the open of %s · regime score %s (%s)." % (
-                    pn.get("decided"), pn.get("fill"), pn.get("score"), pn.get("tier")))
+            if pn.get("fill"):
+                lines.append("Decided %s, fills at the open of %s%s." % (pn.get("decided"), pn.get("fill"),
+                             (" · regime score %s (%s)" % (pn["score"], pn.get("tier"))) if pn.get("score") is not None else ""))
             if pn.get("etf_watch"):
                 lines.append("ETF rank: " + ", ".join("%s %.2f" % (x[0], x[1]) for x in pn["etf_watch"]))
             w = (stn.get("pending") or {}).get("watch") or []

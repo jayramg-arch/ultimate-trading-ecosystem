@@ -36,7 +36,11 @@ H = dict(top_pct=0.25, tax_band=0.50, risk=0.001, stop_atr=4.0, tax_from=300, ta
 FLAGS = ("stop", "wed", "tiers", "fno", "taxtrim", "etf")
 NONE = {k: False for k in FLAGS}
 FULL = {k: True for k in FLAGS}
-BOOK_FLAGS = {"P1E": NONE, "P1ES": dict(NONE, stop=True), "V2H": FULL}
+# 18-Oct-2026 amendment (Jay): V2H drops the exposure tiers and F&O priority - the two rules the
+# registered run showed carry the cost. FULL stays the REGISTERED V2H for reproducing that run.
+V2H_REGISTERED = FULL
+V2H_REVISED = dict(FULL, tiers=False, fno=False)
+BOOK_FLAGS = {"P1E": NONE, "P1ES": dict(NONE, stop=True), "V2H": V2H_REVISED}
 INDIAN = {"BROAD_EQUITY", "SECTOR", "SMART_BETA", "THEMATIC"}
 ETF_SWAP = {"GOLDIETF": "GOLDBEES"}       # curated pick whose price series is corrupt -> clean twin
 ST_RATE, LT_RATE = 0.20, 0.125
@@ -550,8 +554,9 @@ def main() -> int:
     ap.add_argument("--check", action="store_true")
     ap.add_argument("--plumbing", action="store_true")
     ap.add_argument("--run", action="store_true")
+    ap.add_argument("--revised", action="store_true", help="the amended V2H, DESCRIPTIVE (post-hoc)")
     a = ap.parse_args()
-    if not (a.check or a.plumbing or a.run):
+    if not (a.check or a.plumbing or a.run or a.revised):
         ap.print_help()
         return 0
     p, f, g, ctx = load_backtest()
@@ -567,7 +572,23 @@ def main() -> int:
             _, _, st = run_book(fl, p, ctx, S, pd.Timestamp("2018-12-31"))
             print(name, "trades", st["trades"])
         return 0
-    books = dict(BOOK_FLAGS)
+    if a.revised:                       # suggested BY the run below - descriptive, never pass/fail
+        rows = []
+        for name, fl in (("P1E", NONE), ("P1ES", BOOK_FLAGS["P1ES"]), ("V2H registered", V2H_REGISTERED),
+                         ("V2H revised", V2H_REVISED)):
+            e, ea, st = run_book(fl, p, ctx, S, E)
+            for half, (s0, s1) in {"full": (S, E), "H1": (S, SP - pd.Timedelta(days=1)), "H2": (SP, E)}.items():
+                m = v2.metrics(e.loc[s0:s1])
+                m.update(book=name, half=half)
+                if half == "full":
+                    m["CAGR after tax%"] = v2.metrics(ea).get("CAGR%")
+                    m["trades/yr"] = round(st["trades"] / st["years"], 1)
+                rows.append(m)
+        T = pd.DataFrame(rows)[["book", "half", "CAGR%", "maxDD%", "MAR", "Sharpe", "CAGR after tax%", "trades/yr"]]
+        print(T.to_string(index=False))
+        print("\nDESCRIPTIVE ONLY: the revised rule set was chosen after seeing the ablations; it is judged forward.")
+        return 0
+    books = dict(BOOK_FLAGS, V2H=V2H_REGISTERED)
     for k in ("wed", "tiers", "fno", "taxtrim", "etf"):
         books["P1E+" + k] = dict(NONE, **{k: True})
     res, aft, extra = {}, {}, {}

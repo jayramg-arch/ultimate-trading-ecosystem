@@ -95,3 +95,4 @@ full. Each stage is reversible: a live drawdown deeper than the backtest's worst
   and tested once (docs/PREREG_v2_house_rules.md): both failed. The stop costs ~2.5 pp a year; the
   exposure tiers and F&O priority cost ~4.5 pp each. **P1E remains the candidate** for the gates in §3;
   P1ES and V2H run forward on paper. Which house rules to keep is Jay's call (Doc 41 §9).
+- **Later the same day:** Jay dropped F&O priority and the exposure tiers from V2H (before its first decision). V2H = P1E + Wednesday + the 4×ATR stop + tax-aware runners + ETF sleeve; descriptive backtest 16.8 % CAGR, max DD −20.8 %; judged forward only.

@@ -36,7 +36,7 @@ if True:
     # ── the books ──────────────────────────────────────────────────────────
     st.markdown("#### Books")
     _role = {"P1E": "v2 primary", "P1ER": "v2 + reviewer", "P1ES": "P1E + disaster stop",
-             "V2H": "house rules (Wed, tiers, F&O, stop, tax, ETFs)", "P1": "control · tournament winner",
+             "V2H": "house rules (Wed, stop, tax/trim, ETFs)", "P1": "control · tournament winner",
              "P1F": "control · fundamental floor"}
     _order = [b for b in ("P1E", "P1ER", "P1ES", "V2H", "P1", "P1F") if b in _books]
     _cols = st.columns(len(_order))
@@ -69,12 +69,13 @@ if True:
             _n = st.slider("Show the top", 10, int(min(200, max(10, len(_bd)))), int(min(50, len(_bd))), 10,
                            key="v2_board_n")
             _v = _bd.sort_values("rank", na_position="last").head(_n)[
-                ["rank", "symbol", "score", "close", "atr20", "in_cut", "held", "action"]]
+                [c for c in ["rank", "symbol", "score", "close", "atr20", "in_cut", "held", "fno", "action"] if c in _bd.columns]]
             st.dataframe(_v, hide_index=True, use_container_width=True,
                          column_config={"score": st.column_config.NumberColumn("score", format="%.3f",
                                             help="Mean percentile rank of the 60/90/120-session trend-quality scores"),
                                         "in_cut": st.column_config.CheckboxColumn("in top 25 %"),
-                                        "held": st.column_config.CheckboxColumn("held (P1E)")})
+                                        "held": st.column_config.CheckboxColumn("held (P1E)"),
+                                        "fno": st.column_config.CheckboxColumn("F&O", help="Has stock futures and options (display only)")})
             st.caption("Eligible = above its 100-DMA, no single-day move over 15 % in 90 sessions, median turnover "
                        "≥ ₹5 crore. The system holds names inside the top-25 % cut and buys from the top when the "
                        "regime is up and cash allows.")

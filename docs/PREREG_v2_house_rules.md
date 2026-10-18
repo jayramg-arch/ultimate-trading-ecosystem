@@ -117,3 +117,25 @@ equity difference 0.0, 793 trades to 2020). Rebuilt regime score on 16 Oct = the
   P1ES and V2H run forward as registered.
 Output: `reports/v2_house/`, `reports/v2_house_result_20261018.txt` (first run),
 `reports/v2_house_result_20261018_fixed.txt`.
+
+## AMENDMENT 1 (18 Oct 2026, after the result, before V2H's first forward decision) — Jay
+
+Jay dropped the two rules the run showed carry the cost: **F&O priority** and the **house exposure
+tiers**. The live V2H book is now P1E + Wednesday rebalance + the 4 × ATR14 disaster stop +
+tax-aware runners and risk trims + the ETF sleeve (Indian-equity ETFs now follow the 200-day SMA
+only, like the stocks). V2H had made no decision yet (its first is the close of Tue 20 Oct), so
+no forward data is affected. F&O stays as a display tag on the v2 board.
+
+This rule set was chosen AFTER seeing the ablations, so its backtest is **descriptive only** and
+cannot pass or fail anything (`python v2_house.py --revised`):
+
+| book | CAGR | max DD | MAR full | MAR H1 | MAR H2 | after-tax CAGR | trades / yr |
+|---|---|---|---|---|---|---|---|
+| P1E | 19.55 % | −20.87 % | 0.94 | 0.78 | 1.21 | 17.62 % | 326 |
+| P1ES | 17.03 % | −23.80 % | 0.72 | 0.58 | 0.99 | 15.26 % | 348 |
+| V2H as registered | 12.28 % | −21.45 % | 0.57 | 0.39 | 1.10 | 10.68 % | 418 |
+| **V2H amended** | 16.78 % | −20.75 % | 0.81 | 0.71 | 1.05 | 14.91 % | 378 |
+
+It is judged forward only, beside P1E and P1ES, on 16 Jan and 16 Apr 2027. The registered rule
+set stays in the code (`v2_house.V2H_REGISTERED`) so the run above reproduces.
+Output: `reports/v2_house_revised_descriptive_20261018.txt`.

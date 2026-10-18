@@ -90,3 +90,12 @@ def test_fy_tax_netting():
     # an LT loss never offsets ST gains
     t = vh.fy_tax([(_d("2025-05-01"), 100.0, False), (_d("2025-06-01"), -30.0, True)])
     assert abs(t.iloc[0] - 20.0) < 1e-9
+
+
+def test_v2h_amended_without_tiers_and_fno():
+    # 18-Oct-2026 (Jay): the live V2H drops the exposure tiers and F&O priority; the registered set
+    # stays reproducible for the record.
+    f = vh.BOOK_FLAGS["V2H"]
+    assert f["tiers"] is False and f["fno"] is False
+    assert f["stop"] and f["wed"] and f["taxtrim"] and f["etf"]
+    assert vh.V2H_REGISTERED == vh.FULL

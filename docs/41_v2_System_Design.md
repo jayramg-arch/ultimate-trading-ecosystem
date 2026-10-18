@@ -47,7 +47,7 @@ and how much*.
 | **P1E** | the rules above | **the v2 system** |
 | **P1ER** | P1E, but a buy is skipped when the reviewer rules WAIT or PASS on it | measures what the reviewer adds |
 | **P1ES** | P1E + a resting 4 × ATR14 disaster stop (18 Oct) | answers Q5: what the stop costs |
-| **V2H** | P1E + every house rule from Jay's answers (18 Oct, §9) | the house version |
+| **V2H** | P1E + Wednesday rebalance + the stop + tax-aware runners + ETF sleeve (18 Oct, §9) | the house version |
 | P1 | single setting (90 sessions, top 20 %) — the tournament winner | research control |
 | P1F | P1 + point-in-time fundamental floor | research control |
 
@@ -120,10 +120,10 @@ to P1E on its own, so its cost is visible.
 
 | # | Jay's decision | Rule in V2H | Effect alone (CAGR / MAR H1·H2) | Recommendation |
 |---|---|---|---|---|
-| 1 | Nifty 500, F&O names first | F&O names bought first inside the top-25 % cut | **−4.4 pp**, 0.46 · 0.88, DD −24.6 % | drop the priority; keep an F&O tag on the board and the OI read in the review |
+| 1 | Nifty 500, F&O names first | F&O names bought first inside the top-25 % cut | **−4.4 pp**, 0.46 · 0.88, DD −24.6 % | **dropped (Jay, 18 Oct)**; F&O is a tag on the board, and the review still reads OI |
 | 2 | v2 at one-third of capital | Doc 40 staging | – | agreed |
 | 3 | Wednesday rebalance | decide Tuesday's close, fill Wednesday's open | −0.6 pp, 0.72 · 1.19 | keep (within noise) |
-| 4 | SMA200 alone too lenient | + house exposure tiers (score 3+, half risk and 70 % cap at 3–5) | **−4.7 pp**, 0.42 · 0.96, DD −23.7 % | drop for v2 — it delays re-entry and does not reduce the drawdown |
+| 4 | SMA200 alone too lenient | + house exposure tiers (score 3+, half risk and 70 % cap at 3–5) | **−4.7 pp**, 0.42 · 0.96, DD −23.7 % | **dropped (Jay, 18 Oct)** — it delayed re-entry and did not reduce the drawdown |
 | 5 | no trading without stops | 4 × ATR14 resting disaster stop (book P1ES) | **−2.5 pp**, 0.58 · 0.99, DD −23.8 % | keep (Jay's rule); expect P1ES's numbers; a wider stop is worth one pre-registered check |
 | 6 | reviewer veto? | V2H skips a WAIT/PASS buy for one week (live only) | measured forward by P1E vs P1ER | obey as a deferral until 16 Jan says otherwise |
 | 7 | 0.10 % per ATR | unchanged | – | agreed |
@@ -134,9 +134,10 @@ All rules together (V2H): 12.3 % CAGR, MAR 0.39 · 1.10 — the pre-registered t
 above the Momentum-30 replica's 0.39). Almost all of the gap is rules 1 and 4. P1E stays the
 candidate; P1ES and V2H run forward on paper as registered.
 
-**Proposed next (Jay to decide):** a revised house book = P1E + stop + Wednesday + tax/trim + ETF
-sleeve (dropping tiers and F&O priority), registered as a NEW forward book — it cannot be judged on
-the backtest that suggested it.
+**Amended (Jay, 18 Oct):** V2H drops the tiers and F&O priority before its first decision. V2H is
+now P1E + Wednesday + the stop + tax/trim + the ETF sleeve. Descriptive backtest (chosen after the
+ablations, so not evidence): 16.8 % CAGR, max DD −20.8 %, MAR 0.71 · 1.05 (registered V2H 12.3 %,
+0.39 · 1.10; P1E 19.6 %, 0.78 · 1.21). Judged forward only.
 
 ### How stocks and ETFs are ranked (Q9)
 

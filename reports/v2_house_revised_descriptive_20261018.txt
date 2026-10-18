@@ -1,0 +1,17 @@
+[data_provider] FEED: Dhan=ON | nselib=OFF | nsepython=ON | cache=parquet
+  Built symbol-->meta map: 3154 NSE EQUITY + INDEX
+          book half  CAGR%  maxDD%  MAR  Sharpe  CAGR after tax%  trades/yr
+           P1E full  19.55  -20.87 0.94    1.07            17.62      326.0
+           P1E   H1  16.36  -20.87 0.78    0.92              NaN        NaN
+           P1E   H2  22.67  -18.68 1.21    1.22              NaN        NaN
+          P1ES full  17.03  -23.80 0.72    0.96            15.26      347.7
+          P1ES   H1  13.70  -23.80 0.58    0.79              NaN        NaN
+          P1ES   H2  20.30  -20.56 0.99    1.12              NaN        NaN
+V2H registered full  12.28  -21.45 0.57    0.86            10.68      418.1
+V2H registered   H1   8.27  -21.45 0.39    0.60              NaN        NaN
+V2H registered   H2  16.41  -14.98 1.10    1.15              NaN        NaN
+   V2H revised full  16.78  -20.75 0.81    0.97            14.91      378.1
+   V2H revised   H1  14.65  -20.75 0.71    0.86              NaN        NaN
+   V2H revised   H2  18.97  -18.01 1.05    1.08              NaN        NaN
+
+DESCRIPTIVE ONLY: the revised rule set was chosen after seeing the ablations; it is judged forward.
