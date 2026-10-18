@@ -189,8 +189,12 @@ never stored on it.
    static IP.
 5. Register that IP at web.dhan.co → Profile → Trading & Data APIs → static IP. **It locks for 7
    days**, so do step 4 first.
-6. `python dhan_relay.py --test-modify` re-submits one resting stop at its SAME values through the
-   relay (it asks first). "RELAY WORKS" → remove `--dry-run` from `run_gtt_trail.bat`.
+6. **Refresh the Dhan access token after registering the IP** (`python dhan_auth.py --force`): Dhan
+   applies a newly registered IP only to tokens issued after it — the 18-Oct test was refused (DH-905)
+   with the earlier token and accepted right after a refresh. The 08:00 job refreshes daily anyway.
+7. `python dhan_relay.py --test-modify` re-submits one OCO and one SINGLE stop at their SAME values
+   through the relay (it asks first). "RELAY WORKS" → remove `--dry-run` from `run_gtt_trail.bat`.
+   **Passed 18 Oct 2026** (both kinds accepted via 16.4.135.197; read back unchanged).
 
 **The code side (built):** `dhan_relay.py` wraps the dhanhq order methods once per process
 (installed by `dhan_auth`, and by `n8n_order_handler`); with `DHAN_ORDER_PROXY` unset nothing
