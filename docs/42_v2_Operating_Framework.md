@@ -144,3 +144,16 @@ for your book with the reviewer's rulings and the pyramid list; your v2 book (sl
 Chandelier, rank now); the rank board with filters and the ETF pool (premium, liquidity); risk
 (sector weights vs the 25 % cap, per-name size vs the cap); the trail proposals; the weekly
 checklist; rules and evidence. The paper books stay on 🧭 PAPER · v2 SYSTEM.
+
+### Built (18 Oct evening)
+
+| # | Component | File | Status |
+|---|---|---|---|
+| C12 | v2 ledger (v2's own shares, shared holdings) + `v2_take --sell` | `v2_ledger.py`, `v2_take.py` | built, tested |
+| C13 | pyramid buys on the order sheet (one stop for all shares, the current system's rung) | `p1_paper.v2_workflow` | built |
+| C14 | auto-trail: positional only, capped at close − 3 × ATR14, Telegram report | `gtt_auto_shield.py --trail`, task `GTT_Trail_Daily` 15:45 | built — **dry run** (first report Mon 19 Oct) |
+| C15 | the v2 page | `commander_pages/v2_live.py` (EXECUTION › 🧭 v2 SYSTEM) | built |
+| C16 | house limits exclude v2 | `house_policy.is_v2` / `v2_symbols`, `open_risk`, `pre_trade_gate` | built |
+
+To switch the trail live: register the PC's (or a relay's) static IP with Dhan, then remove
+`--dry-run` from `run_gtt_trail.bat`.

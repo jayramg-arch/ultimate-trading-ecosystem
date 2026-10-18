@@ -1398,6 +1398,7 @@ with st.sidebar:
             ("📐 OPTIONS",     "OPTIONS"),
             ("📺 TV SIDECAR",  "TV SIDECAR"),
             ("🪙 GOLDEN MATCHER", "GOLDEN MATCHER"),
+            ("🧭 v2 SYSTEM", "V2LIVE"),
         ]),
         ("🔬  ANALYSIS", [
             ("🔬 AUTOPSY",     "AUTOPSY"),
@@ -4315,6 +4316,8 @@ elif page == 'PAPER':
 # 17-Oct-2026 — the v2 SYSTEM's own paper-trading page (Doc 41): rank board, books, orders, reviews
 elif page == 'V2':
     commander_pages.run("v2_system", globals())   # page body: commander_pages/v2_system.py
+elif page == 'V2LIVE':
+    commander_pages.run("v2_live", globals())   # page body: commander_pages/v2_live.py
 
 
 # ══════════════════════════════════════════════════════════════════════════════
