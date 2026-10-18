@@ -76,6 +76,11 @@ def pre_trade_risk_check(dhan, ticker: str, qty: int, entry_price: float, sl_pri
         if q > 0:
             live.append({'Symbol': sym, 'Quantity': q, 'BuyPrice': avg})
 
+    # v2 holdings are held to the v2 system's own limits (Doc 42 §7, Jay 18-Oct-2026), so the
+    # current system's caps below count only its own positions.
+    _v2 = _hp.v2_symbols()
+    live = [p for p in live if p['Symbol'] not in _v2]
+
     # 1) Max open positions (only blocks a BRAND-NEW name, not a top-up).
     open_syms = {p['Symbol'] for p in live}
     if tk not in open_syms and len(open_syms) >= MAX_OPEN_POSITIONS:

@@ -154,6 +154,10 @@ def render(st, sell_gtts_by_symbol, single_sells, ltps, inr) -> None:
     b = budget()
     try:
         jr = tc.open_positions()
+        import house_policy as _hpv
+        _v2 = _hpv.v2_symbols()          # v2 holdings: their own limits (Doc 42 §7)
+        if _v2 and "symbol" in jr.columns:
+            jr = jr[~jr["symbol"].astype(str).str.upper().isin(_v2)]
     except Exception as e:
         st.warning(f"🔥 Open risk: journal unreadable ({e})")
         return

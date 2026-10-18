@@ -265,6 +265,25 @@ BREAKER_PAUSE_SESSIONS = 5
 # lose if every resting stop fills, as a % of the sizing capital, by exposure tier. The
 # circuit breaker uses the BEAR budget. open_risk.py measures it; Risk Shield shows it.
 HEAT_BUDGET_PCT = {"OPEN": 6.0, "NEUTRAL": 3.0, "BEAR": 3.0}   # BEAR = NEUTRAL: Jay, 7-Oct-2026 (proposed 1.5%)
+# THE v2 SYSTEM (Doc 42 §7, Jay 18-Oct-2026): a v2 holding is a journal row whose setup starts
+# with V2_SETUP_PREFIX (v2_take.py writes "POS-V2"). The open-risk budget, the exposure tiers,
+# the circuit breaker and the max-open-positions limit belong to the CURRENT system: v2 is held
+# to its own capital slice and rules (both house limits starved v2 in PREREG_v2_borrowed_rules).
+V2_SETUP_PREFIX = "POS-V2"
+
+
+def is_v2(setup) -> bool:
+    return str(setup or "").upper().startswith(V2_SETUP_PREFIX)
+
+
+def v2_symbols() -> set:
+    """Symbols with an OPEN v2 journal row (empty on any error - fail toward counting them)."""
+    try:
+        df = _journal_frame()
+        op = df[(df["status"].astype(str).str.upper() == "OPEN") & df["setup"].map(is_v2)]
+        return set(op["symbol"].astype(str).str.upper())
+    except Exception:
+        return set()
 
 
 def _journal_frame():
@@ -274,7 +293,7 @@ def _journal_frame():
     con = sqlite3.connect(_jp.JOURNAL_DB)
     try:
         return pd.read_sql_query(
-            "SELECT symbol, status, quantity, buy_price, exit_price, entry_date, exit_date FROM journal", con)
+            "SELECT symbol, status, quantity, buy_price, exit_price, entry_date, exit_date, setup FROM journal", con)
     finally:
         con.close()
 
@@ -321,6 +340,7 @@ def exposure_status() -> dict:
     last_loss = None
     try:
         df = _journal_frame()
+        df = df[~df["setup"].map(is_v2)]      # v2 rows are governed by v2 (Doc 42 §7)
         for c in ("quantity", "buy_price", "exit_price"):
             df[c] = __import__("pandas").to_numeric(df[c], errors="coerce")
         op = df[df["status"].astype(str).str.upper() == "OPEN"]

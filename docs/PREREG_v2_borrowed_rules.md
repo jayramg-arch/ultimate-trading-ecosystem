@@ -72,3 +72,19 @@ stop, which the baseline has.
   they apply to real v2 money is Jay's call (Doc 41).
 - Per the rule, B1, B2, B4 and B7 join the live V2H (`v2_house.V2H_LIVE`) before its first decision.
 Output: `reports/v2_house/borrowed_metrics.csv`, `reports/v2_borrowed_result_20261018.txt`.
+
+## AMENDMENT 1 (18 Oct 2026, before any run of it) — B8 pyramid top-up (Jay: "why don't we pyramid?")
+
+**B8:** every fourth rebalance (the trim days), a v2 holding still inside the top-25 % cut whose
+risk (shares × ATR20) has fallen below **half** the target risk (0.10 % of equity) is topped back
+up to the target — the other half of Clenow's two-way position rebalance (v2 so far only trims).
+The add is sized off today's ATR, keeps the position's entry date (tax lot simplified), obeys the
+per-trade cap and the sector cap, and is paid from cash only after the week's new buys.
+**Baseline:** the live V2H (`V2H_LIVE`, with the four adopted rules). **Decision rule — stricter
+than B1–B7, because this adds complexity rather than protection:** ADOPT only if MAR(V2H + B8) ≥
+MAR(V2H) in BOTH halves; otherwise REJECT. One run.
+
+**A name the CURRENT system holds** (not tested — routing, live only): the real v2 book does not
+open a second position in it (one owner per holding: one stop price, one journal row, one exit
+rule); the v2 pick is reported on the order sheet as a confirmation for the current system's
+pyramid ladder (its rung from `FINAL_Portfolio_Picks.csv`), and the v2 money goes to the next name.
