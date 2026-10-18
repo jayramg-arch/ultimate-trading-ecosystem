@@ -1,0 +1,168 @@
+<meta charset="utf-8">
+<title>The v2 System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,800&family=IBM+Plex+Mono:wght@400;500;600&family=Source+Serif+4:opsz,wght@8..60,400;8..60,600&display=swap">
+
+<style>
+:root{
+  --ground:#EEF1F4; --surface:#FFFFFF; --surface-2:#F6F8FA;
+  --ink:#0E1319; --ink-2:#3A4552; --muted:#66727F; --rule:#D6DDE4; --rule-soft:#E6EBF0;
+  --go:#0F7A66; --go-bg:#E4F2EE; --go-rule:#9FCFC2;
+  --wait:#A96500; --wait-bg:#FBF0DE; --wait-rule:#E0BE86;
+  --no:#B23025; --no-bg:#FBE9E7;
+  --mono:'IBM Plex Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --serif:'Source Serif 4',Georgia,'Times New Roman',serif;
+  --grot:'Bricolage Grotesque','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+    --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+    --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+    --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+    --no:#EF6259; --no-bg:#34191A;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#131722; --surface:#181D29; --surface-2:#1E2431;
+  --ink:#E9EDF2; --ink-2:#C2CAD4; --muted:#8A95A3; --rule:#2A2E39; --rule-soft:#242935;
+  --go:#2BB39A; --go-bg:#13322C; --go-rule:#245B4F;
+  --wait:#E5920B; --wait-bg:#33260E; --wait-rule:#6B4E14;
+  --no:#EF6259; --no-bg:#34191A;
+}
+
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+  font-family:var(--serif);font-size:17px;line-height:1.65;-webkit-font-smoothing:antialiased}
+.wrap{max-width:960px;margin:0 auto;padding:0 24px}
+
+header.mast{border-bottom:1px solid var(--rule);background:var(--surface)}
+.mast-in{max-width:960px;margin:0 auto;padding:46px 24px 36px}
+.eyebrow{font-family:var(--mono);font-size:11.5px;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 12px}
+h1{font-family:var(--grot);font-weight:800;font-size:clamp(32px,5vw,50px);line-height:1.03;
+  letter-spacing:-.02em;margin:0;text-wrap:balance}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.dek b{color:var(--ink);font-weight:600}
+
+main{padding:44px 0 90px}
+section{margin:0 0 62px;scroll-margin-top:20px}
+.pt{font-family:var(--mono);font-size:11.5px;letter-spacing:.15em;text-transform:uppercase;
+  color:var(--muted);margin:0 0 6px}
+h2{font-family:var(--grot);font-weight:700;font-size:clamp(22px,2.6vw,29px);line-height:1.15;
+  letter-spacing:-.015em;margin:0 0 10px;text-wrap:balance}
+h3{font-family:var(--grot);font-weight:600;font-size:17.5px;margin:30px 0 8px}
+p{margin:0 0 14px;max-width:68ch}
+.lede{font-size:18px;color:var(--ink-2);max-width:64ch}
+.m{font-family:var(--mono);font-size:.86em;background:var(--surface-2);
+  border:1px solid var(--rule-soft);border-radius:3px;padding:1px 5px;white-space:nowrap}
+
+/* ── timeline ─────────────────────────────────────────── */
+.tl{position:relative;margin:26px 0 0;padding-left:0}
+.tl::before{content:"";position:absolute;left:78px;top:8px;bottom:8px;width:1px;background:var(--rule)}
+.ev{display:grid;grid-template-columns:78px 1fr;gap:0;position:relative;margin:0 0 4px}
+.ev .clk{font-family:var(--mono);font-size:12.5px;font-variant-numeric:tabular-nums;
+  color:var(--muted);padding:15px 16px 0 0;text-align:right;white-space:nowrap}
+.ev .bd{border:1px solid transparent;padding:13px 0 13px 22px;position:relative}
+.ev .bd::before{content:"";position:absolute;left:-4px;top:19px;width:9px;height:9px;
+  border-radius:50%;background:var(--ground);border:1.5px solid var(--rule)}
+.ev .t{font-family:var(--grot);font-weight:600;font-size:16.5px;margin:0 0 3px}
+.ev .d{font-size:15px;color:var(--ink-2);max-width:62ch;margin:0}
+.ev .d + .d{margin-top:6px}
+.ev .who{font-family:var(--mono);font-size:10px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);display:inline-block;margin-left:9px;vertical-align:1px;font-weight:500}
+
+/* the human step is the whole point of the page */
+.ev.you .bd{background:var(--go-bg);border:1px solid var(--go-rule);border-left-width:3px;
+  padding-left:20px;border-radius:2px}
+.ev.you .bd::before{background:var(--go);border-color:var(--go);width:11px;height:11px;left:-5.5px}
+.ev.you .t{color:var(--ink)}
+.ev.you .who{color:var(--go);font-weight:600}
+.ev.off .bd::before{background:var(--wait);border-color:var(--wait)}
+
+ol.mini{margin:10px 0 0;padding-left:19px;display:flex;flex-direction:column;gap:7px}
+ol.mini li{font-size:15px;color:var(--ink-2)}
+ol.mini li b{color:var(--ink)}
+ol.mini li::marker{font-family:var(--mono);font-size:12px;color:var(--go)}
+
+/* ── tables ───────────────────────────────────────────── */
+.tw{overflow-x:auto;margin:20px 0;border:1px solid var(--rule)}
+table{border-collapse:collapse;width:100%;background:var(--surface);font-size:15px}
+th{font-family:var(--mono);font-size:10.5px;letter-spacing:.13em;text-transform:uppercase;
+  color:var(--muted);text-align:left;font-weight:600;padding:11px 14px;
+  border-bottom:1px solid var(--rule);white-space:nowrap;background:var(--surface-2)}
+td{padding:11px 14px;border-bottom:1px solid var(--rule-soft);vertical-align:top;line-height:1.5}
+tr:last-child td{border-bottom:0}
+td.n{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums;
+  white-space:nowrap;color:var(--ink-2)}
+td.warn{color:var(--no)}
+
+.note{border:1px solid var(--rule);border-left:3px solid var(--wait);background:var(--wait-bg);
+  padding:15px 18px;margin:20px 0;font-size:15.5px}
+.note .lbl{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--wait);display:block;margin-bottom:6px;font-weight:600}
+.note p{margin:0;max-width:none}
+
+pre{font-family:var(--mono);font-size:13.5px;line-height:1.85;background:var(--surface);
+  border:1px solid var(--rule);border-left:3px solid var(--go);padding:18px 20px;
+  overflow-x:auto;margin:20px 0;color:var(--ink-2)}
+pre b{color:var(--ink);font-weight:600}
+
+footer{border-top:1px solid var(--rule);padding:26px 0 60px;font-size:15px;color:var(--muted);max-width:68ch}
+footer em{color:var(--ink-2)}
+
+@media(max-width:720px){
+  body{font-size:16px}
+  .tl::before{left:60px}
+  .ev{grid-template-columns:60px 1fr}
+  .ev .clk{font-size:11.5px;padding-right:12px}
+  .ev .bd{padding-left:18px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<style>
+ul.how,ol.how{margin:6px 0 10px;padding-left:20px}
+.how li{font-size:15px;color:var(--ink-2);margin:0 0 6px;max-width:72ch}
+section p{max-width:72ch}
+</style>
+<header class="mast"><div class="mast-in">
+  <p class="eyebrow">Doc 42 · Operating framework · 18 Oct 2026</p>
+  <h1>The v2 System</h1>
+  <p class="dek">How the v2 system runs end to end: the Tuesday-close decision, your orders sized for the real book, the V2_System watchlist in TradingView, what S4, S5 and the reviewer do with it, the Wednesday orders, alerts, and the files that carry each step.</p>
+</div></header>
+<div class="wrap"><main>
+<p>The design and the evidence are in Doc 41; the rules and their tests in PREREG_v2_house_rules and PREREG_v2_borrowed_rules. This document is how v2 RUNS, end to end — every step, who does it, when, and which file carries it to the next step. It is defined first; the components are built to it.</p>
+<section id="1-scope-and-decisions-it-rests-on">
+<p class="pt">1. Scope and decisions it rests on</p>
+<ul class="how"><li>v2 runs in full form now, for real money, beside the current system (Jay, 18 Oct). It does not wait for 16 Jan 2027 — but it only BUYS when the Nifty 500 is above its 200-day SMA, so in practice real buying starts when the market recovers. The paper books keep running as the record.</li><li><b>Capital:</b> one-third of the trading capital (house sizing capital ÷ 3 = ₹10,00,000 today; <code>V2_CAPITAL</code> in .env overrides). The current system keeps the rest.</li><li><b>The live rule set is V2H</b> (<code>v2_house.V2H_LIVE</code>): P1E's ensemble rank, top 25 %, 0.10 % of equity per ATR20, Wednesday rebalance, a 4 × ATR14 disaster stop with the house Chandelier trail, tax-aware runners + monthly risk trims, the ETF sleeve (own pool, NAV premium ≤ 3 %), sector cap 25 %, correlation block 0.90, per-trade cap 3.33 % of equity; earnings and stale-data guards.</li><li><b>No targets, no intraday triggers.</b> The trigger is the weekly rank at Tuesday's close.</li></ul>
+</section>
+<section id="2-the-weekly-cycle">
+<p class="pt">2. The weekly cycle</p>
+<div class="tw"><table><thead><tr><th>When (IST)</th><th>Step</th><th>Who / what</th><th>Output</th></tr></thead><tbody><tr><td><b>Tue 16:30</b></td><td>① v2 engine runs first in the auto-pilot (before the watchlists are built)</td><td><code>p1_paper.py</code> + <code>v2_house.py</code></td><td>fills, marks, stops for the paper books; the Tuesday-close <b>decision</b></td></tr><tr><td>Tue ~16:35</td><td>② your orders sized for your real v2 book (from your journal rows)</td><td><code>p1_paper.v2_workflow</code></td><td>order sheet <code>reports/p1_paper/orders_&lt;date&gt;.md</code> → section <b>YOUR v2 ORDERS</b></td></tr><tr><td>Tue ~16:35</td><td>③ the TradingView list + the chart status line</td><td>same</td><td><code>FINAL_V2_WATCHLIST.csv</code> → <b><code>V2_System-DDMONYY</code></b>; <code>data/v2/addon_status.txt</code> → Add-ons M2</td></tr><tr><td>Tue ~16:35</td><td>④ the week's buys go to the reviewer (Daily chart, S4 + S5 read, execution check only)</td><td>receiver, tag <code>v2</code></td><td>a ruling per name in the Reviewer Log + Telegram</td></tr><tr><td>Tue ~16:40</td><td>⑤ Telegram summary of all books + the order count</td><td><code>p1_paper.send_summary</code></td><td>one message</td></tr><tr><td>Tue ~17:00</td><td>⑥ watchlists generated and pushed to TradingView</td><td>auto-pilot Phase 4.8 / 7</td><td><code>V2_System-DDMONYY</code> in TradingView</td></tr><tr><td><b>Tue evening</b></td><td>⑦ <b>you review</b> (10–15 min): the 🧭 v2 page (orders, rulings), then the <code>V2_System</code> list on a <b>Daily</b> chart with S4, S5 and Add-ons</td><td>Jay</td><td>buy / skip per name</td></tr><tr><td><b>Wed 09:15</b></td><td>⑧ <b>you place</b> the sells and buys at the open; one Dhan stop order per buy at its disaster stop (full shares, limit below trigger)</td><td>Jay at Dhan</td><td>orders + resting stops</td></tr><tr><td>Wed after the fill</td><td>⑨ record each buy: <code>python v2_take.py SYM --price P --qty Q</code></td><td>Jay (one line per buy)</td><td>journal OPEN row, setup <code>POS-V2</code>, stop = initial SL</td></tr><tr><td><b>Daily 16:30</b></td><td>⑩ the nightly run: paper books marked and stopped; the regime-turn alert; journal sync closes any v2 row Dhan sold</td><td>auto-pilot</td><td>Telegram if the regime turned</td></tr><tr><td>Daily, as needed</td><td>⑪ trail: Risk Shield shows the Chandelier for <code>POS-V2</code> rows; raise the Dhan stop when it moves up (the automatic GTT trail is off since 3 Oct — static IP pending)</td><td>Jay</td><td>tightened stop</td></tr></tbody></table></div>
+<p>Fridays need nothing for v2; P1E and the research books still decide at Friday's close for the record.</p>
+</section>
+<section id="3-the-tradingview-list-and-what-s4-s5-do-with-it">
+<p class="pt">3. The TradingView list and what S4 / S5 do with it</p>
+<ul class="how"><li><b>Name:</b> <code>V2_System-DDMONYY</code> (the date of the run). Names in this order (the Add-ons line on the chart says which group a name is in): <b>BUY</b> (this week's buys — yours and the V2H paper book's), <b>SELL</b>, <b>HOLD</b> (your v2 holdings, then paper), <b>WATCH</b> (the top 30 of the rank, for context).</li><li><b>S4 and S5 are execution aids for v2, not judges.</b> The reviewer reads them on the Daily chart for each buy and is told the selection is already made: it looks only for reasons not to buy at Wednesday's open — over-extension, results within the week, a wall within 1 ATR, a gap, thin liquidity. A WAIT or PASS means skip that buy this week; the name comes back next Tuesday if it still ranks.</li><li><b>Ignore S4's own VERDICT / GO / TAKE-IT rows on v2 names</b> — those are the current system's entry rules (PA, location, volume, bar), which v2 deliberately does not use.</li><li><b>Add-ons M2 (v2 status)</b> prints the v2 facts on the chart of any v2 name: rank of N, the section (BUY / SELL / HOLD / WATCH), the disaster or trailed stop (drawn as a line), real or paper holding, and the date of the decision. Pushed nightly with the status file; display only.</li></ul>
+</section>
+<section id="4-triggers-and-alerts">
+<p class="pt">4. Triggers and alerts</p>
+<div class="tw"><table><thead><tr><th>Event</th><th>Signal</th><th>Channel</th></tr></thead><tbody><tr><td>The week's orders</td><td>Tuesday close, ranked by the rules</td><td>order sheet, v2 page, Telegram summary</td></tr><tr><td>Reviewer ruling per buy</td><td>Tuesday evening</td><td>Telegram (per review) + Reviewer Log</td></tr><tr><td>The regime turns</td><td>the Nifty 500 closes across its 200-day SMA</td><td>Telegram, once, the evening it happens</td></tr><tr><td>A stop is hit</td><td>Dhan executes the resting stop</td><td>Dhan; journal sync closes the row at 16:30</td></tr><tr><td>The trail moves up</td><td>Chandelier above the resting stop</td><td>Risk Shield (you raise the Dhan stop)</td></tr><tr><td>NOT used for v2</td><td>S4 GO alerts, GM-POS GO / zone / thesis alerts</td><td>those belong to the current system</td></tr></tbody></table></div>
+</section>
+<section id="5-components-and-their-status">
+<p class="pt">5. Components and their status</p>
+<div class="tw"><table><thead><tr><th>#</th><th>Component</th><th>File</th><th>Status</th></tr></thead><tbody><tr><td>C1</td><td>rules engine (one <code>decide()</code> for backtest and live)</td><td><code>v2_house.py</code></td><td>built, tested</td></tr><tr><td>C2</td><td>nightly engine + paper books + order sheet + Telegram</td><td><code>p1_paper.py</code></td><td>built</td></tr><tr><td>C3</td><td>rank board + v2 page</td><td><code>p1_paper.write_board</code>, <code>commander_pages/v2_system.py</code></td><td>built</td></tr><tr><td>C4</td><td>reviewer routing (tag v2, execution-only context)</td><td><code>v2_core.py</code>, receiver</td><td>built</td></tr><tr><td>C5</td><td>real-book orders from the journal</td><td><code>p1_paper.v2_workflow</code></td><td>being built</td></tr><tr><td>C6</td><td>record a real fill</td><td><code>v2_take.py</code></td><td>being built</td></tr><tr><td>C7</td><td>TradingView list <code>V2_System-DDMONYY</code></td><td><code>FINAL_V2_WATCHLIST.csv</code> + <code>watchlist_manager</code> + Phase 7</td><td>to build</td></tr><tr><td>C8</td><td>pipeline order: v2 engine before the watchlists</td><td><code>run_pipeline.py</code> (Phase 12i → 4.79)</td><td>to build</td></tr><tr><td>C9</td><td>chart status (Add-ons M2) + its pusher</td><td><code>Commander_Addons_v1.0.pine</code>, <code>tv_push_addons.py</code></td><td>to build (Jay compiles)</td></tr><tr><td>C10</td><td>regime-turn alert</td><td><code>p1_paper.v2_workflow</code></td><td>being built</td></tr><tr><td>C11</td><td>Risk Shield / journal sync for <code>POS-V2</code> rows</td><td>existing (setup prefix POS → positional trail)</td><td>works as is</td></tr></tbody></table></div>
+</section>
+<section id="6-data-contracts">
+<p class="pt">6. Data contracts</p>
+<ul class="how"><li><b>Journal:</b> a v2 holding is an OPEN row with <code>setup = POS-V2</code>, <code>Timeframe = Positional</code>, <code>initial_sl = stoploss = disaster stop</code>, no targets. This is how v2 tells its holdings from the current system's.</li><li><b><code>FINAL_V2_WATCHLIST.csv</code>:</b> <code>Symbol, Section, Rank, Stop, Held</code>.</li><li><b><code>data/v2/addon_status.txt</code>:</b> one line, <code>_ASOF:&lt;date&gt;;&lt;fill date&gt;,SYM:&lt;rank&gt;/&lt;n&gt;;&lt;section&gt;;&lt;stop&gt;;&lt;held&gt;,…</code> (each <code>-</code>/<code>&amp;</code> symbol also under TradingView's <code>_</code> spelling).</li><li><b>Order sheet:</b> the paper books, then <code>## YOUR v2 ORDERS</code> with side, shares, value and stop.</li></ul>
+</section>
+<section id="7-risk-controls-and-the-open-decisions-jay">
+<p class="pt">7. Risk controls and the open decisions (Jay)</p>
+<p>In force: the regime gate, the resting disaster stop + Chandelier trail, per-trade cap 3.33 %, sector cap 25 %, correlation block, ETF NAV premium and liquidity floors, earnings and stale-data guards, the reviewer's one-week deferral.</p>
+<p>Open:</p>
+<ol class="how"><li><b>The house open-risk budget and the 25-position limit.</b> Both starved v2 in the test. Proposal: they apply to the current system's book; v2 is limited by its own capital slice and rules.</li><li><b>A name held by both systems.</b> Proposal: v2 does not buy a name the current system already holds (no double exposure); it still holds what it owns.</li><li><b>Order type at Wednesday's open.</b> Proposal: a limit at Tuesday's close + 1 %, cancelled if unfilled by 10:00 (the backtest filled at the open price).</li><li><b>Automatic trailing at Dhan</b> needs a static IP registered with Dhan (deferred) — until then the trail is raised by hand from Risk Shield.</li></ol>
+</section>
+</main></div>
+<footer><em>Source: docs/42_v2_Operating_Framework.md.</em></footer>
