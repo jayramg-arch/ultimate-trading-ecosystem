@@ -833,6 +833,10 @@ Thin tails: n=22 and n=11 in the top two bins, p90 is 2.72 ATR.
   but the 95 % range (−0.096 to +0.343R) includes zero — FAIL, so it stays a ranking overlay at
   Step 2. Treat a 6/8-or-lower bull name with extra care (descriptive: −0.50 to −0.57R, 54 % stopped
   at 6/8); ≥7 vs ≤6 is now a forward test, not a rule (PREREG_minervini_gate_v1).
+- **Not in v2 either (18 Oct 2026).** Added to Clenow's eligibility, the template (8/8) cut
+  v2's MAR from 0.86 to 0.22 and did no better than a random filter removing the same share of
+  names (0.27); turnover doubled as holdings dropping to 7/8 were sold. v2 stays price-only
+  (PREREG_v2_minervini_filter).
 
 ### And what the journal does NOT say
 

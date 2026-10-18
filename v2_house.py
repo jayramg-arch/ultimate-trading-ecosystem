@@ -149,6 +149,10 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
     el = el.reindex(stocks).fillna(False).astype(bool)
     if flags.get("stage") and ctx.get("stage"):        # B3: v1's first test - weekly Stage 1 or 2 only
         el = el & ctx["stage"](d).reindex(el.index).isin([1, 2])
+    if flags.get("mtt") and ctx.get("mtt"):          # PREREG_v2_minervini_filter: template as eligibility
+        el = el & (ctx["mtt"](d).reindex(el.index) >= flags["mtt"])
+    if flags.get("mtt_rand") and ctx.get("mtt_rand"):   # its placebo: a random filter, same pass rate
+        el = el & ctx["mtt_rand"](d).reindex(el.index).fillna(False).astype(bool)
     sc = _ens(g, d, list(el[el].index)) if el.any() else pd.Series(dtype=float)
     n = len(sc)
     cut = max(1, math.ceil(H["top_pct"] * n)) if n else 0
@@ -292,9 +296,12 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
             fset = ctx["fno"](d)
             inc = list(sc.index[:cut])
             order = [s for s in inc if s in fset] + [s for s in inc if s not in fset] + list(sc.index[cut:])
+        mtt_buy = ctx["mtt"](d) if (flags.get("mtt_entry") and ctx.get("mtt")) else None
         for s in order:
             if s in pos:
                 continue
+            if mtt_buy is not None and not (mtt_buy.get(s, 0) >= flags["mtt_entry"]):
+                continue                             # descriptive T8-entry: buy needs the template
             a = ps._sizes(equity, cl[s], g["atr20"].at[d, s], risk)
             if a <= 0 or a > free or a > room:
                 break
@@ -386,6 +393,47 @@ def weekly_stage_table(p: dict, cols: list) -> pd.DataFrame:
         except Exception:
             continue
     return pd.DataFrame(out)
+
+
+def template_table(p: dict, cols: list) -> pd.DataFrame:
+    """commander_core.minervini_checks, vectorised and point-in-time: the 0..8 score at each close.
+    RS = JdK RS-Ratio > 100 on CONFIRMED W-FRI weeks vs p["bench"] (bull_screener's STRIKE_CAL
+    formula; the affine map is origin-preserving, so > 100 on the raw smoothed ratio is the same
+    test); fewer than 52 weekly bars -> RS fails, as in bull_screener."""
+    from rrg_engine import STRIKE_CAL as SC
+    C, Hh, L = p["Close"][cols], p["High"][cols], p["Low"][cols]
+
+    def _roll(F, n, how, mp=None):            # per column on its OWN bars: a gap day must not blank a window
+        out = {}
+        for c in F.columns:
+            x = F[c].dropna()
+            r = x.rolling(n, min_periods=mp or n)
+            out[c] = getattr(r, how)()
+        return pd.DataFrame(out).reindex(F.index)
+    s50, s150, s200 = _roll(C, 50, "mean"), _roll(C, 150, "mean"), _roll(C, 200, "mean")
+    s200p = pd.DataFrame({c: s200[c].dropna().shift(21) for c in cols}).reindex(C.index)
+    hi, lo = _roll(Hh, 252, "max", 1), _roll(L, 252, "min", 1)
+    n = ((C > s150) & (C > s200)).astype(int) + (s150 > s200).astype(int) + (s200 > s200p).astype(int)         + ((s50 > s150) & (s50 > s200)).astype(int) + (C > s50).astype(int) + (C >= 1.30 * lo).astype(int)         + (C >= 0.75 * hi).astype(int)
+    wc = C.resample("W-FRI").last()
+    wb = p["bench"].resample("W-FRI").last().reindex(wc.index)
+    rs = wc.div(wb, axis=0)
+    ma = rs.rolling(SC["ratio_length"], min_periods=SC["ratio_length"]).mean()
+    rat = (100.0 + (rs - ma) / ma * 100.0).rolling(SC["ratio_smooth"], min_periods=SC["ratio_smooth"]).mean()
+    nw = wc.notna().cumsum()
+    rs_ok = ((rat > 100.0) & (nw >= 52)).astype(float)
+    rs_ok = rs_ok.reindex(C.index, method="ffill").fillna(0.0)   # label F covers the week ending F: valid at F's close
+    return n + rs_ok.astype(int)
+
+
+def random_filter(idx, cols: list, rate: float, seed: int = 7) -> pd.DataFrame:
+    """The placebo: pass/fail drawn per symbol per calendar quarter at `rate`."""
+    q = pd.PeriodIndex(idx, freq="Q")
+    uq = q.unique()
+    rng = np.random.default_rng(seed)
+    draw = pd.DataFrame(rng.random((len(uq), len(cols))) < rate, index=uq, columns=cols)
+    out = draw.reindex(q)
+    out.index = idx
+    return out
 
 
 def stage_lookup(W: pd.DataFrame):
@@ -792,6 +840,86 @@ def _add_borrowed(ctx: dict, p: dict, stocks: list) -> None:
     ctx["stage"] = stage
 
 
+def _mtt(mode, p, f, g, ctx, S, SP, E) -> int:
+    """PREREG_v2_minervini_filter."""
+    stocks = ctx["stocks"]
+    T = template_table(p, stocks)
+    ctx["mtt"] = lambda d: T.loc[d]
+    if mode == "verify":                          # vectorised table vs commander_core.minervini_checks
+        import bull_screener as bs
+        import commander_core as cc
+        rng = np.random.default_rng(3)
+        idx = T.loc[S:E].index
+        bad, n = 0, 0
+        bench = pd.DataFrame({"Close": p["bench"]})
+        for _ in range(300):
+            s_, d = stocks[rng.integers(len(stocks))], idx[rng.integers(len(idx))]
+            df = pd.DataFrame({k: p[k][s_] for k in ("Open", "High", "Low", "Close", "Volume")}).loc[:d].dropna()
+            if len(df) < 260 or df.index[-1] != d:
+                continue
+            c = df["Close"]
+            s200 = c.rolling(200).mean()
+            ctx_ = {"sma50": c.rolling(50).mean().iloc[-1], "sma150": c.rolling(150).mean().iloc[-1],
+                    "sma200": s200.iloc[-1], "sma200_prev": s200.iloc[-22],
+                    "high52w": df["High"].tail(252).max(), "low52w": df["Low"].tail(252).min()}
+            wk = df.resample("W-FRI").agg({"Open": "first", "High": "max", "Low": "min", "Close": "last",
+                                           "Volume": "sum"}).dropna()
+            wk = wk[wk.index <= d]
+            bw = bench.loc[:d].resample("W-FRI").last().dropna()
+            bw = bw[bw.index <= d]
+            bw = bw.assign(Open=bw.Close, High=bw.Close, Low=bw.Close, Volume=0.0)
+            try:
+                mans = float(bs.compute_weekly_indicators(wk, bw)["mansfield"])
+            except Exception:
+                mans = None
+            sc_, _ = cc.minervini_checks(ctx_, float(c.iloc[-1]), mans)
+            n += 1
+            if int(T.at[d, s_]) != sc_:
+                bad += 1
+                if bad <= 8:
+                    print("  diff", s_, d.date(), "vector", int(T.at[d, s_]), "scalar", sc_)
+        print("template verify: %d of %d samples differ" % (bad, n))
+        return 0
+    el = ((p["Close"][stocks] > g["sma100"][stocks]) & ~g["gap90"][stocks].astype(bool) & g["liq"][stocks].astype(bool)
+          & f["has"][stocks].astype(bool)).loc[S:E]
+    rate = float(((T.loc[S:E] >= 8) & el).sum().sum() / max(1, el.sum().sum()))
+    R = random_filter(p["Close"].index, stocks, rate)
+    ctx["mtt_rand"] = lambda d: R.loc[d]
+    print("T8 pass rate among eligible names %.1f %% -> placebo at the same rate" % (rate * 100), flush=True)
+    books = {"V2H (baseline)": V2H_LIVE, "T8 (primary)": dict(V2H_LIVE, mtt=8),
+             "control: random filter": dict(V2H_LIVE, mtt_rand=True),
+             "T7 (descriptive)": dict(V2H_LIVE, mtt=7), "T8-entry (descriptive)": dict(V2H_LIVE, mtt_entry=8),
+             "P1E (descriptive)": NONE, "P1E + T8 (descriptive)": dict(NONE, mtt=8)}
+    if mode == "plumbing":
+        for name, fl in books.items():
+            _, _, st = run_book(fl, p, ctx, S, pd.Timestamp("2018-12-31"))
+            print(name, "trades", st["trades"], flush=True)
+        return 0
+    rows, M = [], {}
+    for name, fl in books.items():
+        e, ea, st = run_book(fl, p, ctx, S, E)
+        r_ = {h: v2.metrics(e.loc[s0:s1]) for h, (s0, s1) in
+              {"full": (S, E), "H1": (S, SP - pd.Timedelta(days=1)), "H2": (SP, E)}.items()}
+        M[name] = r_
+        rows.append({"book": name, "CAGR%": r_["full"]["CAGR%"], "maxDD%": r_["full"]["maxDD%"],
+                     "MAR": r_["full"]["MAR"], "MAR H1": r_["H1"]["MAR"], "MAR H2": r_["H2"]["MAR"],
+                     "Sharpe": r_["full"]["Sharpe"], "after tax%": v2.metrics(ea).get("CAGR%"),
+                     "trades/yr": round(st["trades"] / st["years"], 1)})
+        print("done", name, flush=True)
+    Tm = pd.DataFrame(rows)
+    os.makedirs(OUT, exist_ok=True)
+    Tm.to_csv(os.path.join(OUT, "minervini_filter_metrics.csv"), index=False)
+    print(Tm.to_string(index=False))
+    b, t, c = M["V2H (baseline)"], M["T8 (primary)"], M["control: random filter"]
+    c1 = all(t[h]["MAR"] >= b[h]["MAR"] for h in ("H1", "H2"))
+    c2 = all(t[h]["MAR"] > c[h]["MAR"] for h in ("H1", "H2"))
+    c3 = t["full"]["maxDD%"] >= b["full"]["maxDD%"] - 3.0
+    print("\n1 MAR >= baseline both halves %s · 2 MAR > random control both halves %s · 3 DD within 3pp %s"
+          % (c1, c2, c3))
+    print("VERDICT  %s" % ("ADOPT T8 into V2H" if (c1 and c2 and c3) else "REJECT - v2 stays price-only"))
+    return 0
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--check", action="store_true")
@@ -800,12 +928,16 @@ def main() -> int:
     ap.add_argument("--revised", action="store_true", help="the amended V2H, DESCRIPTIVE (post-hoc)")
     ap.add_argument("--borrowed", action="store_true", help="PREREG_v2_borrowed_rules - once")
     ap.add_argument("--b8", action="store_true", help="PREREG_v2_borrowed_rules Amendment 1 (pyramid top-up) - once")
+    ap.add_argument("--mtt", choices=("verify", "plumbing", "run"),
+                    help="PREREG_v2_minervini_filter: verify the vectorised template / trade counts / THE run")
     a = ap.parse_args()
-    if not (a.check or a.plumbing or a.run or a.revised or a.borrowed or a.b8):
+    if not (a.check or a.plumbing or a.run or a.revised or a.borrowed or a.b8 or a.mtt):
         ap.print_help()
         return 0
     p, f, g, ctx = load_backtest()
     S, SP, E = v2.START, v2.SPLIT, v2.END
+    if a.mtt:
+        return _mtt(a.mtt, p, f, g, ctx, S, SP, E)
     if a.check:
         e1, _ = ps.run_sys("P1", p, f, g, S, pd.Timestamp("2020-12-31"), params={"ensemble": True, "top_pct": 0.25})
         e2, _, st = run_book(NONE, p, ctx, S, pd.Timestamp("2020-12-31"))

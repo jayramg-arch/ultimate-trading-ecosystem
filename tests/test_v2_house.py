@@ -120,3 +120,40 @@ def test_v2_rupees_use_indian_grouping():
     assert pp._inr(1000000) == "₹10,00,000"
     assert pp._inr(30000000) == "₹3,00,00,000"
     assert pp._inr(-1234.4) == "-₹1,234"
+
+
+def _panel(closes: dict, bench) -> dict:
+    idx = pd.bdate_range("2020-01-01", periods=len(bench))
+    C = pd.DataFrame(closes, index=idx)
+    return {"Close": C, "High": C * 1.01, "Low": C * 0.99, "bench": pd.Series(bench, index=idx)}
+
+
+def test_template_table_leader_scores_8_laggard_fails_rs():
+    import numpy as np
+    n = 400
+    bench = 100 * 1.0005 ** np.arange(n)                 # index drifts up
+    up = 100 * 1.003 ** np.arange(n)                     # leader: steady uptrend, outruns the index
+    lag = 100 * 1.0002 ** np.arange(n)                   # rising but lags the index
+    T = vh.template_table(_panel({"UP": up, "LAG": lag}, bench), ["UP", "LAG"])
+    assert int(T["UP"].iloc[-1]) == 8
+    assert int(T["LAG"].iloc[-1]) <= 7                    # RS fails (and the 30 %-off-low test)
+    assert int(T["UP"].iloc[100]) < 8                     # not enough history for SMA200 yet
+
+
+def test_template_gap_day_does_not_blank_the_window():
+    import numpy as np
+    n = 400
+    bench = 100 * 1.0005 ** np.arange(n)
+    up = 100 * 1.003 ** np.arange(n)
+    gap = up.copy()
+    gap[-30] = np.nan                                     # one missing session inside every window
+    T = vh.template_table(_panel({"UP": up, "GAP": gap}, bench), ["UP", "GAP"])
+    assert int(T["GAP"].iloc[-1]) == int(T["UP"].iloc[-1]) == 8
+
+
+def test_random_filter_rate():
+    idx = pd.bdate_range("2018-01-01", "2025-12-31")
+    R = vh.random_filter(idx, ["S%d" % i for i in range(400)], 0.4)
+    assert abs(float(R.values.mean()) - 0.4) < 0.02
+    q = pd.PeriodIndex(idx, freq="Q")
+    assert (R.groupby(q).nunique() == 1).all().all()      # constant within a quarter (no churn)
