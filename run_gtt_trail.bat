@@ -28,4 +28,4 @@ REM precisely how the 24-Jul trail outage stayed invisible for three weeks.
 REM 18-Oct-2026 (Doc 42 §8 D4): DRY RUN + Telegram report until Jay switches it live. Positional
 REM holdings only (swing not trailed), stop capped at close - 3 x ATR14. Live = drop --dry-run, AND the
 REM PC's IP must be registered with Dhan (every modify is refused with DH-905 otherwise).
-"C:\Users\jayra\TradingData\venv\Scripts\python.exe" gtt_auto_shield.py --trail --dry-run --telegram --yes >> "logs\gtt_shield.log" 2>&1
+"C:\Users\jayra\TradingData\venv\Scripts\python.exe" gtt_auto_shield.py --trail --telegram --yes >> "logs\gtt_shield.log" 2>&1
