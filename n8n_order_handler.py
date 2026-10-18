@@ -3,6 +3,11 @@ import os
 import argparse
 from dotenv import load_dotenv
 from dhanhq import dhanhq
+try:                                   # order calls via the static-IP relay (Doc 42 §9)
+    import dhan_relay as _dhan_relay
+    _dhan_relay.install()
+except Exception:
+    pass
 from dhan_symbols import get_nse_id_map
 
 # 1. Setup Argument Parser

@@ -157,3 +157,38 @@ checklist; rules and evidence. The paper books stay on 🧭 PAPER · v2 SYSTEM.
 
 To switch the trail live: register the PC's (or a relay's) static IP with Dhan, then remove
 `--dry-run` from `run_gtt_trail.bat`.
+
+## 9. The static-IP relay for Dhan order calls (JioFiber has no static IP)
+
+Dhan accepts order placement and changes only from the IP registered on the account (DH-905
+otherwise); data, holdings and the journal sync are unaffected. Jio gives no static IP at home, so
+a small **AWS Lightsail server in Mumbai** with a static IP relays ONLY the order calls. It is
+reachable only over Tailscale — the proxy is never open to the internet — and the Dhan token is
+never stored on it.
+
+**Jay's part (account and payment are yours):**
+1. Create an AWS account; open **Lightsail** → *Create instance* → Region **Mumbai (ap-south-1)**,
+   Linux, **Ubuntu 24.04**, the cheapest plan **with a public IPv4** (the $3.50 plans are IPv6-only).
+2. *Networking* → **Create static IP** → attach it to the instance. In the instance's firewall,
+   keep only SSH (22).
+3. Open the instance's browser SSH and paste:
+   ```
+   curl -fsSL https://tailscale.com/install.sh | sh
+   sudo tailscale up --hostname=dhanrelay
+   sudo apt-get update && sudo apt-get install -y tinyproxy
+   sudo sed -i 's/^#\?Port .*/Port 8888/; s/^Allow .*/Allow 100.64.0.0\/10/' /etc/tinyproxy/tinyproxy.conf
+   sudo systemctl restart tinyproxy
+   ```
+   (sign the `tailscale up` link in with the same account as the PC).
+4. On the PC, add to `.env`: `DHAN_ORDER_PROXY=http://dhanrelay:8888`, then run
+   `python dhan_relay.py --check` — it prints the relay's public IP. It must equal the Lightsail
+   static IP.
+5. Register that IP at web.dhan.co → Profile → Trading & Data APIs → static IP. **It locks for 7
+   days**, so do step 4 first.
+6. `python dhan_relay.py --test-modify` re-submits one resting stop at its SAME values through the
+   relay (it asks first). "RELAY WORKS" → remove `--dry-run` from `run_gtt_trail.bat`.
+
+**The code side (built):** `dhan_relay.py` wraps the dhanhq order methods once per process
+(installed by `dhan_auth`, and by `n8n_order_handler`); with `DHAN_ORDER_PROXY` unset nothing
+changes. Every surface that places or changes an order — the trail, Risk Shield's tighten
+buttons, the webhook, the MCP server — goes through the relay the moment the variable is set.

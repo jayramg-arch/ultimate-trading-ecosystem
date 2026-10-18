@@ -361,7 +361,11 @@ def _live_oco_sl_legs(dhan):
             # so never assume legs come in pairs.
             out.setdefault(sym, []).append({"order_id": str(g.get("orderId", "")),
                                             "sl_trigger": trigger,
-                                            "sl_qty": int(float(g.get("quantity", 0) or 0))})
+                                            "sl_qty": int(float(g.get("quantity", 0) or 0)),
+                                            # the order's OWN type and leg, for the modify call (18-Oct-2026):
+                                            # a SINGLE stop (v2 buys, the cover pass) must not be modified as OCO
+                                            "flag": "SINGLE" if ot == "SINGLE" else "OCO",
+                                            "leg_name": leg or ("TARGET_LEG" if ot == "SINGLE" else "STOP_LOSS_LEG")})
     return out
 
 

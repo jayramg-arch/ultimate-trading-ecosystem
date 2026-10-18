@@ -9,6 +9,13 @@ import requests
 from dotenv import load_dotenv, set_key
 from net_utils import is_internet_available
 
+# Order calls through the static-IP relay when DHAN_ORDER_PROXY is set (Doc 42 §9); a no-op otherwise.
+try:
+    import dhan_relay as _dhan_relay
+    _dhan_relay.install()
+except Exception:
+    pass
+
 _ENV_PATH = os.path.join(os.path.dirname(__file__), ".env")
 
 def _get_env():
