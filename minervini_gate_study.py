@@ -3,6 +3,8 @@
 
     python minervini_gate_study.py --placebo   8/8 labels shuffled (must FAIL)
     python minervini_gate_study.py --run       THE run - once
+    python minervini_gate_study.py --forward --after 2026-10-18
+                                               PREREG_minervini_forward_v1: >=7/8 vs <=6/8 on later signals
 
 Unit and outcome are p_less_study's (same rows, de-dup, entry, stop and horizon); the 8 checks are
 commander_core.minervini_checks, rebuilt as of each signal date.
@@ -25,9 +27,11 @@ import p_less_study as pl   # noqa: E402  (the shared unit and scoring)
 N_MIN, BOOT = 60, 2000
 
 
-def _rows() -> pd.DataFrame:
+def _rows(after: str | None = None) -> pd.DataFrame:
     d = pd.read_csv(pl.LOG, low_memory=False)
     d = d[d["signal_date"] >= pl.START].copy()
+    if after:
+        d = d[d["signal_date"] > after]
     s = d["s4go"].astype(str)
     d = d[~s.str.startswith("⏱") & s.str.match(r"5/5") & d["tf"].isin(list(pl.RULE))].copy()
     keep = []
@@ -99,12 +103,15 @@ def _boot(x, y, rng):
     return float(np.percentile(d, 2.5)), float(np.percentile(d, 97.5))
 
 
-def analyse(placebo: bool) -> int:
-    rows = _rows()
+def analyse(placebo: bool, after: str | None = None, cut: int = 8) -> int:
+    rows = _rows(after)
     sc = template_scores(rows)
     rows = rows.loc[sc.index].copy()
     rows["tscore"] = sc.astype(int)
-    rows["grp"] = np.where(rows["tscore"] >= 8, "T8", "T<=7")
+    # cut 8 = the in-sample test (8/8 vs <=7/8); cut 7 = the forward test (>=7/8 vs <=6/8). The
+    # group labels stay "T8" / "T<=7" so one code path serves both; the printout names the cut.
+    rows["grp"] = np.where(rows["tscore"] >= cut, "T8", "T<=7")
+    print("split: template >= %d/8 (T8) vs <= %d/8 (T<=7)%s" % (cut, cut - 1, (" · signals after " + after) if after else ""))
     out = {}
     for path in ("bull", "recovery"):
         sub = rows[rows["path"] == path].copy()
@@ -151,7 +158,11 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--placebo", action="store_true")
     ap.add_argument("--run", action="store_true")
+    ap.add_argument("--forward", action="store_true", help="PREREG_minervini_forward_v1: >=7/8 vs <=6/8")
+    ap.add_argument("--after", default=None)
     a = ap.parse_args()
+    if a.forward:
+        return analyse(False, a.after or "2026-10-18", cut=7)
     if a.placebo or a.run:
         return analyse(a.placebo)
     ap.print_help()
