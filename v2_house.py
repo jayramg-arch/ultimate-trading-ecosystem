@@ -1,0 +1,469 @@
+#!/usr/bin/env python3
+"""v2 house rules - V2H and P1ES (pre-registered: docs/PREREG_v2_house_rules.md, 18-Oct-2026).
+
+Jay's answers to Doc 41's open questions, as rules layered on P1E (Clenow, ensemble rank):
+F&O priority, Wednesday rebalance, house exposure tiers, a 4xATR disaster stop, tax-aware
+runners + risk trims, and an ETF sleeve ranked within ETFs. ONE decision function (decide)
+serves the backtest here and the live paper books in p1_paper.py, so they cannot drift.
+
+    python v2_house.py --check      engine with every flag off vs pro_systems_backtest (P1E)
+    python v2_house.py --plumbing   2018-06..2018-12, trade COUNTS only
+    python v2_house.py --run        THE run - once
+"""
+from __future__ import annotations
+
+import argparse
+import datetime as dt
+import math
+import os
+import sys
+import warnings
+
+import numpy as np
+import pandas as pd
+
+warnings.filterwarnings("ignore")
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import v2_backtest as v2            # noqa: E402
+import pro_systems_backtest as ps   # noqa: E402
+
+OUT = os.path.join(HERE, "reports", "v2_house")
+
+H = dict(top_pct=0.25, tax_band=0.50, risk=0.001, stop_atr=4.0, tax_from=300, tax_to=365,
+         trim_mult=1.5, trim_every=4, etf_cut=0.25, etf_min=2, etf_max=5, etf_pos_cap=0.10,
+         etf_sleeve=0.30, etf_liq=2e7, fno_n=210)
+FLAGS = ("stop", "wed", "tiers", "fno", "taxtrim", "etf")
+NONE = {k: False for k in FLAGS}
+FULL = {k: True for k in FLAGS}
+BOOK_FLAGS = {"P1E": NONE, "P1ES": dict(NONE, stop=True), "V2H": FULL}
+INDIAN = {"BROAD_EQUITY", "SECTOR", "SMART_BETA", "THEMATIC"}
+ETF_SWAP = {"GOLDIETF": "GOLDBEES"}       # curated pick whose price series is corrupt -> clean twin
+ST_RATE, LT_RATE = 0.20, 0.125
+
+
+# ── schedule ────────────────────────────────────────────────────────────────
+def is_wed_decision(d, n) -> bool:
+    """True when session d's close decides the week's orders under the Wednesday rule: the next
+    session n is the week's first session on/after Wednesday."""
+    return n.weekday() >= 2 and (d.weekday() < 2 or tuple(d.isocalendar()[:2]) != tuple(n.isocalendar()[:2]))
+
+
+def decision_days(idx, wed: bool) -> set:
+    if not wed:
+        return v2._week_ends(idx)
+    return {idx[i] for i in range(len(idx) - 1) if is_wed_decision(idx[i], idx[i + 1])}
+
+
+# ── exposure tiers (score -> new buys allowed, risk multiplier, Indian-equity cap) ──────────
+def tier(score):
+    import house_policy as hp
+    eff = int(score) if score is not None and score == score else 0
+    t = next(t for t in hp.EXPOSURE_TIERS if eff >= t[0])
+    return {"name": t[1], "new_ok": t[2], "risk_mult": t[3], "cap": (t[6] / 100.0) if t[6] else None}
+
+
+def regime_inputs(p: dict, stock_mask: pd.DataFrame, bench_ohlcv: pd.DataFrame) -> dict:
+    """Pieces of market_regime's composite score, on the point-in-time stock members."""
+    C = p["Close"][stock_mask.columns]
+    m = stock_mask.reindex(index=C.index, fill_value=False).astype(bool)
+    s200, s50 = C.rolling(200).mean(), C.rolling(50).mean()
+    n200 = (s200.notna() & m).sum(axis=1).replace(0, np.nan)
+    n50 = (s50.notna() & m).sum(axis=1).replace(0, np.nan)
+    ch = C.diff()
+    vm = m & C.notna() & C.shift().notna()
+    b = bench_ohlcv.copy()
+    b.index = pd.to_datetime(b.index)
+    if getattr(b.index, "tz", None) is not None:
+        b.index = b.index.tz_localize(None)
+    b.index = b.index.normalize()
+    b = b[~b.index.duplicated(keep="last")][["Open", "High", "Low", "Close", "Volume"]].dropna(how="all")
+    return {"b200": ((C > s200) & m).sum(axis=1) / n200 * 100, "b50": ((C > s50) & m).sum(axis=1) / n50 * 100,
+            "ad": pd.DataFrame({"advance_count": ((ch > 0) & vm).sum(axis=1),
+                                "decline_count": ((ch < 0) & vm).sum(axis=1)}), "bench": b}
+
+
+def regime_score(d, ri: dict) -> tuple:
+    """market_regime.compute_regime's score, rebuilt as of the close of d."""
+    import market_regime as mr
+    b = ri["bench"].loc[:d]
+    if len(b) < 210:
+        return None, {}
+    c = b["Close"]
+    s50, s200 = c.rolling(50).mean().iloc[-1], c.rolling(200).mean().iloc[-1]
+    comps = {"above_sma200_rising": bool(ri["b200"].get(d, 0) >= 50),
+             "breadth_above_50": bool(ri["b50"].get(d, 0) >= 50)}
+    dd = mr.compute_distribution_days(b)
+    comps["dd_low"] = bool((not dd.get("stress", False)) and dd.get("count", 0) <= 3)
+    comps["no_death_cross"] = bool(not (s50 < s200))
+    comps["follow_through"] = bool(mr.detect_follow_through(b).get("active"))
+    comps["breadth_thrust"] = bool(mr.detect_breadth_thrust(ri["ad"].loc[:d].tail(120)).get("active"))
+    w = {"above_sma200_rising": 3, "breadth_above_50": 2, "dd_low": 2, "no_death_cross": 1,
+         "follow_through": 1, "breadth_thrust": 1}
+    return min(10, sum(w[k] for k, v in comps.items() if v)), comps
+
+
+# ── the ETF pool ──────────────────────────────────────────────────────────────
+def etf_pool() -> dict:
+    """{symbol: meta} - curated tradeable ETFs, no DEBT, with corrupt series swapped for a clean twin."""
+    import etf_universe as eu
+    out = {}
+    for s, m in eu.ETF_UNIVERSE.items():
+        if m.get("asset_class") in eu.NON_TRADEABLE_CLASSES:
+            continue
+        out[ETF_SWAP.get(s, s)] = m
+    return out
+
+
+def is_etf_symbol(s: str) -> bool:
+    try:
+        import etf_universe as eu
+        if eu.is_etf(s):
+            return True
+    except Exception:
+        pass
+    u = str(s).upper()
+    return any(t in u for t in ("BEES", "IETF", "ETF", "CASE")) or u in ("LIQUID1", "NV20")
+
+
+# ── the decision ──────────────────────────────────────────────────────────────
+def _ens(g, d, el):
+    sc = pd.DataFrame({lb: g["clenow%d" % lb].loc[d][el] for lb in (60, 90, 120)}).dropna()
+    return sc.rank(pct=True).mean(axis=1).sort_values(ascending=False)
+
+
+def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_dec: int) -> dict:
+    """The weekly orders. pos = {sym: {sh, entry, entry_date, last, kind}}. Returns sells, trims
+    [(sym, shares)], buys [(sym, amount, kind)], and what was read (ranks, tier, score)."""
+    C, g, f = ctx["C"], ctx["g"], ctx["f"]
+    cl = C.loc[d]
+    stocks, etfs = ctx["stocks"], ctx["etfs"]
+    el = (cl > g["sma100"].loc[d]) & ~g["gap90"].loc[d] & g["liq"].loc[d] & f["has"].loc[d]
+    el = el.reindex(stocks).fillna(False).astype(bool)
+    sc = _ens(g, d, list(el[el].index)) if el.any() else pd.Series(dtype=float)
+    n = len(sc)
+    cut = max(1, math.ceil(H["top_pct"] * n)) if n else 0
+    top, band = set(sc.index[:cut]), set(sc.index[:max(1, math.ceil(H["tax_band"] * n))] if n else [])
+
+    def _tax_hold(s, q):
+        held = (pd.Timestamp(d) - pd.Timestamp(q["entry_date"])).days
+        return flags["taxtrim"] and q["last"] > q["entry"] and H["tax_from"] <= held < H["tax_to"]
+
+    sells = []
+    for s, q in pos.items():
+        if q.get("kind", "stock") != "stock":
+            continue
+        if s in top or (s in band and _tax_hold(s, q)):
+            continue
+        sells.append(s)
+    # ETFs - ranked within the ETF pool only
+    esc, ecut, etop = pd.Series(dtype=float), 0, set()
+    if flags["etf"] and etfs:
+        ee = (cl[etfs] > g["sma100"].loc[d][etfs]) & ~g["gap90"].loc[d][etfs] & ctx["etf_has"].loc[d][etfs] \
+            & (ctx["etf_turn"].loc[d][etfs] >= H["etf_liq"])
+        cand = list(ee[ee].index)
+        best = {}
+        for s in cand:                                   # one per underlying: the most traded
+            u = ctx["etf_meta"][s].get("underlying") or s
+            if u not in best or ctx["etf_turn"].at[d, s] > ctx["etf_turn"].at[d, best[u]]:
+                best[u] = s
+        cand = list(best.values())
+        if cand:
+            esc = _ens(g, d, cand)
+            ecut = min(len(esc), H["etf_max"], max(H["etf_min"], math.ceil(H["etf_cut"] * len(esc))))
+            etop = set(esc.index[:ecut])
+        eband = set(esc.index[:max(1, math.ceil(H["tax_band"] * len(esc)))]) if len(esc) else set()
+        for s, q in pos.items():
+            if q.get("kind") == "etf" and not (s in etop or (s in eband and _tax_hold(s, q))):
+                sells.append(s)
+    elif not flags["etf"]:
+        sells += [s for s, q in pos.items() if q.get("kind") == "etf"]
+    # trims - Clenow's one-way risk rebalance, every 4th decision
+    trims = []
+    if flags["taxtrim"] and n_dec % H["trim_every"] == 0:
+        tgt_risk = equity * H["risk"]
+        for s, q in pos.items():
+            if s in sells:
+                continue
+            a = g["atr20"].at[d, s] if s in g["atr20"].columns else float("nan")
+            if a == a and a > 0 and q["sh"] * a > H["trim_mult"] * tgt_risk:
+                trims.append((s, q["sh"] - tgt_risk / a))
+    # regime and tier
+    up200 = bool(g["b_up200"].get(d, False))
+    score, comps = ctx["score"](d) if flags["tiers"] else (None, {})
+    tr = tier(score) if flags["tiers"] else {"name": "-", "new_ok": True, "risk_mult": 1.0, "cap": None}
+    ind_ok = up200 and tr["new_ok"]
+    risk = H["risk"] * tr["risk_mult"]
+    free = cash + sum(pos[s]["sh"] * pos[s]["last"] for s in sells) * (1 - v2.COST) \
+        + sum(sh * pos[s]["last"] for s, sh in trims) * (1 - v2.COST)
+    left = {s: q["sh"] * q["last"] for s, q in pos.items() if s not in sells}
+    for s, sh in trims:
+        left[s] -= sh * pos[s]["last"]
+
+    def _ind(s):
+        return pos[s].get("kind", "stock") == "stock" or ctx["etf_meta"].get(s, {}).get("asset_class") in INDIAN
+    room = (tr["cap"] * equity - sum(v for s, v in left.items() if _ind(s))) if tr["cap"] else float("inf")
+    buys = []
+    if ind_ok and n:
+        order = list(sc.index)
+        if flags["fno"]:
+            fset = ctx["fno"](d)
+            inc = list(sc.index[:cut])
+            order = [s for s in inc if s in fset] + [s for s in inc if s not in fset] + list(sc.index[cut:])
+        for s in order:
+            if s in pos:
+                continue
+            a = ps._sizes(equity, cl[s], g["atr20"].at[d, s], risk)
+            if a <= 0 or a > free or a > room:
+                break
+            buys.append((s, a, "stock"))
+            free -= a * (1 + v2.COST)
+            room -= a
+    if flags["etf"] and len(esc):
+        sleeve = H["etf_sleeve"] * equity - sum(v for s, v in left.items() if pos[s].get("kind") == "etf")
+        for s in esc.index[:ecut]:
+            if s in pos:
+                continue
+            cls = ctx["etf_meta"][s].get("asset_class")
+            if cls in INDIAN:
+                if not ind_ok:
+                    continue
+            elif not (cl[s] > g["sma200"].at[d, s]):
+                continue
+            a = min(ps._sizes(equity, cl[s], g["atr20"].at[d, s], risk), H["etf_pos_cap"] * equity)
+            if cls in INDIAN:
+                a = min(a, room)
+            a = min(a, sleeve)
+            if a <= 0 or a > free:
+                continue
+            buys.append((s, a, "etf"))
+            free -= a * (1 + v2.COST)
+            sleeve -= a
+            if cls in INDIAN:
+                room -= a
+    return {"sells": sells, "trims": trims, "buys": buys, "ranked": sc, "cut": cut, "etf_ranked": esc,
+            "etf_cut": ecut, "tier": tr, "score": score, "comps": comps, "up200": up200}
+
+
+# ── tax (descriptive) ─────────────────────────────────────────────────────────
+def fy_tax(real: list) -> pd.Series:
+    """real = [(date, gain, long_term)]. Tax per FY (Apr-Mar): ST losses offset ST then LT, LT
+    losses offset LT only, net losses carried forward. Returns {FY end date: tax}."""
+    if not real:
+        return pd.Series(dtype=float)
+    R = pd.DataFrame(real, columns=["date", "gain", "lt"])
+    R["fy"] = [d.year + (1 if d.month >= 4 else 0) for d in pd.to_datetime(R["date"])]
+    cst = clt = 0.0                      # carried-forward ST / LT losses (positive amounts)
+    out = {}
+    for fy, gr in R.groupby("fy"):
+        st, lt = float(gr.loc[~gr["lt"], "gain"].sum()), float(gr.loc[gr["lt"], "gain"].sum())
+        if st < 0 < lt:                  # this year's ST loss sets off this year's LT gain
+            u = min(-st, lt)
+            st, lt = st + u, lt - u
+        for amt_name in ("st", "lt"):    # ST carry offsets ST then LT
+            v = st if amt_name == "st" else lt
+            if v > 0 and cst > 0:
+                u = min(cst, v)
+                cst -= u
+                v -= u
+            if amt_name == "st":
+                st = v
+            else:
+                lt = v
+        if lt > 0 and clt > 0:           # LT carry offsets LT only
+            u = min(clt, lt)
+            clt, lt = clt - u, lt - u
+        if st < 0:
+            cst, st = cst - st, 0.0
+        if lt < 0:
+            clt, lt = clt - lt, 0.0
+        out[pd.Timestamp(fy, 3, 31)] = ST_RATE * st + LT_RATE * lt
+    return pd.Series(out)
+
+
+# ── the backtest loop ─────────────────────────────────────────────────────────
+def run_book(flags: dict, p: dict, ctx: dict, start, end) -> tuple:
+    O, L, C = p["Open"], p["Low"], p["Close"]
+    days = C.index[(C.index >= start) & (C.index <= end)]
+    dec = decision_days(days, flags["wed"])
+    bk = v2.Book(1.0)
+    pend, eq, real, n_dec, hold_days = None, [], [], 0, []
+
+    def _sell(s, px, d, sh=None):
+        q = bk.pos[s]
+        sh = q["sh"] if sh is None else min(sh, q["sh"])
+        gain = sh * (px * (1 - v2.COST) - q["entry"] * (1 + v2.COST))
+        held = (d - q["entry_date"]).days
+        real.append((d, gain, held > 365))
+        if sh >= q["sh"] - 1e-12:
+            hold_days.append(held)
+            bk.sell(s, px)
+        else:
+            bk.cash += sh * px * (1 - v2.COST)
+            bk.traded += sh * px
+            bk.trades += 1
+            q["sh"] -= sh
+
+    for d in days:
+        if pend:
+            for s in pend["sells"]:
+                if s in bk.pos:
+                    px = O.at[d, s]
+                    _sell(s, px if px == px else bk.pos[s]["last"], d)
+            for s, sh in pend["trims"]:
+                if s in bk.pos:
+                    px = O.at[d, s]
+                    _sell(s, px if px == px else bk.pos[s]["last"], d, sh)
+            for s, amt, kind in pend["buys"]:
+                px = O.at[d, s]
+                if px == px and s not in bk.pos and amt > 0:
+                    stop = None
+                    if flags["stop"]:
+                        a14 = ctx["f"]["atr"].at[pend["d"], s]
+                        stop = px - H["stop_atr"] * a14 if a14 == a14 else None
+                    bk.buy(s, px, amt, stop)
+                    if s in bk.pos:
+                        bk.pos[s]["entry_date"], bk.pos[s]["kind"] = d, kind
+            pend = None
+        for s in list(bk.pos):
+            q, lo, op = bk.pos[s], L.at[d, s], O.at[d, s]
+            if q["stop"] and lo == lo and lo <= q["stop"]:
+                _sell(s, min(op, q["stop"]) if op == op else q["stop"], d)
+        for s, q in bk.pos.items():
+            c = C.at[d, s]
+            if c == c:
+                q["last"] = c
+        eq.append(bk.value(C, d))
+        if d in dec:
+            n_dec += 1
+            r = decide(d, ctx, flags, eq[-1], bk.cash, bk.pos, n_dec)
+            pend = {"d": d, "sells": r["sells"], "trims": r["trims"], "buys": r["buys"]}
+    e = pd.Series(eq, index=days)
+    tax = fy_tax(real)
+    paid = pd.Series(0.0, index=days)
+    for fy_end, t in tax.items():
+        paid.loc[paid.index > fy_end] += t
+    stats = {"trades": bk.trades, "years": (days[-1] - days[0]).days / 365.25,
+             "median_hold": float(np.median(hold_days)) if hold_days else float("nan"),
+             "lt_share": (sum(g_ for _, g_, lt in real if lt and g_ > 0) /
+                          max(1e-12, sum(g_ for _, g_, _lt in real if g_ > 0)))}
+    return e, e - paid, stats
+
+
+# ── panel + context ───────────────────────────────────────────────────────────
+def load_backtest() -> tuple:
+    import pickle
+    import survivorship_backtest as sb
+    import data_provider as dp
+    p = pickle.load(open(sb.PANEL, "rb"))
+    C = p["Close"].astype(float)
+    bad = set((C.pct_change().abs() > 0.5).sum().loc[lambda x: x >= 3].index)
+    mem = sb.membership(p)
+    pool = etf_pool()
+    etfs = [s for s in pool if s in C.columns and s not in bad]
+    stocks = [s for s in mem.columns[mem.any()] if s not in bad and not is_etf_symbol(s)]
+    cols = sorted(set(stocks) | set(etfs))
+    for k in ("Open", "High", "Low", "Close", "Volume"):
+        p[k] = p[k][cols].astype(float)
+    mem = mem.reindex(columns=cols, fill_value=False)
+    mem[etfs] = False
+    f = v2.features(p)
+    f["has"] = f["has"] & mem
+    f["elig"] = f["elig"] & mem
+    g = ps.pro_features(p, f)
+    Cc, Vv = p["Close"], p["Volume"]
+    turn = (Cc * Vv).rolling(126, min_periods=100).median()
+    idx = Cc.index
+    me = pd.Series(idx, index=idx).groupby(idx.to_period("M")).max()
+    rebal = [x for k, x in me.items() if k.month in (6, 12)]
+    has_raw = Cc.notna().cumsum() >= v2.MIN_BARS
+    fno_sets = []                       # F&O proxy: the fno_n most-traded names at each Jun/Dec rebalance
+    for x in rebal:
+        t = turn.loc[x, stocks].where(has_raw.loc[x, stocks]).dropna()
+        fno_sets.append((x, set(t.sort_values(ascending=False).index[:H["fno_n"]])))
+
+    def fno(d):
+        s = set()
+        for x, st in fno_sets:
+            if x < d:
+                s = st
+        return s
+    bench = dp.fetch_ohlcv("^CRSLDX", period="10y", interval="1d", use_cache=True)
+    ri = regime_inputs(p, mem[stocks], bench)
+    cache = {}
+
+    def score(d):
+        if d not in cache:
+            cache[d] = regime_score(d, ri)
+        return cache[d]
+    ctx = {"C": p["Close"], "g": g, "f": f, "stocks": stocks, "etfs": etfs, "etf_meta": pool,
+           "etf_has": Cc.notna().cumsum() >= v2.MIN_BARS, "etf_turn": (Cc * Vv).rolling(50).median(),
+           "fno": fno, "score": score}
+    return p, f, g, ctx
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--check", action="store_true")
+    ap.add_argument("--plumbing", action="store_true")
+    ap.add_argument("--run", action="store_true")
+    a = ap.parse_args()
+    if not (a.check or a.plumbing or a.run):
+        ap.print_help()
+        return 0
+    p, f, g, ctx = load_backtest()
+    S, SP, E = v2.START, v2.SPLIT, v2.END
+    if a.check:
+        e1, _ = ps.run_sys("P1", p, f, g, S, pd.Timestamp("2020-12-31"), params={"ensemble": True, "top_pct": 0.25})
+        e2, _, st = run_book(NONE, p, ctx, S, pd.Timestamp("2020-12-31"))
+        diff = float((e1 / e1.iloc[0] - e2 / e2.iloc[0]).abs().max())
+        print("max |equity difference| P1E run_sys vs v2_house all-off: %.10f  (trades %d)" % (diff, st["trades"]))
+        return 0 if diff < 1e-9 else 1
+    if a.plumbing:
+        for name, fl in BOOK_FLAGS.items():
+            _, _, st = run_book(fl, p, ctx, S, pd.Timestamp("2018-12-31"))
+            print(name, "trades", st["trades"])
+        return 0
+    books = dict(BOOK_FLAGS)
+    for k in ("wed", "tiers", "fno", "taxtrim", "etf"):
+        books["P1E+" + k] = dict(NONE, **{k: True})
+    res, aft, extra = {}, {}, {}
+    for name, fl in books.items():
+        e, ea, st = run_book(fl, p, ctx, S, E)
+        res[name], aft[name], extra[name] = e, ea, st
+        print("done", name, st, flush=True)
+    e3, _ = v2.run_variant("B3", p, f, S, E)
+    res["B3 Momentum-30 replica"] = e3
+    b1 = p["bench"].loc[S:E].dropna()
+    res["B1 Nifty 500"] = b1 / b1.iloc[0]
+    rows = []
+    for name, e in res.items():
+        for half, (s0, s1) in {"full": (S, E), "H1": (S, SP - pd.Timedelta(days=1)), "H2": (SP, E)}.items():
+            m = v2.metrics(e.loc[s0:s1])
+            m.update(book=name, half=half)
+            if half == "full" and name in aft:
+                ma = v2.metrics(aft[name])
+                m["CAGR after tax%"] = ma.get("CAGR%")
+                m["trades/yr"] = round(extra[name]["trades"] / extra[name]["years"], 1)
+                m["median hold d"] = extra[name]["median_hold"]
+                m["LT share of gains%"] = round(extra[name]["lt_share"] * 100, 1)
+            rows.append(m)
+    T = pd.DataFrame(rows)
+    cols = ["book", "half", "CAGR%", "maxDD%", "MAR", "Sharpe", "CAGR after tax%", "trades/yr", "median hold d",
+            "LT share of gains%"]
+    T = T[[c for c in cols if c in T.columns]]
+    os.makedirs(OUT, exist_ok=True)
+    T.to_csv(os.path.join(OUT, "metrics.csv"), index=False)
+    pd.DataFrame({k: v / v.iloc[0] for k, v in res.items()}).to_csv(os.path.join(OUT, "equity.csv"))
+    print(T.to_string(index=False))
+    G = {h: T[T.half == h].set_index("book") for h in ("H1", "H2")}
+    h1 = all(G[h].at["P1ES", "MAR"] >= G[h].at["P1E", "MAR"] - 0.10 for h in G)
+    h2 = all(G[h].at["V2H", "MAR"] > G[h].at["B1 Nifty 500", "MAR"] and
+             G[h].at["V2H", "MAR"] > G[h].at["B3 Momentum-30 replica", "MAR"] and
+             G[h].at["V2H", "MAR"] >= G[h].at["P1E", "MAR"] - 0.15 for h in G)
+    print("\nH1 (stop affordable) %s · H2 (V2H the candidate) %s" % ("PASS" if h1 else "FAIL", "PASS" if h2 else "FAIL"))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
