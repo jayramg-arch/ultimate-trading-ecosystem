@@ -178,7 +178,11 @@ never stored on it.
    sudo apt-get update && sudo apt-get install -y tinyproxy
    sudo sed -i 's/^#\?Port .*/Port 8888/; s/^Allow .*/Allow 100.64.0.0\/10/' /etc/tinyproxy/tinyproxy.conf
    sudo systemctl restart tinyproxy
+   echo 'precedence ::ffff:0:0/96  100' | sudo tee -a /etc/gai.conf && sudo systemctl restart tinyproxy
    ```
+   The last line makes the relay prefer IPv4: Dhan's API is on CloudFront, which also answers over
+   IPv6, and a Lightsail server is dual-stack - without it Dhan sees the server's IPv6 address and
+   replies DH-905 although the IPv4 is registered (found 18-Oct).
    (sign the `tailscale up` link in with the same account as the PC).
 4. On the PC, add to `.env`: `DHAN_ORDER_PROXY=http://dhanrelay:8888`, then run
    `python dhan_relay.py --check` — it prints the relay's public IP. It must equal the Lightsail

@@ -89,11 +89,22 @@ def main() -> int:
             print("DHAN_ORDER_PROXY is not set - order calls go out on the home IP (DH-905 until a relay is set up)")
             return 1
         try:
-            print("relay public IP (order calls):   %s   <- register THIS IP with Dhan" % _public_ip(px))
-            return 0
+            v4 = _public_ip(px)
+            print("relay public IPv4 (order calls): %s   <- the IP registered with Dhan" % v4)
         except Exception as e:
             print("relay unreachable via %s: %s" % (px, e))
             return 2
+        # 18-Oct-2026: Dhan's API is on CloudFront, which answers over IPv6 - a dual-stack relay then
+        # leaves on its IPv6 address and Dhan replies DH-905 although the IPv4 above is registered.
+        # api64 answers over whichever family the relay PREFERS, i.e. what Dhan would actually see.
+        try:
+            import requests
+            seen = requests.get("https://api64.ipify.org", proxies={"https": px, "http": px}, timeout=10).text.strip()
+        except Exception:
+            seen = v4
+        print("address Dhan would see:          %s%s" % (seen, "" if seen == v4 else
+              "   <- IPv6! the relay must prefer IPv4 (Doc 42 §9: /etc/gai.conf precedence, or Lightsail IPv6 off)"))
+        return 0 if seen == v4 else 3
     # --test-modify: one harmless modify at the same values
     if not px:
         print("set DHAN_ORDER_PROXY first", file=sys.stderr)
