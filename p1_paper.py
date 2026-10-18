@@ -41,7 +41,14 @@ BOOKS = {"P1": {"floor": False}, "P1F": {"floor": True},
          # 17-Oct-2026 (Jay, Doc 41): the v2 system routed through the reviewer - P1E's rules, but a
          # buy is skipped when the reviewer's latest ruling on the name since the decision is
          # WAIT or PASS. P1E vs P1ER measures what the reviewer adds to the v2 system.
-         "P1ER": {"floor": False, "ensemble": True, "top_pct": 0.25, "reviewed": True}}
+         "P1ER": {"floor": False, "ensemble": True, "top_pct": 0.25, "reviewed": True},
+         # 18-Oct-2026 (PREREG_v2_house_rules, engine v2_house.py): P1ES = P1E + a resting 4xATR14
+         # disaster stop (Q5); V2H = P1E + every house rule from Jay's Doc 41 answers (F&O priority,
+         # Wednesday rebalance, exposure tiers, the stop, tax-aware runners + risk trims, ETF sleeve),
+         # obeying the reviewer as a one-week deferral. Backtest 18-Oct: both FAILED their hypotheses;
+         # P1E stays the candidate, these run forward as registered.
+         "P1ES": {"house": "P1ES"},
+         "V2H": {"house": "V2H", "reviewed": True}}
 START_DATE = dt.date(2026, 10, 16)          # first signal close (a Friday)
 
 
@@ -70,7 +77,7 @@ def save_state(st: dict) -> None:
     _io_write(os.path.join(STATE_DIR, "%s.json" % st["name"]), json.dumps(st, indent=1, default=str))
 
 
-def live_panel() -> dict:
+def live_panel(extra: list | None = None) -> dict:
     """2 years of daily bars for the Nifty 500 list + the Nifty 500 index, same shape as
     v2_backtest's panel (P1 needs 260 bars of history per name)."""
     import data_provider as dp
@@ -79,6 +86,7 @@ def live_panel() -> dict:
         syms = json.load(f)
     syms = [str(s if isinstance(s, str) else (s.get("symbol") or s.get("Symbol"))).replace(".NS", "")
             for s in syms if s]
+    syms += [s for s in (extra or []) if s not in syms]
     bench = dp.fetch_ohlcv("^CRSLDX", period="2y", interval="1d", use_cache=True)
     cal = pd.to_datetime(bench.index)
     if getattr(cal, "tz", None) is not None:
@@ -211,12 +219,12 @@ def summary_text(test: bool = False) -> str:
         return ("-" if v < 0 else "") + "Rs " + s_
     lines, regime, decided, watch, n500 = [], None, None, [], None
     # v2 system first (P1E, then P1ER through the reviewer), research controls after (17-Oct-2026)
-    for name in [b for b in ("P1E", "P1ER", "P1", "P1F") if b in BOOKS]:
+    for name in [b for b in ("P1E", "P1ER", "P1ES", "V2H", "P1", "P1F") if b in BOOKS]:
         st = load_state(name)
         h = st["history"][-1] if st["history"] else {}
         eq = h.get("equity", st["cash"])
         pend = st.get("pending") or {}
-        if pend:
+        if pend and name in ("P1E", "P1ER", "P1", "P1F"):
             regime, decided = pend.get("regime_up"), pend.get("decided")
             if not watch:
                 watch = [w[0] for w in pend.get("watch", [])[:8]]
@@ -224,6 +232,9 @@ def summary_text(test: bool = False) -> str:
         ns = len(pend.get("sells", [])) if pend else 0
         lines.append("%s  %s (%+.2f%%)  %d held · next: buy %d / sell %d" % (
             name, inr(eq), (eq / st["start_capital"] - 1) * 100, len(st["pos"]), nb, ns))
+        if pend and name == "V2H" and pend.get("tier"):
+            lines.append("    decided %s, fills %s - regime score %s (%s)" % (
+                pend.get("decided"), pend.get("fill"), pend.get("score"), pend.get("tier")))
         if st["history"] and len(st["history"]) > 1 and n500 is None:
             a, b = st["history"][0].get("nifty500"), st["history"][-1].get("nifty500")
             if a and b:
@@ -289,18 +300,32 @@ def write_board(p, f, g) -> None:
 def run() -> int:
     import v2_backtest as v2
     import pro_systems_backtest as ps
-    p = live_panel()
+    import v2_house as vh
+    etfs = list(vh.etf_pool())
+    p = live_panel(etfs)
+    etfs = [s for s in etfs if s in p["Close"].columns]
+    stocks = [s for s in p["Close"].columns if s not in set(etfs)]
     f = v2.features(p)
+    f["has"].loc[:, etfs] = False            # ETFs never enter the STOCK rank (P1/P1E/house alike)
     g = ps.pro_features(p, f)
+    hctx = None
     last = p["Close"].index[-1].date()
     all_orders, regime = [], None
     new_decision = False
+    decided_books = []
     for name, opts in BOOKS.items():
         st = load_state(name)
         before = (st.get("pending") or {}).get("decided")
-        orders = step(st, p, f, g, opts)
+        if opts.get("house"):
+            if hctx is None:
+                hctx = vh.live_context(p, f, g, stocks, etfs)
+            orders = vh.step_live(st, p, hctx, vh.BOOK_FLAGS[opts["house"]], START_DATE,
+                                  reviewed=bool(opts.get("reviewed")))
+        else:
+            orders = step(st, p, f, g, opts)
         if (st.get("pending") or {}).get("decided") not in (None, before):
             new_decision = True
+            decided_books.append(name)
         save_state(st)
         all_orders += orders
         if st.get("pending"):
@@ -318,9 +343,17 @@ def run() -> int:
         for name in BOOKS:
             od = [o for o in all_orders if o["book"] == name]
             _lbl = {"P1": " (research control - the tournament winner)", "P1F": " (research control - fundamental floor)",
-                    "P1E": " (v2 primary - ensemble 60/90/120, top 25 %)", "P1ER": " (v2 + reviewer - P1E skipping WAIT/PASS)"}
+                    "P1E": " (v2 primary - ensemble 60/90/120, top 25 %)", "P1ER": " (v2 + reviewer - P1E skipping WAIT/PASS)",
+                    "P1ES": " (P1E + 4×ATR disaster stop)",
+                    "V2H": " (house rules - Wednesday rebalance, tiers, F&O first, stop, tax/trim, ETF sleeve)"}
             lines += ["", "## %s%s" % (name, _lbl.get(name, ""))]
             stn = load_state(name)
+            pn = stn.get("pending") or {}
+            if pn.get("tier"):
+                lines.append("Decided %s, fills at the open of %s · regime score %s (%s)." % (
+                    pn.get("decided"), pn.get("fill"), pn.get("score"), pn.get("tier")))
+            if pn.get("etf_watch"):
+                lines.append("ETF rank: " + ", ".join("%s %.2f" % (x[0], x[1]) for x in pn["etf_watch"]))
             w = (stn.get("pending") or {}).get("watch") or []
             if w:
                 lines.append("Top of the rank (%d eligible): " % (stn["pending"].get("eligible", 0))
@@ -338,11 +371,14 @@ def run() -> int:
         write_board(p, f, g)
     except Exception as e:
         print("v2 board not written: %s" % e)
-    if new_decision:                      # a Friday close was decided in THIS run - say so once
-        try:
+    if new_decision:                      # a decision was made in THIS run - say so once
+        try:                              # reviews: P1E's Friday buys (P1ER) and V2H's Tuesday buys
             import v2_core
-            pend = load_state(v2_core.PRIMARY).get("pending") or {}
-            print(v2_core.queue_reviews([b[0] for b in pend.get("buys", [])]))
+            syms = []
+            for b in ("P1E", "V2H"):
+                if b in decided_books:
+                    syms += [x[0] for x in (load_state(b).get("pending") or {}).get("buys", []) if x[0] not in syms]
+            print(v2_core.queue_reviews(syms))
         except Exception as e:
             print("v2 reviews not queued: %s" % e)
         send_summary()

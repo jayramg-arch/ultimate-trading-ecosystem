@@ -87,3 +87,11 @@ full. Each stage is reversible: a live drawdown deeper than the backtest's worst
 - **The v2 system is built now, in parallel**, with its own paper-trading instance and page
   (ANALYSIS › 🧭 PAPER · v2 SYSTEM), routed through the same reviewer (execution check, tag `v2`).
   Design and open questions: Doc 41. Fine-tuning follows the P1E results via forward tests.
+
+## Decisions taken (18 Oct 2026) — Jay's answers to Doc 41
+
+- v2 gets one-third of trading capital when it goes live (Doc 41 Q2); 0.10 % risk per ATR stays.
+- Every other answer was built into a house book (V2H) and a stop-only book (P1ES), pre-registered
+  and tested once (docs/PREREG_v2_house_rules.md): both failed. The stop costs ~2.5 pp a year; the
+  exposure tiers and F&O priority cost ~4.5 pp each. **P1E remains the candidate** for the gates in §3;
+  P1ES and V2H run forward on paper. Which house rules to keep is Jay's call (Doc 41 §9).

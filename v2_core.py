@@ -45,12 +45,12 @@ def context(symbol: str) -> str:
         "rules that passed a pre-registered, survivorship-corrected tournament. Do NOT re-litigate the "
         "selection, and do not require an S4 GO, a PA pattern or a demand zone - those are the other "
         "system's rules.\n"
-        "- Judge EXECUTION for the coming week only: is buying at Monday's open sensible? Name concrete "
+        "- Judge EXECUTION for the coming week only: is buying at the next open sensible (Monday for P1E, Wednesday for the V2H house book)? Name concrete "
         "reasons from the panel: price extended far above the 20-EMA / a vertical last week (wait for a "
         "calmer entry), an earnings date inside the next 5 sessions, a large overhead supply/wall within "
         "1 ATR, a gap or a corporate action that distorts the read, illiquidity.\n"
-        "- Ruling meaning for v2: TAKE = buy at Monday's open as the system plans; WAIT = skip this week, "
-        "the system may offer it again next Friday; PASS = skip until it re-qualifies. Default to TAKE "
+        "- Ruling meaning for v2: TAKE = buy at the next open as the system plans; WAIT = skip this week, "
+        "the system may offer it again at the next rebalance; PASS = skip until it re-qualifies. Default to TAKE "
         "when nothing concrete argues against the entry - the rules, not the panel, chose the name."
     ) % (sym, facts)
 

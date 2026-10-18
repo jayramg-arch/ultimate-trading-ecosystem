@@ -230,7 +230,10 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
                     continue
             elif not (cl[s] > g["sma200"].at[d, s]):
                 continue
-            a = min(ps._sizes(equity, cl[s], g["atr20"].at[d, s], risk), H["etf_pos_cap"] * equity)
+            # gold / silver / international follow their own trend, so the Indian-equity tier's risk
+            # multiplier does not apply to them (18-Oct fix: it zeroed them in the BEAR tier)
+            a = min(ps._sizes(equity, cl[s], g["atr20"].at[d, s], risk if cls in INDIAN else H["risk"]),
+                    H["etf_pos_cap"] * equity)
             if cls in INDIAN:
                 a = min(a, room)
             a = min(a, sleeve)
@@ -348,6 +351,146 @@ def run_book(flags: dict, p: dict, ctx: dict, start, end) -> tuple:
              "lt_share": (sum(g_ for _, g_, lt in real if lt and g_ > 0) /
                           max(1e-12, sum(g_ for _, g_, _lt in real if g_ > 0)))}
     return e, e - paid, stats
+
+
+# ── live paper books (p1_paper.py) ────────────────────────────────────────────
+def live_context(p: dict, f: dict, g: dict, stocks: list, etfs: list) -> dict:
+    """The decide() context on the live Nifty 500 panel (+ the ETF pool)."""
+    import data_provider as dp
+    Cc, Vv = p["Close"], p["Volume"]
+    pool = etf_pool()
+    fno_live = set()
+    try:
+        fh = pd.read_csv(os.path.join(HERE, "data", "fno_history.csv"), usecols=["date", "symbol"])
+        fno_live = set(fh.loc[fh["date"] == fh["date"].max(), "symbol"].astype(str).str.upper())
+    except Exception:
+        pass
+    bench = dp.fetch_ohlcv("^CRSLDX", period="2y", interval="1d", use_cache=True)
+    ri = regime_inputs(p, f["has"][stocks], bench)
+    cache = {}
+
+    def score(d):
+        if d not in cache:
+            cache[d] = regime_score(d, ri)
+        return cache[d]
+    return {"C": Cc, "g": g, "f": f, "stocks": stocks, "etfs": [s for s in etfs if s in pool],
+            "etf_meta": pool, "etf_has": Cc.notna().cumsum() >= v2.MIN_BARS,
+            "etf_turn": (Cc * Vv).rolling(50).median(), "fno": lambda d: fno_live, "score": score}
+
+
+def _next_session(d: dt.date) -> dt.date:
+    import nse_calendar as nc
+    n = d + dt.timedelta(days=1)
+    while not nc.is_trading_day(n):
+        n += dt.timedelta(days=1)
+    return n
+
+
+def step_live(st: dict, p: dict, ctx: dict, flags: dict, start: dt.date, reviewed: bool = False) -> list:
+    """Advance one house book (P1ES / V2H) through every completed session after st['last_date'],
+    with the same fills, stops and decisions as run_book. Returns the decided order lines."""
+    O, L, C = p["Open"], p["Low"], p["Close"]
+    days = [d for d in C.index if d.date() >= start and
+            (st["last_date"] is None or d.date() > dt.date.fromisoformat(st["last_date"]))]
+    orders = []
+
+    def _px(frame, d, s, fb):
+        v = frame.at[d, s] if s in frame.columns else float("nan")
+        return float(v) if v == v else fb
+
+    def _sell(s, px, d, why, sh=None):
+        q = st["pos"][s]
+        sh = q["sh"] if sh is None else min(sh, q["sh"])
+        amt = sh * px
+        st["cash"] += amt * (1 - v2.COST)
+        st["trades"].append({"date": str(d.date()), "side": why, "symbol": s, "price": round(px, 2),
+                             "shares": round(sh, 2), "value": round(amt), "pnl": round(amt - sh * q["entry"])})
+        if sh >= q["sh"] - 1e-9:
+            st["pos"].pop(s)
+        else:
+            q["sh"] -= sh
+
+    for d in days:
+        pend = st.get("pending")
+        if pend:
+            for s in pend.get("sells", []):
+                if s in st["pos"]:
+                    _sell(s, _px(O, d, s, st["pos"][s]["last"]), d, "SELL")
+            for s, sh in pend.get("trims", []):
+                if s in st["pos"]:
+                    _sell(s, _px(O, d, s, st["pos"][s]["last"]), d, "TRIM", sh)
+            rulings = {}
+            if reviewed:
+                try:
+                    import v2_core
+                    rulings = v2_core.latest_reviews(pend.get("decided"))
+                except Exception:
+                    rulings = {}
+            for s, amt, kind, a14 in pend.get("buys", []):
+                if reviewed and rulings.get(s) in ("WAIT", "PASS"):
+                    st["trades"].append({"date": str(d.date()), "side": "SKIP", "symbol": s,
+                                         "reason": "reviewer %s - reconsidered next rebalance" % rulings[s]})
+                    continue
+                px = _px(O, d, s, float("nan"))
+                if not px == px or s in st["pos"]:
+                    continue
+                amt = min(amt, st["cash"] / (1 + v2.COST))
+                if amt <= 0:
+                    continue
+                sh = amt / px
+                st["cash"] -= amt * (1 + v2.COST)
+                stop = round(px - H["stop_atr"] * a14, 2) if (flags["stop"] and a14 and a14 == a14) else None
+                st["pos"][s] = {"sh": sh, "entry": px, "entry_date": str(d.date()), "last": px,
+                                "kind": kind, "stop": stop}
+                st["trades"].append({"date": str(d.date()), "side": "BUY", "symbol": s, "price": round(px, 2),
+                                     "shares": round(sh, 2), "value": round(amt), "kind": kind, "stop": stop})
+            st["pending"] = None
+        for s in list(st["pos"]):                     # the resting disaster stop
+            q = st["pos"][s]
+            lo = _px(L, d, s, float("nan"))
+            if q.get("stop") and lo == lo and lo <= q["stop"]:
+                op = _px(O, d, s, q["stop"])
+                _sell(s, min(op, q["stop"]), d, "STOP")
+        for s, q in st["pos"].items():
+            c = _px(C, d, s, float("nan"))
+            if c == c:
+                q["last"] = c
+        equity = st["cash"] + sum(q["sh"] * q["last"] for q in st["pos"].values())
+        st["history"].append({"date": str(d.date()), "equity": round(equity), "cash": round(st["cash"]),
+                              "positions": len(st["pos"]), "nifty500": round(float(p["bench"].get(d, float("nan"))), 1)})
+        st["last_date"] = str(d.date())
+        n = _next_session(d.date())
+        is_dec = is_wed_decision(pd.Timestamp(d.date()), pd.Timestamp(n)) if flags["wed"] else \
+            (n.isocalendar()[:2] != d.date().isocalendar()[:2])
+        if not is_dec:
+            continue
+        st["n_dec"] = int(st.get("n_dec", 0)) + 1
+        posv = {s: dict(q, entry_date=pd.Timestamp(q["entry_date"])) for s, q in st["pos"].items()}
+        r = decide(d, ctx, flags, equity, st["cash"], posv, st["n_dec"])
+        a14 = ctx["f"]["atr"].loc[d]
+        st["pending"] = {"decided": str(d.date()), "fill": str(n), "sells": r["sells"],
+                         "trims": [[s, round(sh, 4)] for s, sh in r["trims"]],
+                         "buys": [[s, round(a), k, round(float(a14.get(s, float("nan"))), 4)] for s, a, k in r["buys"]],
+                         "regime_up": r["up200"], "score": r["score"], "tier": r["tier"]["name"],
+                         "eligible": int(len(r["ranked"])),
+                         "watch": [[s, round(float(v), 3), round(float(C.at[d, s]), 2)] for s, v in r["ranked"].head(20).items()],
+                         "etf_watch": [[s, round(float(v), 3)] for s, v in r["etf_ranked"].head(8).items()]}
+        rank_pos = {s: i + 1 for i, s in enumerate(r["ranked"].index)}
+        for s in r["sells"]:
+            orders.append({"book": st["name"], "side": "SELL", "symbol": s, "rank": rank_pos.get(s, "-"),
+                           "close": round(float(C.at[d, s]), 2), "shares": round(st["pos"][s]["sh"], 2),
+                           "approx_value": round(st["pos"][s]["sh"] * st["pos"][s]["last"])})
+        for s, sh in r["trims"]:
+            orders.append({"book": st["name"], "side": "TRIM", "symbol": s, "rank": rank_pos.get(s, "-"),
+                           "close": round(float(C.at[d, s]), 2), "shares": round(sh, 2),
+                           "approx_value": round(sh * st["pos"][s]["last"])})
+        for s, a, k in r["buys"]:
+            px = float(C.at[d, s])
+            orders.append({"book": st["name"], "side": "BUY" if k == "stock" else "BUY ETF", "symbol": s,
+                           "rank": rank_pos.get(s, "-"), "close": round(px, 2), "shares": int(a // px),
+                           "approx_value": round(a), "atr20": round(float(ctx["g"]["atr20"].at[d, s]), 2),
+                           "stop≈": round(px - H["stop_atr"] * float(a14.get(s, float("nan"))), 2) if flags["stop"] else None})
+    return orders
 
 
 # ── panel + context ───────────────────────────────────────────────────────────

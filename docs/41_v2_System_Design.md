@@ -46,11 +46,15 @@ and how much*.
 |---|---|---|
 | **P1E** | the rules above | **the v2 system** |
 | **P1ER** | P1E, but a buy is skipped when the reviewer rules WAIT or PASS on it | measures what the reviewer adds |
+| **P1ES** | P1E + a resting 4 × ATR14 disaster stop (18 Oct) | answers Q5: what the stop costs |
+| **V2H** | P1E + every house rule from Jay's answers (18 Oct, §9) | the house version |
 | P1 | single setting (90 sessions, top 20 %) — the tournament winner | research control |
 | P1F | P1 + point-in-time fundamental floor | research control |
 
-All start at ₹30,00,000 on the 16 Oct 2026 close. Every Friday: orders decided, a Telegram
-summary, the buys queued on the reviewer (tagged `v2`), and `reports/p1_paper/orders_<date>.md`.
+All start at ₹30,00,000 on the 16 Oct 2026 close. Every Friday (V2H: every Tuesday): orders
+decided, a Telegram summary, the buys queued on the reviewer (tagged `v2`), and
+`reports/p1_paper/orders_<date>.md`. Engine for P1ES/V2H: `v2_house.py` (one `decide()` for the
+backtest and the paper book).
 
 ## 5. Data flow and schedule
 
@@ -86,7 +90,7 @@ working, not failing.
   catastrophic stop (see Q5), Wednesday vs Friday rebalancing, and an earnings-momentum factor
   (point-in-time data now exists from 2024).
 
-## 8. Open design questions — Jay's input wanted
+## 8. Open design questions — answered by Jay on 18 Oct (see §9 for what the test said)
 
 1. **Universe.** Live v2 ranks today's Nifty 500. The survivorship test used the 500 most-traded
    NSE names point-in-time. Keep the Nifty 500, or rank the top 500 by turnover (adds names before
@@ -107,3 +111,45 @@ working, not failing.
    Should the live version prefer holding past one year where the rank is close (a tax-aware
    tie-break)?
 9. **ETFs.** v2 ranks stocks only. Should sector/index ETFs compete in the same rank?
+
+## 9. Jay's decisions (18 Oct 2026) and what the test said
+
+Every answer became a rule in the house book **V2H**, pre-registered (PREREG_v2_house_rules) and
+measured once on the survivorship panel (2018–2026) beside the pure P1E. Each rule was also added
+to P1E on its own, so its cost is visible.
+
+| # | Jay's decision | Rule in V2H | Effect alone (CAGR / MAR H1·H2) | Recommendation |
+|---|---|---|---|---|
+| 1 | Nifty 500, F&O names first | F&O names bought first inside the top-25 % cut | **−4.4 pp**, 0.46 · 0.88, DD −24.6 % | drop the priority; keep an F&O tag on the board and the OI read in the review |
+| 2 | v2 at one-third of capital | Doc 40 staging | – | agreed |
+| 3 | Wednesday rebalance | decide Tuesday's close, fill Wednesday's open | −0.6 pp, 0.72 · 1.19 | keep (within noise) |
+| 4 | SMA200 alone too lenient | + house exposure tiers (score 3+, half risk and 70 % cap at 3–5) | **−4.7 pp**, 0.42 · 0.96, DD −23.7 % | drop for v2 — it delays re-entry and does not reduce the drawdown |
+| 5 | no trading without stops | 4 × ATR14 resting disaster stop (book P1ES) | **−2.5 pp**, 0.58 · 0.99, DD −23.8 % | keep (Jay's rule); expect P1ES's numbers; a wider stop is worth one pre-registered check |
+| 6 | reviewer veto? | V2H skips a WAIT/PASS buy for one week (live only) | measured forward by P1E vs P1ER | obey as a deferral until 16 Jan says otherwise |
+| 7 | 0.10 % per ATR | unchanged | – | agreed |
+| 8 | let profitable runners pass a year, partials OK | tax-hold band 300–364 days (top 50 %) + monthly risk trim at 1.5 × | −0.3 pp, 0.75 · 1.19 | keep, but it rarely acts: median hold is 49 days, LT gains ~1 % |
+| 9 | ETFs too | ETF sleeve ranked within ETFs (below) | +0.3 pp, 0.79 · 1.23 | keep |
+
+All rules together (V2H): 12.3 % CAGR, MAR 0.39 · 1.10 — the pre-registered test FAILED (H1 MAR not
+above the Momentum-30 replica's 0.39). Almost all of the gap is rules 1 and 4. P1E stays the
+candidate; P1ES and V2H run forward on paper as registered.
+
+**Proposed next (Jay to decide):** a revised house book = P1E + stop + Wednesday + tax/trim + ETF
+sleeve (dropping tiers and F&O priority), registered as a NEW forward book — it cannot be judged on
+the backtest that suggested it.
+
+### How stocks and ETFs are ranked (Q9)
+
+- **Never in one rank.** An ETF is a basket, so its trend is smoother (higher R²) and its ATR lower:
+  in a joint rank ETFs would crowd the top in calm markets and equal-risk sizing would make them
+  2–3× larger than a stock. An Indian index ETF also duplicates the stocks already ranked.
+- **Two pools, one score.** The same ensemble trend-quality score, as a percentile *within* its own
+  pool. ETF pool: the curated tradeable list (`etf_universe`, no debt), one per underlying (the most
+  traded), median turnover ≥ ₹2 crore; above the 100-DMA; no 15 % single-day move in 90 sessions.
+- **Hold** the top 25 % of eligible ETFs (at least 2, at most 5), ≤ 10 % of equity each, ≤ 30 % in all,
+  bought after the stocks from the cash they leave.
+- **Regime per asset class.** Indian-equity ETFs follow the stock rules; gold, silver and
+  international ETFs follow only their own trend (close above their own 200-day SMA). This is what
+  lets the book hold something useful while Indian equities are in a downtrend.
+- Today (16 Oct): 4 ETFs eligible; only **MAFANG** (NYSE FANG+) qualifies as a non-Indian ETF; gold
+  and silver are below both their 100- and 200-day averages, so they are correctly out.

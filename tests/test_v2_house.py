@@ -39,6 +39,44 @@ def test_tiers_from_house_policy():
     assert vh.tier(None)["new_ok"] is False                          # unknown -> strictest
 
 
+def _ctx(score, up200):
+    d = _d("2026-10-16")
+    cols = ["AAA", "BBB", "GLDX", "IDXE"]
+    row = lambda v: pd.DataFrame([v], index=[d], columns=cols)
+    g = {"sma100": row([90, 90, 90, 90]), "sma200": row([80, 80, 80, 120]), "gap90": row([False] * 4),
+         "liq": row([True] * 4), "atr20": row([2.0, 2.0, 1.0, 1.0]), "b_up200": pd.Series({d: up200})}
+    for lb in (60, 90, 120):
+        g["clenow%d" % lb] = row([0.9, 0.5, 0.8, 0.7])
+    f = {"has": row([True, True, False, False]), "atr": row([2.0, 2.0, 1.0, 1.0])}
+    meta = {"GLDX": {"asset_class": "COMMODITY", "underlying": "Gold"},
+            "IDXE": {"asset_class": "SECTOR", "underlying": "Nifty IT"}}
+    return d, {"C": row([100, 100, 100, 100]), "g": g, "f": f, "stocks": ["AAA", "BBB"], "etfs": ["GLDX", "IDXE"],
+               "etf_meta": meta, "etf_has": row([True] * 4), "etf_turn": row([1e9] * 4),
+               "fno": lambda _d: {"BBB"}, "score": lambda _d: (score, {})}
+
+
+def test_bear_tier_blocks_indian_buys_but_not_gold():
+    d, ctx = _ctx(score=1, up200=False)
+    r = vh.decide(d, ctx, vh.FULL, 1_000_000, 1_000_000, {}, 1)
+    kinds = {s: k for s, _a, k in r["buys"]}
+    assert "AAA" not in kinds and "BBB" not in kinds and "IDXE" not in kinds
+    assert kinds.get("GLDX") == "etf"          # gold above its own 200-DMA, full risk (18-Oct fix)
+    assert dict((s, a) for s, a, _k in r["buys"])["GLDX"] > 0
+
+
+def test_fno_first_inside_the_cut_and_half_risk_in_neutral():
+    d, ctx = _ctx(score=4, up200=True)
+    vh_top = vh.H["top_pct"]
+    vh.H["top_pct"] = 1.0                        # both stocks inside the cut
+    try:
+        r = vh.decide(d, ctx, vh.FULL, 1_000_000, 1_000_000, {}, 1)
+    finally:
+        vh.H["top_pct"] = vh_top
+    stock_buys = [(s, a) for s, a, k in r["buys"] if k == "stock"]
+    assert [s for s, _ in stock_buys] == ["BBB", "AAA"]          # F&O name first despite the lower rank
+    assert abs(stock_buys[0][1] - 1_000_000 * 0.0005 / 2.0 * 100) < 1e-6   # 0.05 % per ATR in NEUTRAL
+
+
 def test_fy_tax_netting():
     r = [(_d("2025-05-01"), 100.0, False), (_d("2025-06-01"), -40.0, False), (_d("2025-07-01"), 50.0, True)]
     t = vh.fy_tax(r)

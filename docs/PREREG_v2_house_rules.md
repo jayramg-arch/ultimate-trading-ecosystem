@@ -78,3 +78,42 @@ engine with every house flag off must reproduce `pro_systems_backtest.run_sys` P
 P1ES starts with P1E (its 16 Oct close decision; both in cash). V2H's first decision is the close
 of Tue 20 Oct 2026. Both are read with P1E on 16 Jan 2027 (three months) and 16 Apr 2027.
 Doc 40's real-money gates apply to whichever book is the candidate.
+
+## RESULT (18 Oct 2026, run once) — H1 FAIL · H2 FAIL → P1E stays the candidate
+
+Equivalence check first: the engine with every flag off reproduced `run_sys` P1E exactly (max
+equity difference 0.0, 793 trades to 2020). Rebuilt regime score on 16 Oct = the live house score
+(1, all six components equal).
+
+| book | CAGR | max DD | MAR full | MAR H1 | MAR H2 | after-tax CAGR | trades / yr | median hold |
+|---|---|---|---|---|---|---|---|---|
+| P1E | 19.55 % | −20.87 % | 0.94 | 0.78 | 1.21 | 17.62 % | 326 | 49 d |
+| **P1ES** (+ stop) | 17.03 % | −23.80 % | 0.72 | 0.58 | 0.99 | 15.26 % | 348 | 42 d |
+| **V2H** (all rules) | 12.28 % | −21.45 % | 0.57 | 0.39 | 1.10 | 10.68 % | 418 | 35 d |
+| P1E + Wednesday | 18.90 % | −21.36 % | 0.88 | 0.72 | 1.19 | 17.02 % | 321 | 49 d |
+| P1E + exposure tiers | 14.83 % | −23.72 % | 0.63 | 0.42 | 0.96 | 13.17 % | 351 | 48 d |
+| P1E + F&O priority | 15.19 % | −24.59 % | 0.62 | 0.46 | 0.88 | 13.51 % | 334 | 42 d |
+| P1E + tax-hold + trims | 19.26 % | −21.69 % | 0.89 | 0.75 | 1.19 | 17.35 % | 359 | 49 d |
+| P1E + ETF sleeve | 19.89 % | −20.87 % | 0.95 | 0.79 | 1.23 | 18.04 % | 327 | 49 d |
+| Momentum-30 replica | 15.71 % | −41.28 % | 0.38 | 0.39 | 0.48 | – | – | – |
+| Nifty 500 | 11.05 % | −38.30 % | 0.29 | 0.31 | 0.54 | – | – | – |
+
+- **H1 FAIL:** the 4 × ATR14 stop costs 2.5 pp a year and makes the worst drawdown DEEPER, not
+  shallower (−23.8 % vs −20.9 %): it sells dips the weekly rank would have held, and the names are
+  bought back later. Jay trades with stops regardless; live expectations for a stopped book are
+  P1ES's numbers (still well above both benchmarks).
+- **H2 FAIL:** V2H's H1 MAR 0.39 does not beat the Momentum-30 replica (0.39) and is 0.39 below
+  P1E. The ablations put the cost on two rules: the exposure tiers (−4.7 pp, and a deeper drawdown —
+  the score lags recoveries because breadth must pass 50 % first) and F&O priority (−4.4 pp, deeper
+  drawdown — it skips higher-ranked names). Wednesday (−0.6 pp), tax-hold + trims (−0.3 pp) and
+  the ETF sleeve (+0.3 pp) are within noise.
+- Long-term share of realised gains is ~1 % in every book: with a 35–49-day median hold almost no
+  position reaches 300 days, so the tax-hold rule barely acts. STCG is structural to this system.
+- **Implementation bug found after the run and fixed:** the tier's risk multiplier (0 in BEAR) was
+  also applied to gold / silver / international ETFs, which the rules say follow only their own
+  trend. First run V2H 11.91 % / MAR H1 0.37 H2 1.06; fixed run as in the table. The verdict is the
+  same; P1E + ETF sleeve (tiers off) was unaffected. Regression test added.
+- Per the rule: P1E stays the candidate; the choice of which house rules to keep goes back to Jay.
+  P1ES and V2H run forward as registered.
+Output: `reports/v2_house/`, `reports/v2_house_result_20261018.txt` (first run),
+`reports/v2_house_result_20261018_fixed.txt`.

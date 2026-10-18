@@ -35,9 +35,10 @@ if True:
 
     # ── the books ──────────────────────────────────────────────────────────
     st.markdown("#### Books")
-    _role = {"P1E": "v2 primary", "P1ER": "v2 + reviewer", "P1": "control · tournament winner",
+    _role = {"P1E": "v2 primary", "P1ER": "v2 + reviewer", "P1ES": "P1E + disaster stop",
+             "V2H": "house rules (Wed, tiers, F&O, stop, tax, ETFs)", "P1": "control · tournament winner",
              "P1F": "control · fundamental floor"}
-    _order = [b for b in ("P1E", "P1ER", "P1", "P1F") if b in _books]
+    _order = [b for b in ("P1E", "P1ER", "P1ES", "V2H", "P1", "P1F") if b in _books]
     _cols = st.columns(len(_order))
     for _c, _nm in zip(_cols, _order):
         _st = _books[_nm]
@@ -100,8 +101,9 @@ if True:
             _st = _books[_nm]
             st.markdown(f"**{_nm}** · {_role.get(_nm, '')} · {len(_st['pos'])} positions")
             if _st["pos"]:
-                st.dataframe(_pd.DataFrame([{"symbol": k, "shares": round(v["sh"], 1), "entry": round(v["entry"], 2),
-                                             "last": round(v["last"], 2),
+                st.dataframe(_pd.DataFrame([{"symbol": k, "kind": v.get("kind", "stock"),
+                                             "shares": round(v["sh"], 1), "entry": round(v["entry"], 2),
+                                             "last": round(v["last"], 2), "stop": v.get("stop"),
                                              "P&L %": round((v["last"] / v["entry"] - 1) * 100, 1),
                                              "since": v.get("entry_date")} for k, v in _st["pos"].items()]),
                              hide_index=True, use_container_width=True)
