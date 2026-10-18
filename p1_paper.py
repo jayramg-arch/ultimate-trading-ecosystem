@@ -332,30 +332,30 @@ def v2_capital() -> float:
 
 
 def real_v2_positions(C, d) -> tuple[dict, float]:
-    """Your real v2 holdings (journal OPEN rows with setup POS-V2, written by v2_take.py) in the
-    shape decide() reads, and the realised P&L of closed v2 rows."""
+    """Your real v2 book from the v2 ledger (v2_ledger.py - v2's OWN shares, including slices of
+    holdings shared with the current system), reconciled against the journal first: a holding no
+    longer OPEN in the journal was sold in full, so its slice is closed. Returns (positions in the
+    shape decide() reads, realised P&L of closed slices)."""
     import sqlite3
     import journal_path as jp
-    pos, realised = {}, 0.0
+    import v2_ledger as vl
+    import v2_house as vh
     try:
         con = sqlite3.connect(jp.JOURNAL_DB)
-        J = pd.read_sql_query("SELECT symbol, status, quantity, buy_price, exit_price, entry_date, stoploss, setup "
-                              "FROM journal WHERE setup LIKE 'POS-V2%'", con)
+        J = pd.read_sql_query("SELECT symbol, status, quantity, exit_price, exit_date FROM journal", con)
         con.close()
-    except Exception:
-        return pos, realised
-    import v2_house as vh
+        for n in vl.reconcile(J):
+            print("v2 ledger: " + n)
+    except Exception as e:
+        print("v2 ledger: journal unreadable (%s) - not reconciled" % e)
     pool = vh.etf_pool()
-    for _, r in J.iterrows():
-        s = str(r["symbol"]).upper()
-        if str(r["status"]).upper() == "OPEN":
-            last = float(C.at[d, s]) if s in C.columns and C.at[d, s] == C.at[d, s] else float(r["buy_price"])
-            pos[s] = {"sh": float(r["quantity"] or 0), "entry": float(r["buy_price"] or 0),
-                      "entry_date": pd.Timestamp(r["entry_date"] or d), "last": last,
-                      "kind": "etf" if s in pool else "stock", "stop": float(r["stoploss"]) if r["stoploss"] else None}
-        elif r["exit_price"] == r["exit_price"] and r["exit_price"]:
-            realised += (float(r["exit_price"]) - float(r["buy_price"] or 0)) * float(r["quantity"] or 0)
-    return pos, realised
+    pos = {}
+    for s, q in vl.load()["open"].items():
+        last = float(C.at[d, s]) if s in C.columns and C.at[d, s] == C.at[d, s] else float(q["entry"])
+        pos[s] = {"sh": float(q["sh"]), "entry": float(q["entry"]), "entry_date": pd.Timestamp(q["entry_date"]),
+                  "last": last, "kind": "etf" if s in pool else "stock", "stop": float(q.get("stop") or 0) or None,
+                  "shared": bool(q.get("shared"))}
+    return pos, vl.realised()
 
 
 def v2_workflow(p, hctx, decided_today: bool) -> list:
@@ -386,46 +386,52 @@ def v2_workflow(p, hctx, decided_today: bool) -> list:
     except Exception:
         pass
     if decided_today:
-        r = vh.decide(d, dict(hctx, exclude=v1_held), vh.BOOK_FLAGS["V2H"], equity, cash, real,
-                      int(st.get("n_dec", 1)))
+        # Jay 18-Oct (Doc 42 §8 D2): v2 MAY pyramid onto a current-system holding - no exclusion
+        r = vh.decide(d, hctx, vh.BOOK_FLAGS["V2H"], equity, cash, real, int(st.get("n_dec", 1)))
         lines += ["", "## YOUR v2 ORDERS — real money (v2 capital %s, equity %s, %d held)" % (
             _inr(cap), _inr(equity), len(real)),
                   "Decided at the close of %s · place at the open of %s · nothing is sent to Dhan." % (
                       pend.get("decided"), pend.get("fill")),
-                  "Check the reviewer's ruling on the 🧭 v2 page first: WAIT / PASS = skip that buy this week.", ""]
+                  "Check the reviewer's ruling on the 🧭 v2 page first: WAIT / PASS = skip that buy this week.",
+                  "Order type (Doc 42 D3): a LIMIT at Tuesday's close + 1 %, cancelled if unfilled by 10:00.", ""]
         if not (r["sells"] or r["trims"] or r["buys"]):
             lines.append("No orders for your book this week.")
         else:
             lines += ["| side | symbol | shares | ≈ value | disaster stop |", "|---|---|---|---|---|"]
             for s in r["sells"]:
-                lines.append("| SELL | %s | %d | %s | – |" % (s, real[s]["sh"], _inr(real[s]["sh"] * real[s]["last"])))
+                lines.append("| SELL%s | %s | %d | %s | %s |" % (" (v2 slice only)" if real[s].get("shared") else "", s, real[s]["sh"],
+                             _inr(real[s]["sh"] * real[s]["last"]), "keep the current system's shares and resize its stop" if real[s].get("shared") else "–"))
             for s, sh in r["trims"]:
                 lines.append("| TRIM | %s | %d | %s | keep |" % (s, int(sh), _inr(sh * real[s]["last"])))
-            for s, amt, k in r["buys"]:
-                px = float(C.at[d, s])
-                stp = px - vh.H["stop_atr"] * float(a14.get(s, float("nan")))
-                lines.append("| BUY%s | %s | %d | %s | ≈ %.2f (record the fill: `python v2_take.py %s --price P --qty Q`) |"
-                             % (" ETF" if k == "etf" else "", s, int(amt // px), _inr(amt), stp, s))
-        for s, amt in r.get("adds", []):
-            lines.append("| ADD (top-up) | %s | %d | %s | keep the stop |" % (s, int(amt // float(C.at[d, s])), _inr(amt)))
-        skipped = {k: v for k, v in r.get("skipped", {}).items() if not v.startswith("held by the current")}
-        if skipped:
-            lines.append("Skipped by the borrowed v1 rules: " + ", ".join("%s (%s)" % kv for kv in skipped.items()))
-        cut_names = list(r["ranked"].index[:r["cut"]])
-        conf = [s for s in cut_names if s in v1_held]
-        if conf:
             rung = {}
-            try:
+            try:                          # the current system's ladder rung per holding (Phase 5, last night)
                 _pp = pd.read_csv(os.path.join(HERE, "FINAL_Portfolio_Picks.csv"))
                 rung = dict(zip(_pp["Symbol"].astype(str).str.upper(), _pp["Pyr_Class"].astype(str)))
             except Exception:
                 pass
-            lines += ["", "**v2 confirms these current-system holdings** (top-25 % of the v2 rank; v2 does not buy "
-                      "them - one owner per holding). Pyramid them only through the current system's ladder:", ""]
-            lines += ["- %s · v2 rank %d · current-system rung **%s**%s" % (
-                s, cut_names.index(s) + 1, rung.get(s, "?"),
-                " → add at the house pyramid risk (1 %) on Risk Shield" if rung.get(s) == "ADD" else "")
-                for s in conf]
+            jstop = {}
+            try:
+                jstop = dict(zip(_j["symbol"].astype(str).str.upper(), pd.to_numeric(_j["stoploss"], errors="coerce")))
+            except Exception:
+                pass
+            for s, amt, k in r["buys"]:
+                px = float(C.at[d, s])
+                stp = px - vh.H["stop_atr"] * float(a14.get(s, float("nan")))
+                if s in v1_held:          # PYRAMID onto a current-system holding (Doc 42 §8 D2)
+                    one = max(float(jstop.get(s) or 0), stp)
+                    rg = rung.get(s, "?")
+                    lines.append("| BUY · PYRAMID onto a current-system holding | %s | %d | %s | ONE stop for all shares "
+                                 "≈ %.2f (higher of the holding's %.2f and the add's %.2f) · current-system rung **%s**%s · "
+                                 "record: `python v2_take.py %s --price P --qty Q` |"
+                                 % (s, int(amt // px), _inr(amt), one, float(jstop.get(s) or 0), stp, rg,
+                                    " - the two systems disagree, look before adding" if rg in ("EXIT", "REDUCE", "TRIM") else "", s))
+                else:
+                    lines.append("| BUY%s | %s | %d | %s | ≈ %.2f (record the fill: `python v2_take.py %s --price P --qty Q`) |"
+                                 % (" ETF" if k == "etf" else "", s, int(amt // px), _inr(amt), stp, s))
+        for s, amt in r.get("adds", []):
+            lines.append("| ADD (top-up) | %s | %d | %s | keep the stop |" % (s, int(amt // float(C.at[d, s])), _inr(amt)))
+        if r.get("skipped"):
+            lines.append("Skipped by the borrowed v1 rules: " + ", ".join("%s (%s)" % kv for kv in r["skipped"].items()))
         if r.get("etf_premium_out"):
             lines.append("Out of the ETF pool on NAV premium: " + ", ".join(r["etf_premium_out"]))
     # the TradingView list + the chart status: buys, sells, your holdings, then the top of the rank
