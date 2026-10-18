@@ -561,6 +561,9 @@ def run_cover_pass(auto_yes: bool = False, dry_run: bool = True):
     print(f"\n{ok}/{len(plan)} placed. Re-run --trail to bring them onto the trail schedule.")
 
 
+LAST_SKIPPED: list = []           # (symbol, reason) of the last build_trail_proposals() - not trailed
+
+
 def build_trail_proposals(dhan=None):
     """THE trail engine. Returns (proposals, breached, err).
 
@@ -613,6 +616,7 @@ def build_trail_proposals(dhan=None):
 
     proposals = []        # (sym, leg, old_sl, new_sl, mult, src, note)
     breached = []
+    LAST_SKIPPED.clear()
     for sym, sym_legs in sorted(legs.items()):
       for leg in sym_legs:      # one tighten per ORDER — a symbol can hold two OCOs
         j = journal.get(sym, {})
@@ -624,7 +628,33 @@ def build_trail_proposals(dhan=None):
                 log.warning(f"trail: {sym}: insufficient bars / no Chandelier — skipped")
                 continue
             ch, mult, src, ltp = _r["ce"], _r["mult"], _r["src"], _r["ltp"]
-            new_sl = ch
+            # POSITIONAL ONLY (Jay, 18-Oct-2026, Doc 42 §8 D4): swing trades are not trailed
+            # yet. Positional = journal Timeframe says so, or (no Timeframe) a POS/WYC/REV setup -
+            # which covers v2's POS-V2 rows. Anything else is skipped and reported, never guessed.
+            _tf = str(j.get("timeframe") or "").lower()
+            _stp = str(j.get("setup") or "").upper()
+            if "swing" in _tf or _stp.startswith("SWG"):
+                LAST_SKIPPED.append((sym, "swing - not trailed"))
+                continue
+            if not ("pos" in _tf or (not _tf and _stp.startswith(("POS", "WYC", "REV")))):
+                LAST_SKIPPED.append((sym, "trade type not recorded as positional"))
+                continue
+            # NEVER INSIDE NORMAL NOISE (Jay's 12-Oct rule, house_policy.DHAN_STOP_MIN_ATR): the new
+            # stop is the LOWER of the Chandelier and close - 3 x ATR14 (the Watchdog's ATR).
+            try:
+                import ai_risk_manager as _arm
+                import house_policy as _hpm
+                _a14 = float(_arm.get_atr(sym) or 0)
+                _gap = _hpm.DHAN_STOP_MIN_ATR
+            except Exception:
+                _a14, _gap = 0.0, 3.0
+            if not _a14 > 0:
+                LAST_SKIPPED.append((sym, "no ATR14 - not trailed"))
+                continue
+            _cap = ltp - _gap * _a14
+            new_sl = min(ch, _cap)
+            if _cap < ch:
+                src = f"{src} · capped at close-{_gap:g}xATR"
             # Manual override: FLOOR (default) = never trail below a hand-set stop; EXACT =
             # the hand-set stop IS the stop and the Chandelier does not move it. The mode is
             # the one Risk Shield shows (gm_settings `sl_override_mode`, 25-Sep-2026) - it
@@ -663,7 +693,7 @@ def _sl_override_mode() -> str:
         return "Floor"
 
 
-def run_trail_pass(auto_yes: bool = False, dry_run: bool = False):
+def run_trail_pass(auto_yes: bool = False, dry_run: bool = False, telegram: bool = False):
     """CLI wrapper around build_trail_proposals(). Never loosens; never modifies when
     the Chandelier sits at/above the last close (that's an EXIT signal, not a trail --
     modifying would fire the order instantly)."""
@@ -690,6 +720,26 @@ def run_trail_pass(auto_yes: bool = False, dry_run: bool = False):
         print(f"{sym:<14}{old:>10.2f}{new:>10.2f}{mult:>6.1f}  {leg['order_id']:<16}{note}")
     for sym, old, ch, ltp in breached:
         print(f"{sym:<14}{old:>10.2f}{'--':>10}      ⚠ BREACHED: Chandelier {ch} ≥ LTP {ltp} — exit review")
+    _skip = {}
+    for s, why in LAST_SKIPPED:
+        _skip.setdefault(why, set()).add(s)
+    for why, ss in _skip.items():
+        print(f"not trailed ({why}): {', '.join(sorted(ss))}")
+    if telegram:                      # the evening report (Doc 42 §8 D4) - dry run or live
+        try:
+            import datetime as _dtm
+            mode = "DRY RUN - nothing changed at Dhan" if dry_run else "LIVE"
+            body = [f"Auto-trail {_dtm.date.today():%d-%b} ({mode}): {len(proposals)} stop(s) would rise"
+                    if dry_run else f"Auto-trail {_dtm.date.today():%d-%b} (LIVE): {len(proposals)} stop(s) to raise"]
+            body += [f"  {sym} {old:.2f} -> {new:.2f}  ({note})" for sym, _l, old, new, _m, _s, note in proposals[:25]]
+            if breached:
+                body.append("Exit review (trail at/above the close): " + ", ".join(sorted({b[0] for b in breached})))
+            for why, ss in _skip.items():
+                body.append(f"Not trailed - {why}: {len(ss)}")
+            import s4_review as _s4r
+            _s4r.telegram("\n".join(body))
+        except Exception as e:
+            log.warning(f"trail: telegram report failed: {e}")
     if not proposals:
         print("✅ No tightenings needed (all GTT stops at/above their Chandelier).")
         log.info(f"trail: 0 proposals, {len(breached)} breached")
@@ -759,6 +809,8 @@ if __name__ == "__main__":
     ap.add_argument("--dry-run", action="store_true",
                     help="Print the proposed tightens and exit without touching an "
                          "order. Headless-safe: no prompt, no broker call.")
+    ap.add_argument("--telegram", action="store_true",
+                    help="With --trail: send the evening report (proposed / made moves) to Telegram")
     ap.add_argument("--yes", action="store_true",
                     help="Non-interactive (for the scheduler): skip confirmations")
     ap.add_argument("--cover", action="store_true",
@@ -775,6 +827,6 @@ if __name__ == "__main__":
         # CREATES orders. Creation gets the safer default.
         run_cover_pass(auto_yes=args.yes, dry_run=not args.live)
     elif args.trail:
-        run_trail_pass(auto_yes=args.yes, dry_run=args.dry_run)
+        run_trail_pass(auto_yes=args.yes, dry_run=args.dry_run, telegram=args.telegram)
     else:
         run_auto_shield(auto_yes=args.yes)
