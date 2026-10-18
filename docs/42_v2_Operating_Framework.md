@@ -103,3 +103,44 @@ Open:
    by 10:00 (the backtest filled at the open price).
 4. **Automatic trailing at Dhan** needs a static IP registered with Dhan (deferred) — until then the
    trail is raised by hand from Risk Shield.
+
+## 8. Decisions of 18 Oct (evening) and the designs they need
+
+**D1 — house limits.** The open-risk budget, exposure tiers, circuit breaker, 25-position limit
+and the order gate count only the current system's positions (built).
+
+**D2 — v2 may pyramid onto a current-system holding** (Jay: with positional trades auto-trailed,
+both systems exit the same way). Design, keeping the house invariant of ONE journal row and ONE
+stop price per holding:
+- **The v2 ledger** `data/v2/real_book.json` is v2's record of ITS shares: per symbol, shares, entry,
+  entry date, the add's disaster stop. The journal keeps one row per symbol (owned by whichever
+  system bought first); `journal_sync` keeps that row's quantity equal to Dhan's total.
+- **v2 buys a name the current system holds** → the order sheet marks it **PYRAMID (onto a
+  current-system holding)**; after the fill there is still ONE resting stop for ALL shares, at the
+  higher of the holding's current stop and the add's disaster stop (fill − 4 × ATR14).
+  `v2_take.py` records the slice in the ledger and leaves the journal row alone.
+- **v2 sells its slice** when the rank says so: the order sheet gives the slice's shares only;
+  `v2_take.py SYM --sell --price P` closes the slice; the current system's shares stay.
+- **A stop fill sells everything** (one stop): the nightly run sees the journal row CLOSED and closes
+  the slice too, at the journal's exit price.
+- v2's limits (per-trade cap, sector cap) count v2's slices; the current system's count its rows.
+
+**D3 — Wednesday order type:** a limit at Tuesday's close + 1 %, cancelled if unfilled by 10:00.
+
+**D4 — auto-trailing**, for v2 holdings AND the current system's POSITIONAL holdings; swing trades
+are NOT trailed (Jay). Design (`gtt_auto_shield --trail`, one pass per Dhan stop order):
+- level = the house positional Chandelier (highest close since entry, 22 sessions, − 4.5 × ATR22);
+- never closer than **3 × ATR14 to the last close** (`house_policy.DHAN_STOP_MIN_ATR`): the new stop
+  is the LOWER of the two, so a trail can never sit inside normal daily noise;
+- raise-only; once a day after the close (15:45), on closing prices; never sells — if the level is
+  at/above the close it is reported as an exit review, not placed;
+- a hand-set stop (Risk Shield override) is the floor (Floor mode) or the stop itself (Exact mode);
+- **dry run first:** each evening a Telegram lists the moves it would make; nothing changes at Dhan
+  until Jay switches it live — which also needs the static IP registered with Dhan (DH-905).
+
+**D5 — a full v2 page in Web Commander** (EXECUTION › 🧭 v2 SYSTEM), separate from the paper page:
+status strip (regime, next decision and fill dates, v2 capital, equity, cash); this week's orders
+for your book with the reviewer's rulings and the pyramid list; your v2 book (slices, stops,
+Chandelier, rank now); the rank board with filters and the ETF pool (premium, liquidity); risk
+(sector weights vs the 25 % cap, per-name size vs the cap); the trail proposals; the weekly
+checklist; rules and evidence. The paper books stay on 🧭 PAPER · v2 SYSTEM.
