@@ -1,0 +1,27 @@
+
+signals (5/5 GO, own clock, de-duplicated) with a template score: 355
+
+== bull path · matured & scored 271
+  T8    n  125  mean -0.333R  median -0.488R  stopped  41.6%
+  T<=7  n  146  mean -0.450R  median -0.580R  stopped  43.2%
+    score <=5 n   25  mean -0.502R  stopped  40.0%
+    score 6   n   54  mean -0.570R  stopped  53.7%
+    score 7   n   67  mean -0.334R  stopped  35.8%
+    score 8   n  125  mean -0.333R  stopped  41.6%
+    Daily T8 -0.331R (n 14) vs T<=7 -0.637R (n 12)
+    75m   T8 -0.337R (n 62) vs T<=7 -0.410R (n 76)
+    125m  T8 -0.329R (n 49) vs T<=7 -0.464R (n 58)
+
+== recovery path · matured & scored 40
+  T8    n    5  mean -0.287R  median -1.000R  stopped  60.0%
+  T<=7  n   35  mean -0.288R  median -0.167R  stopped  40.0%
+    score <=5 n   21  mean -0.490R  stopped  47.6%
+    score 6   n    7  mean +0.424R  stopped   0.0%
+    score 7   n    7  mean -0.395R  stopped  57.1%
+    score 8   n    5  mean -0.287R  stopped  60.0%
+    75m   T8 -0.313R (n 2) vs T<=7 -0.334R (n 17)
+    125m  T8 -0.269R (n 3) vs T<=7 -0.298R (n 16)
+
+BULL  T8 n 125  T<=7 n 146  |  T8 - T<=7 mean +0.117R  CI [-0.096, +0.343]  stop-out gap -1.6pp
+VERDICT  H FAIL -> the template stays a ranking overlay
+

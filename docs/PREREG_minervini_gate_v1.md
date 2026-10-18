@@ -39,3 +39,23 @@ would compare paths, not the template. Primary population = rows with `path` = b
 - THIN → the counts are reported and the run is repeated when both groups reach 60.
 - One run. Known limits: one regime (Aug–Oct 2026, mostly BEAR / NEUTRAL); a fixed horizon, not
   the trail; the template here is v1's version (RS = JdK > 100, not Minervini's RS rating ≥ 70).
+
+## RESULT (18 Oct 2026, run once) — H FAIL (CI includes zero) → the template stays a ranking overlay
+
+355 de-duplicated 5/5 GO signals scored; placebo first, FAILED as required.
+
+| bull path | n | mean R | median R | stopped |
+|---|---|---|---|---|
+| template 8/8 | 125 | −0.333 | −0.488 | 41.6 % |
+| template ≤ 7/8 | 146 | −0.450 | −0.580 | 43.2 % |
+
+- 8/8 − ≤7/8 = **+0.117 R**, symbol-bootstrap CI **[−0.096, +0.343]**, stop-out gap −1.6 pp. The
+  point estimate clears the +0.10 R bar but the CI includes zero → FAIL (low power: 271 signals).
+- Same direction on every timeframe: Daily −0.331 vs −0.637 (n 14 / 12), 75m −0.337 vs −0.410
+  (62 / 76), 125m −0.329 vs −0.464 (49 / 58).
+- Descriptive only (NOT a finding): by score ≤5 −0.502 R (25), 6 −0.570 R (54, 53.7 % stopped),
+  7 −0.334 R (67), 8 −0.333 R (125) — the split that looks real is ≥ 7 vs ≤ 6, which this run did
+  not register; it can only be judged on signals after today.
+- Recovery path (descriptive, n 40): no pattern.
+- Every group is negative: one falling-tape window (Aug–Oct 2026).
+Output: `reports/minervini_gate_v1_result_20261018.txt`.

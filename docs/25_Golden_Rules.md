@@ -828,6 +828,11 @@ Thin tails: n=22 and n=11 in the top two bins, p90 is 2.72 ATR.
   age. Use the PA as the *moment* to look, not as a reason the trade is better. **Since 16 Oct
   P is a TAG, not a gate** (live boards: PREREG_p_less_forward PASSED) - a GO can read
   `5/5 GO · no PA`; forward confirmation 15 Dec. (`docs/PREREG_pa_selects.md`)
+- **The Minervini template does not yet earn a gate (18 Oct 2026).** On v1's own 5/5 GO signals since
+  18 Aug (bull path, 271 matured), 8/8 beat ≤7/8 by +0.117R in the same direction on every timeframe,
+  but the 95 % range (−0.096 to +0.343R) includes zero — FAIL, so it stays a ranking overlay at
+  Step 2. Treat a 6/8-or-lower bull name with extra care (descriptive: −0.50 to −0.57R, 54 % stopped
+  at 6/8); ≥7 vs ≤6 is now a forward test, not a rule (PREREG_minervini_gate_v1).
 
 ### And what the journal does NOT say
 
