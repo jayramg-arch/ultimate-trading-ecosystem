@@ -102,23 +102,33 @@ def main() -> int:
     import gtt_auto_shield as g
     dhan = g.connect_dhan()
     legs = g._live_oco_sl_legs(dhan) or {}
-    pick = next(((s, l) for s, ls in sorted(legs.items()) for l in ls), None)
-    if not pick:
+    # one stop of EACH kind - an OCO stop leg and a SINGLE stop (the runner covers) - because the
+    # trail modifies both and each must be accepted before it goes live
+    picks = []
+    for kind in ("OCO", "SINGLE"):
+        p = next(((s, l) for s, ls in sorted(legs.items()) for l in ls if l.get("flag") == kind), None)
+        if p:
+            picks.append(p)
+    if not picks:
         print("no resting stop order to test with")
         return 1
-    s, leg = pick
-    ans = input("Re-submit %s stop order %s at its SAME trigger %.2f, qty %d, via the relay? (Y/N): "
-                % (s, leg["order_id"], leg["sl_trigger"], leg["sl_qty"])).strip().upper()
-    if ans != "Y":
-        print("not sent")
-        return 1
-    r = dhan.modify_forever(order_id=leg["order_id"], order_flag=leg.get("flag", "OCO"), order_type=dhan.LIMIT,
-                            leg_name=leg.get("leg_name") or "STOP_LOSS_LEG", quantity=leg["sl_qty"],
-                            price=round(leg["sl_trigger"] * 0.995, 2), trigger_price=leg["sl_trigger"],
-                            disclosed_quantity=0, validity="DAY")
-    print(r)
-    ok = isinstance(r, dict) and r.get("status") == "success"
-    print("RELAY WORKS - switch the trail live" if ok else "not accepted - read the remarks above (DH-905 = IP not registered yet)")
+    results = []
+    for s, leg in picks:
+        lim = leg.get("sl_price") or round(leg["sl_trigger"] * 0.995, 2)
+        ans = input("Re-submit %s %s stop %s at its SAME values (trigger %.2f, limit %.2f, qty %d) via the relay? (Y/N): "
+                    % (leg.get("flag"), s, leg["order_id"], leg["sl_trigger"], lim, leg["sl_qty"])).strip().upper()
+        if ans != "Y":
+            print("not sent")
+            continue
+        r = dhan.modify_forever(order_id=leg["order_id"], order_flag=leg.get("flag", "OCO"), order_type=dhan.LIMIT,
+                                leg_name=leg.get("leg_name") or "STOP_LOSS_LEG", quantity=leg["sl_qty"],
+                                price=lim, trigger_price=leg["sl_trigger"], disclosed_quantity=0, validity="DAY")
+        print(r)
+        results.append((leg.get("flag"), isinstance(r, dict) and r.get("status") == "success"))
+    for kind, ok in results:
+        print("%-6s stop: %s" % (kind, "ACCEPTED" if ok else "not accepted - read the remarks above (DH-905 = IP not registered yet)"))
+    ok = bool(results) and all(o for _k, o in results) and len(results) == len(picks)
+    print("RELAY WORKS for every stop kind - switch the trail live" if ok else "do NOT switch the trail live yet")
     return 0 if ok else 1
 
 

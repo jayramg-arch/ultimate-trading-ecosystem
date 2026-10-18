@@ -365,7 +365,9 @@ def _live_oco_sl_legs(dhan):
                                             # the order's OWN type and leg, for the modify call (18-Oct-2026):
                                             # a SINGLE stop (v2 buys, the cover pass) must not be modified as OCO
                                             "flag": "SINGLE" if ot == "SINGLE" else "OCO",
-                                            "leg_name": leg or ("TARGET_LEG" if ot == "SINGLE" else "STOP_LOSS_LEG")})
+                                            "sl_price": price,          # the resting limit price, as placed
+                                            # Dhan reports SINGLE sell stops as STOP_LOSS_LEG too (17 seen 18-Oct)
+                                            "leg_name": leg or "STOP_LOSS_LEG"})
     return out
 
 
@@ -770,9 +772,9 @@ def run_trail_pass(auto_yes: bool = False, dry_run: bool = False, telegram: bool
         try:
             resp = dhan.modify_forever(
                 order_id=leg["order_id"],
-                order_flag="OCO",
+                order_flag=leg.get("flag", "OCO"),
                 order_type=dhan.LIMIT,
-                leg_name="STOP_LOSS_LEG",
+                leg_name=leg.get("leg_name") or "STOP_LOSS_LEG",
                 quantity=leg["sl_qty"],
                 price=round(new * 0.995, 2),      # limit buffer, house convention
                 trigger_price=new,
