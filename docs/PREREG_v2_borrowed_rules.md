@@ -49,3 +49,26 @@ stop, which the baseline has.
 - S4 GO / PA patterns / zones / bar and volume gates: entry timing — five tests found no edge; v2
   does not time entries.
 - Recovery path, Wyckoff, base rates: selection tools for the trigger system, not for a ranked book.
+
+## RESULT (18 Oct 2026, run once) — four adopted, three rejected; the combination holds
+
+| book | CAGR | max DD | MAR | MAR H1 | MAR H2 | after-tax CAGR | trades / yr | verdict |
+|---|---|---|---|---|---|---|---|---|
+| V2H baseline | 16.78 % | −20.75 % | 0.81 | 0.71 | 1.05 | 14.91 % | 378 | – |
+| B1 sector cap 25 % | 17.79 % | −20.93 % | 0.85 | 0.74 | 1.12 | 15.92 % | 375 | ADOPT |
+| B2 correlation > 0.90 | 16.68 % | −20.75 % | 0.80 | 0.71 | 1.04 | 14.79 % | 377 | ADOPT |
+| B3 Stage 1/2 only | 16.60 % | −24.22 % | 0.69 | 0.52 | 1.17 | 14.84 % | 473 | REJECT |
+| B4 per-trade cap 3.33 % | 17.88 % | −19.94 % | 0.90 | 0.76 | 1.11 | 16.01 % | 400 | ADOPT |
+| B5 open-risk budget 6 % | 4.91 % | −11.19 % | 0.44 | 0.28 | 1.15 | 4.21 % | 86 | REJECT |
+| B6 max 25 positions | 13.60 % | −19.68 % | 0.69 | 0.52 | 1.34 | 12.05 % | 245 | REJECT |
+| B7 house Chandelier trail | 15.94 % | −19.78 % | 0.81 | 0.66 | 1.09 | 14.13 % | 447 | ADOPT (at the boundary) |
+| **combined B1+B2+B4+B7** | **17.34 %** | **−20.08 %** | **0.86** | **0.74** | **1.12** | **15.51 %** | 477 | holds |
+
+- Sector names were known for 592 of 981 historical names; the rest were uncapped, as registered.
+- B2 almost never binds (two stocks rarely correlate above 0.90 on daily returns) — harmless.
+- B3 churns: the weekly stage flips 2↔3 on flat averages, which sells names the rank still holds.
+- B5 and B6 starve the book (at 0.10 % per ATR with a 4 × ATR stop each position risks ~0.4 %, so a
+  6 % budget allows ~15 names). Those two house limits were sized for the discretionary book; how
+  they apply to real v2 money is Jay's call (Doc 41).
+- Per the rule, B1, B2, B4 and B7 join the live V2H (`v2_house.V2H_LIVE`) before its first decision.
+Output: `reports/v2_house/borrowed_metrics.csv`, `reports/v2_borrowed_result_20261018.txt`.

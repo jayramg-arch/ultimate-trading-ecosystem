@@ -109,4 +109,7 @@ def test_v2h_amended_without_tiers_and_fno():
     f = vh.BOOK_FLAGS["V2H"]
     assert f["tiers"] is False and f["fno"] is False
     assert f["stop"] and f["wed"] and f["taxtrim"] and f["etf"]
+    # PREREG_v2_borrowed_rules: adopted sector / corr / poscap / trail; rejected stage / heat / maxpos
+    assert f["sector"] and f["corr"] and f["poscap"] and f["trail"]
+    assert not (f.get("stage") or f.get("heat") or f.get("maxpos"))
     assert vh.V2H_REGISTERED == vh.FULL

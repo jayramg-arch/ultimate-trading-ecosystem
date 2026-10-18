@@ -40,7 +40,10 @@ FULL = {k: True for k in FLAGS}
 # registered run showed carry the cost. FULL stays the REGISTERED V2H for reproducing that run.
 V2H_REGISTERED = FULL
 V2H_REVISED = dict(FULL, tiers=False, fno=False)
-BOOK_FLAGS = {"P1E": NONE, "P1ES": dict(NONE, stop=True), "V2H": V2H_REVISED}
+# PREREG_v2_borrowed_rules (18-Oct, run once): four v1 rules adopted - sector cap, correlation block,
+# per-trade cap, house Chandelier trail; Stage 1/2-only, the open-risk budget and max positions rejected.
+V2H_LIVE = dict(V2H_REVISED, sector=True, corr=True, poscap=True, trail=True)
+BOOK_FLAGS = {"P1E": NONE, "P1ES": dict(NONE, stop=True), "V2H": V2H_LIVE}
 INDIAN = {"BROAD_EQUITY", "SECTOR", "SMART_BETA", "THEMATIC"}
 ETF_SWAP = {"GOLDIETF": "GOLDBEES"}       # curated pick whose price series is corrupt -> clean twin
 ST_RATE, LT_RATE = 0.20, 0.125

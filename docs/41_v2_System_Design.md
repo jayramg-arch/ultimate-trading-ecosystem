@@ -158,3 +158,15 @@ ablations, so not evidence): 16.8 % CAGR, max DD −20.8 %, MAR 0.71 · 1.05 (re
   International ETFs currently sit at +14 % to +105 % over NAV (creations suspended at the overseas
   limit), so their price measures the premium, not the holdings. On 16 Oct this removes MAFANG
   (+53.8 %) and ITBEES (+3.7 %, likely T-1 NAV noise); gold and silver are within ±1.2 %.
+
+### v1 rules borrowed into v2 (18 Oct, PREREG_v2_borrowed_rules)
+
+- **Borrowed as is (protective, live):** NAV-premium gate, ETF liquidity floor, earnings deferral
+  (a buy waits a week when results are due within 7 days), stale-data keep (a missing bar never
+  triggers a sell), NSE holiday calendar, the reviewer as an execution check.
+- **Tested and adopted:** sector cap 25 %, correlation block 0.90, the ₹1 lakh per-trade cap
+  (3.33 % of equity), the house Chandelier trail on top of the 4 × ATR disaster stop. Together:
+  17.3 % CAGR, max DD −20.1 %, MAR 0.74 · 1.12 (V2H before them 16.8 %, −20.8 %, 0.71 · 1.05).
+- **Tested and rejected:** weekly Stage 1/2 only (churn, deeper drawdown), the 6 % open-risk budget
+  and the 25-position limit (both starve a 30–40 name book). Decision open for Jay: whether those
+  two house limits apply to real v2 money.
