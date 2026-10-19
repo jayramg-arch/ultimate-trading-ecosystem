@@ -30,6 +30,7 @@ V1_CAPITAL, V1_RISK, V1_CAP = 3_000_000.0, 0.005, 100_000.0
 V2_EQUITY, V2_RISK, V2_CAP = 1_000_000.0, 0.001, 1_000_000.0 * 100_000 / 3_000_000
 T1_R, T2_R, LEG = 3.0, 5.0, 0.25
 BOOT, MIN_GAIN = 2000, 1.0
+IMMEDIATE = False          # --immediate: resize at the conversion open (DESCRIPTIVE, not the registered arm)
 
 
 def v2_cut(p, f, g, ctx):
@@ -152,7 +153,8 @@ def run(plumbing: bool) -> int:
         # C: as B, cut to v2's target size at the next reset (every 2nd decision day), the excess
         # sold at that open and held as cash
         sh1 = min(V1_CAPITAL * V1_RISK / (x["entry"] - x["stop0"]), V1_CAP / x["entry"]) * x["left"]
-        resetd = next((d for d in dec[k0 + 1:] if dec_idx[d] % 2 == 0), None)
+        resetd = (x["overlap"] if IMMEDIATE else
+                  next((d for d in dec[k0 + 1:] if dec_idx[d] % 2 == 0), None))
         rC = rB
         if resetd is not None and resetd in df.index:
             j = df.index.get_loc(resetd) + 1
@@ -196,7 +198,10 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--plumbing", action="store_true")
     ap.add_argument("--run", action="store_true")
+    ap.add_argument("--immediate", action="store_true", help="arm C resized at the conversion open - descriptive")
     a = ap.parse_args()
+    global IMMEDIATE
+    IMMEDIATE = a.immediate
     if not (a.plumbing or a.run):
         ap.print_help()
         return 0

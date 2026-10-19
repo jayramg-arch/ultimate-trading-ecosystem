@@ -67,3 +67,12 @@ shares, and v2's resize (a v1 position is ~3× v2's target) takes most of the mo
 Part of C's edge is that cash: the window is mostly a falling tape, and the released cash is
 counted at 0 % here — conservative for C if v1 redeploys it. Output:
 `reports/pyramid_convert_result_20261019.txt`, `reports/pyramid_convert/events.csv`.
+
+### Descriptive addendum (19 Oct, after the run) — resize on the conversion day
+
+Not the registered arm; run to choose the live mechanics. Resizing to v2's target at the
+conversion open (instead of at the next reset day) gives C − A = **+2.58 %**, CI [+1.00, +4.20],
+halves +5.06 / +0.45, better in 72 % — no worse than the registered C. The live convert therefore
+resizes at once: v2 takes its target-size shares at the Wednesday open (paid from v2's cash, so the
+capital split stays exact) and the excess is sold the same morning; v1's trade closes there.
+`python pyramid_convert_study.py --run --immediate`.

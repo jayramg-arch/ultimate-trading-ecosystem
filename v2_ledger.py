@@ -19,7 +19,7 @@ import json
 import os
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-LEDGER = os.path.join(HERE, "data", "v2", "real_book.json")
+LEDGER = os.environ.get("V2_LEDGER") or os.path.join(HERE, "data", "v2", "real_book.json")   # env: tests
 
 
 def load() -> dict:
@@ -44,8 +44,10 @@ def save(d: dict) -> None:
             f.write(txt)
 
 
-def buy(sym: str, price: float, qty: float, stop: float, date: str | None = None, shared: bool = False) -> dict:
-    """Add v2 shares (a new slice, or more of an existing one - averaged entry, first date kept)."""
+def buy(sym: str, price: float, qty: float, stop: float | None = None, date: str | None = None,
+        shared: bool = False) -> dict:
+    """Add v2 shares (a new slice, or more of an existing one - averaged entry, first date kept).
+    stop None = no stop (v2's rule from 19-Oct-2026: Clenow's exits only)."""
     d = load()
     s = sym.upper()
     q = d["open"].get(s)
@@ -53,11 +55,12 @@ def buy(sym: str, price: float, qty: float, stop: float, date: str | None = None
         tot = q["sh"] + qty
         q["entry"] = (q["entry"] * q["sh"] + price * qty) / tot
         q["sh"] = tot
-        q["stop"] = max(float(q.get("stop") or 0), float(stop))
+        if stop:
+            q["stop"] = max(float(q.get("stop") or 0), float(stop))
         q["shared"] = bool(q.get("shared")) or shared
     else:
         d["open"][s] = {"sh": float(qty), "entry": float(price), "entry_date": date or dt.date.today().isoformat(),
-                        "stop": float(stop), "shared": bool(shared)}
+                        "stop": float(stop) if stop else None, "shared": bool(shared)}
     save(d)
     return d["open"][s]
 

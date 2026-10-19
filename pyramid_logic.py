@@ -56,8 +56,10 @@ ATR_LEN = 14
 
 # ── Data helpers ──────────────────────────────────────────────────────────────
 @st.cache_data(ttl=300, show_spinner=False)
-def load_open_positions(db_path: str = DB_FILE) -> pd.DataFrame:
-    """Load all open positions from the trade journal (status stored UPPER-case)."""
+def load_open_positions(db_path: str = DB_FILE, include_v2: bool = True) -> pd.DataFrame:
+    """Load all open positions from the trade journal (status stored UPPER-case).
+    include_v2=False drops v2 holdings (setup POS-V2): the ladder is the CURRENT system's - a v2
+    holding has no stop and leaves on v2's weekly rules (Jay 19-Oct-2026)."""
     if not os.path.exists(db_path):
         return pd.DataFrame()
     con = sqlite3.connect(db_path)
@@ -72,6 +74,9 @@ def load_open_positions(db_path: str = DB_FILE) -> pd.DataFrame:
         )
     finally:
         con.close()
+    if not include_v2 and len(df):
+        import house_policy as _hpv
+        df = df[~df["setup"].map(_hpv.is_v2)].reset_index(drop=True)
     if df.empty:
         return df
     df["entry_date"] = pd.to_datetime(df["entry_date"], errors="coerce")
@@ -742,7 +747,7 @@ def render_section(label: str, subset: pd.DataFrame, sort_col: str, ascending: b
 def get_precomputed_classifications() -> pd.DataFrame:
     """Precompute the classification rows for all open positions.
     Returns a DataFrame containing the fully computed rows."""
-    df_open = load_open_positions(DB_FILE)
+    df_open = load_open_positions(DB_FILE, include_v2=False)
     if df_open.empty:
         return pd.DataFrame()
 
@@ -818,7 +823,7 @@ def render_pyramid_trim(df_precomputed: pd.DataFrame = None):
                 st.session_state.pop("pyramid_classifications", None)
                 st.rerun()
     else:
-        df_open = load_open_positions(DB_FILE)
+        df_open = load_open_positions(DB_FILE, include_v2=False)
         if df_open.empty:
             st.warning(f"No open positions found in `{os.path.basename(DB_FILE)}` "
                        f"(status='OPEN'). Add positions via the Journal page / Dhan sync first.")

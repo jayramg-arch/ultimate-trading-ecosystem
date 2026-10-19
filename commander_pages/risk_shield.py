@@ -651,9 +651,16 @@ if True:
                         protection_unknown.add(s["symbol"])
 
                 unprotected_holdings = []
+                try:                       # v2 holdings carry no stop by design (Jay 19-Oct-2026)
+                    import house_policy as _hpv2
+                    _v2_syms = _hpv2.v2_symbols()
+                except Exception:
+                    _v2_syms = set()
                 for csym, h in holdings_map.items():
                     if csym in protection_unknown:
                         continue  # rendered as UNKNOWN below, not as protected/unprotected
+                    if csym.upper() in _v2_syms:
+                        continue  # v2 holding: no stop, v2's weekly exits - see the v2 tab
                     if csym not in all_protected_syms and h["qty"] > 0:
                         unprotected_holdings.append({"symbol": csym, "buy_price": h["buy_price"], "qty": h["qty"], "ltp": h["ltp"], "entry_date": h.get("entry_date", "")})
                         symbols_to_fetch.add(csym)

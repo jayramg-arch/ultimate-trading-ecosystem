@@ -223,6 +223,9 @@ def compute_slots() -> list[dict]:
         open_trades = con.execute("SELECT * FROM journal WHERE status='OPEN' ORDER BY id ASC").fetchall()
     finally:
         con.close()
+    # v2 holdings (setup POS-V2) carry no stop and no targets - Add-ons M2 draws their exits,
+    # so they get no v67 slot (Jay 19-Oct-2026)
+    open_trades = [r for r in open_trades if not str(r["setup"] or "").upper().startswith("POS-V2")]
     jrows = {str(r["symbol"]).upper(): dict(r) for r in open_trades}
     with open(os.path.join(HERE, dps.PINE_PATH), encoding="utf-8") as f:
         pine = f.read()
@@ -290,6 +293,8 @@ def compute_book() -> list[dict]:
         df = pd.read_sql_query("SELECT * FROM journal WHERE UPPER(status)='OPEN'", con)
     finally:
         con.close()
+    if "setup" in df.columns:          # v2 holdings: no Chandelier / Rec Dhan SL (Jay 19-Oct-2026)
+        df = df[~df["setup"].astype(str).str.upper().str.startswith("POS-V2")]
     syms = [s for s in df["symbol"].dropna().unique() if not str(s).upper().startswith("LIQUID")]
 
     def _f(x):

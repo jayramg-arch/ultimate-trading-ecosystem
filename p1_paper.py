@@ -394,42 +394,63 @@ def v2_workflow(p, hctx, decided_today: bool) -> list:
                       pend.get("decided"), pend.get("fill")),
                   "Check the reviewer's ruling on the 🧭 v2 page first: WAIT / PASS = skip that buy this week.",
                   "Order type (Doc 42 D3): a LIMIT at Tuesday's close + 1 %, cancelled if unfilled by 10:00.", ""]
-        if not (r["sells"] or r["trims"] or r["buys"]):
+        if not (r["sells"] or r["trims"] or r["buys"] or r.get("adds")):
             lines.append("No orders for your book this week.")
         else:
-            lines += ["| side | symbol | shares | ≈ value | disaster stop |", "|---|---|---|---|---|"]
+            # Clenow's rules (Jay 19-Oct): no stop, no targets. A buy of a name the current system
+            # holds is a CONVERT (PREREG_pyramid_slices_vs_convert): v2 takes the holding, resized
+            # to its target at once; the v1 stop order is cancelled.
+            lines += ["| order | symbol | shares | ≈ value | note |", "|---|---|---|---|---|"]
+            cash_in, cash_out = 0.0, 0.0
             for s in r["sells"]:
-                lines.append("| SELL%s | %s | %d | %s | %s |" % (" (v2 slice only)" if real[s].get("shared") else "", s, real[s]["sh"],
-                             _inr(real[s]["sh"] * real[s]["last"]), "keep the current system's shares and resize its stop" if real[s].get("shared") else "–"))
+                v = real[s]["sh"] * real[s]["last"]
+                cash_in += v
+                lines.append("| SELL | %s | %d | %s | v2 exit · record: `python v2_take.py %s --sell --price P` |"
+                             % (s, real[s]["sh"], _inr(v), s))
             for s, sh in r["trims"]:
-                lines.append("| TRIM | %s | %d | %s | keep |" % (s, int(sh), _inr(sh * real[s]["last"])))
-            rung = {}
+                v = sh * real[s]["last"]
+                cash_in += v
+                lines.append("| RESIZE ↓ | %s | %d | %s | back to equal risk · `v2_take.py %s --sell --price P --qty %d` |"
+                             % (s, int(sh), _inr(v), s, int(sh)))
+            rung, held_q = {}, {}
             try:                          # the current system's ladder rung per holding (Phase 5, last night)
                 _pp = pd.read_csv(os.path.join(HERE, "FINAL_Portfolio_Picks.csv"))
                 rung = dict(zip(_pp["Symbol"].astype(str).str.upper(), _pp["Pyr_Class"].astype(str)))
             except Exception:
                 pass
-            jstop = {}
             try:
-                jstop = dict(zip(_j["symbol"].astype(str).str.upper(), pd.to_numeric(_j["stoploss"], errors="coerce")))
+                held_q = dict(zip(_j["symbol"].astype(str).str.upper(), pd.to_numeric(_j["quantity"], errors="coerce")))
             except Exception:
                 pass
             for s, amt, k in r["buys"]:
                 px = float(C.at[d, s])
-                stp = px - vh.H["stop_atr"] * float(a14.get(s, float("nan")))
-                if s in v1_held:          # PYRAMID onto a current-system holding (Doc 42 §8 D2)
-                    one = max(float(jstop.get(s) or 0), stp)
+                tgt = int(amt // px)
+                if s in v1_held:          # CONVERT a current-system holding
+                    q = int(held_q.get(s) or 0)
                     rg = rung.get(s, "?")
-                    lines.append("| BUY · PYRAMID onto a current-system holding | %s | %d | %s | ONE stop for all shares "
-                                 "≈ %.2f (higher of the holding's %.2f and the add's %.2f) · current-system rung **%s**%s · "
-                                 "record: `python v2_take.py %s --price P --qty Q` |"
-                                 % (s, int(amt // px), _inr(amt), one, float(jstop.get(s) or 0), stp, rg,
-                                    " - the two systems disagree, look before adding" if rg in ("EXIT", "REDUCE", "TRIM") else "", s))
+                    if q >= tgt:
+                        act = "SELL %d of your %d at the open, keep %d" % (q - tgt, q, tgt)
+                        cash_in += (q - tgt) * px
+                        rec = "--keep %d" % tgt
+                    else:
+                        act = "keep all %d, BUY %d more" % (q, tgt - q)
+                        cash_out += (tgt - q) * px
+                        rec = "--keep %d --bought %d" % (q, tgt - q)
+                    lines.append("| CONVERT | %s | %d | %s | %s · CANCEL the v1 stop order · current-system rung "
+                                 "**%s** · record: `python v2_take.py %s --convert --price P %s` |"
+                                 % (s, tgt, _inr(tgt * px), act, rg, s, rec))
                 else:
-                    lines.append("| BUY%s | %s | %d | %s | ≈ %.2f (record the fill: `python v2_take.py %s --price P --qty Q`) |"
-                                 % (" ETF" if k == "etf" else "", s, int(amt // px), _inr(amt), stp, s))
-        for s, amt in r.get("adds", []):
-            lines.append("| ADD (top-up) | %s | %d | %s | keep the stop |" % (s, int(amt // float(C.at[d, s])), _inr(amt)))
+                    cash_out += tgt * px
+                    lines.append("| BUY%s | %s | %d | %s | no stop · record: `python v2_take.py %s --price P --qty Q` |"
+                                 % (" ETF" if k == "etf" else "", s, tgt, _inr(tgt * px), s))
+            for s, amt in r.get("adds", []):
+                px = float(C.at[d, s])
+                cash_out += amt
+                lines.append("| RESIZE ↑ | %s | %d | %s | back to equal risk · `v2_take.py %s --price P --qty %d` |"
+                             % (s, int(amt // px), _inr(amt), s, int(amt // px)))
+            lines += ["", "Cash: buys need %s, sales release %s → have **%s** free at Dhan before the open "
+                          "(sale proceeds may not be usable the same morning - fund the buys in full to be safe)."
+                      % (_inr(cash_out), _inr(cash_in), _inr(max(0.0, cash_out)))]
         if r.get("skipped"):
             lines.append("Skipped by the borrowed v1 rules: " + ", ".join("%s (%s)" % kv for kv in r["skipped"].items()))
         if r.get("etf_premium_out"):
@@ -447,8 +468,15 @@ def v2_workflow(p, hctx, decided_today: bool) -> list:
         b = v2_core.board()
         ranked = b.set_index("symbol")["rank"] if len(b) else ranked
         n_el = int(b["eligible"].iloc[0]) if len(b) else 0
+        n_cut = int(b["in_cut"].astype(str).str.lower().eq("true").sum()) if len(b) else 0
     except Exception:
-        n_el = 0
+        n_el, n_cut = 0, 0
+    try:                                 # Nifty 500 membership (refreshed nightly, Phase 0.6)
+        _uni = {x.replace(".NS", "").upper() for x in json.load(open(os.path.join(HERE, "nifty500_symbols.json")))}
+    except Exception:
+        _uni = set()
+    _etf_pool = set(vh.etf_pool())
+    _surv = hctx.get("surv_out") or {}
     buys = [x[0] for x in pend.get("buys", [])] + ([s for s, _a, _k in r["buys"]] if r else [])
     sells = list(pend.get("sells", [])) + (list(r["sells"]) if r else [])
     held_paper = set(st.get("pos", {}))
@@ -463,14 +491,18 @@ def v2_workflow(p, hctx, decided_today: bool) -> list:
         rk = ranked.get(s)
         q = real.get(s) or st.get("pos", {}).get(s) or {}
         stp = q.get("stop")
-        if stp is None and sec == "BUY" and s in C.columns:
+        if stp is None and sec == "BUY" and s in C.columns and vh.BOOK_FLAGS["V2H"].get("stop"):
             stp = float(C.at[d, s]) - vh.H["stop_atr"] * float(a14.get(s, float("nan")))
         rows.append({"Symbol": s, "Section": sec, "Rank": "" if rk is None or rk != rk else int(rk),
                      "Stop": "" if stp is None or stp != stp else round(float(stp), 2),
                      "Held": "real" if s in real else ("paper" if s in held_paper else "")})
-        status[s] = "%s/%s;%s;%s;%s" % ("" if rk is None or rk != rk else int(rk), n_el, sec,
-                                        "" if stp is None or stp != stp else "%.2f" % stp,
-                                        "real" if s in real else ("paper" if s in held_paper else ""))
+        # fields: rank/eligible ; group ; stop (empty - v2 has none) ; held ; buy cut ; flags
+        # flags: X = not in the Nifty 500 (sold at the next rebalance), S = NSE surveillance
+        _fl = ("X" if (_uni and s not in _uni and s not in _etf_pool) else "") + ("S" if s in _surv else "")
+        status[s] = "%s/%s;%s;%s;%s;%s;%s" % ("" if rk is None or rk != rk else int(rk), n_el, sec,
+                                              "" if stp is None or stp != stp else "%.2f" % stp,
+                                              "real" if s in real else ("paper" if s in held_paper else ""),
+                                              n_cut or "", _fl)
     _io_write(V2_WATCHLIST, pd.DataFrame(rows, columns=["Symbol", "Section", "Rank", "Stop", "Held"]).to_csv(index=False, lineterminator="\n"))
     items = []
     for s, v in status.items():
@@ -491,7 +523,7 @@ def v2_workflow(p, hctx, decided_today: bool) -> list:
         msg = ("v2: Nifty 500 closed %s its 200-day SMA on %s. %s" % (
             "ABOVE" if up else "BELOW", as_of,
             "New v2 buys are allowed from the next Wednesday rebalance." if up else
-            "No new v2 buys until it closes back above; holdings follow the weekly rank and their stops."))
+            "No new v2 buys until it closes back above; holdings stay and follow Clenow's exits (rank, 100-day average, 15 % gap, index, surveillance)."))
         print(msg)
         if os.getenv("P1_TELEGRAM", "1") != "0":
             try:

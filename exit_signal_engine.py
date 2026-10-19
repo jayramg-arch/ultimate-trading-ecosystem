@@ -315,6 +315,8 @@ def load_open_positions() -> pd.DataFrame:
         conn = sqlite3.connect(DB_FILE)
         df = pd.read_sql("SELECT * FROM journal WHERE status='OPEN'", conn)
         conn.close()
+        if "setup" in df.columns:           # v2 holdings follow v2's weekly exits, not this scan (19-Oct-2026)
+            df = df[~df["setup"].astype(str).str.upper().str.startswith("POS-V2")]
         col_map = {
             "symbol": "Symbol", "stoploss": "StopLoss", "target": "Target",
             "buy_price": "BuyPrice", "quantity": "Quantity", "entry_date": "EntryDate",

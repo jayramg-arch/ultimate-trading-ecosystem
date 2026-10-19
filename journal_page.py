@@ -660,6 +660,8 @@ div[data-testid='stSidebar'] div[data-testid='stVerticalBlock'] div[data-testid=
             if _m.empty:
                 continue
             _je = _m.iloc[0]
+            if str(_je.get('Setup') or _je.get('setup') or '').upper().startswith('POS-V2'):
+                continue                # v2 holding: no stop by design (Jay 19-Oct-2026)
             _ltp = live_map.get(sym, {}).get('LTP')
             _qty = live_map.get(sym, {}).get('Quantity')
             _sl = float(_je.get('StopLoss') or 0.0)

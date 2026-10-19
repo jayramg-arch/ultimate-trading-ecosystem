@@ -639,6 +639,9 @@ def build_trail_proposals(dhan=None):
             # which covers v2's POS-V2 rows. Anything else is skipped and reported, never guessed.
             _tf = str(j.get("timeframe") or "").lower()
             _stp = str(j.get("setup") or "").upper()
+            if _stp.startswith("POS-V2"):     # v2 holdings have no stop (Jay 19-Oct-2026: Clenow's exits)
+                LAST_SKIPPED.append((sym, "v2 holding - no stop, v2's weekly exits"))
+                continue
             if "swing" in _tf or _stp.startswith("SWG"):
                 LAST_SKIPPED.append((sym, "swing - not trailed"))
                 continue

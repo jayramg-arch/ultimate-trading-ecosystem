@@ -282,6 +282,8 @@ def review_book() -> pd.DataFrame:
     rows = []
     for _, p in open_positions().iterrows():
         sym = str(p["symbol"]).strip().upper()
+        if str(p.get("setup") or "").upper().startswith("POS-V2"):
+            continue                   # v2 holding: v2's own rules, not the swing/positional procedure
         f = daily_facts(sym)
         jt = "Swing" if _is_swing(p["timeframe"]) else ("Positional" if str(p["timeframe"] or "").strip() else "—")
         base = {"id": int(p["id"]), "symbol": sym, "journal": jt, "qty": p["quantity"],
