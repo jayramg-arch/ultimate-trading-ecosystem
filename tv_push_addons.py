@@ -34,7 +34,7 @@ JS = r"""
     var st = chart.getStudyById(id);
     var want = %(want)s, title = %(title)s, inId = null;
     st.getInputsInfo().forEach(function (inp) { if (inp.name === title) inId = inp.id; });
-    if (!inId) return JSON.stringify({error: "no M2 input (compile Add-ons v1.2)"});
+    if (!inId) return JSON.stringify({error: "no M2 input (compile Add-ons v1.3)"});
     if (want !== null) st.setInputValues([{id: inId, value: want}]);
     var got = "";
     st.getInputValues().forEach(function (v) { if (v.id === inId) got = String(v.value == null ? "" : v.value); });

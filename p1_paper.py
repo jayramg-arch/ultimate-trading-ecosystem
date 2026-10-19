@@ -532,8 +532,10 @@ def v2_workflow(p, hctx, decided_today: bool) -> list:
                      "Stop": "" if stp is None or stp != stp else round(float(stp), 2),
                      "Held": "real" if s in real else ("paper" if s in held_paper else "")})
         # fields: rank/eligible ; group ; stop (empty - v2 has none) ; held ; buy cut ; flags
-        # flags: X = not in the Nifty 500 (sold at the next rebalance), S = NSE surveillance
-        _fl = ("X" if (_uni and s not in _uni and s not in _etf_pool) else "") + ("S" if s in _surv else "")
+        # flags: X = not in the Nifty 500 (sold at the next rebalance), S = NSE surveillance,
+        #        1 = the CURRENT system (v1) holds it - a v2 buy would CONVERT it (19-Oct)
+        _fl = ("X" if (_uni and s not in _uni and s not in _etf_pool) else "") + ("S" if s in _surv else "") \
+            + ("1" if s in v1_held else "")
         status[s] = "%s/%s;%s;%s;%s;%s;%s" % ("" if rk is None or rk != rk else int(rk), n_el, sec,
                                               "" if stp is None or stp != stp else "%.2f" % stp,
                                               "real" if s in real else ("paper" if s in held_paper else ""),
