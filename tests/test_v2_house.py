@@ -108,10 +108,14 @@ def test_v2h_amended_without_tiers_and_fno():
     # stays reproducible for the record.
     f = vh.BOOK_FLAGS["V2H"]
     assert f["tiers"] is False and f["fno"] is False
-    assert f["stop"] and f["wed"] and f["taxtrim"] and f["etf"]
-    # PREREG_v2_borrowed_rules: adopted sector / corr / poscap / trail; rejected stage / heat / maxpos
-    assert f["sector"] and f["corr"] and f["poscap"] and f["trail"]
+    assert f["wed"] and f["taxtrim"] and f["etf"]
+    # PREREG_v2_borrowed_rules: adopted sector / corr / poscap; rejected stage / heat / maxpos
+    assert f["sector"] and f["corr"] and f["poscap"]
     assert not (f.get("stage") or f.get("heat") or f.get("maxpos"))
+    # Jay 19-Oct-2026: Clenow's exits - no stop, no trail - and the twice-monthly reset, +/-10 % band
+    assert not f["stop"] and not f["trail"] and not f.get("topup")
+    assert f["reb2"] and f["reb_band"] == 0.10
+    assert vh.BOOK_FLAGS["V2H"] is vh.V2H_CLENOW
     assert vh.V2H_REGISTERED == vh.FULL
 
 
@@ -157,3 +161,42 @@ def test_random_filter_rate():
     assert abs(float(R.values.mean()) - 0.4) < 0.02
     q = pd.PeriodIndex(idx, freq="Q")
     assert (R.groupby(q).nunique() == 1).all().all()      # constant within a quarter (no churn)
+
+
+def test_surveillance_classify():
+    import nse_surveillance as ns
+    asm = [{"symbol": "AAA", "asmSurvIndicator": "Stage I"}, {"symbol": "BBB", "asmSurvIndicator": "Stage III"}]
+    gsm = [{"symbol": "CCC", "gsmStage": "II"}]
+    sl = [{"Symbol": "DDD", "Series": "EQ", "Band": "5"}, {"Symbol": "EEE", "Series": "BE", "Band": "20"},
+          {"Symbol": "FFF", "Series": "EQ", "Band": "No Band"}, {"Symbol": "AAA", "Series": "EQ", "Band": "20"}]
+    out = ns.classify(asm, gsm, sl)
+    assert set(out) == {"BBB", "CCC", "DDD", "EEE"}          # Stage I and a normal band stay in
+    assert "ASM Stage III" in out["BBB"] and "5% price band" in out["DDD"] and "trade-for-trade" in out["EEE"]
+
+
+def test_reb2_two_way_reset_with_band():
+    import numpy as np
+    idx = pd.bdate_range("2024-01-01", periods=5)
+    cols = ["A", "B", "C"]
+    C = pd.DataFrame(100.0, index=idx, columns=cols)
+    atr = pd.DataFrame(2.0, index=idx, columns=cols)        # target = 1e6 * 0.001 / 2 = 500 shares
+    g = {"sma100": C * 0 + 50, "gap90": C * 0 > 1, "liq": C * 0 == 0, "atr20": atr,
+         "b_up200": pd.Series(True, index=idx)}
+    for lb in (60, 90, 120):
+        g["clenow%d" % lb] = pd.DataFrame([[3.0, 2.0, 1.0]] * 5, index=idx, columns=cols)
+    f = {"has": C * 0 == 0, "atr": atr}
+    ctx = {"C": C, "g": g, "f": f, "stocks": cols, "etfs": [], "score": lambda d: (None, {})}
+    d = idx[-1]
+    pos = {"A": {"sh": 700.0, "entry": 90, "entry_date": idx[0], "last": 100, "kind": "stock"},   # +40 % -> trim
+           "B": {"sh": 530.0, "entry": 90, "entry_date": idx[0], "last": 100, "kind": "stock"},   # +6 % -> inside band
+           "C": {"sh": 300.0, "entry": 90, "entry_date": idx[0], "last": 100, "kind": "stock"}}   # -40 % -> top up
+    fl = dict(vh.NONE, reb2=True, reb_band=0.10)
+    vh.H["top_pct"], keep = 1.0, vh.H["top_pct"]
+    try:
+        r = vh.decide(d, ctx, fl, 1e6, 5e5, pos, 2)              # n_dec 2 = a reset day
+        r_off = vh.decide(d, ctx, fl, 1e6, 5e5, pos, 3)          # odd decision = no reset
+    finally:
+        vh.H["top_pct"] = keep
+    assert dict(r["trims"]) == {"A": 200.0}
+    assert [s for s, _a in r["adds"]] == ["C"] and abs(dict(r["adds"])["C"] - 200 * 100) < 1e-6
+    assert not r_off["trims"] and not r_off["adds"]

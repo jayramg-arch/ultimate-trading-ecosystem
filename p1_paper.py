@@ -434,6 +434,12 @@ def v2_workflow(p, hctx, decided_today: bool) -> list:
             lines.append("Skipped by the borrowed v1 rules: " + ", ".join("%s (%s)" % kv for kv in r["skipped"].items()))
         if r.get("etf_premium_out"):
             lines.append("Out of the ETF pool on NAV premium: " + ", ".join(r["etf_premium_out"]))
+        if r.get("surveillance_out"):
+            lines.append("Out of the pool on NSE surveillance (no buy; a holding is sold): " +
+                         ", ".join("%s (%s)" % kv for kv in sorted(r["surveillance_out"].items())))
+        if hctx.get("surv_out") is None:
+            lines.append("⚠ NSE surveillance list unavailable (%s) - check ASM / price band on nseindia.com "
+                         "before placing a buy." % hctx.get("surv_note", "unknown"))
     # the TradingView list + the chart status: buys, sells, your holdings, then the top of the rank
     ranked = pd.Series(dtype=float)
     try:

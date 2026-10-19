@@ -32,7 +32,7 @@ OUT = os.path.join(HERE, "reports", "v2_house")
 
 H = dict(top_pct=0.25, tax_band=0.50, risk=0.001, stop_atr=4.0, tax_from=300, tax_to=365,
          trim_mult=1.5, trim_every=4, etf_cut=0.25, etf_min=2, etf_max=5, etf_pos_cap=0.10,
-         etf_sleeve=0.30, etf_liq=2e7, fno_n=210)
+         etf_sleeve=0.30, etf_liq=2e7, fno_n=210, reb_band=0.0)
 FLAGS = ("stop", "wed", "tiers", "fno", "taxtrim", "etf")
 NONE = {k: False for k in FLAGS}
 FULL = {k: True for k in FLAGS}
@@ -43,7 +43,12 @@ V2H_REVISED = dict(FULL, tiers=False, fno=False)
 # PREREG_v2_borrowed_rules (18-Oct, run once): four v1 rules adopted - sector cap, correlation block,
 # per-trade cap, house Chandelier trail; Stage 1/2-only, the open-risk budget and max positions rejected.
 V2H_LIVE = dict(V2H_REVISED, sector=True, corr=True, poscap=True, trail=True, topup=True)   # + B8 (Amendment 1)
-BOOK_FLAGS = {"P1E": NONE, "P1ES": dict(NONE, stop=True), "V2H": V2H_LIVE}
+# Jay 19-Oct-2026: Clenow's exits (NO stop, no trail - the rank, the 100-DMA, the 15 % gap, the index
+# and NSE surveillance are the exits) and Clenow's twice-monthly two-way reset with a +/-10 % band
+# (replaces the monthly trims and the B8 top-up). Descriptive run 19-Oct: CAGR 17.3 % -> 20.5 %,
+# MAR 0.86 -> 1.00 (reports/v2_house/clenow_decisions_20261019.txt). V2H_LIVE kept for the record.
+V2H_CLENOW = dict(V2H_LIVE, stop=False, trail=False, topup=False, reb2=True, reb_band=0.10)
+BOOK_FLAGS = {"P1E": NONE, "P1ES": dict(NONE, stop=True), "V2H": V2H_CLENOW}
 INDIAN = {"BROAD_EQUITY", "SECTOR", "SMART_BETA", "THEMATIC"}
 ETF_SWAP = {"GOLDIETF": "GOLDBEES"}       # curated pick whose price series is corrupt -> clean twin
 ST_RATE, LT_RATE = 0.20, 0.125
@@ -149,6 +154,14 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
     el = el.reindex(stocks).fillna(False).astype(bool)
     if flags.get("stage") and ctx.get("stage"):        # B3: v1's first test - weekly Stage 1 or 2 only
         el = el & ctx["stage"](d).reindex(el.index).isin([1, 2])
+    # NSE surveillance (Jay 19-Oct-2026, nse_surveillance.py): ASM Stage II+, any GSM stage, a 5 % / 2 %
+    # price band or trade-for-trade series - the Wednesday sale may not happen, so out of the pool:
+    # no buy, and a holding is sold. Live only (ctx has no list in the backtest).
+    surv_hit = {}
+    if ctx.get("surv_out"):
+        surv_hit = {s: ctx["surv_out"][s] for s in el.index if s in ctx["surv_out"]}
+        if surv_hit:
+            el = el & ~el.index.isin(list(surv_hit))
     if flags.get("mtt") and ctx.get("mtt"):          # PREREG_v2_minervini_filter: template as eligibility
         el = el & (ctx["mtt"](d).reindex(el.index) >= flags["mtt"])
     if flags.get("mtt_rand") and ctx.get("mtt_rand"):   # its placebo: a random filter, same pass rate
@@ -206,9 +219,31 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
                 sells.append(s)
     elif not flags["etf"]:
         sells += [s for s, q in pos.items() if q.get("kind") == "etf"]
-    # trims - Clenow's one-way risk rebalance, every 4th decision
+    # trims - Clenow's one-way risk rebalance, every 4th decision (replaced by reb2 when that is on)
     trims = []
-    if flags["taxtrim"] and n_dec % H["trim_every"] == 0:
+    import house_policy as hp
+
+    def _reb_target(s):
+        """reb2: the shares a held stock should have today - equal risk (0.10 % of equity per
+        ATR20), no more than the per-trade cap when that rule is on. None when ATR is missing."""
+        a = g["atr20"].at[d, s] if s in g["atr20"].columns else float("nan")
+        px = cl.get(s, float("nan"))
+        if not (a == a and a > 0 and px == px and px > 0):
+            return None
+        t = equity * H["risk"] / a
+        if flags.get("poscap"):
+            t = min(t, hp.MAX_ALLOC_DEFAULT / hp.CAPITAL_DEFAULT * equity / px)
+        return t
+    reb_day = bool(flags.get("reb2")) and n_dec % 2 == 0
+    rband = float(flags.get("reb_band", H["reb_band"]))     # no-trade band around the target
+    if reb_day:              # Clenow: every second Wednesday each position is reset to its target size
+        for s, q in pos.items():
+            if s in sells or q.get("kind", "stock") != "stock":
+                continue
+            t = _reb_target(s)
+            if t is not None and q["sh"] > t * (1 + rband):
+                trims.append((s, q["sh"] - t))
+    if flags["taxtrim"] and not flags.get("reb2") and n_dec % H["trim_every"] == 0:
         tgt_risk = equity * H["risk"]
         for s, q in pos.items():
             if s in sells:
@@ -351,7 +386,24 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
     # two-way rebalance. On trim days, a holding still inside its cut whose risk fell below half
     # the target is topped back up to the target, from the cash left after the new buys.
     adds = []
-    if flags.get("topup") and n_dec % H["trim_every"] == 0:
+    if reb_day:              # reb2: the other half of the reset - top up below target, from cash left after buys
+        for s, q in pos.items():
+            if s in sells or q.get("kind", "stock") != "stock":
+                continue
+            t = _reb_target(s)
+            if t is None or q["sh"] >= t * (1 - rband):
+                continue
+            amt = (t - q["sh"]) * cl[s]
+            sec = ctx.get("sector", {}).get(s)
+            if flags.get("sector") and sec and st_["sect"].get(sec, 0.0) + amt > hp.SECTOR_CAP_PCT / 100.0 * equity:
+                continue
+            if amt <= 0 or amt > free:
+                continue
+            adds.append((s, amt))
+            free -= amt * (1 + v2.COST)
+            if sec:
+                st_["sect"][sec] = st_["sect"].get(sec, 0.0) + amt
+    if flags.get("topup") and not flags.get("reb2") and n_dec % H["trim_every"] == 0:
         tgt = equity * H["risk"]
         for s, q in pos.items():
             if s in sells or not (s in top or s in etop):
@@ -372,7 +424,7 @@ def decide(d, ctx: dict, flags: dict, equity: float, cash: float, pos: dict, n_d
             if sec:
                 st_["sect"][sec] = st_["sect"].get(sec, 0.0) + amt
     return {"sells": sells, "trims": trims, "buys": buys, "adds": adds, "ranked": sc, "cut": cut, "etf_ranked": esc,
-            "etf_cut": ecut, "etf_premium_out": prem_out, "skipped": skipped, "stale": stale, "tier": tr, "score": score, "comps": comps, "up200": up200}
+            "etf_cut": ecut, "etf_premium_out": prem_out, "surveillance_out": surv_hit, "skipped": skipped, "stale": stale, "tier": tr, "score": score, "comps": comps, "up200": up200}
 
 
 # ── borrowed-rule data (PREREG_v2_borrowed_rules) ─────────────────────────────
@@ -634,6 +686,11 @@ def live_context(p: dict, f: dict, g: dict, stocks: list, etfs: list) -> dict:
            "etf_meta": pool, "etf_has": Cc.notna().cumsum() >= v2.MIN_BARS,
            "etf_turn": (Cc * Vv).rolling(50).median(), "fno": lambda d: fno_live, "score": score,
            "prem_ok": _prem_ok, "earn_days": _earn, "stale_keep": True}
+    try:
+        import nse_surveillance as ns
+        ctx["surv_out"], ctx["surv_note"] = ns.excluded(refresh_first=True)
+    except Exception as e:
+        ctx["surv_out"], ctx["surv_note"] = None, "surveillance check failed (%s)" % e
     _add_borrowed(ctx, p, stocks)
     return ctx
 
@@ -840,6 +897,34 @@ def _add_borrowed(ctx: dict, p: dict, stocks: list) -> None:
     ctx["stage"] = stage
 
 
+def _clenow(p, ctx, S, SP, E) -> int:
+    """Jay's 19-Oct decisions (Clenow's exits, Clenow's twice-monthly reset): what they do to the
+    live V2H, with a no-trade band around each target (0 / 10 / 25 %). Descriptive - the decision
+    is made; this measures it."""
+    ns = dict(V2H_LIVE, stop=False, trail=False)
+    books = {"V2H live (4xATR stop + trail, monthly bands)": V2H_LIVE,
+             "no stop, monthly bands": ns,
+             "no stop + 2-weekly reset, band 0 %": dict(ns, topup=False, reb2=True, reb_band=0.0),
+             "no stop + 2-weekly reset, band 10 %": dict(ns, topup=False, reb2=True, reb_band=0.10),
+             "no stop + 2-weekly reset, band 25 %": dict(ns, topup=False, reb2=True, reb_band=0.25),
+             "P1E (pure Clenow, our rank)": NONE}
+    rows = []
+    for name, fl in books.items():
+        e, ea, st = run_book(fl, p, ctx, S, E)
+        r_ = {h: v2.metrics(e.loc[s0:s1]) for h, (s0, s1) in
+              {"full": (S, E), "H1": (S, SP - pd.Timedelta(days=1)), "H2": (SP, E)}.items()}
+        rows.append({"book": name, "CAGR%": r_["full"]["CAGR%"], "maxDD%": r_["full"]["maxDD%"],
+                     "MAR": r_["full"]["MAR"], "MAR H1": r_["H1"]["MAR"], "MAR H2": r_["H2"]["MAR"],
+                     "Sharpe": r_["full"]["Sharpe"], "after tax%": v2.metrics(ea).get("CAGR%"),
+                     "trades/yr": round(st["trades"] / st["years"], 1)})
+        print("done", name, flush=True)
+    T = pd.DataFrame(rows)
+    os.makedirs(OUT, exist_ok=True)
+    T.to_csv(os.path.join(OUT, "clenow_decisions_metrics.csv"), index=False)
+    print(T.to_string(index=False))
+    return 0
+
+
 def _mtt(mode, p, f, g, ctx, S, SP, E) -> int:
     """PREREG_v2_minervini_filter."""
     stocks = ctx["stocks"]
@@ -928,16 +1013,20 @@ def main() -> int:
     ap.add_argument("--revised", action="store_true", help="the amended V2H, DESCRIPTIVE (post-hoc)")
     ap.add_argument("--borrowed", action="store_true", help="PREREG_v2_borrowed_rules - once")
     ap.add_argument("--b8", action="store_true", help="PREREG_v2_borrowed_rules Amendment 1 (pyramid top-up) - once")
+    ap.add_argument("--clenow", action="store_true",
+                    help="Jay 19-Oct: Clenow's exits (no stop) + twice-monthly reset - DESCRIPTIVE cost table")
     ap.add_argument("--mtt", choices=("verify", "plumbing", "run"),
                     help="PREREG_v2_minervini_filter: verify the vectorised template / trade counts / THE run")
     a = ap.parse_args()
-    if not (a.check or a.plumbing or a.run or a.revised or a.borrowed or a.b8 or a.mtt):
+    if not (a.check or a.plumbing or a.run or a.revised or a.borrowed or a.b8 or a.mtt or a.clenow):
         ap.print_help()
         return 0
     p, f, g, ctx = load_backtest()
     S, SP, E = v2.START, v2.SPLIT, v2.END
     if a.mtt:
         return _mtt(a.mtt, p, f, g, ctx, S, SP, E)
+    if a.clenow:
+        return _clenow(p, ctx, S, SP, E)
     if a.check:
         e1, _ = ps.run_sys("P1", p, f, g, S, pd.Timestamp("2020-12-31"), params={"ensemble": True, "top_pct": 0.25})
         e2, _, st = run_book(NONE, p, ctx, S, pd.Timestamp("2020-12-31"))
