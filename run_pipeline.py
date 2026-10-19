@@ -316,6 +316,30 @@ def main():
             p.status = "WARN"
             p.message = f"cleanup error: {e}"
 
+    # 0.6 NIFTY 500 UNIVERSE (19-Oct-2026): nifty500_symbols.json was a static file (12-Aug when
+    # this phase was added) - names that left the index at a reconstitution were still ranked and
+    # new members were missing. Refreshed from NSE's official list every night; REITs and
+    # placeholders are left out; nothing is written if NSE is unreachable or the list looks wrong.
+    logger.info("\n[PHASE 0.6] REFRESHING THE NIFTY 500 UNIVERSE...")
+    with run.phase("Phase 0.6 - Nifty 500 Universe") as p:
+        try:
+            import contextlib
+            import io as _io_u
+            import check_universe_listing as _cul
+            _buf = _io_u.StringIO()
+            with contextlib.redirect_stdout(_buf):
+                _rc = _cul.refresh()
+            _out = [ln.replace("[universe] ", "") for ln in _buf.getvalue().splitlines() if ln.strip()]
+            for ln in _out:
+                logger.info("  " + ln)
+            p.message = " · ".join(_out[-3:])[:400] if _out else "no output"
+            if _rc != 0:
+                p.status = "WARN"
+        except Exception as e:
+            logger.error(f"universe refresh failed: {e}")
+            p.status = "WARN"
+            p.message = f"failed: {e} - yesterday's list kept"
+
     # 1. RUN ALL CHARTINK SCANS
     logger.info("\n[PHASE 1] RUNNING TECHNICAL SCANNERS...")
     with run.phase("Phase 1 — Chartink Scanners") as p:

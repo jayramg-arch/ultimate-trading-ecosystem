@@ -58,8 +58,19 @@ def nse_listed() -> set:
 
 
 def nifty500_constituents() -> list:
+    """The index's STOCKS. Since the Sep-2026 reconstitution NSE's list also carries REITs
+    (series RR - trusts, not stocks) and a demerger placeholder (DUMMYHEG while HEG's new
+    entity lists); both are left out and named, so the universe holds tradeable equities."""
     df = _nse_csv(N500_LIST)
-    return sorted(set(df["Symbol"].astype(str).str.upper().str.strip()))
+    sym = df["Symbol"].astype(str).str.upper().str.strip()
+    ser = df["Series"].astype(str).str.upper().str.strip() if "Series" in df.columns else None
+    skip = sym.str.startswith("DUMMY")
+    if ser is not None:
+        skip = skip | ~ser.isin(["EQ", "BE"])
+    if skip.any():
+        print(f"[universe] left out (not a tradeable stock): "
+              + ", ".join(f"{s} ({x})" for s, x in zip(sym[skip], (ser[skip] if ser is not None else sym[skip]))))
+    return sorted(set(sym[~skip]))
 
 
 def _write_universe(root: str, path: str, symbols: list, old_count: int) -> str:
