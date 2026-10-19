@@ -59,8 +59,8 @@ def _open_v2_row(sym: str, price: float, qty: float, date: str, stop, note: str)
     con = sqlite3.connect(jp.JOURNAL_DB)
     try:
         con.execute("INSERT INTO journal (symbol, trade_type, stoploss, target1, target2, timeframe, entry_date, "
-                    "quantity, buy_price, status, sector, initial_sl, rationale, setup) "
-                    "VALUES (?, 'LONG', ?, NULL, NULL, 'Positional', ?, ?, ?, 'OPEN', ?, ?, ?, ?)",
+                    "quantity, buy_price, status, sector, initial_sl, rationale, setup, origin) "
+                    "VALUES (?, 'LONG', ?, NULL, NULL, 'Positional', ?, ?, ?, 'OPEN', ?, ?, ?, ?, 'v2')",
                     (sym, stop, date, qty, price, _sector(sym), stop, note, SETUP))
         con.commit()
     finally:

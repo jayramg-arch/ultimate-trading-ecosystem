@@ -35,6 +35,8 @@ def test_convert_closes_v1_and_opens_v2(tmp_path):
     assert rows[0][0] == "CLOSED" and rows[0][3] == 1100 and rows[0][4] == "Converted to v2"
     assert rows[1][0] == "OPEN" and rows[1][1] == 30 and rows[1][2] == 1100 and rows[1][5] == "POS-V2"
     assert rows[1][6] is None                                            # v2 carries no stop
+    o = sqlite3.connect(db).execute("SELECT origin FROM journal WHERE symbol='ZZCONV' ORDER BY id").fetchall()
+    assert o[-1][0] == "v2"
     book = json.load(open(tmp_path / "book.json"))
     assert book["open"]["ZZCONV"]["sh"] == 30 and book["open"]["ZZCONV"]["stop"] is None
     r = _run(["ZZCONV", "--convert", "--price", "1100", "--keep", "30"], env)   # already v2

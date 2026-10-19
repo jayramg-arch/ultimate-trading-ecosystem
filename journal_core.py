@@ -242,6 +242,7 @@ def init_db():
             initial_sl REAL,
             custom_ce_mult REAL,
             pyramid_status TEXT,
+            origin TEXT,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
     ''')
@@ -315,6 +316,7 @@ def upsert_trade(entry):
         'Manual SL Override': 'manual_sl_override',
         'Thesis SL': 'thesis_sl',
         'Initial SL': 'initial_sl',
+        'Origin': 'origin',
         'Custom CE Mult': 'custom_ce_mult',
         'Pyramid Status': 'pyramid_status'
     }
@@ -437,7 +439,7 @@ def migrate_db():
                             ('entry_conviction','REAL'), ('snapshot_meta','TEXT'),
                             ('manual_sl_override','REAL'), ('custom_ce_mult','REAL'),
                             ('pyramid_status','TEXT'), ('thesis_sl','REAL'),
-                            ('initial_sl','REAL')):
+                            ('initial_sl','REAL'), ('origin','TEXT')):
             if _col not in cols:
                 c.execute(f"ALTER TABLE journal ADD COLUMN {_col} {_type}")
             

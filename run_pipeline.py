@@ -1304,6 +1304,33 @@ def main():
                 p.status = "SKIP"
                 p.message = f"skipped: {e}"[:160]
 
+    # 12j. SYSTEM EQUITY (19-Oct-2026, Jay: "compare the real returns of v1 vs v2"). One row per
+    # system (v1 / v2 / legacy) at the session close -> logs/system_equity.csv: market value, the
+    # system's cash (6.75 % on idle cash), time-weighted NAV. Drawdown cannot be rebuilt later from
+    # the journal, so it is recorded every evening. Read-only. SYSTEM_EQUITY=0 skips.
+    logger.info("\n[PHASE 12j] SYSTEM EQUITY (v1 / v2 / legacy)...")
+    with run.phase("Phase 12j — system equity") as p:
+        if os.getenv("SYSTEM_EQUITY", "1") == "0":
+            p.status = "SKIP"; p.message = "SYSTEM_EQUITY=0"
+        else:
+            try:
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                           "system_equity.py")],
+                             capture_output=True, text=True, timeout=10 * 60)
+                _lines = [l.strip() for l in _r.stdout.strip().splitlines()
+                          if l.strip() and (" equity " in l or "UNCLASSIFIED" in l or "already" in l)]
+                for _ln in _lines:
+                    logger.info(f"   ↳ {_ln}")
+                p.message = (" | ".join(l.split(" equity ")[0].split()[-1] + " " +
+                                        l.split(" equity ")[1].split()[0] for l in _lines if " equity " in l)
+                             or (_lines[0] if _lines else "done"))[:160]
+                if _r.returncode != 0 or any("UNCLASSIFIED" in l for l in _lines):
+                    p.status = "WARN"
+            except Exception as e:
+                logger.warning(f"⚠️  system equity skipped: {e}")
+                p.status = "SKIP"
+                p.message = f"skipped: {e}"[:160]
+
     # 12e. TRADE LOG (3-Oct-2026, Jay: "the Take-it / Take-it reduced reviews are the pool -
     # compare them with the actual trades and build the trade log"). Every TAKE review vs Dhan's
     # own BUY fills: TAKEN / SKIPPED (with what S4's plan did) / OFF-LOG buys. Read-only.

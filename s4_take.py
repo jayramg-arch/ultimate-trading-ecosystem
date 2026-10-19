@@ -171,6 +171,7 @@ def main() -> int:
                          "PlannedRR": round(rr, 2) if rr else None,
                          "Thesis SL": thesis,
                          "Initial SL": stop,          # frozen R unit (13-Oct-2026)
+                         "Origin": "v1",              # the current system chose it (trade_origin.py)
                          "Rationale": "S4 review %s · ruling: %s%s" % (fn, plan["ruling"] or "?", (" · " + a.note) if a.note else ""),
                          "Screenshot": os.path.relpath(path, HERE)}
                 res = dj.upsert_trade(entry)
