@@ -46,7 +46,9 @@ if True:
             _b = _bd.copy()
             _b["sector"] = _b["symbol"].map(_v2r_sectors(tuple(_b["symbol"]))).fillna("—")
             _f = st.columns(4)
-            _only_cut = _f[0].checkbox("Top 25 % only", value=True, key="v2r_cut")
+            _ncut = int(_bd["in_cut"].astype(str).str.lower().eq("true").sum())
+            _only_cut = _f[0].checkbox("Top 25 %% only (%d of %d)" % (_ncut, int(_bd["eligible"].iloc[0])), value=True,
+                                       key="v2r_cut", help="Untick to see every eligible stock; the column ticks the names inside the cut.")
             _only_fno = _f[1].checkbox("F&O only", value=False, key="v2r_fno")
             _secs = _f[2].multiselect("Sector", sorted(_b["sector"].unique()), key="v2r_sec")
             _q = _f[3].text_input("Symbol", key="v2r_q").strip().upper()
@@ -64,9 +66,9 @@ if True:
                          column_config={"score": st.column_config.NumberColumn("score", format="%.3f"),
                                         "in_cut": st.column_config.CheckboxColumn("top 25 %"),
                                         "fno": st.column_config.CheckboxColumn("F&O")})
-            st.caption("As of %s · %d eligible (above the 100-DMA, no 15 %% day in 90 sessions, ≥ ₹5 crore median "
+            st.caption("As of %s · %d eligible · top 25 %% = the best %d, rounded up (above the 100-DMA, no 15 %% day in 90 sessions, ≥ ₹5 crore median "
                        "turnover, not under surveillance). F&O is a display tag only." % (
-                           _bd["as_of"].iloc[0], int(_bd["eligible"].iloc[0])))
+                           _bd["as_of"].iloc[0], int(_bd["eligible"].iloc[0]), _ncut))
 
     # ── why in / why out ──────────────────────────────────────────────────
     with _t[1]:
