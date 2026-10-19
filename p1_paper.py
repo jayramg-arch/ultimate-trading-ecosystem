@@ -358,6 +358,41 @@ def real_v2_positions(C, d) -> tuple[dict, float]:
     return pos, vl.realised()
 
 
+def v2_exit_watch(real: dict, C, hctx: dict, d, ranked, n_cut: int, uni: set, surv: dict, etf_pool: set) -> list:
+    """One line per REAL v2 holding that fails one of Clenow's exits at today's close: below its
+    100-day average, a one-day move beyond 15 %, ranked outside the buy cut (stocks), not in the
+    Nifty 500, or under NSE surveillance. Empty = nothing to flag."""
+    out = []
+    g = hctx["g"]
+    for s, q in sorted(real.items()):
+        if s not in C.columns:
+            out.append("%s: no price today - check it by hand" % s)
+            continue
+        why = []
+        c = float(C.at[d, s]) if C.at[d, s] == C.at[d, s] else float("nan")
+        ma = float(g["sma100"].at[d, s]) if s in g["sma100"].columns else float("nan")
+        if c == c and ma == ma and c < ma:
+            why.append("closed %s below its 100-day average %s (%.1f %%)" % (_inr(c), _inr(ma), (c / ma - 1) * 100))
+        prev = C[s].loc[:d].dropna()
+        if len(prev) >= 2:
+            mv = float(prev.iloc[-1] / prev.iloc[-2] - 1)
+            if abs(mv) > 0.15:
+                why.append("moved %+.1f %% today (beyond 15 %% - ineligible for 90 days)" % (mv * 100))
+        if s not in etf_pool:
+            rk = ranked.get(s) if len(ranked) else None
+            if n_cut and (rk is None or rk != rk):
+                why.append("not ranked (ineligible today)")
+            elif n_cut and rk > n_cut:
+                why.append("ranked %d, outside the cut of %d" % (int(rk), n_cut))
+            if uni and s not in uni:
+                why.append("no longer in the Nifty 500")
+        if s in surv:
+            why.append("NSE surveillance: %s" % surv[s])
+        if why:
+            out.append("%s: %s" % (s, "; ".join(why)))
+    return out
+
+
 def v2_workflow(p, hctx, decided_today: bool) -> list:
     """Orders for YOUR v2 book (on a V2H decision day), the TradingView watchlist, the Add-ons
     status line and the regime-turn alert. Returns the order-sheet lines for the real book."""
@@ -532,6 +567,20 @@ def v2_workflow(p, hctx, decided_today: bool) -> list:
             except Exception as e:
                 print("regime alert not sent: %s" % e)
     _io_write(V2_REGIME, json.dumps({"up": up, "date": as_of}))
+    # EXIT WATCH (Jay 19-Oct-2026): v2 holdings have no stop, so every night each REAL holding is
+    # read against Clenow's exits. v2 only acts on the Tuesday close - this is the heads-up.
+    watch = v2_exit_watch(real, C, hctx, d, ranked, n_cut, _uni, _surv, _etf_pool)
+    if watch:
+        msg = "v2 exit watch (%s close) - sold at the next rebalance open unless it recovers by the decision close (Tuesday, or Monday when Tuesday is a holiday):\n%s" % (
+            as_of, "\n".join("• " + w for w in watch))
+        print(msg)
+        lines += ["", "## v2 EXIT WATCH", ""] + ["- " + w for w in watch]
+        if os.getenv("P1_TELEGRAM", "1") != "0":
+            try:
+                import s4_review
+                s4_review.telegram(msg)
+            except Exception as e:
+                print("exit watch not sent: %s" % e)
     print("v2 watchlist: %d names (%s) · status line %d items · real book %d held, equity %s" % (
         len(rows), ", ".join("%s %d" % (k, sum(1 for _s, x in order if x == k)) for k in ("BUY", "SELL", "HOLD", "WATCH")),
         len(items), len(real), _inr(equity)))

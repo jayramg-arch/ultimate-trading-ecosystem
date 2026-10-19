@@ -1319,11 +1319,12 @@ if True:
                     st.error(_cap_prot_msg)
 
                 # --- TABS ---
-                entry_tab0, entry_tab1, entry_tab2, entry_tab_tc, entry_tab_cq, entry_tab3, entry_tab4, entry_tab5 = st.tabs([
+                entry_tab0, entry_tab1, entry_tab2, entry_tab_tc, entry_tab_v2, entry_tab_cq, entry_tab3, entry_tab4, entry_tab5 = st.tabs([
                     "✅ Morning Approval Dashboard",
                     "🎯 Active Exits (OCO)",
                     "⚖️ Pyramid / Trim",
                     "🔁 Swing ↔ Positional",
+                    "🧭 v2 Holdings",
                     "💰 Capital Queue",
                     "🛒 Pullback Entries (GTT)",
                     "📊 Risk Profile & Analytics",
@@ -2695,6 +2696,14 @@ if True:
                         _tc.render_streamlit()
                     except Exception as _tce:
                         st.error(f"Swing / Positional review failed to load: {_tce}")
+
+                # ── v2 holdings (19-Oct-2026): no stops - Clenow's exits, the resize, the money ──
+                with entry_tab_v2:
+                    try:
+                        import v2_risk as _v2r
+                        _v2r.render_streamlit()
+                    except Exception as _v2e:
+                        st.error(f"v2 holdings view failed to load: {_v2e}")
 
                 # ── Tab 3: Pullback Entries (GTT) ──
                 with entry_tab3:

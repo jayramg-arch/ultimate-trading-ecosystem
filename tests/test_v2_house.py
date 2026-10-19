@@ -200,3 +200,20 @@ def test_reb2_two_way_reset_with_band():
     assert dict(r["trims"]) == {"A": 200.0}
     assert [s for s, _a in r["adds"]] == ["C"] and abs(dict(r["adds"])["C"] - 200 * 100) < 1e-6
     assert not r_off["trims"] and not r_off["adds"]
+
+
+def test_v2_exit_watch_flags_each_exit():
+    import p1_paper as pp
+    idx = pd.bdate_range("2026-01-01", periods=3)
+    C = pd.DataFrame({"AAA": [100, 100, 80.0], "BBB": [100, 100, 101.0], "CCC": [100, 100, 99.0]}, index=idx)
+    sma = pd.DataFrame({"AAA": [90, 90, 90.0], "BBB": [90, 90, 90.0], "CCC": [105, 105, 105.0]}, index=idx)
+    hctx = {"g": {"sma100": sma}}
+    real = {s: {"sh": 10, "last": 1} for s in ("AAA", "BBB", "CCC")}
+    ranked = pd.Series({"AAA": 3, "BBB": 50, "CCC": 2})
+    w = pp.v2_exit_watch(real, C, hctx, idx[-1], ranked, 31, {"AAA", "BBB", "CCC"}, {}, set())
+    txt = "\n".join(w)
+    assert "AAA" in txt and "-20.0" in txt                    # a 20 % one-day drop
+    assert "BBB: ranked 50, outside the cut of 31" in txt
+    assert "CCC" in txt and "100-day average" in txt          # below its 100-DMA
+    w2 = pp.v2_exit_watch({"BBB": {}}, C, hctx, idx[-1], pd.Series({"BBB": 5}), 31, {"BBB"}, {}, set())
+    assert w2 == []                                            # inside the cut, above the MA, no gap
