@@ -55,6 +55,9 @@ TARGET_BASES = [
     # Plan-clock split (2-Oct-2026): Daily alert -> GM_Positional, 75m/125m -> GM_Swing.
     "GM_Positional",
     "GM_Swing",
+    # v2 system (19-Oct-2026): this week's buys / sells / holdings, then the top of the rank
+    # (FINAL_V2_WATCHLIST.csv, p1_paper.py Phase 4.79 -> watchlist_manager).
+    "V2_System",
     "XRay_Picks",
     "Bull_Screener",
     "Bull_Screener_Custom",

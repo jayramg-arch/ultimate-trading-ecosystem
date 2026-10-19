@@ -47,6 +47,8 @@ def _next_decision(today: dt.date | None = None) -> dt.date | None:
     import nse_calendar as nc
     import v2_house as vh
     d = today or dt.date.today()
+    if today is None and nc.last_completed_session() >= d:     # today's close has passed
+        d = d + dt.timedelta(days=1)
     days = []
     x = d
     while len(days) < 12:
@@ -168,11 +170,14 @@ def review() -> dict:
     return {"rows": R, "summary": summary}
 
 
-def render_streamlit() -> None:
+def render_streamlit(summary: bool = True) -> None:
+    """summary=False: the v2 BOOK page, which already shows capital / equity / cash / holdings /
+    regime / next decision in its status strip - print only what the strip lacks."""
     import streamlit as st
     from p1_paper import _inr
     st.markdown('<div class="section-sub-lbl">🧭 v2 Holdings — Clenow exits, no stops</div>', unsafe_allow_html=True)
-    st.caption("v2 holdings carry no stop and no targets. They leave at the rebalance open when the decision close (Tuesday; Monday if Tuesday is a holiday) "
+    if summary:
+        st.caption("v2 holdings carry no stop and no targets. They leave at the rebalance open when the decision close (Tuesday; Monday if Tuesday is a holiday) "
                "shows: rank outside the buy cut, a close below the 100-day average, a one-day move beyond 15 % "
                "in 90 days, the name left the Nifty 500, or NSE surveillance. Every second decision resizes "
                "each holding to equal risk (0.10 % of v2 equity per ATR20, ±10 % band). Read-only — orders come "
@@ -187,15 +192,21 @@ def render_streamlit() -> None:
         _rv.clear()
     r = _rv()
     sm, R = r["summary"], r["rows"]
-    m = st.columns(6)
-    m[0].metric("v2 capital", _inr(sm["capital"]))
-    m[1].metric("Equity", _inr(sm["equity"]), "%+.1f%%" % ((sm["equity"] / sm["capital"] - 1) * 100) if sm["capital"] else None)
-    m[2].metric("Cash", _inr(sm["cash"]))
-    m[3].metric("Holdings", sm["holdings"])
-    m[4].metric("Realised P&L", _inr(sm["realised"]))
-    m[5].metric("Unrealised P&L", _inr(sm["unrealised"]))
+    if not summary:
+        st.markdown("**Realised P&L** %s · **unrealised** %s%s · **buy cut:** top %s · %s" % (
+            _inr(sm["realised"]), _inr(sm["unrealised"]),
+            " · the next decision is a **RESIZE** day" if sm["next_is_reset"] else "", sm["cut"] or "?", sm["surv_note"]))
+    m = st.columns(6) if summary else None
+    if summary:
+        m[0].metric("v2 capital", _inr(sm["capital"]))
+        m[1].metric("Equity", _inr(sm["equity"]), "%+.1f%%" % ((sm["equity"] / sm["capital"] - 1) * 100) if sm["capital"] else None)
+        m[2].metric("Cash", _inr(sm["cash"]))
+        m[3].metric("Holdings", sm["holdings"])
+        m[4].metric("Realised P&L", _inr(sm["realised"]))
+        m[5].metric("Unrealised P&L", _inr(sm["unrealised"]))
     reg = sm["regime_up"]
-    st.markdown("**Next decision:** %s close%s · **regime:** %s · **buy cut:** top %s · %s" % (
+    if summary:
+        st.markdown("**Next decision:** %s close%s · **regime:** %s · **buy cut:** top %s · %s" % (
         sm["next_decision"] or "?", " — a RESIZE day" if sm["next_is_reset"] else "",
         "Nifty 500 above its 200-day average (buys allowed)" if reg else
         "Nifty 500 below its 200-day average (no new buys; holdings stay)" if reg is False else "?",

@@ -264,7 +264,7 @@ def send_summary(test: bool = False) -> bool:
         return False
 
 
-def write_board(p, f, g) -> None:
+def write_board(p, f, g, surv=None) -> None:
     """data/v2/board.csv - the v2 system's ranked list at the last close (P1E's rules): rank,
     score, close, ATR, whether it is inside the top-25 % cut, held by P1E, and the weekly action."""
     import math
@@ -274,7 +274,8 @@ def write_board(p, f, g) -> None:
     cl = p["Close"].loc[d]
     st = load_state(v2_core.PRIMARY)
     held = set(st["pos"])
-    _s, _b, ranked = ps.p1_weekly(d, cl, f, g, 1.0, 0.0, {s: 0.0 for s in held}, ensemble=True, top_pct=0.25)
+    _s, _b, ranked = ps.p1_weekly(d, cl, f, g, 1.0, 0.0, {s: 0.0 for s in held}, ensemble=True, top_pct=0.25,
+                                exclude=set(surv or {}))
     n = len(ranked)
     cut = max(1, math.ceil(0.25 * n))
     pend = st.get("pending") or {}
@@ -523,7 +524,7 @@ def v2_workflow(p, hctx, decided_today: bool) -> list:
     held_paper = set(st.get("pos", {}))
     order = []
     for sec, names in (("BUY", buys), ("SELL", sells), ("HOLD", list(real) + sorted(held_paper)),
-                       ("WATCH", list(ranked.sort_values().index[:30]) if len(ranked) else [])):
+                       ("WATCH", list(ranked.sort_values().index[:(n_cut or 30)]) if len(ranked) else [])):   # the cut (19-Oct)
         for s in names:
             if s not in [o[0] for o in order]:
                 order.append((s, sec))
@@ -669,7 +670,7 @@ def run() -> int:
         _io_write(os.path.join(REPORT_DIR, "orders_%s.md" % tag), "\n".join(lines) + "\n")
         print("orders written: reports/p1_paper/orders_%s.md (%d lines)" % (tag, len(all_orders)))
     try:
-        write_board(p, f, g)
+        write_board(p, f, g, (hctx or {}).get("surv_out"))
     except Exception as e:
         print("v2 board not written: %s" % e)
     try:                                  # the real-money workflow (Doc 41 §10)

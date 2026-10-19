@@ -47,6 +47,8 @@ def next_decision():
         import nse_calendar as nc
         import v2_house as vh
         d = dt.date.today()
+        if nc.last_completed_session() >= d:      # today's close has passed: its decision is made
+            d = d + dt.timedelta(days=1)
         for _ in range(15):
             n = vh._next_session(d)
             if nc.is_trading_day(d) and vh.is_wed_decision(pd.Timestamp(d), pd.Timestamp(n)):

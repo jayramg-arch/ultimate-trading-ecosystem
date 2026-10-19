@@ -84,7 +84,8 @@ def weak_fundamentals(sym: str, d) -> bool:
 
 
 def p1_weekly(d, cl, f, g, equity, cash, held_value: dict, floor: bool = False, bff: str | None = None,
-              lookback: int = 90, top_pct: float = 0.20, risk: float = 0.001, ensemble: bool = False):
+              lookback: int = 90, top_pct: float = 0.20, risk: float = 0.001, ensemble: bool = False,
+              exclude=None):
     """THE P1 weekly rules (Clenow, Stocks on the Move) - one function shared by the backtest
     and the live paper portfolio (p1_paper.py), so the two cannot drift.
 
@@ -92,6 +93,8 @@ def p1_weekly(d, cl, f, g, equity, cash, held_value: dict, floor: bool = False, 
     rupee amount)] in rank order while cash lasts (new buys only when the Nifty 500 is above
     its 200-day SMA); ranked = the eligible list, best first, as a Series of scores."""
     el = (cl > g["sma100"].loc[d]) & ~g["gap90"].loc[d] & g["liq"].loc[d] & f["has"].loc[d]
+    if exclude:                      # live only: NSE surveillance (19-Oct-2026), as v2_house.decide drops it
+        el = el & ~el.index.isin(list(exclude))
     if floor:
         for s in el[el].index:
             if weak_fundamentals(s, d):

@@ -1922,7 +1922,13 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
     # otherwise a Bear tier would leave the pre-registered check with no data at all.
     _held = bool(pos_txt and pos_txt.startswith("HELD"))
     fg_fired, fg_txt, fg_log = flow_gate(read_txt, review, _held)
-    if fg_fired:
+    # 19-Oct-2026: a v2 review judges EXECUTION only - the current system's house gates (flow,
+    # index-first ETF, held-name ladder, exposure tier) are printed for information but never
+    # rewrite the ruling: v2 runs on its own rules and limits (Doc 42 D1).
+    _v2rv = str(getattr(args, "source", "")).lower() == "v2"
+    if fg_fired and _v2rv:
+        fg_txt = (fg_txt or "FLOW-GATE fired") + "  (v2 review: information only)"
+    if fg_fired and not _v2rv:
         review = re.sub(r"(RULING:?\**:?\s*\**\s*)TAKE[^\n]*",
                         r"\g<1>WAIT — FLOW-GATE: failed breakout at the entry level (house rule; model had ruled TAKE)",
                         review, count=1)
@@ -1931,19 +1937,25 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
     _, oi_txt = oi_digest(read_txt)
     _, lv_txt = level_check(read_txt, review)
     _, ig_txt, ig_block = index_gate(read_txt)
-    if ig_block and re.search(r"RULING:?\**:?\s*\**\s*TAKE", review):
+    if ig_block and _v2rv:
+        ig_txt += "  (v2 review: information only - v2 ranks the ETF on its own trend, not the index trigger)"
+    if ig_block and not _v2rv and re.search(r"RULING:?\**:?\s*\**\s*TAKE", review):
         # the model ruled TAKE against the house rule: overrule it in print, loudly
         ig_txt += "\n  ⚠ the model ruled TAKE — OVERRULED: WAIT (index trigger not GO)"
         review = re.sub(r"(RULING:?\**:?\s*\**\s*)TAKE[^\n]*", r"\1WAIT — index trigger not GO (house rule; model had ruled TAKE)", review, count=1)
     _, hg_txt, hg_rung = held_gate(pos_txt)
-    if hg_rung in ("EXIT", "TRIM", "REDUCE", "HOLD") and re.search(r"RULING:?\**:?\s*\**\s*TAKE", review):
+    if hg_rung in ("EXIT", "TRIM", "REDUCE", "HOLD") and _v2rv:
+        hg_txt += "  (v2 review: a v2 buy of a v1 holding is a CONVERT - the ladder does not apply)"
+    if hg_rung in ("EXIT", "TRIM", "REDUCE", "HOLD") and not _v2rv and re.search(r"RULING:?\**:?\s*\**\s*TAKE", review):
         _to = "PASS" if hg_rung != "HOLD" else "WAIT"
         hg_txt += "\n  ⚠ the model ruled TAKE on a held name — OVERRULED: %s (ladder %s)" % (_to, hg_rung)
         review = re.sub(r"(RULING:?\**:?\s*\**\s*)TAKE[^\n]*",
                         r"\g<1>%s — already held, ladder %s (house rule; model had ruled TAKE)" % (_to, hg_rung),
                         review, count=1)
     _, xg_txt, xg_block = exposure_gate(pos_txt)
-    if xg_block and re.search(r"RULING:?\**:?\s*\**\s*TAKE", review):
+    if xg_block and _v2rv:
+        xg_txt += "  (v2 review: information only - the exposure rule is the current system's; v2 has its own regime filter)"
+    if xg_block and not _v2rv and re.search(r"RULING:?\**:?\s*\**\s*TAKE", review):
         xg_txt += "\n  ⚠ the model ruled TAKE — OVERRULED: WAIT (exposure rule)"
         review = re.sub(r"(RULING:?\**:?\s*\**\s*)TAKE[^\n]*",
                         r"\g<1>WAIT — exposure rule forbids new size now (house rule; model had ruled TAKE)",

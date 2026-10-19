@@ -20,7 +20,7 @@ if True:
     _ui.status_strip(_c)
     _inr, _held, _led = _c["inr"], _c["held"], _c["ledger"]
 
-    _vr.render_streamlit()
+    _vr.render_streamlit(summary=False)      # the strip above already carries the summary
 
     _t = st.tabs(["🧾 Tax lots", "🪙 ETF sleeve", "📒 Ledger"])
     with _t[0]:
