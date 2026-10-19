@@ -524,7 +524,8 @@ def v2_workflow(p, hctx, decided_today: bool) -> list:
     held_paper = set(st.get("pos", {}))
     order = []
     for sec, names in (("BUY", buys), ("SELL", sells), ("HOLD", list(real) + sorted(held_paper)),
-                       ("WATCH", list(ranked.sort_values().index[:(n_cut or 30)]) if len(ranked) else [])):   # the cut (19-Oct)
+                       ("WATCH", list(ranked.sort_values().index[:(n_cut or 30)]) if len(ranked) else []),   # the cut (19-Oct)
+                       ("ETF", [x[0] for x in (pend.get("etf_watch") or [])][:5])):   # ranked in their own pool
         for s in names:
             if s not in [o[0] for o in order]:
                 order.append((s, sec))
@@ -644,7 +645,7 @@ def run() -> int:
             _lbl = {"P1": " (research control - the tournament winner)", "P1F": " (research control - fundamental floor)",
                     "P1E": " (v2 primary - ensemble 60/90/120, top 25 %)", "P1ER": " (v2 + reviewer - P1E skipping WAIT/PASS)",
                     "P1ES": " (P1E + 4×ATR disaster stop)",
-                    "V2H": " (house rules - Wednesday rebalance, 4×ATR stop, tax-aware runners + trims, ETF sleeve)"}
+                    "V2H": " (the live v2 rules - Clenow exits, no stop, twice-monthly resize, Wednesday fill, ETF sleeve)"}
             lines += ["", "## %s%s" % (name, _lbl.get(name, ""))]
             stn = load_state(name)
             pn = stn.get("pending") or {}
@@ -674,7 +675,11 @@ def run() -> int:
     except Exception as e:
         print("v2 board not written: %s" % e)
     try:                                  # the real-money workflow (Doc 41 §10)
-        real_lines = v2_workflow(p, hctx, "V2H" in decided_books) if hctx is not None else []
+        # the real-money orders are written whenever V2H's pending decision is THIS close - not only
+        # in the run that made it (19-Oct: a re-run rewrote the sheet without them). decide() is
+        # deterministic, so a re-run gives the same orders.
+        _v2dec = "V2H" in decided_books or (load_state("V2H").get("pending") or {}).get("decided") == str(last)
+        real_lines = v2_workflow(p, hctx, _v2dec) if hctx is not None else []
         if real_lines:
             fp = os.path.join(REPORT_DIR, "orders_%s.md" % last.strftime("%Y%m%d"))
             prev = open(fp, encoding="utf-8").read() if os.path.exists(fp) else ""
@@ -715,6 +720,11 @@ def status() -> int:
 
 
 def main() -> int:
+    for _s in (sys.stdout, sys.stderr):    # a Windows console is cp1252: a ₹ in a print must not kill the run
+        try:
+            _s.reconfigure(encoding="utf-8", errors="replace")
+        except Exception:
+            pass
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--status", action="store_true")
     ap.add_argument("--reset", action="store_true")

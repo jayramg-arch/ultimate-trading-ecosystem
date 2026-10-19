@@ -35,8 +35,12 @@ if True:
 
     # ── the books ──────────────────────────────────────────────────────────
     st.markdown("#### Books")
+    st.caption("Each paper book starts at the full house sizing capital (%s) - the research scale the tournament and "
+               "backtests used - so their results compare in percent with the evidence. Your real v2 book is "
+               "one-third of it (%s): v2 · BOOK and ⚖️ v1 vs v2." % (
+                   _ptx.inr(next(iter(_books.values()))["start_capital"]), _ptx.inr(_p1.v2_capital())))
     _role = {"P1E": "v2 primary", "P1ER": "v2 + reviewer", "P1ES": "P1E + disaster stop",
-             "V2H": "house rules (Wed, stop, tax/trim, ETFs)", "P1": "control · tournament winner",
+             "V2H": "live v2 rules (Clenow exits, resize, Wed, ETFs)", "P1": "control · tournament winner",
              "P1F": "control · fundamental floor"}
     _order = [b for b in ("P1E", "P1ER", "P1ES", "V2H", "P1", "P1F") if b in _books]
     _cols = st.columns(len(_order))
