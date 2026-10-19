@@ -217,15 +217,36 @@ buttons, the webhook, the MCP server — goes through the relay the moment the v
 | 5 | **Dhan's daily bars are split/bonus adjusted** — the 15 % rule does not misfire on a corporate action. | 20 of 20 splits/bonuses in Nifty 500 names (Oct-25 .. Aug-26): ex-date move −2 % to +14 % on Dhan, the provider cache and the backtest panel alike. |
 | 6 | **CONVERT, not two slices**, when v2 buys a stock the current system holds: the whole holding becomes v2's and is resized to v2's target at the open; the excess is sold; the v1 stop is cancelled. | PREREG_pyramid_slices_vs_convert: 130 overlaps, convert + resize − v1 rules = +2.33 % of the position, CI [+0.95, +3.71], both halves positive; resizing at once (descriptive) +2.58 %, CI [+1.00, +4.20]. |
 | 7 | **v2 cash earns the bank sweep-in FD rate** (≥ 6.75 %, Jay); no liquid ETF. Money moves to Dhan before a Wednesday with buys — the order sheet states the amount. When the market recovers Jay tops up the Dhan account. | — |
-| 8 | **Later, on real results:** compare v1 and v2 live returns; then move part of v1's capital into v2, or add fresh capital to v2 (Jay). | No rule yet — decided on the live record, not on the backtest. |
+| 8 | **Later, on real results:** compare v1 and v2 live returns; then move part of v1's capital into v2, or add fresh capital to v2 (Jay). | Rule pre-registered the same day — §11 and `docs/PREREG_capital_move.md`. |
 
 **How v2 is watched without stops:** Risk Shield › **🧭 v2 Holdings** (`v2_risk.py` — exits per
 holding, rank vs cut, distance to the 100-DMA, 90-day max move, index/surveillance, resize target vs
 held, tax-hold band, sector weights, the next decision and whether it is a resize day); the nightly
-**v2 EXIT WATCH** Telegram; Add-ons **M2 v1.2** on the chart. The current system's trail job, 16:00
+**v2 EXIT WATCH** Telegram; Add-ons **M2 v1.3** on the chart (exit levels only on a name v2 holds or buys this week). The current system's trail job, 16:00
 exit scan, pyramid ladder, v67 slots/stop book, swing/positional review and stop warnings leave v2
 holdings alone.
 
 **What a v2 order is:** one buy at the open (limit at the decision close + 1 %, cancelled by 10:00),
 no stop order, no target legs — the current system's Risk Allocator and OCO legs do not apply.
 
+## 11. The v2 pages, and how v1 and v2 are compared (19 Oct)
+
+**Pages** (Web Commander, nav group **🧭 v2 SYSTEM**):
+
+| Page | What it holds |
+|---|---|
+| 🗓️ v2 · This Week | the weekly checklist, your orders for the next open (CONVERT / BUY / RESIZE / SELL), the reviewer's rulings, the exit watch, whether the next decision is a resize day |
+| 📂 v2 · Book | every holding against Clenow's exits and its resize target (the Risk Shield v2 tab), tax lots, the ETF sleeve against its caps, the ledger |
+| 📋 v2 · Rank & Universe | the ranked board (holder v1 / v2 marked), names that entered or left the top 25 % since the previous board, a per-symbol check against every rule, the ETF pool, Nifty 500 joiners and leavers, the rules with their evidence |
+| 🔬 v2 · Autopsy | closed v2 trades by exit reason: P&L, hold, return and alpha against the Nifty 500 over the same days (no R — v2 has no stop) |
+
+All four share one status strip: regime, next decision and fill day, v2 capital, equity, cash, holdings.
+
+**Comparison** (ANALYSIS › **⚖️ v1 vs v2**):
+
+- **Who chose a trade** is a journal column, `origin`: **v1** = the current system (GM + S4), **v2** = Clenow, **legacy** = chosen by neither (entered before 1 April 2026, cash parks, the 30-Mar-2026 tax-harvest batch, and COALINDIA). Defaults were applied on 19 Oct (`trade_origin.py`); `s4_take.py` writes v1 and `v2_take.py` writes v2 from now on. The page lets you change a row.
+- **Real money:** auto-pilot **Phase 12j** (`system_equity.py`) writes one row per system per session to `logs/system_equity.csv`: market value at the close, the system's own cash (v2 = one-third of sizing capital, v1 = the rest, legacy = its holdings), 6.75 % on idle cash, and a time-weighted NAV. A capital move or a Dhan top-up goes in `data/system_transfers.csv` (date, system, amount, note) so it never counts as return; re-classifying an open holding moves its value between systems without moving either return. The page shows NAV against the Nifty 500, TWR, annualised return (only after 90 days), drawdown, volatility, beta, MAR, worst month, time invested and closed-trade stats.
+- **Paper:** v1's *S4 TAKE IT · house rules* cohort beside v2's paper books (V2H, P1E). Paper and real money are never mixed.
+- **Capital decision:** the rule fixed before any result — no earlier than 6 months after v2's first real buy and ≥ 25 closed v2 trades; then move one-third of v1's capital to v2 only if v2's annualised TWR beats v1's by ≥ 5 points a year, v2's drawdown is no worse, and v2 beat the Nifty 500. Otherwise re-check quarterly. Never the other way on weaker evidence. The page shows each condition and the verdict (`system_equity.capital_rule`).
+
+The first real-money row is written on the evening of 19 Oct 2026; there is no earlier live record to compare.
