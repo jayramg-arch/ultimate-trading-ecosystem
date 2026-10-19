@@ -77,7 +77,7 @@ if True:
             _z = _pd.read_csv(_os.path.join(_hd, _hist[-1]))
             _ca = set(_a.loc[_a["in_cut"].astype(str).str.lower() == "true", "symbol"])
             _cz = set(_z.loc[_z["in_cut"].astype(str).str.lower() == "true", "symbol"])
-            st.markdown("**Top 25 % since the previous board** (%s → %s): entered **%d**, left **%d**" % (
+            st.markdown("**Top 25 %% since the previous board** (%s → %s): entered **%d**, left **%d**" % (
                 _hist[-2][6:16], _hist[-1][6:16], len(_cz - _ca), len(_ca - _cz)))
             _x = st.columns(2)
             _x[0].markdown("Entered: " + (", ".join(sorted(_cz - _ca)) or "—"))
@@ -125,7 +125,7 @@ if True:
                          (_sv or {}).get(_sym, "") or _svn))
             if len(_row):
                 _rk = _row["rank"].iloc[0]
-                _chk.append(("Inside the top 25 % (rank ≤ %d)" % _n_cut, bool(_rk == _rk and _rk <= _n_cut),
+                _chk.append(("Inside the top 25 %% (rank ≤ %d)" % _n_cut, bool(_rk == _rk and _rk <= _n_cut),
                              "rank %s of %d" % (int(_rk) if _rk == _rk else "—", int(_bd["eligible"].iloc[0]))))
             else:
                 _chk.append(("Ranked on the latest board", False, "not eligible at the last close"))
