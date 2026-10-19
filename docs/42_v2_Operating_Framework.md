@@ -1,4 +1,4 @@
-# 42 · The v2 System — end-to-end operating framework (18 Oct 2026)
+# 42 · The v2 System — end-to-end operating framework (18 Oct 2026, revised 19 Oct)
 
 The design and the evidence are in Doc 41; the rules and their tests in PREREG_v2_house_rules and
 PREREG_v2_borrowed_rules. This document is how v2 RUNS, end to end — every step, who does it, when,
@@ -11,11 +11,13 @@ and which file carries it to the next step. It is defined first; the components 
   practice real buying starts when the market recovers. The paper books keep running as the record.
 - **Capital:** one-third of the trading capital (house sizing capital ÷ 3 = ₹10,00,000 today;
   `V2_CAPITAL` in .env overrides). The current system keeps the rest.
-- **The live rule set is V2H** (`v2_house.V2H_LIVE`): P1E's ensemble rank, top 25 %, 0.10 % of
-  equity per ATR20, Wednesday rebalance, a 4 × ATR14 disaster stop with the house Chandelier trail,
-  tax-aware runners + monthly risk trims, the ETF sleeve (own pool, NAV premium ≤ 3 %), sector cap
-  25 %, correlation block 0.90, per-trade cap 3.33 % of equity; earnings and stale-data guards.
-- **No targets, no intraday triggers.** The trigger is the weekly rank at Tuesday's close.
+- **The live rule set is V2H** (`v2_house.V2H_CLENOW`, from 19 Oct — §10): P1E's ensemble rank,
+  top 25 %, 0.10 % of equity per ATR20, Wednesday rebalance, **no stop and no trail** (Clenow's exits),
+  a **twice-monthly two-way resize** to equal risk (±10 % band), tax-aware runners, the ETF sleeve
+  (own pool, NAV premium ≤ 3 %), sector cap 25 %, correlation block 0.90, per-trade cap 3.33 % of
+  equity; earnings, stale-data and **NSE surveillance** guards.
+- **No targets, no intraday triggers.** The trigger is the weekly rank at the decision close
+  (Tuesday; Monday when Tuesday is an NSE holiday, as on 19 Oct 2026).
 
 ## 2. The weekly cycle
 
@@ -28,10 +30,10 @@ and which file carries it to the next step. It is defined first; the components 
 | Tue ~16:40 | ⑤ Telegram summary of all books + the order count | `p1_paper.send_summary` | one message |
 | Tue ~17:00 | ⑥ watchlists generated and pushed to TradingView | auto-pilot Phase 4.8 / 7 | `V2_System-DDMONYY` in TradingView |
 | **Tue evening** | ⑦ **you review** (10–15 min): the 🧭 v2 page (orders, rulings), then the `V2_System` list on a **Daily** chart with S4, S5 and Add-ons | Jay | buy / skip per name |
-| **Wed 09:15** | ⑧ **you place** the sells and buys at the open; one Dhan stop order per buy at its disaster stop (full shares, limit below trigger) | Jay at Dhan | orders + resting stops |
-| Wed after the fill | ⑨ record each buy: `python v2_take.py SYM --price P --qty Q` | Jay (one line per buy) | journal OPEN row, setup `POS-V2`, stop = initial SL |
-| **Daily 16:30** | ⑩ the nightly run: paper books marked and stopped; the regime-turn alert; journal sync closes any v2 row Dhan sold | auto-pilot | Telegram if the regime turned |
-| Daily, as needed | ⑪ trail: Risk Shield shows the Chandelier for `POS-V2` rows; raise the Dhan stop when it moves up (the automatic GTT trail is off since 3 Oct — static IP pending) | Jay | tightened stop |
+| **Wed 09:15** | ⑧ **you place** the order sheet at the open: SELL, RESIZE ↓/↑, BUY (no stop order), and CONVERT (sell the excess of a current-system holding, **cancel its v1 stop**) | Jay at Dhan | orders; no stops for v2 |
+| Wed after the fill | ⑨ record each fill: `v2_take.py SYM --price P --qty Q` (buy / resize ↑), `--sell` (sell / resize ↓), `--convert --keep K` (convert) | Jay (one line per fill) | journal + v2 ledger |
+| **Daily 16:30** | ⑩ the nightly run: paper books marked; the **v2 EXIT WATCH** (Telegram for any holding failing an exit at that close); the regime-turn alert; journal sync closes any v2 row Dhan sold | auto-pilot | Telegram when there is something to see |
+| Any day | ⑪ look: Risk Shield › 🧭 v2 Holdings, and Add-ons M2 on the chart (100-DMA line, ±15 % band, rank vs cut) | Jay | — |
 
 Fridays need nothing for v2; P1E and the research books still decide at Friday's close for the record.
 
@@ -47,9 +49,11 @@ Fridays need nothing for v2; P1E and the research books still decide at Friday's
   still ranks.
 - **Ignore S4's own VERDICT / GO / TAKE-IT rows on v2 names** — those are the current system's entry
   rules (PA, location, volume, bar), which v2 deliberately does not use.
-- **Add-ons M2 (v2 status)** prints the v2 facts on the chart of any v2 name: rank of N, the section
-  (BUY / SELL / HOLD / WATCH), the disaster or trailed stop (drawn as a line), real or paper holding,
-  and the date of the decision. Pushed nightly with the status file; display only.
+- **Add-ons M2 (v2 status, v1.2)** prints the v2 facts on the chart of any v2 name: the section
+  (BUY / SELL / HOLD / WATCH), rank of N against the buy cut, real or paper holding, the decision
+  date, and v2's exit levels — the 100-day average of daily closes (orange line) and the previous
+  close ±15 % (dotted), plus flags for "not in the Nifty 500" and "NSE surveillance". Pushed nightly
+  with the status file; display only.
 
 ## 4. Triggers and alerts
 
@@ -58,8 +62,7 @@ Fridays need nothing for v2; P1E and the research books still decide at Friday's
 | The week's orders | Tuesday close, ranked by the rules | order sheet, v2 page, Telegram summary |
 | Reviewer ruling per buy | Tuesday evening | Telegram (per review) + Reviewer Log |
 | The regime turns | the Nifty 500 closes across its 200-day SMA | Telegram, once, the evening it happens |
-| A stop is hit | Dhan executes the resting stop | Dhan; journal sync closes the row at 16:30 |
-| The trail moves up | Chandelier above the resting stop | Risk Shield (you raise the Dhan stop) |
+| An exit fails at a close | below the 100-DMA, a > 15 % one-day move, outside the cut, out of the index, surveillance | **v2 EXIT WATCH** Telegram that evening; sold at the next rebalance open if still failing at the decision close |
 | NOT used for v2 | S4 GO alerts, GM-POS GO / zone / thesis alerts | those belong to the current system |
 
 ## 5. Components and their status
@@ -74,25 +77,27 @@ Fridays need nothing for v2; P1E and the research books still decide at Friday's
 | C6 | record a real fill | `v2_take.py` | built |
 | C7 | TradingView list `V2_System-DDMONYY` | `FINAL_V2_WATCHLIST.csv` + `watchlist_manager` + Phase 7 | built (first push Tue 20 Oct) |
 | C8 | pipeline order: v2 engine before the watchlists | `run_pipeline.py` (Phase 12i → 4.79) | built |
-| C9 | chart status (Add-ons M2) + its pusher | `Commander_Addons_v1.0.pine` (v1.1), `tv_push_addons.py`, AFTER_COMPILE step 5 | built — **Jay compiles Add-ons v1.1** |
+| C9 | chart status (Add-ons M2) + its pusher | `Commander_Addons_v1.0.pine` (v1.2), `tv_push_addons.py`, AFTER_COMPILE step 5 | built — **Jay compiles Add-ons v1.2** |
 | C10 | regime-turn alert | `p1_paper.v2_workflow` | built |
-| C11 | Risk Shield / journal sync for `POS-V2` rows | existing (setup prefix POS → positional trail) | works as is |
+| C11 | Risk Shield / journal sync for `POS-V2` rows | the v1 trail, exit scan, ladder, v67 slots and stop warnings SKIP `POS-V2` (19 Oct) | built |
 
 ## 6. Data contracts
 
-- **Journal:** a v2 holding is an OPEN row with `setup = POS-V2`, `Timeframe = Positional`,
-  `initial_sl = stoploss = disaster stop`, no targets. This is how v2 tells its holdings from the
-  current system's.
-- **`FINAL_V2_WATCHLIST.csv`:** `Symbol, Section, Rank, Stop, Held`.
-- **`data/v2/addon_status.txt`:** one line, `_ASOF:<date>;<fill date>,SYM:<rank>/<n>;<section>;<stop>;<held>,…`
-  (each `-`/`&` symbol also under TradingView's `_` spelling).
-- **Order sheet:** the paper books, then `## YOUR v2 ORDERS` with side, shares, value and stop.
+- **Journal:** a v2 holding is an OPEN row with `setup = POS-V2`, `Timeframe = Positional`, no stop,
+  no targets. A converted holding's v1 row is CLOSED at the conversion price ("Converted to v2") and
+  a new v2 row opens at the same price. Each holding is ONE system's — never both.
+- **`FINAL_V2_WATCHLIST.csv`:** `Symbol, Section, Rank, Stop, Held` (Stop empty for v2).
+- **`data/v2/addon_status.txt`:** one line, `_ASOF:<date>;<fill date>,SYM:<rank>/<n>;<section>;<stop>;<held>;<cut>;<flags>,…`
+  (flags: X = not in the Nifty 500, S = NSE surveillance; each `-`/`&` symbol also under `_`).
+- **Order sheet:** the paper books, then `## YOUR v2 ORDERS` (order, shares, value, note, cash
+  needed), then `## v2 EXIT WATCH` when a holding fails an exit.
 
 ## 7. Risk controls and the open decisions (Jay)
 
-In force: the regime gate, the resting disaster stop + Chandelier trail, per-trade cap 3.33 %,
-sector cap 25 %, correlation block, ETF NAV premium and liquidity floors, earnings and stale-data
-guards, the reviewer's one-week deferral.
+In force (19 Oct): the regime gate, Clenow's exits (no resting stop — §10), the twice-monthly resize,
+per-trade cap 3.33 %, sector cap 25 %, correlation block, ETF NAV premium and liquidity floors, NSE
+surveillance, earnings and stale-data guards, the reviewer's one-week deferral. The open items below
+were decided on 18 Oct (§8) and revised on 19 Oct (§10); kept for the record.
 
 Open:
 1. **The house open-risk budget and the 25-position limit.** Both starved v2 in the test. Proposal:
@@ -109,7 +114,7 @@ Open:
 **D1 — house limits.** The open-risk budget, exposure tiers, circuit breaker, 25-position limit
 and the order gate count only the current system's positions (built).
 
-**D2 — v2 may pyramid onto a current-system holding** (Jay: with positional trades auto-trailed,
+**D2 — v2 may pyramid onto a current-system holding** — *superseded 19 Oct by CONVERT (§10); kept for the record* (Jay: with positional trades auto-trailed,
 both systems exit the same way). Design, keeping the house invariant of ONE journal row and ONE
 stop price per holding:
 - **The v2 ledger** `data/v2/real_book.json` is v2's record of ITS shares: per symbol, shares, entry,
@@ -200,3 +205,27 @@ never stored on it.
 (installed by `dhan_auth`, and by `n8n_order_handler`); with `DHAN_ORDER_PROXY` unset nothing
 changes. Every surface that places or changes an order — the trail, Risk Shield's tighten
 buttons, the webhook, the MCP server — goes through the relay the moment the variable is set.
+
+## 10. Decisions of 19 Oct (Jay) — Clenow's rules, convert, and what watches v2
+
+| # | Decision | Evidence |
+|---|---|---|
+| 1 | **No stop, no trail on v2.** Exits are Clenow's: out of the top-25 % cut, a decision close below the 100-day average, a one-day move beyond 15 % in 90 days, leaving the Nifty 500. | Descriptive run (`v2_house.py --clenow`): CAGR 17.3 % → 20.4 %, MAR 0.86 → 1.00, max DD −20.1 % → −20.3 %. |
+| 2 | **Twice-monthly two-way resize** (every second decision) to equal risk, ±10 % band — replaces the monthly trims and the B8 top-up. | Same run: ±10 % band 20.5 % / MAR 1.00 at 553 trades a year; no band 0.97 at 854; ±25 % 0.97. |
+| 3 | **NSE surveillance exclusion** (`nse_surveillance.py`): ASM Stage II+, any GSM stage, a 5 % / 2 % band or trade-for-trade = out of the pool (no buy; a holding is sold). Live only. | 4 Nifty 500 names out on 19 Oct: HFCL, STLTECH, MTARTECH, VISL. |
+| 4 | **The Nifty 500 list refreshes nightly** (auto-pilot Phase 0.6, `check_universe_listing.py --refresh`); REITs and placeholders left out. | The list was 12-Aug: 25 joiners and 28 leavers of the September reconstitution were missing. |
+| 5 | **Dhan's daily bars are split/bonus adjusted** — the 15 % rule does not misfire on a corporate action. | 20 of 20 splits/bonuses in Nifty 500 names (Oct-25 .. Aug-26): ex-date move −2 % to +14 % on Dhan, the provider cache and the backtest panel alike. |
+| 6 | **CONVERT, not two slices**, when v2 buys a stock the current system holds: the whole holding becomes v2's and is resized to v2's target at the open; the excess is sold; the v1 stop is cancelled. | PREREG_pyramid_slices_vs_convert: 130 overlaps, convert + resize − v1 rules = +2.33 % of the position, CI [+0.95, +3.71], both halves positive; resizing at once (descriptive) +2.58 %, CI [+1.00, +4.20]. |
+| 7 | **v2 cash earns the bank sweep-in FD rate** (≥ 6.75 %, Jay); no liquid ETF. Money moves to Dhan before a Wednesday with buys — the order sheet states the amount. When the market recovers Jay tops up the Dhan account. | — |
+| 8 | **Later, on real results:** compare v1 and v2 live returns; then move part of v1's capital into v2, or add fresh capital to v2 (Jay). | No rule yet — decided on the live record, not on the backtest. |
+
+**How v2 is watched without stops:** Risk Shield › **🧭 v2 Holdings** (`v2_risk.py` — exits per
+holding, rank vs cut, distance to the 100-DMA, 90-day max move, index/surveillance, resize target vs
+held, tax-hold band, sector weights, the next decision and whether it is a resize day); the nightly
+**v2 EXIT WATCH** Telegram; Add-ons **M2 v1.2** on the chart. The current system's trail job, 16:00
+exit scan, pyramid ladder, v67 slots/stop book, swing/positional review and stop warnings leave v2
+holdings alone.
+
+**What a v2 order is:** one buy at the open (limit at the decision close + 1 %, cancelled by 10:00),
+no stop order, no target legs — the current system's Risk Allocator and OCO legs do not apply.
+
