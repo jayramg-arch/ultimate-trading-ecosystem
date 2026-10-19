@@ -87,3 +87,36 @@ def test_reclassified_row_moves_value_not_return(se):
     r = {x["system"]: x for x in mod.snapshot(dt.date(2026, 10, 20), db)}
     assert r["legacy"]["flow"] == pytest.approx(-950.0) and r["v1"]["flow"] == pytest.approx(950.0)
     assert r["legacy"]["equity"] == pytest.approx(0.0)
+
+
+def _series(days, v1_step, v2_step):
+    rows = []
+    n1 = n2 = 1.0
+    b = 100.0
+    for i in range(days):
+        d = (dt.date(2026, 10, 19) + dt.timedelta(days=i)).isoformat()
+        rows += [{"date": d, "system": "v1", "mv": 0, "cash": 0, "equity": 2e6 * n1, "flow": 0, "nav": n1, "n": 1,
+                  "unclassified": 0, "bench": b},
+                 {"date": d, "system": "v2", "mv": 0, "cash": 0, "equity": 1e6 * n2, "flow": 0, "nav": n2, "n": 1,
+                  "unclassified": 0, "bench": b}]
+        n1 *= 1 + v1_step
+        n2 *= 1 + v2_step
+        b *= 1.0001
+    import pandas as pd
+    return pd.DataFrame(rows)
+
+
+def test_metrics_and_capital_rule(se):
+    mod, vl, tmp = se
+    m = mod.metrics(_series(30, 0.0, 0.001))
+    assert m["v2"]["cagr"] is None and m["v2"]["twr"] > 0          # under 90 days: no annualised number
+    led = {"open": {}, "closed": [{"entry_date": "2026-10-21"}] * 30}
+    r = mod.capital_rule(m, led, dt.date(2027, 6, 1))
+    assert r["verdict"].startswith("NOT YET")                         # the edge cannot be judged yet
+    m = mod.metrics(_series(400, 0.0, 0.001))
+    r = mod.capital_rule(m, led, dt.date(2027, 6, 1))
+    assert all(c[1] for c in r["checks"]) and r["verdict"].startswith("MOVE")
+    r = mod.capital_rule(mod.metrics(_series(400, 0.001, 0.0005)), led, dt.date(2027, 6, 1))
+    assert r["verdict"].startswith("NO MOVE")
+    r = mod.capital_rule(m, {"open": {}, "closed": []}, dt.date(2027, 6, 1))
+    assert not r["verdict"].startswith("MOVE")

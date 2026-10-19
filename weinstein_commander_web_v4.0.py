@@ -1398,10 +1398,17 @@ with st.sidebar:
             ("📐 OPTIONS",     "OPTIONS"),
             ("📺 TV SIDECAR",  "TV SIDECAR"),
             ("🪙 GOLDEN MATCHER", "GOLDEN MATCHER"),
-            ("🧭 v2 SYSTEM", "V2LIVE"),
+        ]),
+        # 19-Oct-2026 (Jay): v2 gets its own page group, like v1's (Doc 42).
+        ("🧭  v2 SYSTEM", [
+            ("🗓️ v2 · THIS WEEK", "V2LIVE"),
+            ("📂 v2 · BOOK", "V2BOOK"),
+            ("📋 v2 · RANK & UNIVERSE", "V2RANK"),
+            ("🔬 v2 · AUTOPSY", "V2AUTOPSY"),
         ]),
         ("🔬  ANALYSIS", [
             ("🔬 AUTOPSY",     "AUTOPSY"),
+            ("⚖️ v1 vs v2", "VS"),
             ("📄 PAPER · CURRENT SYSTEM", "PAPER"),
             ("🧭 PAPER · v2 SYSTEM", "V2"),
             ("🧪 AI LAB",      "AI LAB"),
@@ -4318,6 +4325,14 @@ elif page == 'V2':
     commander_pages.run("v2_system", globals())   # page body: commander_pages/v2_system.py
 elif page == 'V2LIVE':
     commander_pages.run("v2_live", globals())   # page body: commander_pages/v2_live.py
+elif page == 'V2BOOK':
+    commander_pages.run("v2_book", globals())   # page body: commander_pages/v2_book.py
+elif page == 'V2RANK':
+    commander_pages.run("v2_rank", globals())   # page body: commander_pages/v2_rank.py
+elif page == 'V2AUTOPSY':
+    commander_pages.run("v2_autopsy", globals())   # page body: commander_pages/v2_autopsy.py
+elif page == 'VS':
+    commander_pages.run("v1_vs_v2", globals())   # page body: commander_pages/v1_vs_v2.py
 
 
 # ══════════════════════════════════════════════════════════════════════════════

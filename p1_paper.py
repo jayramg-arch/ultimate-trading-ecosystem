@@ -298,6 +298,12 @@ def write_board(p, f, g) -> None:
                      "regime_up": bool(g["b_up200"].get(d, False)), "action": "SELL"})
     os.makedirs(v2_core.V2_DIR, exist_ok=True)
     _io_write(v2_core.BOARD, pd.DataFrame(rows).to_csv(index=False, lineterminator="\n"))
+    try:                                  # one copy per session: the Rank & Universe page diffs them (19-Oct)
+        _hd = os.path.join(v2_core.V2_DIR, "board_history")
+        os.makedirs(_hd, exist_ok=True)
+        _io_write(os.path.join(_hd, "board_%s.csv" % d.date()), pd.DataFrame(rows).to_csv(index=False, lineterminator="\n"))
+    except Exception as e:
+        print("v2 board history not written: %s" % e)
     print("v2 board: %d ranked (top-25%% cut %d) as of %s" % (n, cut, d.date()))
 
 

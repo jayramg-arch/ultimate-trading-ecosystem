@@ -237,6 +237,89 @@ def series() -> pd.DataFrame:
     return pd.read_csv(OUT) if os.path.exists(OUT) else pd.DataFrame(columns=COLS)
 
 
+MIN_DAYS_ANNUAL = 90          # an annualised number from fewer calendar days is noise - shown as "too early"
+
+
+def metrics(S: pd.DataFrame | None = None) -> dict:
+    """{system: {...}} from the equity series: days, TWR (from the NAV), CAGR (>= 90 days), max
+    drawdown of the NAV, annualised volatility and beta of daily NAV returns vs the Nifty 500,
+    the index's return over the same days, excess return, MAR, worst calendar month, time
+    invested (mean market value / equity)."""
+    S = series() if S is None else S
+    out = {}
+    if S is None or not len(S):
+        return out
+    S = S.copy()
+    S["date"] = pd.to_datetime(S["date"])
+    for s, g in S.groupby("system"):
+        g = g.sort_values("date").set_index("date")
+        nav = g["nav"].astype(float)
+        days = int((g.index[-1] - g.index[0]).days)
+        twr = float(nav.iloc[-1] / nav.iloc[0] - 1)
+        b = g["bench"].astype(float)
+        bret = float(b.iloc[-1] / b.iloc[0] - 1) if b.notna().all() and b.iloc[0] else None
+        cagr = (1 + twr) ** (365.0 / days) - 1 if days >= MIN_DAYS_ANNUAL else None
+        dd = float((nav / nav.cummax() - 1).min())
+        r = nav.pct_change().dropna()
+        rb = b.pct_change().reindex(r.index)
+        vol = float(r.std() * (252 ** 0.5)) if len(r) > 5 else None
+        beta = float(r.cov(rb) / rb.var()) if len(r) > 20 and rb.var() and rb.var() > 0 else None
+        m = nav.resample("ME").last()
+        mret = m.pct_change().dropna()
+        out[s] = {"start": str(g.index[0].date()), "last": str(g.index[-1].date()), "days": days,
+                  "equity": float(g["equity"].iloc[-1]), "twr": twr, "cagr": cagr, "bench": bret,
+                  "excess": (twr - bret) if bret is not None else None, "max_dd": dd, "vol": vol, "beta": beta,
+                  "mar": (cagr / abs(dd)) if (cagr is not None and dd < 0) else None,
+                  "worst_month": float(mret.min()) if len(mret) else None,
+                  "invested": float((g["mv"] / g["equity"].where(g["equity"] > 0)).mean()),
+                  "n": int(g["n"].iloc[-1])}
+    return out
+
+
+# The capital-move rule (Jay, 19-Oct-2026; docs/PREREG_capital_move.md - fixed before any live result):
+MOVE_MIN_MONTHS = 6           # no earlier than 6 months after v2's first real buy
+MOVE_MIN_CLOSED = 25          # and at least 25 closed v2 trades
+MOVE_EDGE_PP = 5.0            # v2's annualised TWR beats v1's by >= 5 percentage points a year
+MOVE_FRACTION = 1.0 / 3.0     # then move one-third of v1's capital to v2
+
+
+def capital_rule(m: dict | None = None, ledger: dict | None = None, today: dt.date | None = None) -> dict:
+    """Evaluate the pre-registered capital-move rule. Returns {"checks": [(label, ok|None, note)],
+    "verdict": text}. ok None = cannot be judged yet."""
+    import v2_ledger as vl
+    m = metrics() if m is None else m
+    ledger = vl.load() if ledger is None else ledger
+    today = today or dt.date.today()
+    dates = [str(q.get("entry_date"))[:10] for q in ledger["open"].values()] + \
+            [str(c.get("entry_date"))[:10] for c in ledger["closed"]]
+    first = min(dates) if dates else None
+    months = ((today - dt.date.fromisoformat(first)).days / 30.44) if first else 0.0
+    n_closed = len(ledger["closed"])
+    v1, v2 = m.get("v1") or {}, m.get("v2") or {}
+    edge = ((v2["cagr"] - v1["cagr"]) * 100) if (v2.get("cagr") is not None and v1.get("cagr") is not None) else None
+    checks = [
+        ("≥ %d months since v2's first real buy" % MOVE_MIN_MONTHS, months >= MOVE_MIN_MONTHS if first else False,
+         ("first buy %s · %.1f months" % (first, months)) if first else "no v2 buy yet"),
+        ("≥ %d closed v2 trades" % MOVE_MIN_CLOSED, n_closed >= MOVE_MIN_CLOSED, "%d closed" % n_closed),
+        ("v2's annualised TWR beats v1-system's by ≥ %g pp" % MOVE_EDGE_PP,
+         (edge >= MOVE_EDGE_PP) if edge is not None else None,
+         ("v2 %+.1f %% vs v1 %+.1f %% a year (%+.1f pp)" % (v2["cagr"] * 100, v1["cagr"] * 100, edge))
+         if edge is not None else "needs %d days of both series" % MIN_DAYS_ANNUAL),
+        ("v2's max drawdown no worse than v1's", (v2["max_dd"] >= v1["max_dd"]) if (v2 and v1) else None,
+         ("v2 %.1f %% vs v1 %.1f %%" % (v2["max_dd"] * 100, v1["max_dd"] * 100)) if (v2 and v1) else "no series yet"),
+        ("v2 beat the Nifty 500 over the same days", (v2["excess"] > 0) if v2.get("excess") is not None else None,
+         ("v2 %+.1f %% vs index %+.1f %%" % (v2["twr"] * 100, v2["bench"] * 100)) if v2.get("excess") is not None else "no series yet"),
+    ]
+    oks = [c[1] for c in checks]
+    if all(o is True for o in oks):
+        verdict = "MOVE one-third of v1's capital to v2 (all five conditions hold)"
+    elif any(o is False for o in oks[2:]):
+        verdict = "NO MOVE - re-check next quarter (a performance condition fails)"
+    else:
+        verdict = "NOT YET - re-check quarterly once the minimums are met"
+    return {"checks": checks, "verdict": verdict, "first_buy": first, "months": months, "closed": n_closed}
+
+
 def main() -> int:
     if "--show" in sys.argv:
         print(series().to_string(index=False))

@@ -120,7 +120,27 @@ def refresh() -> int:
         return 0
 
     _write_universe(root, path, [f"{s}.NS" for s in new], len(current))
+    _log_changes(root, adds, drops)
     return 0
+
+
+def _log_changes(root: str, adds: list, drops: list) -> None:
+    """Append joiners/leavers to logs/universe_changes.csv (date, symbol, change) - the v2
+    Rank & Universe page reads it; a leaver that v2 holds is one of Clenow's exits."""
+    p = os.path.join(root, "logs", "universe_changes.csv")
+    try:
+        os.makedirs(os.path.dirname(p), exist_ok=True)
+        new_file = not os.path.exists(p)
+        day = datetime.now().strftime("%Y-%m-%d")
+        with open(p, "a", encoding="utf-8", newline="") as fh:
+            if new_file:
+                fh.write("date,symbol,change\n")
+            for s in adds:
+                fh.write(f"{day},{s},joined\n")
+            for s in drops:
+                fh.write(f"{day},{s},left\n")
+    except Exception as exc:
+        print(f"[universe] change log not written ({exc})")
 
 
 def main() -> int:

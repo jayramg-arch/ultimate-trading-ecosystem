@@ -28,7 +28,8 @@ FIX = os.path.join(HERE, "tests", "fixtures")
 PAGES = ["DASHBOARD", "HUNTER", "WATCHLIST", "COMMAND", "AI LAB", "MACRO", "OPTIONS",
          "AUTOPSY", "PRE-MARKET", "POST-MARKET", "BREADTH", "ETF", "NEWS",
          "PORTFOLIO", "X-RAY", "GOLDEN MATCHER", "TV SIDECAR",
-         "ACTION CENTER", "RISK SHIELD", "JOURNAL"]
+         "ACTION CENTER", "RISK SHIELD", "JOURNAL",
+         "V2LIVE", "V2BOOK", "V2RANK", "V2AUTOPSY", "VS"]
 
 
 def prepare_fixture() -> str:
