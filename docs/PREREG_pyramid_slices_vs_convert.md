@@ -39,3 +39,31 @@ Reported alongside: median, share of events where convert was better, worst even
 
 Known limits: the v1 rules are a re-simulation (no catalyst-specific multipliers, no bear tape);
 one panel; a v1 entry that never overlaps v2 tells us nothing and is left out.
+
+## RESULT (19 Oct 2026, run once) — CONVERT (arm C) adopted
+
+Check before the run (whole trades, not the comparison): the re-simulated v1 exits track the
+original replay closely — 190 trades, correlation 0.94, mean −2.29 % vs −1.95 %, median −5.54 %
+vs −5.77 %.
+
+130 overlap events (99 symbols; 191 v1 positional trades, 60 never overlapped v2's cut), overlap
+dates 2024-07-16 .. 2026-08-11, halves split at 2025-05-20. The v1 shares from the overlap on, as
+% of their value at the overlap close:
+
+| arm | mean | median | days held |
+|---|---|---|---|
+| A · two slices (v1 rules carry on) | −2.47 % | −5.62 % | 37 |
+| B · convert, size kept | −0.29 % | −3.15 % | 43 |
+| **C · convert + v2's resize** | **−0.14 %** | **−1.43 %** | 43 |
+
+| vs A | mean | symbol-bootstrap CI | halves | better in |
+|---|---|---|---|---|
+| B | +2.18 % | [−0.51, +5.23] — includes zero | +0.61 / +3.52 | 63 % |
+| **C** | **+2.33 %** | **[+0.95, +3.71]** | +4.09 / +0.82 | 74 % |
+
+C clears all three conditions; B clears the mean and both halves but its CI includes zero.
+Reading: once v2 also ranks the stock, v2's exits do better than v1's stop and trail on the same
+shares, and v2's resize (a v1 position is ~3× v2's target) takes most of the money off the table.
+Part of C's edge is that cash: the window is mostly a falling tape, and the released cash is
+counted at 0 % here — conservative for C if v1 redeploys it. Output:
+`reports/pyramid_convert_result_20261019.txt`, `reports/pyramid_convert/events.csv`.
