@@ -74,6 +74,15 @@ separation on the same rows, R5 and the `S_plan` stop, and the call count (B cos
 - **FAIL** → recorded here; the Reviewer stays single-model.
 - **THIN** → no conclusion; re-registered on a larger forward sample if Jay wants it.
 
+### Amendment 1 (20 Oct, before any model call)
+
+The "121 rows" above was a miscount. Twelve of them are marked `scored` but carry only R5: their
+10-session window had not closed (triggers of 6–13 Oct). Under the registered outcome rule they are
+pending and are out. **The unit set is 113 rows, 37 symbols.** No rule changes; the minimum sample
+(≥ 100 rows) still holds. The placebo, run on these 113, FAILED as required (S(B) − S(A) −0.131R,
+CI [−0.357, +0.110]) — and shows that random rulings alone move a separation by about ±0.15R on
+this sample.
+
 ---
 ## Result
 
