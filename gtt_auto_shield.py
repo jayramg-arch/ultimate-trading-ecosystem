@@ -23,6 +23,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from dhanhq import dhanhq
 from dhan_symbols import get_nse_id_map
+import math
 import time
 
 from dhan_auth import get_dhan_client
@@ -58,6 +59,52 @@ if not log.handlers:
         log.setLevel(logging.INFO)
     except Exception:
         pass
+
+# PRICES ON THE EXCHANGE TICK (21-Oct-2026). The trail sent 1976.86 / limit 1966.98 for
+# ANANDRATHI, whose tick is Rs 0.10. Dhan ACCEPTED the modify, but an off-tick limit can be
+# rejected by the exchange at the moment the stop triggers - i.e. no stop when it matters.
+# Every price this module sends goes through these: a stop trigger and its limit round
+# DOWN (a stop must never land above the level asked for), a target rounds to the nearest.
+_TICK_FALLBACK = 0.10      # unknown symbol: 0.10 is on the 0.01 / 0.05 / 0.10 grids alike
+
+
+def _tick(sym: str) -> float:
+    try:
+        import s5_rows
+        t = s5_rows.tick_size(sym)
+        return float(t) if t and t > 0 else _TICK_FALLBACK
+    except Exception:
+        return _TICK_FALLBACK
+
+
+def _floor_tick(px: float, t: float) -> float:
+    return round(math.floor(px / t + 1e-9) * t, 2)
+
+
+def _floor_half(px: float) -> float:
+    """The highest x.5 at or below px (Jay, 21-Oct-2026: every stop ends in .5)."""
+    return math.floor(px - 0.5 + 1e-9) + 0.5
+
+
+def stop_prices(sym: str, trigger: float) -> tuple[float, float]:
+    """(trigger, limit) for a sell stop. Jay's convention (21-Oct-2026): both end in .5 -
+    the trigger is the highest x.5 at or below the level asked for (a stop never lands above
+    it), the limit the highest x.5 at or below 0.5 % under the trigger (house buffer). A
+    symbol whose tick does not divide 0.5 (tick > Rs 0.50) falls back to flooring on the tick."""
+    t = _tick(sym)
+    if t <= 0.5 and abs(0.5 / t - round(0.5 / t)) < 1e-9:
+        trig = _floor_half(trigger)
+        lim = min(_floor_half(trig * 0.995), trig - 1.0)
+        return round(trig, 2), round(lim, 2)
+    trig = _floor_tick(trigger, t)
+    lim = min(_floor_tick(trig * 0.995, t), round(trig - t, 2))
+    return trig, lim
+
+
+def target_price(sym: str, px: float) -> float:
+    t = _tick(sym)
+    return round(round(px / t) * t, 2)
+
 
 def connect_dhan():
     try:
@@ -275,16 +322,19 @@ def run_auto_shield(auto_yes: bool = False):
                             security_id=str(sec_id), exchange_segment=dhan.NSE,
                             product_type=dhan.CNC, order_type=dhan.LIMIT,
                             transaction_type=dhan.SELL, quantity=leg["qty"],
-                            price=leg["target"], trigger_Price=leg["target"],   # target leg
+                            price=target_price(sym, leg["target"]),
+                            trigger_Price=target_price(sym, leg["target"]),   # target leg
                             order_flag="OCO", quantity1=leg["qty"],
-                            price1=item['sl'] * 0.995, trigger_Price1=item['sl'])   # stop leg
+                            price1=stop_prices(sym, item['sl'])[1],
+                            trigger_Price1=stop_prices(sym, item['sl'])[0])   # stop leg (on the tick)
                         what = f"OCO {leg['qty']} sh @ T {leg['target']:.2f} / SL {item['sl']:.2f}"
                     else:
                         res = dhan.place_forever(
                             security_id=str(sec_id), exchange_segment=dhan.NSE,
                             product_type=dhan.CNC, order_type=dhan.LIMIT,
                             transaction_type=dhan.SELL, quantity=leg["qty"],
-                            price=item['sl'] * 0.995, trigger_Price=item['sl'],
+                            price=stop_prices(sym, item['sl'])[1],
+                            trigger_Price=stop_prices(sym, item['sl'])[0],
                             order_flag="SINGLE")          # the runner keeps NO target
                         what = f"runner SL-only {leg['qty']} sh @ {item['sl']:.2f}"
                     if isinstance(res, dict) and res.get('status') == 'success':
@@ -548,8 +598,8 @@ def run_cover_pass(auto_yes: bool = False, dry_run: bool = True):
                 order_type=dhan.LIMIT,
                 transaction_type=dhan.SELL,
                 quantity=p["qty"],
-                price=p["sl"] * 0.995,        # limit just under the trigger
-                trigger_Price=p["sl"],
+                price=stop_prices(p["sym"], p["sl"])[1],     # limit just under the trigger, on the tick
+                trigger_Price=stop_prices(p["sym"], p["sl"])[0],
                 order_flag="SINGLE",          # SL only — the runner keeps NO target
             )
             if isinstance(res, dict) and res.get("status") == "success":
@@ -772,6 +822,10 @@ def run_trail_pass(auto_yes: bool = False, dry_run: bool = False, telegram: bool
 
     done = failed = 0
     for sym, leg, old, new, mult, src, note in proposals:
+        new, _lim = stop_prices(sym, new)            # on the exchange tick (21-Oct-2026)
+        if new <= old:
+            print(f"   - {sym}: on the tick the new stop {new} is not above {old} - left")
+            continue
         try:
             resp = dhan.modify_forever(
                 order_id=leg["order_id"],
@@ -779,7 +833,7 @@ def run_trail_pass(auto_yes: bool = False, dry_run: bool = False, telegram: bool
                 order_type=dhan.LIMIT,
                 leg_name=leg.get("leg_name") or "STOP_LOSS_LEG",
                 quantity=leg["sl_qty"],
-                price=round(new * 0.995, 2),      # limit buffer, house convention
+                price=_lim,                       # limit buffer (0.5 %), on the tick
                 trigger_price=new,
                 disclosed_quantity=0,
                 validity="DAY")
