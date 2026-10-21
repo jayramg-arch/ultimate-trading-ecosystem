@@ -18,14 +18,18 @@ REM COMPLETED daily bar. --yes skips the interactive prompt; without it the run
 REM raises EOFError headless AFTER printing its proposals, which is what made
 REM the failure look like silence.
 cd /d "C:\Users\jayra\Documents\GeminiVSCode"
-echo ---------- %DATE% %TIME% ---------->> "logs\gtt_shield.log"
+REM 21-Oct-2026: the console output goes to its OWN file. It used to append to logs\gtt_shield.log,
+REM which gtt_auto_shield's logger keeps OPEN inside any process that imported it (Web Commander's
+REM Risk Shield page). cmd cannot append to a file another process holds, and when a redirect fails
+REM cmd skips the command: from 18 Oct every scheduled trail exited 1 without running at all.
+echo ---------- %DATE% %TIME% ---------->> "logs\gtt_trail_task.log"
 REM Pre-flight (see preflight.py): --unattended never blocks and always exits 0
 REM - a linter must not be why the stops go untrailed for a day. Findings are
 REM written to logs\preflight.log AND pushed to Telegram, so a code fault shows
 REM up as a message instead of as a job that looks like it ran fine. That is
 REM precisely how the 24-Jul trail outage stayed invisible for three weeks.
-"C:\Users\jayra\TradingData\venv\Scripts\python.exe" preflight.py --unattended >> "logs\gtt_shield.log" 2>&1
+"C:\Users\jayra\TradingData\venv\Scripts\python.exe" preflight.py --unattended >> "logs\gtt_trail_task.log" 2>&1
 REM 18-Oct-2026 (Doc 42 §8 D4): DRY RUN + Telegram report until Jay switches it live. Positional
 REM holdings only (swing not trailed), stop capped at close - 3 x ATR14. Live = drop --dry-run, AND the
 REM PC's IP must be registered with Dhan (every modify is refused with DH-905 otherwise).
-"C:\Users\jayra\TradingData\venv\Scripts\python.exe" gtt_auto_shield.py --trail --telegram --yes >> "logs\gtt_shield.log" 2>&1
+"C:\Users\jayra\TradingData\venv\Scripts\python.exe" gtt_auto_shield.py --trail --telegram --yes >> "logs\gtt_trail_task.log" 2>&1
