@@ -75,6 +75,11 @@ def word(ruling: str) -> str | None:
 def _sr():
     import s4_review as sr
     sr.market_context = lambda: ""          # today's market line would leak the present
+    # Amendment 2 (21-Oct-2026): the house gates must not reach the prompt either. The first run
+    # injected TODAY's exposure gate ("the ruling cannot be TAKE") into every prompt of both arms.
+    # held_gate is silent for the empty position context both arms use.
+    sr.exposure_gate = lambda pos_txt: ("", "", False)
+    sr.index_gate = lambda read_txt: ("", "", False)
     return sr
 
 

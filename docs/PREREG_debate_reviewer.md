@@ -83,6 +83,20 @@ pending and are out. **The unit set is 113 rows, 37 symbols.** No rule changes; 
 CI [−0.357, +0.110]) — and shows that random rulings alone move a separation by about ±0.15R on
 this sample.
 
+### Amendment 2 (21 Oct) — the first run was INVALID; one corrected re-run
+
+The first `--run` (20 Oct) broke this registration: `s4_review.build_prompt` puts the house
+**exposure gate** into the prompt, and it reads TODAY's tier, so every prompt in both arms said
+"EXPOSURE GATE (house rule, not negotiable) … the ruling cannot be TAKE". Result: arm A ruled
+TAKE on 1 of 113 rows, arm B on 0 (the live Reviewer: 58). With no TAKE side, the separation
+is undefined. Nothing in that run compares the arms, so the test is still unspent. Fix: the
+harness now removes the exposure gate and the index-first gate from both arms' prompts (the
+held gate is already silent with an empty position context). The invalid run's answers and
+output are kept in `data/debate_ab/invalid_run1/`; the corrected run starts from an empty cache
+and runs **once**, under the unchanged hypotheses and thresholds.
+Note: panel reads taken after 6 Oct carry that day's EXPOSURE line in S4's SUMMARY. That is
+historical panel content, the same for both arms, and stays.
+
 ---
 ## Result
 

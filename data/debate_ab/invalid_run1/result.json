@@ -1,0 +1,28 @@
+{
+ "n": 113,
+ "symbols": 37,
+ "A_take": 1,
+ "B_take": 0,
+ "S_A": -0.5678839285714286,
+ "S_B": null,
+ "diff": null,
+ "agree_pct": 99.11504424778761,
+ "diff_ci": null,
+ "S_B_ci": null,
+ "H1": false,
+ "H2": false,
+ "verdict": "THIN",
+ "dropped_A": 0,
+ "dropped_B": 0,
+ "S_hist": 0.06242319749216299,
+ "take_R": {
+  "A": -0.841,
+  "B": null,
+  "H": -0.24775862068965518
+ },
+ "all_R": -0.27814159292035395,
+ "calls": {
+  "A": 113,
+  "B": 339
+ }
+}

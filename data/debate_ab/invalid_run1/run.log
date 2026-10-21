@@ -1,0 +1,21 @@
+units: 113 rows, 37 symbols
+  10 / 113 done (0 failed)
+  20 / 113 done (0 failed)
+  30 / 113 done (0 failed)
+  40 / 113 done (0 failed)
+  50 / 113 done (0 failed)
+[data_provider] FEED: Dhan=ON | nselib=OFF | nsepython=ON | cache=parquet
+  Built symbol-->meta map: 3154 NSE EQUITY + INDEX
+  60 / 113 done (0 failed)
+  70 / 113 done (0 failed)
+  80 / 113 done (0 failed)
+  90 / 113 done (0 failed)
+  100 / 113 done (0 failed)
+  110 / 113 done (0 failed)
+RESULT
+n 113 (37 symbols) · TAKE A 1 / B 0 · agree 99 %
+S(A) -0.568R · S(B) — CI —
+S(B) - S(A) — CI —
+H1 False · H2 False · VERDICT THIN
+historical live rulings S +0.062R · mean R10 of TAKEs: A -0.841R, B —, live -0.248R · all rows -0.278R
+dropped (no ruling): A 0, B 0
