@@ -98,6 +98,22 @@ Note: panel reads taken after 6 Oct carry that day's EXPOSURE line in S4's SUMMA
 historical panel content, the same for both arms, and stays.
 
 ---
-## Result
+## Result (21 Oct 2026, the corrected run) — **FAIL**
 
-*(not run yet)*
+| | single (A) | debate (B) |
+|---|---:|---:|
+| rows / symbols | 114 / 38 | 114 / 38 |
+| TAKE rulings | 80 | 57 |
+| mean R10 of TAKEs | −0.33R | −0.40R |
+| separation S (TAKE − non-TAKE) | −0.15R | **−0.24R**, CI [−0.44, −0.06] |
+
+S(B) − S(A) = **−0.09R**, CI [−0.24, +0.09]. **H1 FAIL** (needed ≥ +0.15R with CI above 0) and
+**H2 FAIL** (the debate's separation is negative, its CI below 0). Arms agreed on 61 % of rows.
+The debate made the Reviewer more cautious (57 TAKEs vs 80), but the extra WAITs were not the
+losing trades — its TAKEs did worse, not better. For reference, the live rulings' separation on
+the same rows was +0.07R and all rows averaged −0.28R. **Decision: the Reviewer stays
+single-model.**
+
+Deviation noted: the unit set was 114, not 113 — one row whose 10-session window closed after
+Amendment 1 entered through the harness's date filter. It does not change the verdict.
+
