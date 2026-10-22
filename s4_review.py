@@ -1670,7 +1670,8 @@ def flow_read(read_txt: str) -> dict:
     if not vd:
         return {}
     out = {"verdict": vd, "side": "", "level": None, "tf": "", "age": None}
-    lm = re.search(r"(support|resistance)\s+([\d,]+(?:\.\d+)?)\s*\u00b7\s*([DWM])\s*\u00b7\s*"
+    # tf: D/W/M, or the chart timeframe ("75", "125") - S5 v1.7 also reads chart-TF levels
+    lm = re.search(r"(support|resistance)\s+([\d,]+(?:\.\d+)?)\s*\u00b7\s*([DWM]|\d+)\s*\u00b7\s*"
                    r"(last closed bar|(\d+) bars? ago)", row)
     if lm:
         out.update(side=lm.group(1), level=float(lm.group(2).replace(",", "")), tf=lm.group(3),

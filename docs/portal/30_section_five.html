@@ -324,22 +324,46 @@ footer a{color:var(--acc)}
 </section>
 
 <section id="levels">
-  <h2><span class="n">05</span>II · Levels — the Lab's engines, unchanged</h2>
-  <p class="m">Resistance │ 968.90 ·W  1t  (5.5x ATR)      Support │ 826.00 ·W  1t  (6.8x ATR)</p>
-  <p class="m">Trendlines │ support 886.10 (1.6x ATR)   ·   resistance 932.50 (2.4x ATR)</p>
-  <p>Character-identical to the engine in S4 — the levels are drawn by the rules learnt from
-  hand-drawn lines and measured against them: placed at the <b>wick extreme</b>, not a midpoint;
-  pivots create a level and any nearby wick refines it, but <b>only pivots count as tests</b>;
-  validity is closes beyond <em>since formation</em>; the live bar may never graze; and the span
-  is capped so a chain of pivots cannot average into a fictional price.</p>
-  <p><b>Tests weaken a level.</b> The touch count grades it and past six it is MTTWR — primed to
-  break — which is the opposite of the usual convention and is deliberate. The row prints the
-  timeframe tag, the touch count and the distance in ATR; a level far away is honest, not a bug.</p>
-  <p>Trendlines are the manual numeric anchors by default; the envelope auto-fit is off, kept
-  for work in the Lab. The hand-drawn bridge senses the S4 Trendline Tool when bound.</p>
-  <p class="refnote">The S/R ageing that reached S4 on 9 September (levels past their lifespan
-  leave the <em>ceiling</em>) is not yet in S5's copy of the engine — a settled setting travels
-  back as an input default, never as re-implemented logic.</p>
+  <h2><span class="n">05</span>II · Levels — rebuilt on the reference methods (v1.7, 22 Oct)</h2>
+  <p class="m">Resistance │ 966.00 ·M  fresh  (1.4x ATR)      Support │ 913.00 ·D  fresh  (0.8x ATR)</p>
+  <p class="m">Trendlines │ support 890.87 (1.8x ATR)   ·   resistance 978.30 (1.9x ATR)</p>
+  <p><b>Why it changed.</b> The old engine kept the two <em>nearest</em> pivot clusters per side and
+  deleted any level price had closed through twice. The levels a trader draws are the opposite:
+  shelves price has traded back and forth across. On BAJFINANCE 125m the 975–985 shelf, closed through
+  and retested for weeks, was never drawn, while a lone pivot at 900 was. The auto trendline had the same
+  kind of fault. It was an envelope that had to sit under every pivot in a 16-pivot pool, so it drew a
+  falling "support" through a decline's lows.</p>
+  <p><b>S/R now</b> follows LonesomeTheBlue's <em>Support Resistance Channels</em> (open source,
+  MPL-2.0, the most-used S/R script on TradingView), adapted to the house rules:</p>
+  <ol>
+    <li>Every pivot high <em>and</em> low in the last 290 bars seeds a band. Other pivots within
+    <b>5% of the 300-bar range</b> join it, highs and lows together, so a level that flipped role keeps
+    its history.</li>
+    <li><b>Strength = 20 per pivot + 1 per bar</b> whose high or low entered the band. Bar touches are
+    what lift a congestion shelf above a lone pivot.</li>
+    <li>The strongest bands that do not overlap win. From those, the strongest <b>N each side of
+    price</b>, plus the band price is inside, if any. (LonesomeTheBlue keeps the strongest overall; on
+    BAJFINANCE 125m all six sat above price and no support was drawn.)</li>
+    <li>The <b>line sits on the band edge facing price</b>: the top of a support, the bottom of a
+    resistance. That is the first price the market meets, which is your wick-extreme rule. The band itself
+    is shaded. Where two timeframes' bands overlap, only the higher timeframe is drawn.</li>
+  </ol>
+  <p>It runs on <b>Monthly, Weekly and Daily, and on the chart's own timeframe when intraday</b> (new: a
+  75m chart now sees its own shelves). Each timeframe bands its own pivots at the canonical lengths
+  (M 1 · W 5 · D 2 · intraday 2). The heavy part runs only on the last few closed bars, never per tick.</p>
+  <p><b>Tests still weaken a level.</b> Strength ranks which levels are drawn. Tests grade them: the
+  pivots on the level's current side since price last closed through it. A flip resets the count. Six
+  tests is MTTWR, primed to break. A label reads, for example, <span class="m">D · Resistance 986.50 ·
+  tested×3 · s320</span>; <span class="m">R→S</span> / <span class="m">S→R</span> appears only when the
+  flip happened in the last 20 bars.</p>
+  <p><b>Trendlines now</b> use pivot pairs, as LonesomeTheBlue's <em>Trend Lines</em> and the Adam Moradi
+  tutorial do. Support joins a <b>higher low</b> to an earlier pivot low; resistance joins a <b>lower
+  high</b> to an earlier pivot high. A line is valid only while <b>no close</b> has crossed it since its
+  first anchor (wicks may pierce). Among valid lines, the one through the most pivots wins, then the
+  longest. Auto is on; the manual anchors and the S4 Trendline Tool bridge still work with auto off.</p>
+  <p class="refnote">Prototype checked before the build on TradingView's own bars (BAJFINANCE Daily) and
+  Dhan bars (BAJFINANCE 125m, TITAN / CUMMINSIND Daily, SAILIFE 75m). Not yet compared against your
+  hand-drawn lines on a fresh chart. Send the ones it still gets wrong.</p>
 </section>
 
 <section id="flow">
@@ -374,7 +398,7 @@ footer a{color:var(--acc)}
   <p>Two rows added under Divergence · VA. They answer Jay's question: <em>what do absorption, trapped
   traders, aggressive traders and big orders mean <b>at an S/R level</b></em>. S5 summarises the footprint
   rows of the <b>last 3 closed bars</b> and places each signal against its own S/R ladder (the nearest two
-  levels each side on Daily, Weekly and Monthly — the same clustering engine as S4's S/R rows; S4's demand
+  levels each side on Daily, Weekly and Monthly, and since v1.7 on the chart timeframe too; S4's demand
   and supply zones are not visible on this chart). A level counts when the bar's low or high came within
   0.5 × ATR of it, or pierced it and closed back.</p>
   <div class="tw"><table>
@@ -522,25 +546,21 @@ footer a{color:var(--acc)}
   <div class="tw"><table>
     <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
       <tr><td class="k">Pivot length M / W / D / intraday</td><td class="m">1 / 5 / 2 / 2</td><td>Canonical, shared with the Zigzag. Do not raise the daily to reduce noise — that breaks alignment</td></tr>
-      <tr><td class="k">Max pivot age</td><td class="m">120 bars</td><td>How far back a pivot can reach</td></tr>
-      <tr><td class="k">Levels tracked per timeframe</td><td class="m">40</td><td>The pool</td></tr>
-      <tr><td class="k">Cluster tolerance · cap</td><td class="m">0.6 × ATR14 · 1.5%</td><td><b>The #1 dial.</b> How close two pivots must sit to become one level; the cap keeps it sane on cheap names</td></tr>
-      <tr><td class="k">Thread maximum wicks · wick-pierce touches</td><td class="m">on · on</td><td>Placement threads the most wicks; a pierce counts as a touch but does not drag the line</td></tr>
-      <tr><td class="k">Min touches for a level</td><td class="m">2</td><td>Pivot touches — what earns the name “level” at all</td></tr>
-      <tr><td class="k">Draw at the wick extreme</td><td class="m">on</td><td>Support at the highest member low, resistance at the lowest member high — never a midpoint</td></tr>
-      <tr><td class="k">Level span cap</td><td class="m">1.0 × tolerance</td><td>Stops merge-on-arrival chaining eight pivots across 3,340 points into one fictional price</td></tr>
-      <tr><td class="k">Max closes beyond the line</td><td class="m">1</td><td>Validity since formation: one polarity change and it flips</td></tr>
-      <tr><td class="k">Distinct-test spacing</td><td class="m">5 bars</td><td>Two touches five bars apart are two tests; two adjacent bars are one</td></tr>
-      <tr><td class="k">MTTWR</td><td class="m">6</td><td>Tests before a level is primed to break. Was 4, which graded 40–45% of all levels spent</td></tr>
+      <tr><td class="k">Max level width</td><td class="m">5% of the 300-bar range</td><td><b>The #1 dial.</b> How far apart pivots can be and still form one level. Scales with the stock and the timeframe on its own</td></tr>
+      <tr><td class="k">Lookback</td><td class="m">290 bars</td><td>Pivots older than this drop out; bar touches are counted over the same window. 290 is the ceiling (300-bar history buffer)</td></tr>
+      <tr><td class="k">Min pivots in a level</td><td class="m">2</td><td>One pivot is a swing point, not a level</td></tr>
+      <tr><td class="k">Levels per side — chart / D / W / M</td><td class="m">2 / 2 / 2 / 1</td><td>The strongest on each side of price. Chart levels draw only on intraday charts</td></tr>
+      <tr><td class="k">Shade each level's band</td><td class="m">on</td><td>The band is the pivots' span; the line is the edge facing price</td></tr>
+      <tr><td class="k">MTTWR</td><td class="m">6</td><td>Tests (pivots on the current side since the last flip) before a level is primed to break</td></tr>
   </tbody></table></div></div></details>
 
   <details class="ref"><summary>Trendlines</summary><div class="rb">
   <div class="tw"><table>
     <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
-      <tr><td class="k">Manual trendlines</td><td class="m">on</td><td>Numeric anchors — the live path</td></tr>
-      <tr><td class="k">Auto-detect (envelope fit)</td><td class="m">off</td><td>The Lab's fitter; on to work it</td></tr>
-      <tr><td class="k">Touch/pierce tolerance · pool</td><td class="m">0.5 × ATR · 16</td><td>For the auto fit</td></tr>
+      <tr><td class="k">Auto-detect (pivot pairs)</td><td class="m">on</td><td>Higher low to an earlier low (support), lower high to an earlier high (resistance); no close through it since the first anchor</td></tr>
+      <tr><td class="k">Touch tolerance · pool · lookback</td><td class="m">0.25 × ATR · 40 · 290</td><td>Touches rank the candidate lines (most touches, then longest). The first anchor must be within the lookback</td></tr>
       <tr><td class="k">Re-anchor · nudge</td><td class="m">0 · 0.0</td><td>Skip N recent pivots, or shift a line without changing its slope</td></tr>
+      <tr><td class="k">Manual trendlines</td><td class="m">on</td><td>Numeric anchors; used when auto is off</td></tr>
       <tr><td class="k">Sense hand-drawn trendlines</td><td class="m">off</td><td>The two source inputs bridged from the S4 Trendline Tool. Unbind on every recompile</td></tr>
   </tbody></table></div></div></details>
 
@@ -563,7 +583,7 @@ footer a{color:var(--acc)}
     <thead><tr><th>Component</th><th>State</th></tr></thead>
     <tbody>
       <tr><td class="k">Footprint · participation</td><td><b>Verified</b> on two symbols and two timeframes; in the reviewer's input</td></tr>
-      <tr><td class="k">S/R levels · trendlines</td><td>Lab-tested against hand-drawn lines; not yet carrying S4's 9-Sep ageing; <b>withheld from the reviewer</b></td></tr>
+      <tr><td class="k">S/R levels · trendlines</td><td>Rebuilt 22 Oct on the reference methods (strength-ranked channels, pivot-pair lines); prototyped on real bars, <b>not yet checked against hand-drawn lines</b>; <b>withheld from the reviewer</b> (the order-flow ladder still reads them)</td></tr>
       <tr><td class="k">Geometry</td><td>Rebuilt 8 Sep on TV criteria; the 11-Sep inverted boundary was the apex, fixed in v1.4 (apex solved, shape withdrawn past it, % to apex printed); otherwise <b>unverified in the field</b>; <b>withheld from the reviewer</b></td></tr>
       <tr><td class="k">Wyckoff ladder</td><td>Named only, by design — twice rejected as an input</td></tr>
       <tr><td class="k">SWP-RC · RNG-EDGE</td><td>Display-only until measured as catalyst families in R</td></tr>
@@ -595,6 +615,6 @@ footer a{color:var(--acc)}
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/30 · Section 5 — Analysis Panel · S5 v1.4 · written against the code 11 Sep 2026, revised 16 Sep 2026</span>
+  <span>docs/30 · Section 5 — Analysis Panel · S5 v1.7 · written against the code 11 Sep 2026, revised 22 Oct 2026</span>
   <span>Companions — <a href="22_section_four.html">22 Section Four</a> · <a href="24_pre_trade_gate.html">24 Pre-Trade Gate</a></span>
 </div></footer>
