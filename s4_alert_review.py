@@ -258,7 +258,7 @@ def _daily_wait_s(tf: str, source: str) -> float:
     pattern" - the alert had fired on an unfinished Daily bar (1-Oct also had 75m/125m
     pings at 15:15, which is no bar's close). The Daily plan is decided on the closed bar,
     so the review runs at 15:31 IST on it. 0 = review now."""
-    if str(tf).upper() not in ("D", "1D") or source != "tv-webhook":
+    if str(tf).upper() not in ("D", "1D") or not str(source).startswith("tv-webhook"):
         return 0.0
     from datetime import timedelta, timezone
     now = datetime.now(timezone(timedelta(hours=5, minutes=30)))

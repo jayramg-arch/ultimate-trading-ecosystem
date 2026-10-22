@@ -100,6 +100,16 @@ def send_webhook_email_notification(status: str, ticker: str, qty: int, entry: f
     """
     send_email(subject=subject, body_text=f"GTT Order {status.upper()} for {ticker}. Details: {details}", html_content=html_content)
 
+@app.on_event("startup")
+def _start_fire_backstop():
+    """22-Oct-2026: read TradingView's own fire log and recover any alert whose webhook
+    failed (bar-close bursts time out between TradingView and ngrok). tv_fire_backstop.py."""
+    try:
+        import tv_fire_backstop
+        tv_fire_backstop.start()
+    except Exception as e:
+        print(f"[backstop] not started: {e}")
+
 @app.get("/health")
 async def health():
     """Liveness for scheduler_daemon.job_tunnel_check (9-Oct-2026). No key, no side effects."""
@@ -158,8 +168,11 @@ async def handle_thesis_alert(request: Request):
         os.makedirs("logs", exist_ok=True)
         with open(os.path.join("logs", "thesis_alerts.log"), "a", encoding="utf-8") as fh:
             fh.write("%s %s\n" % (datetime.now().strftime("%Y-%m-%d %H:%M:%S"), body.replace("\n", " ")))
+        import asyncio
         import s4_review
-        ok = s4_review.telegram("🟠 THESIS BROKEN · " + body)
+        # off the event loop (22-Oct-2026): a 1-2.5 s Telegram call here held up every other
+        # request in a bar-close burst, including the S4 GO webhooks TradingView times out on
+        ok = await asyncio.to_thread(s4_review.telegram, "🟠 THESIS BROKEN · " + body)
         print(f"/thesis-alert: {body[:80]} -> telegram {'sent' if ok else 'FAILED'}")
         return {"status": "sent" if ok else "telegram-failed"}
     except Exception as e:
