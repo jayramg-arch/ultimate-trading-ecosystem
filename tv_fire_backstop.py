@@ -62,7 +62,13 @@ JS = r"""
 """
 
 
+_DRY = False      # a --dry-run prints only: it must not write "recovered" lines into the receiver's log
+
+
 def _log(msg: str) -> None:
+    if _DRY:
+        print("[backstop dry-run] " + msg, flush=True)
+        return
     try:
         import s4_alert_review
         s4_alert_review._log("backstop: " + msg)
@@ -173,6 +179,8 @@ def _source_of(message: str) -> str:
 
 def run_once(lookback_h: float = 1.0, dry: bool = False) -> dict:
     """One pass. Returns counts. lookback_h bounds how old a fire may be to be recovered."""
+    global _DRY
+    _DRY = dry
     out = {"read": 0, "recovered": 0, "missed": 0, "thesis": 0, "delivered": 0, "pending": 0, "skipped": 0}
     fires = fetch_fires()
     out["read"] = len(fires)
