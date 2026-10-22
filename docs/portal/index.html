@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 19 Oct · 77 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 22 Oct · 78 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,11 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">22 Oct<br>webhook backstop</td>
+        <td><b>Timed-out alerts are no longer lost.</b> At bar closes TradingView marks many S4 GO webhooks &ldquo;request took too long and timed out&rdquo; (delivery takes 10&ndash;25 s; 6 of 22 alerts on 21&ndash;22 Oct). The receiver now reads TradingView's own fire log every 60 s and reviews every failed fire still inside its bar; one more than a bar late gets a MISSED Telegram; a request that did arrive is not reviewed twice. The thesis route sends its Telegram off the request path.</td>
+        <td class="af">26 · 32</td>
+      </tr>
       <tr>
         <td class="dt">19 Oct<br>v1 vs v2</td>
         <td><b>v2 gets its own pages, and v1 and v2 can now be compared.</b> A new nav group, 🧭 v2 SYSTEM: This Week (checklist, orders, rulings, exit watch), Book (holdings against Clenow's exits, resize targets, tax lots, ETF sleeve, ledger), Rank &amp; Universe (the board, who entered or left the top 25 %, a rule-by-rule check of any symbol, Nifty 500 joiners and leavers) and Autopsy (closed v2 trades by exit reason, against the Nifty 500). ANALYSIS › ⚖️ v1 vs v2 compares real money and paper. Each journal row now records who chose it (v1 = GM + S4, v2, or legacy; COALINDIA is legacy). A nightly snapshot (auto-pilot Phase 12j) records each system's equity, with 6.75 % on idle cash, from 19 Oct. The rule for moving capital was fixed before any result: after 6 months and 25 closed v2 trades, move one-third of v1's capital only if v2 beats v1 by 5 points a year, with no deeper drawdown, and beats the Nifty 500.</td>

@@ -362,6 +362,12 @@ python s4_review.py --board 125m --live</pre>
     and why <em>“the alert reviewer is up before the open”</em> is on Doc 26's list of things
     that fail silently. Check <code>logs/s4_alert_review.log</code> for
     <code>queued … reviewed in Ns (telegram sent)</code>.</p>
+    <p><b>Since 22 Oct, a timed-out webhook is recovered.</b> At bar closes TradingView often marks an alert
+    &ldquo;request took too long and timed out&rdquo; (delivery takes 10&ndash;25 s; it waits a few). The
+    receiver's <b>webhook backstop</b> reads TradingView's own fire log every 60 s and reviews every failed
+    fire still inside its bar; one more than a bar late gets a <b>⚠️ MISSED S4 GO</b> Telegram instead. A late
+    request that did arrive is not reviewed twice (30-minute repeat check). Details: Doc 26, runbook
+    &ldquo;request took too long&rdquo;.</p>
   </div>
   <h4>The exposure rule is binding (6 Oct)</h4>
   <p>Every prompt now carries an <b>EXPOSURE RULE</b> line under the market context, marked binding. When the

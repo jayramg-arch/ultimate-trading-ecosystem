@@ -653,6 +653,7 @@ footer em{color:var(--ink-2)}
       <tr><td>Every position has a resting stop</td><td>naked exposure</td></tr>
       <tr><td>Daily bars current after midnight</td><td>every daily read one session behind until Dhan's next-day publish &mdash; fixed 7 Oct (the intraday session-fill asked for <span class="m">to_date</span> = the session, which Dhan treats as exclusive)</td></tr>
       <tr><td>S4 alert path (ngrok + receiver)</td><td>TradingView reads &ldquo;Webhook delivery failed &mdash; 404&rdquo; (tunnel offline) or 502 (receiver down) and never retries. A check every 15 minutes from 9:15 sends <b>S4 ALERT PATH DOWN</b> on Telegram; click <span class="m">Fix Webhook</span> (runbook below), then <span class="m">REVIEW SYMBOL TF</span> for anything missed</td></tr>
+      <tr><td>Webhook &ldquo;request took too long and timed out&rdquo; (22 Oct)</td><td>at bar closes delivery takes 10&ndash;25 s and TradingView gives up; most of these did arrive, a few never do. Nothing to do: the <b>webhook backstop</b> (below) reviews every failed fire. The Telegram review is the signal, not TradingView's red line</td></tr>
       <tr><td>Open risk inside budget</td><td>a book that loses far more than planned if the tape breaks &mdash; Risk Shield 🔥 Open risk card</td></tr>
       <tr><td>Thesis alerts set (two-tier stop, 12 Oct)</td><td>a close below a holding's thesis passes unnoticed and only the farther Dhan disaster stop is left &mdash; check Phase 12b4 in the evening digest, or <span class="m">python tv_thesis_alerts.py --dry-run</span>; the receiver must be up, because the alert's webhook is <span class="m">/thesis-alert</span></td></tr>
       <tr><td>Both bundles pasted into S4</td><td>F reads blank and the Options OI row says "no options" on names that have them &mdash; looks like weak fundamentals, is a missing paste</td></tr>
@@ -691,6 +692,23 @@ footer em{color:var(--ink-2)}
   </table></div>
   <p><b>Recover the missed alerts.</b> TradingView &rsaquo; Alerts Log: for each GO that fired during the outage whose setup still stands, run <span class="m">REVIEW SYMBOL 75</span> (or <span class="m">125</span> / <span class="m">D</span>). <b>Keep one receiver window.</b> A window repeating <span class="m">PORT 8000: ALREADY IN USE</span> is a duplicate &mdash; close it.</p>
   <p>Early warning: from 9:15 the 15-minute check sends <b>S4 ALERT PATH DOWN</b> on Telegram &mdash; click Fix Webhook then, rather than waiting for a 404. It cannot warn you while the PC itself sleeps. <b>Don't sleep the PC on a trading night</b>: a timer wake with nobody at the keyboard drops back to sleep after about two minutes.</p>
+</section>
+
+<section>
+  <p class="pt">Runbook &middot; 22 Oct</p>
+  <h2>&ldquo;Request took too long and timed out&rdquo; &mdash; the webhook backstop</h2>
+  <p class="lede">Not a 404: the path is up, but at a bar close TradingView sends every user's alerts at once and delivery takes 10&ndash;25 s. TradingView waits only a few seconds for a reply, so it marks the alert failed &mdash; often after the request has in fact arrived (22 Oct: NESTLEIND fired 11:45:04, reached the receiver 11:45:15, marked failed; AUBANK arrived 25 s late; ALPHA never). It never retries.</p>
+  <p><b>The backstop</b> (<span class="m">tv_fire_backstop.py</span>, started by the receiver): every 60 s from 9:14 to 15:50 it reads TradingView's own fire log on this PC &mdash; no internet path &mdash; and sends every fire whose webhook failed down the normal route.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Fire</th><th>What happens</th></tr></thead>
+    <tbody>
+      <tr><td>S4 GO, failed, still inside its bar</td><td>queued for review, logged as an S4 alert; if the late request already arrived, the 30-minute repeat check stops a second review</td></tr>
+      <tr><td>S4 GO, more than one bar late (75m &gt; 75 min)</td><td>Telegram <b>⚠️ MISSED S4 GO &hellip; run REVIEW SYM TF</b> &mdash; a review now would read a later bar</td></tr>
+      <tr><td>GM-THESIS, failed</td><td>logged and sent to Telegram, unless <span class="m">/thesis-alert</span> already sent it today</td></tr>
+      <tr><td>delivered, or any other alert</td><td>ignored</td></tr>
+    </tbody>
+  </table></div>
+  <p>On start it looks back 12 hours, so fires missed while the receiver was down are caught too (intraday ones as MISSED notices). It needs TradingView open, which it always is for the reviewer. Proof it ran: <span class="m">logs/fires_seen.json</span> updated within about 10 s of a receiver start, and <span class="m">backstop:</span> lines in <span class="m">logs/s4_alert_review.log</span> when it recovers something. <span class="m">python tv_fire_backstop.py --dry-run</span> lists recent fires and what it would do; <span class="m">FIRE_BACKSTOP=0</span> turns it off. It cannot help while the PC sleeps or TradingView is closed.</p>
 </section>
 
 <section>

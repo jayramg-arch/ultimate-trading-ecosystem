@@ -229,6 +229,7 @@ Each of these has already cost a day or more.
 | Every position has a resting stop | naked exposure | Risk Shield · `--cover` |
 | Daily bars current after midnight | every daily read one session behind until Dhan's next-day publish (fixed 7 Oct: the intraday session-fill asked Dhan for `to_date` = the session, which Dhan treats as exclusive) | a Swing ↔ Positional `close` that matches the last session |
 | S4 alert path (ngrok + receiver) | TradingView alert reads "Webhook delivery failed — 404" (tunnel offline) or "502" (receiver down); the review never happens and TradingView does not retry | Telegram **S4 ALERT PATH DOWN** from the 15-min check (9:15 onward); then click **Fix Webhook** (§6c) and `REVIEW SYMBOL TF` for anything missed |
+| Webhook "request took too long and timed out" | at bar closes delivery takes 10–25 s and TradingView gives up; most of these DID arrive, a few never do | nothing to do: the **webhook backstop** (§6d) reads TradingView's own fire log and reviews every failed fire. The Telegram review is the signal, not TradingView's red line |
 | Open risk inside budget | a book that loses far more than planned if the tape breaks | Risk Shield 🔥 Open risk card |
 | Thesis alerts set (two-tier stop) | a close below a holding's thesis passes unnoticed; only the farther Dhan disaster stop is left | auto-pilot Phase 12b4 line in the evening digest; `python tv_thesis_alerts.py --dry-run`; the receiver must be up (`/thesis-alert`) |
 | S5 footprint rows fit the stock | S5's order-flow rows read "ROWS TOO COARSE" and say nothing | the reviewer fits its own tab; on yours click `Set S5 Rows` (SET_S5_ROWS.bat) after changing symbol |
@@ -294,7 +295,33 @@ down. **TradingView never retries — that alert is lost.**
 5. **One receiver window only.** A window repeating `PORT 8000: ALREADY IN USE` is a
    duplicate (the first one holds the port) — close it.
 
-Early warning: from 9:15 the 15-minute check sends **S4 ALERT PATH DOWN** on Telegram —
+## 6d. "REQUEST TOOK TOO LONG AND TIMED OUT" — the webhook backstop (22 Oct 2026)
+
+Different from a 404: the path is up, but at a bar close TradingView sends every user's alerts
+at once and delivery to the PC takes 10–25 s. TradingView waits only a few seconds for a reply,
+so it marks the alert failed — even when the request then arrives (22 Oct: NESTLEIND fired
+11:45:04, reached the receiver 11:45:15, marked failed; AUBANK 25 s late; ALPHA never arrived).
+TradingView never retries.
+
+**The backstop** (`tv_fire_backstop.py`, started by the receiver itself): every 60 s from 9:14
+to 15:50 it reads TradingView's own fire log on this PC (no internet path) and sends every
+fire whose webhook failed down the normal route.
+
+| Fire | What happens |
+|---|---|
+| S4 GO, webhook failed, still inside its bar | queued for review, logged as an S4 alert; if the late request already arrived, the 30-minute repeat check stops a second review |
+| S4 GO, more than one bar of its timeframe late (75m > 75 min) | Telegram **⚠️ MISSED S4 GO … run REVIEW SYM TF** — a review now would read a later bar |
+| GM-THESIS, webhook failed | logged + Telegram, unless `/thesis-alert` already sent it today |
+| delivered / other alerts | ignored |
+
+On start it looks back 12 h, so fires missed while the receiver was down are caught (intraday
+ones as MISSED notices). It needs TradingView open (debug port 9222) — it is, for the reviewer.
+Proof it ran: `logs/fires_seen.json` updated within ~10 s of a receiver start; `backstop:` lines
+in `logs/s4_alert_review.log` when it recovers something. `python tv_fire_backstop.py --dry-run`
+lists the recent fires and what it would do. `FIRE_BACKSTOP=0` turns it off. It cannot help
+while the PC sleeps or TradingView is closed.
+
+Early warning (404 path): from 9:15 the 15-minute check sends **S4 ALERT PATH DOWN** on Telegram —
 click Fix Webhook then rather than waiting for a 404. It cannot warn you while the PC
 itself sleeps, because the check runs on the PC. **Don't sleep the PC on a trading night**
 — a timer wake with nobody at the keyboard drops back to sleep after about 2 minutes.
