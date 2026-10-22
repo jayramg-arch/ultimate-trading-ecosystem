@@ -407,6 +407,7 @@ type ChSig
     int i1ts
     int i1t0
     bool i1fl
+    string dbg = ""
 
 f_srChannels(simple int pvLen, simple float wPct, simple int loopN, simple int minPiv, simple int keepN) =>
     float _ph = ta.pivothigh(high, pvLen, pvLen)
@@ -436,6 +437,7 @@ f_srChannels(simple int pvLen, simple float wPct, simple int loopN, simple int m
     var array<float> sLo = array.new<float>()
     var array<float> sHi = array.new<float>()
     var array<int>   sSt = array.new<int>()
+    var string _dbg = "no build yet"
     // "the last few bars of THIS context". last_bar_index alone is not trusted inside
     // request.security, so a time test backs it up: within ~8 bars of now plus four days
     // for a weekend or holiday. Running a few bars too many costs time, never accuracy.
@@ -473,27 +475,55 @@ f_srChannels(simple int pvLen, simple float wPct, simple int loopN, simple int m
         array.clear(sLo)
         array.clear(sHi)
         array.clear(sSt)
-        array<bool> _used = array.new<bool>(_n, false)
+        // GREEDY PICK, strongest first. A candidate is out once its top or bottom falls inside
+        // a band already picked (LonesomeTheBlue's rule). Checked DIRECTLY against the picked
+        // bands: the first build kept a separate "used" flag array, and on the chart that flag
+        // never took effect - the build read b16 (16 rounds) where 8 bands exist, i.e. the same
+        // strongest band picked every round, which is why each timeframe drew ONE level
+        // (22-Oct-2026, read off the diagnostic row). This form cannot re-pick a band.
         for _r = 0 to 15
             int _bs = -1
             int _bi = -1
             for _k = 0 to _n - 1
-                if not array.get(_used, _k) and array.get(cPv, _k) >= minPiv and array.get(cSt, _k) > _bs
-                    _bs := array.get(cSt, _k)
-                    _bi := _k
+                int _ks = array.get(cSt, _k)
+                if array.get(cPv, _k) >= minPiv and _ks > _bs
+                    float _kl = array.get(cLo, _k)
+                    float _kh = array.get(cHi, _k)
+                    bool _taken = false
+                    int _ns = array.size(sLo)
+                    if _ns > 0
+                        for _s = 0 to _ns - 1
+                            float _sl = array.get(sLo, _s)
+                            float _sh = array.get(sHi, _s)
+                            if (_kh >= _sl and _kh <= _sh) or (_kl >= _sl and _kl <= _sh)
+                                _taken := true
+                    if not _taken
+                        _bs := _ks
+                        _bi := _k
             if _bi < 0
                 break
-            float _blo = array.get(cLo, _bi)
-            float _bhi = array.get(cHi, _bi)
-            array.push(sLo, _blo)
-            array.push(sHi, _bhi)
+            array.push(sLo, array.get(cLo, _bi))
+            array.push(sHi, array.get(cHi, _bi))
             array.push(sSt, _bs)
-            for _k = 0 to _n - 1
-                float _kl = array.get(cLo, _k)
-                float _kh = array.get(cHi, _k)
-                if (_kh >= _blo and _kh <= _bhi) or (_kl >= _blo and _kl <= _bhi)
-                    array.set(_used, _k, true)
+        int _q = 0
+        for _k = 0 to _n - 1
+            if array.get(cPv, _k) >= minPiv
+                _q += 1
+        // u = distinct bands among those picked (must equal b)
+        int _u = 0
+        int _nsel = array.size(sLo)
+        if _nsel > 0
+            for _s = 0 to _nsel - 1
+                bool _dup = false
+                if _s > 0
+                    for _t = 0 to _s - 1
+                        if array.get(sLo, _t) == array.get(sLo, _s) and array.get(sHi, _t) == array.get(sHi, _s)
+                            _dup := true
+                if not _dup
+                    _u += 1
+        _dbg := str.tostring(_n) + "pv w" + str.tostring(_cw, "#.##") + " q" + str.tostring(_q) + " b" + str.tostring(_nsel) + " u" + str.tostring(_u)
     ChSig res = ChSig.new()
+    res.dbg := _dbg
     if _near and array.size(sLo) > 0
         int _lk2 = math.min(loopN, bar_index)
         int _na = 0
@@ -2176,7 +2206,11 @@ if show_s5p and barstate.islast
     _fn := _fn + "   M " + (not _okM ? "-" : (na(_mA1) ? "0" : "1") + "/" + (na(_mB1) ? "0" : "1"))
     if isIntra
         _fn := _fn + "   " + tfC + " " + (not _okC ? "-" : (na(_cA1) ? "0" : "1") + "/" + (na(_cB1) ? "0" : "1"))
-    f_s5row(21, "Level funnel", _fn + "   (above/below per TF)", C_MUTE)
+    // Per-TF build counts (22-Oct-2026): pivots in the pool, band width, candidate bands with
+    // enough pivots (q), bands picked (b) and how many of those are distinct (u). b must equal
+    // u - this row is what exposed the re-picking bug (b16 against 8 real bands).
+    string _dg = "   ·   build D " + (_okD ? chD.dbg : "-") + " | W " + (_okW ? chW.dbg : "-") + " | M " + (_okM ? chM.dbg : "-") + (isIntra ? " | " + tfC + " " + (_okC ? chC.dbg : "-") : "")
+    f_s5row(21, "Level funnel", _fn + "   (above/below per TF)" + _dg, C_MUTE)
 
     // 8. FOOTPRINT — the order-flow read S4 has no access to at all
     string _fpTxt = not show_fp ? "engine off" : not fpKnown ? "n/a - the feed has no footprint for this bar (ordinary on older history; NOT a delta of zero)" : (fpDelta >= 0 ? "+" : "") + str.tostring(fpDelta, format.volume) + (fpDelta > 0 ? " buyers" : fpDelta < 0 ? " sellers" : " flat") + "   ·   cum " + str.tostring(fpCumWin) + "b " + (nz(fpCum) >= 0 ? "+" : "") + str.tostring(fpCum, format.volume) + "   ·   " + str.tostring(fpBuy, format.volume) + " vs " + str.tostring(fpSell, format.volume)
