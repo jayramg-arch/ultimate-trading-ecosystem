@@ -105,3 +105,24 @@ all FAIL, so the scoring cannot manufacture a pass. What it shows about the bar:
 ranks next-month volatility at ρ ≈ 0.63 (trailing RV20: 0.54), so H1 needs Kronos near 0.66; ATR's
 level accuracy (QLIKE 0.25) is far better than RV20's (2.51). Clenow's own RankIC over this window
 is −0.01 (descriptive).
+
+---
+## Amendment 1 (25 Oct 2026, after plumbing, before any outcome or stored forecast)
+
+Plumbing (3 origins × 10 names, outcomes NOT computed) found two things:
+
+1. **The registered volatility measure was contaminated.** It included the step from the real origin
+   close to the first DECODED bar, and that step is the tokenizer's reconstruction error, not
+   volatility (360ONE: last close 973 → first predicted bar 921, or 791 with volume removed; ABCAPITAL
+   240 → 207). **KV is now computed from the 19 returns inside each predicted path, × √(20/19).**
+   KR (the return forecast) is unchanged.
+   Also observed, and left as is because it is the model's design: Kronos z-scores price LEVELS over
+   the 400-bar input, so names near the top of their window get forecasts that revert toward the
+   window mean (median plumbing KR −7 % to −16 %). The ranking test measures this behaviour as built.
+2. **Run time.** Batching gives no speed-up on CPU (≈ 5.7 s per name-path). The registered size
+   (56 × 120 × 10) is ≈ 106 h. **N 120 → 60 names per origin, K 10 → 5 paths,** and the minimum average
+   names per origin 80 → 50 to match. Re-prepared at N = 60 (new seeded sample, 59.8 scored names per
+   origin) and the placebo re-run: FAILED as required (ATR ρ 0.632; random −0.629 below it).
+   Two workers (`--shard 0/2`, `1/2`), below-normal priority, paused 09:10–15:35 IST on weekdays.
+
+Hypotheses, thresholds, window and model are unchanged.

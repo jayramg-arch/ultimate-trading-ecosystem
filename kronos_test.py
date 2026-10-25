@@ -32,11 +32,11 @@ RESULT = os.path.join(OUT, "result.json")
 
 START = "2024-07-01"            # first origin: after Kronos's June-2024 pre-training cutoff
 STEP, H, LOOKBACK = 10, 20, 400
-N_NAMES = 120                   # may be lowered in plumbing only (amendment)
-K_PATHS = 10
+N_NAMES = 60                    # Amendment 1 (25-Oct): 120 -> 60, CPU run time
+K_PATHS = 5                     # Amendment 1: 10 -> 5
 MODEL_ID, TOK_ID = "NeoQuasar/Kronos-small", "NeoQuasar/Kronos-Tokenizer-base"
 T_SAMPLE, TOP_P = 1.0, 0.9
-MIN_ORIGINS, MIN_NAMES = 40, 80
+MIN_ORIGINS, MIN_NAMES = 40, 50       # Amendment 1: 80 -> 50 with N = 60
 BOOT, BLOCK = 5000, 2
 H1_MIN, H2_RATIO, H3_MIN = 0.03, 0.95, 0.03
 
@@ -113,9 +113,25 @@ def prepare() -> int:
 
 
 # ---------------------------------------------------------------- forecast (Kronos venv)
-def forecast(plumbing: int = 0) -> int:
+def _market_hours_now() -> bool:
+    from datetime import datetime, timedelta, timezone
+    n = datetime.now(timezone(timedelta(hours=5, minutes=30)))
+    m = n.hour * 60 + n.minute
+    return n.weekday() < 5 and 9 * 60 + 10 <= m <= 15 * 60 + 35
+
+
+def _wait_off_market() -> None:
+    """Never compete with TradingView / the reviewer in session (KRONOS_PAUSE_MARKET=0 disables)."""
+    if os.environ.get("KRONOS_PAUSE_MARKET", "1") == "0":
+        return
+    while _market_hours_now():
+        time.sleep(300)
+
+
+def forecast(plumbing: int = 0, shard: str = "") -> int:
     import pandas as pd
     import torch
+    torch.set_num_threads(int(os.environ.get("KRONOS_THREADS", "6")))
     repo = os.environ.get("KRONOS_REPO", "")
     if not repo or not os.path.isdir(os.path.join(repo, "model")):
         print("set KRONOS_REPO to the Kronos repo folder (it holds the `model` package)")
@@ -128,7 +144,12 @@ def forecast(plumbing: int = 0) -> int:
     meta = json.load(open(META))
     os.makedirs(FC, exist_ok=True)
     todo = meta["origins"][:plumbing] if plumbing else meta["origins"]
+    if shard:                                   # "i/n": this worker takes every n-th origin
+        i, n = (int(v) for v in shard.split("/"))
+        todo = [o for k, o in enumerate(todo) if k % n == i]
     for o in todo:
+        if not plumbing:
+            _wait_off_market()
         path = os.path.join(FC, "%s.csv" % o["date"])
         if os.path.exists(path) and not plumbing:
             continue
@@ -150,9 +171,11 @@ def forecast(plumbing: int = 0) -> int:
             for j, f in enumerate(out):
                 closes[k, j] = f["close"].to_numpy()[:H]
         c0 = x[:, -1, 3].astype(float)
-        path_c = np.concatenate([np.broadcast_to(c0, (K_PATHS, len(syms)))[..., None], closes], axis=2)
-        lr = np.diff(np.log(np.clip(path_c, 1e-9, None)), axis=2)
-        kv = np.sqrt((lr ** 2).sum(axis=2).mean(axis=0))
+        # Amendment 1: volatility from the 19 returns INSIDE each predicted path, scaled to 20.
+        # The step from the real last close to the first DECODED bar carries the tokenizer's
+        # reconstruction error (plumbing: 360ONE 973 -> 921/791 on day 1) - noise, not volatility.
+        lr = np.diff(np.log(np.clip(closes, 1e-9, None)), axis=2)
+        kv = np.sqrt((lr ** 2).sum(axis=2).mean(axis=0) * H / (H - 1))
         kr = np.log(np.clip(closes[:, :, -1], 1e-9, None) / c0).mean(axis=0)
         dt = time.time() - t0
         if plumbing:
@@ -351,6 +374,7 @@ def main() -> int:
     ap.add_argument("--placebo", action="store_true")
     ap.add_argument("--forecast", action="store_true")
     ap.add_argument("--plumbing", type=int, default=0)
+    ap.add_argument("--shard", default="", help="i/n - run origins k with k %% n == i (parallel workers)")
     ap.add_argument("--run", action="store_true")
     a = ap.parse_args()
     if a.prepare:
@@ -358,7 +382,7 @@ def main() -> int:
     if a.placebo:
         return placebo()
     if a.forecast:
-        return forecast(a.plumbing)
+        return forecast(a.plumbing, a.shard)
     if a.run:
         return run()
     ap.print_help()
