@@ -90,6 +90,59 @@ def _chart_pages_every():
     return sorted(pages, key=lambda t: (t["url"], t.get("id", "")))
 
 
+SAVE_JS = r"""
+(function () {
+  try {
+    var a = window.TradingViewApi; window.__s4save = null;
+    a.saveChartToServer(function () { window.__s4save = "ok"; },
+                        function (e) { window.__s4save = "fail " + String(e && (e.message || e)); });
+    return "asked";
+  } catch (e) { return "error " + String(e); }
+})()
+"""
+
+
+def save_layout(t: dict, wait_s: float = 8.0) -> str:
+    """Save the page's layout to TradingView's server after a Python input write (26-Oct-2026).
+
+    setInputValues does NOT mark a layout as changed, so autosave never stores it. A page the
+    reviewer drives gets saved anyway on its next symbol change; Jay's own tabs do not. On a
+    TradingView restart they reload their LAST SAVED state: on 26 Oct, S4 Phase-2 and Panel
+    Layout came back with Thursday's bundles and the pre-Friday v67 stops, while the two
+    reviewer tabs carried Friday's. Returns 'ok', 'fail ...' or 'timeout'."""
+    import time
+    ws = t["webSocketDebuggerUrl"]
+    r = _evaluate(ws, SAVE_JS)
+    if str(r.get("value", "")).startswith("error") or "error" in r:
+        return "fail " + str(r.get("value") or r.get("error"))
+    end = time.time() + wait_s
+    while time.time() < end:
+        v = _evaluate(ws, "window.__s4save").get("value")
+        if v:
+            return str(v)
+        time.sleep(0.4)
+    return "timeout"
+
+
+def save_all_layouts(only: set | None = None) -> int:
+    """save_layout on every chart page (or only the chart ids in `only`); prints one line
+    each. Returns 1 if any save failed or timed out, else 0. A save cannot lose anything:
+    autosave would store the same state on the page's next change."""
+    bad = 0
+    for t in _chart_pages_every():
+        cid = t["url"].split("/chart/")[1].split("/")[0]
+        if only is not None and cid not in only:
+            continue
+        try:
+            r = save_layout(t)
+        except Exception as e:
+            r = f"fail {e}"
+        if r != "ok":
+            bad += 1
+        print(f"chart {cid}: layout save {r}")
+    return 1 if bad else 0
+
+
 def _chart_target():
     """The TradingView chart page among the CDP targets."""
     try:
@@ -225,6 +278,8 @@ def main() -> int:
         print(f"\n{bad} tab(s) still NOT bound. Open each one once (so it finishes loading) and run again.")
         rc |= 1
     print(f"{n_s4} S4 tab(s) bound")
+    if final:
+        rc |= save_all_layouts(set(final))      # bindings are inputs too - never autosaved
     return rc
 
 

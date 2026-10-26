@@ -25,7 +25,7 @@ import json
 import os
 import sys
 
-from tv_bind_s4 import _chart_targets_all, _chart_pages_every, _evaluate
+from tv_bind_s4 import _chart_targets_all, _chart_pages_every, _evaluate, save_all_layouts
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 BUNDLE_FILE = os.path.join(HERE, "gm_bundles", "latest.txt")
@@ -132,6 +132,7 @@ def main() -> int:
     loc_want = str(gm_loc_htf_only()).lower()
     piv_want = str(gm_pivot_setting()).lower()
     rc, n = 0, 0
+    pushed: set = set()
     for t in tgts:
         cid = t["url"].split("/chart/")[1].strip("/")
         out = _evaluate(t["webSocketDebuggerUrl"], js)
@@ -147,6 +148,7 @@ def main() -> int:
                 print(f"chart {cid}: ERROR {msg[:120]}", file=sys.stderr); rc |= 1
             continue
         n += 1
+        pushed.add(cid)
         g1, g2, g3 = d.get(IN1, ""), d.get(IN2, ""), str(d.get(IN3, "")).lower()
         piv = f"pivots {'ON' if g3 == 'true' else 'off'}" + ("" if g3 == piv_want else f" (GM setting: {piv_want}) MISMATCH")
         g4 = str(d.get(IN4, "")).lower()
@@ -164,6 +166,10 @@ def main() -> int:
     if n == 0:
         print("no chart tab carries S4 - nothing pushed", file=sys.stderr); return 1
     print(f"{n} S4 tab(s) {'checked' if a.check else 'pushed'}")
+    if not a.check:
+        # setInputValues is never autosaved: without this a TradingView restart puts the
+        # previous bundles back on Jay's own tabs (26-Oct-2026)
+        rc |= save_all_layouts(pushed)
     return rc
 
 

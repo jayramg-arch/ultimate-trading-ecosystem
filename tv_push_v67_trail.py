@@ -160,6 +160,11 @@ def snapshot_or_restore(restore: bool) -> int:
             out[cid] = {x["key"]: x["value"] for x in r["inputs"]}
             print(f"chart {cid}: settings snapshot - {len(r['inputs'])} inputs")
     if not restore:
+        if not out:
+            # 25-Oct-2026 the restore point was overwritten with {} - no tab answered. Keep
+            # the last good snapshot rather than leave AFTER_COMPILE nothing to restore.
+            print("settings snapshot: no v67 tab answered - previous snapshot kept")
+            return 0
         os.makedirs(os.path.dirname(SNAP_PATH), exist_ok=True)
         with open(SNAP_PATH, "w", encoding="utf-8") as f:
             json.dump(out, f, indent=1)
@@ -449,6 +454,9 @@ def book_string(rows: list[dict]) -> str:
     return ";".join(parts)
 
 
+_V67_CHARTS: set = set()      # chart ids that carry v67 (filled by push) -> layouts to save
+
+
 def push(book: str | None) -> int:
     import s4_review as s
     want = json.dumps(book) if book is not None else "null"
@@ -462,6 +470,7 @@ def push(book: str | None) -> int:
             print(f"chart {cid}: no v67 - skipped")
             continue
         seen += 1
+        _V67_CHARTS.add(cid)
         if r.get("error"):
             bad += 1
             print(f"chart {cid}: FAIL - {r['error']}")
@@ -504,9 +513,14 @@ def main() -> int:
     if dry:
         return 0
     rc_book = push(None if check else book)
+    rc_save = 0
     if not check:
         snapshot_or_restore(restore=False)      # today's settings = the next restore point
-    return max(rc_slots, rc_book)
+        # 26-Oct-2026: setInputValues is never autosaved, so a TradingView restart put the
+        # pre-Friday stops back on S4 Phase-2 and Panel Layout. Save every layout we wrote.
+        from tv_bind_s4 import save_all_layouts
+        rc_save = save_all_layouts(_V67_CHARTS or None)
+    return max(rc_slots, rc_book, rc_save)
 
 
 if __name__ == "__main__":
