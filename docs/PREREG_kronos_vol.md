@@ -126,3 +126,22 @@ Plumbing (3 origins × 10 names, outcomes NOT computed) found two things:
    Two workers (`--shard 0/2`, `1/2`), below-normal priority, paused 09:10–15:35 IST on weekdays.
 
 Hypotheses, thresholds, window and model are unchanged.
+
+---
+## Result (26 Oct 2026, 17:18 IST — run once, `data/kronos_test/result.json`) — ALL FAIL
+
+56 origins (2024-07-01 → 2026-09-17), 59.8 scored names per origin, Kronos-small, K = 5 paths.
+
+| | Kronos | ATR(14) | RV20 | verdict |
+|---|---:|---:|---:|---|
+| **H1** ρ with next-20d RV | 0.451 | **0.632** | 0.539 | **FAIL** — diff −0.181, CI [−0.213, −0.150], both halves negative (−0.201 / −0.160) |
+| **H2** QLIKE (scaled, last 75 %) | 3.55 | **0.249** | 4.74 | **FAIL** — ratio 14.3, CI [2.65, 39.1] |
+| **H3** RankIC with 20d return | −0.008 | — | — | **FAIL** — halves +0.040 / −0.057; inside Clenow top quartile −0.031 (CI lower −0.114) |
+
+Clenow's own RankIC over the window: +0.005 (descriptive). The H3 CI upper bound printed as null
+(a bootstrap reporting quirk); the lower bound −0.058 alone fails the test.
+
+**Decision (as registered):** ATR(14) stays for sizing and stops on both systems. Kronos is not used
+for sizing or ranking; no forward shadow. Not re-run on a larger model or a different window.
+Kronos ranks next-month volatility WORSE than trailing RV20, let alone ATR — consistent with
+Amendment 1's observation that it reverts price levels toward the input window's mean.
