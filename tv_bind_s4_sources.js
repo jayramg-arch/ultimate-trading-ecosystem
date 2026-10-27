@@ -135,9 +135,36 @@
     s4.getInputValues().forEach(function (v) { got[v.id] = v.value; });
     var bad = pending.filter(function (p) { return got[p.id] !== p.value; });
     var expect = Object.keys(MAP).filter(function (k) { return (MAP[k][0] !== "fp" || ids.fp) && (MAP[k][0] !== "uni" || ids.uni); }).length;
+
+    // 27-Oct-2026: Commander Add-ons M3 (candlesticks at key levels) reads the Zigzag's
+    // primary trend the same way. Optional - a tab without Add-ons is not an error, and
+    // the result is appended AFTER the S4 report so the "mismatches: none" check holds.
+    var ADDON_MAP = {
+      "M3 · Zigzag trend (chart TF)": "trendState",
+      "M3 · Zigzag trend (weekly)":   "mtfTrendState2"
+    };
+    var addTxt = "";
+    var adId = findBy(function (n) { return n.indexOf("Commander Add-ons") === 0; });
+    if (adId) {
+      var ad = chart.getStudyById(adId), adPend = [];
+      ad.getInputsInfo().forEach(function (inp) {
+        if (String(inp.type) !== "source" || !ADDON_MAP[inp.name]) return;
+        var r = plotRef["zz|" + ADDON_MAP[inp.name]];
+        if (r) adPend.push({ id: inp.id, value: r });
+      });
+      if (adPend.length) {
+        ad.setInputValues(adPend);
+        var adGot = {};
+        ad.getInputValues().forEach(function (v) { adGot[v.id] = v.value; });
+        var adOk = adPend.filter(function (p) { return adGot[p.id] === p.value; }).length;
+        addTxt = " | add-ons M3: " + adOk + "/" + Object.keys(ADDON_MAP).length;
+      } else {
+        addTxt = " | add-ons M3: no Zigzag inputs (Add-ons older than v1.4?)";
+      }
+    }
     return "bound " + pending.length + "/" + expect +
            " | mismatches: " + (bad.length ? JSON.stringify(bad) : "none") +
            (report.filter(function (r) { return r.indexOf("ok ") !== 0; }).length
-              ? "\n" + report.filter(function (r) { return r.indexOf("ok ") !== 0; }).join("\n") : "");
+              ? "\n" + report.filter(function (r) { return r.indexOf("ok ") !== 0; }).join("\n") : "") + addTxt;
   } catch (e) { return "ERR " + e.message; }
 })();

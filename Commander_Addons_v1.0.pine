@@ -21,9 +21,14 @@
 //   M1  Latest bar read   - weak / neutral / strong on the last closed bar + the previous
 //                           bars (where a recent PA fired) - board: Bar
 //   M2  v2 system status  - v2's group / rank / cut and its exit levels (v1.2, 19-Oct-2026)
+//   M3  Candlestick patterns at key levels - visual aid only, never a grade (v1.4, 27-Oct-2026)
 // -----------------------------------------------------------------------------
 //@version=6
-indicator("Commander Add-ons v1.3", shorttitle = "Add-ons", overlay = true, max_labels_count = 20, max_lines_count = 8)
+indicator("Commander Add-ons v1.4", shorttitle = "Add-ons", overlay = true, max_labels_count = 500, max_lines_count = 500)
+
+// M3 reads S4's own S/R engine so a "key level" here is the level S4 prints. Keep this
+// version EQUAL to S4's import - tests/test_addons_m3.py fails if they differ.
+import jayramg/S4Core/72 as core
 
 // "Closed" = confirmed, or past the bar's close time. On Daily, TradingView keeps the day's
 // bar unconfirmed after 15:30; this treats it as closed then (same as S4 v11.27).
@@ -203,6 +208,384 @@ if barstate.islast
 
 
 // ═════════════════════════════════════════════════════════════════════════════
-// M3 ...  next add-on goes here: own group "M3 · <name>", own Enable switch,
+// M3  CANDLESTICK PATTERNS AT KEY LEVELS (27-Oct-2026, Jay)
+// A visual aid only. It never grades a stock, never feeds the GO, an alert or a binding.
+//
+// Three filters keep the chart quiet. A pattern is drawn only when ALL three hold:
+//   1. KEY LEVEL  - its low (bullish) / high (bearish) is within tol x ATR14 of a level, and
+//                   the close holds that level. Levels = S4's own S/R engine (core.srLevels,
+//                   same constants as S4) on Daily / Weekly / Monthly, plus optional Daily
+//                   EMA20 / 50 / 200. Shape alone is not a signal: tested on stocks, most
+//                   patterns' returns are not different from zero (SET50 2017, US 2019).
+//   2. ARRIVAL    - price came INTO the level: the pattern holds the lowest low (bullish) or
+//                   highest high (bearish) of the last N bars. This is the "prior decline"
+//                   every textbook definition needs.
+//   3. SIZE       - the pattern spans at least minSize x ATR14 (Bulkowski: tall candles do
+//                   better; a tiny candle at a level is noise).
+// PRIMARY TREND - the Zigzag's strict trend (bound by BIND_S4_SOURCES). It is NOT the decline
+//   test: inside a Stage-2 pullback the Zigzag still reads UP, and that is exactly where these
+//   patterns work best (Bulkowski: best as a retrace in a rising primary trend; bullish
+//   patterns inside a downward primary trend reverse it only briefly). So a pattern AGAINST
+//   the primary trend is marked counter-trend (↺) and dimmed or hidden.
+// CONFIRMATION - patterns that need it are drawn pending (?) until a later close beyond the
+//   pattern's high (bullish) / low (bearish) within N bars - Bulkowski's breakout test; a
+//   confirmed engulfing is Three Outside Up, a confirmed harami is Three Inside Up. A close
+//   through the other end, or no follow-through in N bars, marks it failed (✗). Stars,
+//   three soldiers/crows and marubozu carry their confirmation inside the pattern.
+// Modern adaptations used: ATR-relative sizes instead of fixed points; no gap required for
+//   piercing / dark cloud / stars (NSE stocks rarely gap between candles intraday).
+// ═════════════════════════════════════════════════════════════════════════════
+// S/R constants = S4's input DEFAULTS (tests/test_addons_m3.py checks them).
+SR_PV        = 5
+SR_POOL      = 40
+SR_TOL       = 0.6
+SR_MINSPACE  = 5
+SR_MINTOUCH  = 2
+SR_WICKTOUCH = true
+SR_WICKFIT   = true
+
+string G3  = "M3 · Candlesticks at key levels"
+string G3P = "M3 · Patterns to plot"
+string G3C = "M3 · Context (level, arrival, trend)"
+string G3K = "M3 · Confirmation"
+string G3L = "M3 · Look & feel"
+m3On     = input.bool(true, "Enable", group = G3, tooltip = "Visual aid only. Patterns are drawn only at a key level, after price arrived there, at a useful size.")
+m3Bear   = input.bool(true, "Bearish patterns at resistance", group = G3, tooltip = "For holdings near overhead supply and for not buying into resistance.")
+
+pHammer  = input.bool(true,  "Hammer / Hanging man",              group = G3P)
+pInvH    = input.bool(true,  "Inverted hammer / Shooting star",   group = G3P)
+pDoji    = input.bool(true,  "Doji (dragonfly / gravestone / plain)", group = G3P)
+pEngulf  = input.bool(true,  "Engulfing",                         group = G3P)
+pHarami  = input.bool(true,  "Harami",                            group = G3P)
+pPierce  = input.bool(true,  "Piercing line / Dark cloud cover",  group = G3P)
+pTweez   = input.bool(true,  "Tweezer bottom / top",              group = G3P)
+pStar    = input.bool(true,  "Morning star / Evening star",       group = G3P)
+pThree   = input.bool(true,  "Three white soldiers / Three black crows", group = G3P)
+pMaru    = input.bool(false, "Marubozu",                          group = G3P)
+
+lvlD     = input.bool(true,  "Daily S/R",   group = G3C, inline = "lv")
+lvlW     = input.bool(true,  "Weekly S/R",  group = G3C, inline = "lv")
+lvlM     = input.bool(true,  "Monthly S/R", group = G3C, inline = "lv", tooltip = "S4's own S/R levels (same engine and settings). A timeframe below the chart's is skipped.")
+lvlE20   = input.bool(false, "Daily EMA20", group = G3C, inline = "ma")
+lvlS50   = input.bool(false, "50-DMA",      group = G3C, inline = "ma")
+lvlS200  = input.bool(false, "200-DMA",     group = G3C, inline = "ma", tooltip = "Moving averages as dynamic levels. Off by default - price touches them often, which adds marks.")
+tolAtr   = input.float(0.5, "Level tolerance (× ATR14)", minval = 0.1, maxval = 2.0, step = 0.1, group = G3C, tooltip = "How close the pattern's low (bullish) or high (bearish) must come to the level. The close must also hold the level.")
+swingN   = input.int(5, "Arrival window (bars)", minval = 3, maxval = 20, group = G3C, tooltip = "The pattern must hold the lowest low (bullish) or highest high (bearish) of this many bars - price came INTO the level.")
+minSize  = input.float(0.6, "Minimum pattern size (× ATR14)", minval = 0.0, maxval = 3.0, step = 0.1, group = G3C, tooltip = "High-to-low span of the whole pattern. Tall candles do better (Bulkowski); small ones at a level are noise.")
+trendSrc = input.string("Zigzag · chart TF", "Primary trend", options = ["Zigzag · chart TF", "Zigzag · weekly", "Off"], group = G3C, tooltip = "Sets with-trend vs counter-trend. Not bound -> 50-DMA fallback, and a note in the bottom-right corner.")
+ctrMode  = input.string("Dim", "Counter-trend patterns", options = ["Dim", "Hide", "Show"], group = G3C, tooltip = "Counter-trend = bullish in a down primary trend, bearish in an up one. Marked ↺.")
+zzC      = input.source(close, "M3 · Zigzag trend (chart TF)", group = G3C, tooltip = "Bound by BIND_S4_SOURCES to the Swing Zigzag's 'trendState'. 1 up / 0 sideways / -1 down.")
+zzW      = input.source(close, "M3 · Zigzag trend (weekly)",   group = G3C, tooltip = "Bound by BIND_S4_SOURCES to the Swing Zigzag's 'mtfTrendState2'.")
+
+confN    = input.int(3, "Confirm within (bars)", minval = 1, maxval = 10, group = G3K, tooltip = "A later close above the pattern's high (bullish) or below its low (bearish) confirms it.")
+cfMark   = input.bool(true, "Mark the confirming bar (✓)", group = G3K)
+keepFail = input.bool(true, "Keep failed patterns (grey ✗)", group = G3K, tooltip = "Off = a failed pattern is removed from the chart.")
+
+lookback = input.int(150, "Show patterns from the last (bars)", minval = 10, maxval = 500, group = G3L)
+txtMode  = input.string("Short code", "Label text", options = ["Short code", "Full name", "Status only"], group = G3L, tooltip = "Short code: Hmr, BuE, MS ... Hover any label for the full read.")
+lblSzS   = input.string("small", "Label size", options = ["tiny", "small", "normal"], group = G3L)
+colBull  = input.color(color.new(#26a69a, 0), "Bullish", group = G3L, inline = "c")
+colBear  = input.color(color.new(#ef5350, 0), "Bearish", group = G3L, inline = "c")
+colFail  = input.color(color.new(#787b86, 0), "Failed",  group = G3L, inline = "c")
+lvlMode  = input.string("Latest pattern only", "Draw the level", options = ["Latest pattern only", "Every shown pattern", "Off"], group = G3L, tooltip = "A short dotted line at the level the pattern formed on.")
+
+string m3Size = lblSzS == "tiny" ? size.tiny : lblSzS == "normal" ? size.normal : size.small
+
+// ---- levels (S4's engine, same constants) ----
+srM3D = request.security(syminfo.tickerid, "D", core.srLevels(SR_PV, SR_PV, SR_POOL, SR_TOL, SR_MINSPACE, SR_MINTOUCH, SR_WICKTOUCH, SR_WICKFIT), lookahead = barmerge.lookahead_off)
+srM3W = request.security(syminfo.tickerid, "W", core.srLevels(SR_PV, SR_PV, SR_POOL, SR_TOL, SR_MINSPACE, SR_MINTOUCH, SR_WICKTOUCH, SR_WICKFIT), lookahead = barmerge.lookahead_off)
+srM3M = request.security(syminfo.tickerid, "M", core.srLevels(SR_PV, SR_PV, SR_POOL, SR_TOL, SR_MINSPACE, SR_MINTOUCH, SR_WICKTOUCH, SR_WICKFIT), lookahead = barmerge.lookahead_off)
+[m3E20, m3S50, m3S200] = request.security(syminfo.tickerid, "D", [ta.ema(close, 20), ta.sma(close, 50), ta.sma(close, 200)], lookahead = barmerge.lookahead_off)
+int  m3Cs  = timeframe.in_seconds()
+bool m3UseD = lvlD and m3Cs <= 86400
+bool m3UseW = lvlW and m3Cs <= 604800
+bool m3UseM = lvlM
+
+// ---- candle anatomy (ATR-relative) ----
+float m3Atr  = ta.atr(14)
+float m3Rng  = high - low
+float m3Body = math.abs(close - open)
+float m3Top  = math.max(open, close)
+float m3Bot  = math.min(open, close)
+float m3Up   = high - m3Top
+float m3Lo   = m3Bot - low
+bool  m3Bu   = close > open
+bool  m3Be   = close < open
+float m3LowN = ta.lowest(low, swingN)
+float m3HiN  = ta.highest(high, swingN)
+
+bool sHammer = m3Rng > 0 and m3Lo >= 2.0 * m3Body and m3Lo >= 0.55 * m3Rng and m3Up <= 0.15 * m3Rng and m3Body >= 0.05 * m3Rng
+bool sInvH   = m3Rng > 0 and m3Up >= 2.0 * m3Body and m3Up >= 0.55 * m3Rng and m3Lo <= 0.15 * m3Rng and m3Body >= 0.05 * m3Rng
+bool sDoji   = m3Rng > 0 and m3Body <= 0.1 * m3Rng
+bool sDragon = sDoji and m3Up <= 0.1 * m3Rng
+bool sGrave  = sDoji and m3Lo <= 0.1 * m3Rng
+bool sBuEng  = m3Bu and m3Be[1] and close >= open[1] and open <= close[1] and m3Body > m3Body[1]
+bool sBeEng  = m3Be and m3Bu[1] and close <= open[1] and open >= close[1] and m3Body > m3Body[1]
+bool sBuHar  = m3Be[1] and m3Body[1] >= 0.6 * m3Atr and m3Top <= open[1] and m3Bot >= close[1] and m3Body <= 0.5 * m3Body[1]
+bool sBeHar  = m3Bu[1] and m3Body[1] >= 0.6 * m3Atr and m3Top <= close[1] and m3Bot >= open[1] and m3Body <= 0.5 * m3Body[1]
+bool sPierce = m3Be[1] and m3Body[1] >= 0.6 * m3Atr and m3Bu and open <= close[1] and close > (open[1] + close[1]) / 2 and close < open[1]
+bool sDark   = m3Bu[1] and m3Body[1] >= 0.6 * m3Atr and m3Be and open >= close[1] and close < (open[1] + close[1]) / 2 and close > open[1]
+bool sTwBot  = m3Be[1] and m3Bu and math.abs(low - low[1]) <= 0.1 * m3Atr
+bool sTwTop  = m3Bu[1] and m3Be and math.abs(high - high[1]) <= 0.1 * m3Atr
+bool sMStar  = m3Be[2] and m3Body[2] >= 0.6 * m3Atr and m3Body[1] <= 0.3 * m3Body[2] and m3Top[1] <= close[2] + 0.25 * m3Body[2] and m3Bu and close >= (open[2] + close[2]) / 2
+bool sEStar  = m3Bu[2] and m3Body[2] >= 0.6 * m3Atr and m3Body[1] <= 0.3 * m3Body[2] and m3Bot[1] >= close[2] - 0.25 * m3Body[2] and m3Be and close <= (open[2] + close[2]) / 2
+bool sSold   = m3Bu and m3Bu[1] and m3Bu[2] and close > close[1] and close[1] > close[2] and open >= open[1] and open <= close[1] and open[1] >= open[2] and open[1] <= close[2] and m3Up <= 0.3 * m3Rng and m3Up[1] <= 0.3 * m3Rng[1] and m3Up[2] <= 0.3 * m3Rng[2] and math.min(m3Body, m3Body[1], m3Body[2]) >= 0.4 * m3Atr
+bool sCrows  = m3Be and m3Be[1] and m3Be[2] and close < close[1] and close[1] < close[2] and open <= open[1] and open >= close[1] and open[1] <= open[2] and open[1] >= close[2] and m3Lo <= 0.3 * m3Rng and m3Lo[1] <= 0.3 * m3Rng[1] and m3Lo[2] <= 0.3 * m3Rng[2] and math.min(m3Body, m3Body[1], m3Body[2]) >= 0.4 * m3Atr
+bool sMaruBu = m3Bu and m3Body >= 0.9 * m3Rng and m3Rng >= m3Atr
+bool sMaruBe = m3Be and m3Body >= 0.9 * m3Rng and m3Rng >= m3Atr
+
+// ---- primary trend ----
+float m3ZzSel = trendSrc == "Zigzag · chart TF" ? zzC : trendSrc == "Zigzag · weekly" ? zzW : na
+bool  m3ZzOk  = not na(m3ZzSel) and m3ZzSel >= -1.0 and m3ZzSel <= 1.0
+float m3S50c  = ta.sma(close, 50)
+int   m3FbTr  = close > m3S50c and m3S50c > m3S50c[10] ? 1 : close < m3S50c and m3S50c < m3S50c[10] ? -1 : 0
+int   m3Trend = trendSrc == "Off" ? 0 : m3ZzOk ? int(math.round(m3ZzSel)) : m3FbTr
+
+// Candidates in priority order (best first). Codes / names / bars / needs-confirmation / note.
+// Notes quote only figures read from Bulkowski's pages (thepatternsite.com), 27-Oct-2026.
+var array<string> M3_BU_CD = array.from("MS", "3WS", "BuE", "Prc", "Mbz", "Hmr", "Har", "TwB", "IHm", "DjD", "Dj")
+var array<string> M3_BE_CD = array.from("ES", "3BC", "BeE", "DC", "Mbz", "SS", "Har", "TwT", "HgM", "DjG", "Dj")
+var array<string> M3_BU_NM = array.from("Morning star", "Three white soldiers", "Bullish engulfing", "Piercing line", "Bullish marubozu", "Hammer", "Bullish harami", "Tweezer bottom", "Inverted hammer", "Dragonfly doji", "Doji")
+var array<string> M3_BE_NM = array.from("Evening star", "Three black crows", "Bearish engulfing", "Dark cloud cover", "Bearish marubozu", "Shooting star", "Bearish harami", "Tweezer top", "Hanging man", "Gravestone doji", "Doji")
+var array<int>    M3_NB    = array.from(3, 3, 2, 2, 1, 1, 2, 2, 1, 1, 1)
+var array<bool>   M3_CF    = array.from(false, false, true, true, false, true, true, true, true, true, true)
+var array<string> M3_BU_NT = array.from("Bulkowski: bullish reversal 78%; best as a retrace in a rising primary trend.", "Bulkowski: bullish reversal 82%, rare.", "Bulkowski: reversal 63%; avoid in a falling primary trend. Confirmed = Three Outside Up.", "", "", "Bulkowski: bullish reversal 60% (random ~50%); a white body does better.", "Confirmed = Three Inside Up (Bulkowski: reversal 65%).", "", "", "", "Indecision - only the confirming close gives it a direction.")
+var array<string> M3_BE_NT = array.from("", "", "Confirmed = Three Outside Down.", "", "", "", "Confirmed = Three Inside Down.", "", "", "", "Indecision - only the confirming close gives it a direction.")
+
+f_m3Hit(int i, bool bull) =>
+    bool plain = pDoji and sDoji and not sDragon and not sGrave
+    bull ? (i == 0 ? pStar and sMStar : i == 1 ? pThree and sSold : i == 2 ? pEngulf and sBuEng : i == 3 ? pPierce and sPierce :
+          i == 4 ? pMaru and sMaruBu : i == 5 ? pHammer and sHammer : i == 6 ? pHarami and sBuHar : i == 7 ? pTweez and sTwBot :
+          i == 8 ? pInvH and sInvH : i == 9 ? pDoji and sDragon : i == 10 ? plain : false) :
+           (i == 0 ? pStar and sEStar : i == 1 ? pThree and sCrows : i == 2 ? pEngulf and sBeEng : i == 3 ? pPierce and sDark :
+          i == 4 ? pMaru and sMaruBe : i == 5 ? pInvH and sInvH : i == 6 ? pHarami and sBeHar : i == 7 ? pTweez and sTwTop :
+          i == 8 ? pHammer and sHammer : i == 9 ? pDoji and sGrave : i == 10 ? plain : false)
+
+// One level candidate against the best so far. Higher rank (M > W > D > MA) wins; nearer breaks a tie.
+f_m3Try(float L, int t, string tag, int rank, bool bull, float lo, float hi, float tol, float bL, int bT, string bTag, int bRank, float bD) =>
+    float rL = bL
+    int rT = bT
+    string rTag = bTag
+    int rRank = bRank
+    float rD = bD
+    if not na(L) and L > 0
+        bool hit = bull ? (lo <= L + tol and close >= L - tol) : (hi >= L - tol and close <= L + tol)
+        float d = bull ? math.abs(lo - L) : math.abs(hi - L)
+        if hit and (rank > rRank or (rank == rRank and d < rD))
+            rL := L
+            rT := t
+            rTag := tag
+            rRank := rank
+            rD := d
+    [rL, rT, rTag, rRank, rD]
+
+f_m3Level(bool bull, float lo, float hi, float tol) =>
+    float L = na
+    int T = 0
+    string tag = ""
+    int rk = 0
+    float d = 1e15
+    if m3UseM and not na(srM3M)
+        [a, b, c, e, f] = f_m3Try(srM3M.a1, srM3M.a1t, "Monthly S/R", 4, bull, lo, hi, tol, L, T, tag, rk, d)
+        [a2, b2, c2, e2, f2] = f_m3Try(srM3M.a2, srM3M.a2t, "Monthly S/R", 4, bull, lo, hi, tol, a, b, c, e, f)
+        [a3, b3, c3, e3, f3] = f_m3Try(srM3M.b1, srM3M.b1t, "Monthly S/R", 4, bull, lo, hi, tol, a2, b2, c2, e2, f2)
+        [a4, b4, c4, e4, f4] = f_m3Try(srM3M.b2, srM3M.b2t, "Monthly S/R", 4, bull, lo, hi, tol, a3, b3, c3, e3, f3)
+        L := a4
+        T := b4
+        tag := c4
+        rk := e4
+        d := f4
+    if m3UseW and not na(srM3W)
+        [a, b, c, e, f] = f_m3Try(srM3W.a1, srM3W.a1t, "Weekly S/R", 3, bull, lo, hi, tol, L, T, tag, rk, d)
+        [a2, b2, c2, e2, f2] = f_m3Try(srM3W.a2, srM3W.a2t, "Weekly S/R", 3, bull, lo, hi, tol, a, b, c, e, f)
+        [a3, b3, c3, e3, f3] = f_m3Try(srM3W.b1, srM3W.b1t, "Weekly S/R", 3, bull, lo, hi, tol, a2, b2, c2, e2, f2)
+        [a4, b4, c4, e4, f4] = f_m3Try(srM3W.b2, srM3W.b2t, "Weekly S/R", 3, bull, lo, hi, tol, a3, b3, c3, e3, f3)
+        L := a4
+        T := b4
+        tag := c4
+        rk := e4
+        d := f4
+    if m3UseD and not na(srM3D)
+        [a, b, c, e, f] = f_m3Try(srM3D.a1, srM3D.a1t, "Daily S/R", 2, bull, lo, hi, tol, L, T, tag, rk, d)
+        [a2, b2, c2, e2, f2] = f_m3Try(srM3D.a2, srM3D.a2t, "Daily S/R", 2, bull, lo, hi, tol, a, b, c, e, f)
+        [a3, b3, c3, e3, f3] = f_m3Try(srM3D.b1, srM3D.b1t, "Daily S/R", 2, bull, lo, hi, tol, a2, b2, c2, e2, f2)
+        [a4, b4, c4, e4, f4] = f_m3Try(srM3D.b2, srM3D.b2t, "Daily S/R", 2, bull, lo, hi, tol, a3, b3, c3, e3, f3)
+        L := a4
+        T := b4
+        tag := c4
+        rk := e4
+        d := f4
+    if lvlE20
+        [a, b, c, e, f] = f_m3Try(m3E20, 0, "Daily EMA20", 1, bull, lo, hi, tol, L, T, tag, rk, d)
+        L := a
+        T := b
+        tag := c
+        rk := e
+        d := f
+    if lvlS50
+        [a, b, c, e, f] = f_m3Try(m3S50, 0, "50-DMA", 1, bull, lo, hi, tol, L, T, tag, rk, d)
+        L := a
+        T := b
+        tag := c
+        rk := e
+        d := f
+    if lvlS200
+        [a, b, c, e, f] = f_m3Try(m3S200, 0, "200-DMA", 1, bull, lo, hi, tol, L, T, tag, rk, d)
+        L := a
+        T := b
+        tag := c
+        rk := e
+        d := f
+    [L, T, tag]
+
+type M3Pat
+    label  lb
+    line   ln
+    int    bar
+    float  hi
+    float  lo
+    int    dir      // 1 bullish, -1 bearish
+    int    st       // 0 pending, 1 confirmed, 2 failed, 3 confirmed inside the pattern
+    bool   ctr      // against the primary trend
+    string code
+    string name
+    string tip
+    string why = ""
+
+f_m3Text(M3Pat p) =>
+    string s = p.st == 0 ? "?" : p.st == 1 ? "✓" : p.st == 2 ? "✗" : ""
+    string base = txtMode == "Full name" ? p.name : txtMode == "Status only" ? "" : p.code
+    string out = str.length(base) > 0 ? base + (str.length(s) > 0 ? " " + s : "") : (str.length(s) > 0 ? s : "•")
+    out + (p.ctr ? " ↺" : "")
+
+f_m3Color(M3Pat p) =>
+    color b = p.dir == 1 ? colBull : colBear
+    int tr = p.st == 0 ? 65 : 10
+    if p.ctr
+        tr := math.min(90, tr + 25)
+    p.st == 2 ? color.new(colFail, 40) : color.new(b, tr)
+
+f_m3Tip(M3Pat p) =>
+    string s = p.st == 0 ? "PENDING - needs a close " + (p.dir == 1 ? "above " + str.tostring(p.hi, format.mintick) : "below " + str.tostring(p.lo, format.mintick)) + " within " + str.tostring(confN) + " bars" :
+               p.st == 1 ? "CONFIRMED by a later close beyond the pattern" :
+               p.st == 2 ? "FAILED - " + p.why : "confirmation is built into the pattern"
+    p.tip + "\n" + s
+
+f_m3Paint(M3Pat p) =>
+    label.set_text(p.lb, f_m3Text(p))
+    label.set_color(p.lb, f_m3Color(p))
+    label.set_tooltip(p.lb, f_m3Tip(p))
+
+var array<M3Pat> m3Pats = array.new<M3Pat>()
+var line m3LastLn = na
+bool m3CfBu = false
+bool m3CfBe = false
+
+if m3On and BAR_CLOSED
+    // 1. resolve pending patterns, age out old ones
+    if array.size(m3Pats) > 0
+        for i = array.size(m3Pats) - 1 to 0
+            M3Pat p = array.get(m3Pats, i)
+            if p.st == 0 and bar_index > p.bar
+                if p.dir == 1 and close > p.hi
+                    p.st := 1
+                    m3CfBu := true
+                else if p.dir == -1 and close < p.lo
+                    p.st := 1
+                    m3CfBe := true
+                else if (p.dir == 1 and close < p.lo) or (p.dir == -1 and close > p.hi)
+                    p.st := 2
+                    p.why := "closed through the other end of the pattern"
+                else if bar_index - p.bar >= confN
+                    p.st := 2
+                    p.why := "no follow-through within " + str.tostring(confN) + " bars"
+                if p.st == 2 and not keepFail
+                    label.delete(p.lb)
+                    line.delete(p.ln)
+                    array.remove(m3Pats, i)
+                else if p.st != 0
+                    f_m3Paint(p)
+            else if bar_index - p.bar > lookback
+                label.delete(p.lb)
+                line.delete(p.ln)
+                array.remove(m3Pats, i)
+
+    // 2. detect on this bar: bullish first, bearish only if no bullish mark here
+    float tol = tolAtr * m3Atr
+    bool made = false
+    for side = 0 to 1
+        bool bull = side == 0
+        if made or (not bull and not m3Bear) or na(m3Atr)
+            continue
+        string pick = ""
+        string pickNm = ""
+        string pickNt = ""
+        bool pickCf = true
+        float pickHi = na
+        float pickLo = na
+        float pickL = na
+        int pickT = 0
+        string pickTag = ""
+        int pickNb = 1
+        string also = ""
+        for i = 0 to 10
+            if f_m3Hit(i, bull)
+                string cd = bull ? array.get(M3_BU_CD, i) : array.get(M3_BE_CD, i)
+                string nm = bull ? array.get(M3_BU_NM, i) : array.get(M3_BE_NM, i)
+                int    nb = array.get(M3_NB, i)
+                bool   cf = array.get(M3_CF, i)
+                string nt = bull ? array.get(M3_BU_NT, i) : array.get(M3_BE_NT, i)
+                float lo = nb == 1 ? low : nb == 2 ? math.min(low, low[1]) : math.min(low, low[1], low[2])
+                float hi = nb == 1 ? high : nb == 2 ? math.max(high, high[1]) : math.max(high, high[1], high[2])
+                bool sized   = hi - lo >= minSize * m3Atr
+                bool arrived = bull ? lo <= m3LowN : hi >= m3HiN
+                if sized and arrived
+                    [L, T, tag] = f_m3Level(bull, lo, hi, tol)
+                    if not na(L)
+                        if pick == ""
+                            pick := cd
+                            pickNm := nm
+                            pickNt := nt
+                            pickCf := cf
+                            pickHi := hi
+                            pickLo := lo
+                            pickL := L
+                            pickT := T
+                            pickTag := tag
+                            pickNb := nb
+                        else
+                            also += (str.length(also) > 0 ? ", " : "") + nm
+        if pick != ""
+            bool ctr = bull ? m3Trend == -1 : m3Trend == 1
+            if not (ctr and ctrMode == "Hide")
+                bool ctrShow = ctr and ctrMode == "Dim"
+                string trTxt = trendSrc == "Off" ? "off" : (m3Trend == 1 ? "UP" : m3Trend == -1 ? "DOWN" : "SIDEWAYS") + (m3ZzOk ? " (Zigzag " + (trendSrc == "Zigzag · weekly" ? "weekly" : "chart TF") + ")" : " (50-DMA fallback - Zigzag not bound)")
+                string tip = pickNm + " at " + pickTag + " " + str.tostring(pickL, format.mintick) + (pickT > 0 ? " · " + str.tostring(pickT) + " touches" : "") +
+                             "\nprimary trend " + trTxt + (ctr ? " - COUNTER-TREND" : "") +
+                             (str.length(pickNt) > 0 ? "\n" + pickNt : "") + (str.length(also) > 0 ? "\nalso: " + also : "")
+                M3Pat p = M3Pat.new(na, na, bar_index, pickHi, pickLo, bull ? 1 : -1, pickCf ? 0 : 3, ctrShow, pick, pickNm, tip)
+                p.lb := label.new(bar_index, bull ? pickLo : pickHi, "", yloc = bull ? yloc.belowbar : yloc.abovebar,
+                                  style = bull ? label.style_label_up : label.style_label_down, textcolor = color.white, size = m3Size)
+                f_m3Paint(p)
+                if lvlMode != "Off"
+                    if lvlMode == "Latest pattern only"
+                        line.delete(m3LastLn)
+                    p.ln := line.new(bar_index - pickNb - 2, pickL, bar_index + 3, pickL, color = color.new(bull ? colBull : colBear, 30), style = line.style_dotted, width = 1)
+                    m3LastLn := p.ln
+                array.push(m3Pats, p)
+                made := true
+
+plotshape(m3On and cfMark and m3CfBu, "M3 confirmed (bullish)", shape.labelup,   location.belowbar, color.new(colBull, 20), text = "✓", textcolor = color.white, size = size.tiny)
+plotshape(m3On and cfMark and m3CfBe, "M3 confirmed (bearish)", shape.labeldown, location.abovebar, color.new(colBear, 20), text = "✓", textcolor = color.white, size = size.tiny)
+
+// A quiet note only when the trend input is not bound - no clutter when all is well.
+var table m3Note = table.new(position.bottom_right, 1, 1)
+if barstate.islast
+    table.clear(m3Note, 0, 0)
+    if m3On and trendSrc != "Off" and not m3ZzOk
+        table.cell(m3Note, 0, 0, "M3: Zigzag trend not bound - using the 50-DMA. Run BIND_S4_SOURCES.", text_color = color.white, bgcolor = color.new(color.gray, 30), text_size = size.tiny)
+
+// ═════════════════════════════════════════════════════════════════════════════
+// M4 ...  next add-on goes here: own group "M4 · <name>", own Enable switch,
 // own section, display only. Add it to the MODULES list in the header.
 // ═════════════════════════════════════════════════════════════════════════════
