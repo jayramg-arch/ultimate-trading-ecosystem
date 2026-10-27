@@ -146,6 +146,7 @@ footer a{color:var(--acc)}
   <ol>
     <li><a href="#panel">The six sections</a></li>
     <li><a href="#geometry">I · Geometry</a></li>
+    <li><a href="#patterns">I · Chart patterns</a></li>
     <li><a href="#levels">II · Levels</a></li>
     <li><a href="#flow">III · Participation</a></li>
     <li><a href="#setups">IV · Setups</a></li>
@@ -320,6 +321,65 @@ footer a{color:var(--acc)}
     read a base slope of 0.47× against a 0.50× threshold and asserted the result with full
     confidence. And the interior-close test came from a third-party account, not TV's pages; it
     is labelled as this file's adaptation in the source and is the first place S5 would diverge.</p>
+  </div>
+</section>
+
+<section id="patterns">
+  <h2><span class="n">04b</span>I · Chart patterns — drawn, confirmed, never graded (v1.8, 27 Oct)</h2>
+  <p class="m">Chart pattern │ Inverse head &amp; shoulders · CONFIRMED 3b ago at 1,234.50 · target 1,301.00 · no retest yet · +2 older on the chart</p>
+  <p>Eight patterns, drawn on the chart with their swing legs, a dashed <b>neckline</b>, a dotted
+  <b>measured-move target</b> and a label: <b>DB / DT</b> double bottom and top, <b>TB / TT</b> triple,
+  <b>iH&amp;S / H&amp;S</b> head and shoulders, <b>C&amp;H</b> cup with handle and <b>VCP·nT</b> (n
+  contractions). They come from a zigzag of the same 5/5 pivots the geometry classifier reads. Each
+  pattern is a fixed sequence of the newest swings: a double bottom is low, high, low, and an inverse
+  head and shoulders is shoulder, armpit, head, armpit, shoulder.</p>
+  <p><b>Visual aid only.</b> Nothing here gates, scores or reaches S4. The panel row sits in section I,
+  which the reviewer skips, and a test fails if it ever moves out.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Mark</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k">?</td><td>Forming. The swings are in place but no close has broken the confirmation line yet. It is a possibility, not a signal</td></tr>
+      <tr><td class="k">✓</td><td>Confirmed by a <b>close</b> through the confirmation line (Bulkowski's rule for each of them)</td></tr>
+      <tr><td class="k">✓↩</td><td>Confirmed, then pulled back to the breakout level and held. This is the house entry: the retest, not the breakout</td></tr>
+      <tr><td class="k">✓🎯</td><td>Reached the measured target</td></tr>
+      <tr><td class="k">✗ · ⌛</td><td>Failed: closed beyond the pattern's extreme before breaking out. Expired: no breakout within one pattern-width (at least 10 bars)</td></tr>
+      <tr><td class="k">✗ busted</td><td>Confirmed, then closed back beyond the extreme within one pattern-life of the breakout</td></tr>
+      <tr><td class="k">↺</td><td>Counter-trend: bullish under a falling 30-WMA, or bearish over a rising one. Dimmed by default; can be hidden</td></tr>
+    </tbody>
+  </table></div>
+  <p><b>What a pattern must clear.</b> Shape alone has little edge (the same finding as the
+  candlestick work behind Add-ons M3), so each pattern also needs:</p>
+  <ul>
+    <li><b>A move into it.</b> A bottom must follow a decline, so the swing before it sits above the neckline. A top must follow an advance.</li>
+    <li><b>Size in ATR.</b> At least 2× ATR from neckline to extreme, so it means the same on 75m and on Daily.</li>
+    <li><b>Proportion.</b>
+      <ul>
+        <li>Double and triple bottoms and tops: equal within 0.75× ATR.</li>
+        <li>Head and shoulders: shoulders level within 40% of the height, the head beyond both by 0.5× ATR, and the wider side at most 2.5× the narrower.</li>
+        <li>Cup: 12–50% deep, at least 30 bars wide, with the low in the middle 60% and at least 20% of its bars in the bottom third (a U, not a V). The handle must stay in the upper half.</li>
+        <li>VCP: each pullback at most 0.8× the one before, highs not rising, the last pullback 10% or less, and only above a rising 30-WMA.</li>
+      </ul>
+    </li>
+    <li><b>Confirmation.</b> A close beyond the confirmation line. For head and shoulders this follows Bulkowski's rule for a sloped neckline: close through the neckline, or through the right armpit when the neckline slopes the wrong way.</li>
+  </ul>
+  <p>The tooltip shows the swings, the height, the primary trend (S4's 30-WMA 2x2), and the levels for confirmation, invalidation and target. It also adds pattern notes:</p>
+  <ul>
+    <li>VCP: the depth of each contraction and whether volume dried up.</li>
+    <li>Cup: its roundness.</li>
+    <li>Inverse head and shoulders: Bulkowski's figures (65% throw back to the neckline; 71% reach the target).</li>
+  </ul>
+  <div class="note">
+    <span class="tag">How often they appear</span>
+    <p>A Python mirror on 25 Daily charts (29,934 bars) found about 21 patterns per 1,000 bars across all eight types. That is about six on a 300-bar Daily chart, which is also the default cap. Of 40 confirmed inverse head-and-shoulders patterns, 30 reached the full measured target. This is a sanity check on the detector, not evidence of an edge. Nothing here has been tested as a filter.</p>
+  </div>
+  <div class="note go">
+    <span class="tag">Open item #11 — the rectangle rule</span>
+    <p>The classifier now applies TradingView's own rectangle rule first: every pivot within
+    Permissible Deviation (15%) of a horizontal edge, measured against the height of the range, on
+    4, 3 or 2 pivots per side. The old test compared each slope with a fixed 0.5× ATR, so on a tall
+    range ordinary noise between two highs read as a downslope and the range came out a
+    symmetrical triangle. A rectangle's boundaries are also held flat now, so no apex is projected
+    for it.</p>
   </div>
 </section>
 
@@ -587,7 +647,8 @@ footer a{color:var(--acc)}
       <tr><td class="k">Geometry</td><td>Rebuilt 8 Sep on TV criteria; the 11-Sep inverted boundary was the apex, fixed in v1.4 (apex solved, shape withdrawn past it, % to apex printed); otherwise <b>unverified in the field</b>; <b>withheld from the reviewer</b></td></tr>
       <tr><td class="k">Wyckoff ladder</td><td>Named only, by design — twice rejected as an input</td></tr>
       <tr><td class="k">SWP-RC · RNG-EDGE</td><td>Display-only until measured as catalyst families in R</td></tr>
-      <tr><td class="k">Open item #11</td><td>Rectangles read as triangles. Two defaults changed and the classifier rebuilt; <b>not yet confirmed closed</b></td></tr>
+      <tr><td class="k">Chart patterns</td><td>New in v1.8 (27 Oct): eight patterns with confirmation, retest, target and failure marks; mirrored in Python for frequency only; <b>unverified on the chart</b>; display only, <b>withheld from the reviewer</b></td></tr>
+      <tr><td class="k">Open item #11</td><td>Rectangles read as triangles. v1.8 applies TradingView's rectangle rule (each pivot within 15% of the range height) ahead of the slope test; <b>to be confirmed on a live range</b></td></tr>
     </tbody>
   </table></div>
 </section>
@@ -615,6 +676,6 @@ footer a{color:var(--acc)}
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/30 · Section 5 — Analysis Panel · S5 v1.7 · written against the code 11 Sep 2026, revised 22 Oct 2026</span>
+  <span>docs/30 · Section 5 — Analysis Panel · S5 v1.8 · written against the code 11 Sep 2026, revised 27 Oct 2026</span>
   <span>Companions — <a href="22_section_four.html">22 Section Four</a> · <a href="24_pre_trade_gate.html">24 Pre-Trade Gate</a></span>
 </div></footer>

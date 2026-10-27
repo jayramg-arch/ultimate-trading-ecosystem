@@ -1,6 +1,15 @@
 // ============================================================================
 // S5 ANALYSIS PANEL  v1.0  (8 Sep 2026)
 //
+// v1.8 (27 Oct 2026) - CHART PATTERNS + THE RECTANGLE RULE.
+//   Double / triple bottoms and tops, head & shoulders both ways, cup with handle and
+//   the VCP, from a zigzag of the 5/5 pivots, drawn with neckline, invalidation and
+//   target and marked ? forming / ✓ confirmed / ↩ retested / ✗ failed / ⌛ expired.
+//   Visual aid only (see CHART PATTERNS). The shape classifier now applies
+//   TradingView's own rectangle rule first - every pivot within Permissible Deviation
+//   of a horizontal edge - so a range with noisy highs no longer reads as a
+//   symmetrical triangle (open item #11, APOLLOHOSP / GLAXO).
+//
 // v1.7 (22 Oct 2026) - S/R AND TRENDLINES REBUILT ON THE REFERENCE METHODS.
 //   Jay: "you have been drawing them incorrectly". The old S/R engine kept the two
 //   NEAREST pivot clusters per side and deleted any level closed through twice, so the
@@ -112,7 +121,7 @@
 // while capping what footprint can hoard. IF THE CHART EVER REPORTS "Memory limits
 // exceeded": drop this first (800, then 400), and turn show_fp off second.
 // The D/W/M security calls have their own contexts and are unaffected by it.
-indicator("S5 Analysis Panel v1.7", shorttitle="S5", overlay=true, max_lines_count=250, max_labels_count=500, max_boxes_count=100, max_bars_back=300, calc_bars_count=1500)
+indicator("S5 Analysis Panel v1.8", shorttitle="S5", overlay=true, max_lines_count=250, max_labels_count=500, max_boxes_count=100, max_bars_back=300, calc_bars_count=1500)
 
 grpLab = "LAB -- which engine to test"
 d_sr = input.bool(true, "S/R levels engine", group=grpLab, tooltip="Master switch for the horizontal-level engine (auto clustering + your manual levels). Turn OFF to study trendlines alone on a clean chart.")
@@ -1204,6 +1213,49 @@ f_geoPair(array<float> py, array<int> px, bool isUpper, float widthPx) =>
     [_x1, _y1, _x2, _y2]
 
 // ============================================================================
+// v1.8 - TRADINGVIEW'S RECTANGLE RULE (open item #11). TV defines a rectangle as two
+// HORIZONTAL lines with every vertex within Permissible Deviation of its own line, as a
+// share of the distance between them (Rectangle help page). The pair classifier below
+// tests slope against a fixed 0.5x ATR instead, so on a tall range ordinary noise
+// between two highs read as a downslope and the range came out a symmetrical triangle.
+// This tests the newest 4, then 3, then 2 pivots of each side; most points first.
+// Returns [ok, top, bottom, left anchor].
+f_geoRect() =>
+    bool  ok  = false
+    float top = na
+    float bot = na
+    int   xl  = na
+    int   nh  = array.size(g5hy)
+    int   nl  = array.size(g5ly)
+    for n = 4 to 2
+        if not ok and nh >= n and nl >= n
+            float st = 0.0
+            float sb = 0.0
+            for i = 1 to n
+                st += array.get(g5hy, nh - i)
+                sb += array.get(g5ly, nl - i)
+            float t = st / n
+            float b = sb / n
+            float w = t - b
+            if w >= 2.0 * chart_atr
+                bool fit = true
+                for i = 1 to n
+                    if math.abs(array.get(g5hy, nh - i) - t) > w * geo_dev / 100.0 or math.abs(array.get(g5ly, nl - i) - b) > w * geo_dev / 100.0
+                        fit := false
+                int hFr = array.get(g5hx, nh - n)
+                int hTo = array.get(g5hx, nh - 1)
+                int lFr = array.get(g5lx, nl - n)
+                int lTo = array.get(g5lx, nl - 1)
+                float un = float(math.max(hTo, lTo) - math.min(hFr, lFr))
+                float ov = un > 0 ? math.max(math.min(hTo, lTo) - math.max(hFr, lFr), 0) * 100.0 / un : 0.0
+                if fit and ov >= geo_ovlp and bar_index - math.min(hFr, lFr) <= geo_look and f_geoClean(hFr, t, hTo, t, true, w) and f_geoClean(lFr, b, lTo, b, false, w)
+                    ok  := true
+                    top := t
+                    bot := b
+                    xl  := math.min(hFr, lFr)
+    [ok, top, bot, xl]
+
+// ============================================================================
 // GEOMETRY — SHAPE CLASSIFIER
 // ============================================================================
 // Rebuilt from PIVOT SEQUENCES rather than fitted trendline slopes. It reads the same
@@ -1355,8 +1407,12 @@ if show_geom and d_geo and _geoFresh and array.size(g5hy) >= 2 and array.size(g5
         bool _lDown = not _lFlat and _gSlopeL < 0
         // an if/else ladder, not a wrapped ternary: Pine reads a continuation line
         // indented by a multiple of 4 as a new block, which a wrapped ternary trips.
+        [_rOk, _rTop, _rBot, _rX] = f_geoRect()
         if not _geoClean
             geom := "-"
+        else if _rOk and not _conv
+            // v1.8: TV's rectangle rule wins over the pair slopes (see f_geoRect)
+            geom := "Range / rectangle"
         else if not na(geoOvlp) and geoOvlp < geo_ovlp
             // not one pattern - two unrelated line segments
             geom := "-"
@@ -1391,6 +1447,10 @@ if show_geom and d_geo and _geoFresh and array.size(g5hy) >= 2 and array.size(g5
         float _mL  = _dxL != 0 ? _gSlopeL / _dxL : 0.0
         geoUpNow  := _h1 + _mH * (bar_index - _xh1)
         geoLoNow  := _l1 + _mL * (bar_index - _xl1)
+        bool _isRect = geom == "Range / rectangle"
+        if _isRect
+            geoUpNow := _rOk ? _rTop : (_h1 + _h2) / 2.0
+            geoLoNow := _rOk ? _rBot : (_l1 + _l2) / 2.0
         // v1.4 - THE APEX (TITAN, 11-Sep-2026: "upper 4928 < lower 4968"). Two converging
         // lines cross at the apex; projected past it they swap sides, and the panel was
         // printing that inverted pair as live boundaries. TradingView's pattern pages end
@@ -1400,7 +1460,7 @@ if show_geom and d_geo and _geoFresh and array.size(g5hy) >= 2 and array.size(g5
         // reason) withdraw the shape and say why. Also report how far through the pattern
         // price is - TV's own guidance is that a valid breakout comes before ~75% of the
         // way to the apex; later than that the coil has lost its energy.
-        if _mH != _mL
+        if _mH != _mL and not _isRect
             float _xA = (_l1 - _mL * _xl1 - (_h1 - _mH * _xh1)) / (_mH - _mL)
             int   _x0 = math.min(_xh2, _xl2)
             if _xA > _x0
@@ -1424,13 +1484,13 @@ if show_geom and d_geo and _geoFresh and array.size(g5hy) >= 2 and array.size(g5
         geoLoFr   := _xl2
         geoLoTo   := _xl1
         if geom == "Range / rectangle"
-            geoTop := (_h1 + _h2) / 2.0
-            geoBot := (_l1 + _l2) / 2.0
+            geoTop := _rOk ? _rTop : (_h1 + _h2) / 2.0
+            geoBot := _rOk ? _rBot : (_l1 + _l2) / 2.0
         if drawGeomLines and geom != "-" and not na(_xh1) and not na(_xh2) and not na(_xl1) and not na(_xl2)
             if geom == "Range / rectangle"
-                int   _bxL = math.min(math.min(_xh1, _xh2), math.min(_xl1, _xl2))
-                float _bxT = (_h1 + _h2) / 2.0
-                float _bxB = (_l1 + _l2) / 2.0
+                int   _bxL = _rOk ? _rX : math.min(math.min(_xh1, _xh2), math.min(_xl1, _xl2))
+                float _bxT = geoTop
+                float _bxB = geoBot
                 _geoBox := box.new(_bxL, _bxT, bar_index, _bxB, xloc=xloc.bar_index, border_color=color.new(#9598a1, 10), border_width=1, bgcolor=color.new(#9598a1, 94))
             else
                 _geoHi := line.new(_xh2, _h2, _xh1, _h1, xloc=xloc.bar_index, color=C_GREY20, width=1, extend=extend.right, style=line.style_dashed)
@@ -2111,6 +2171,518 @@ f_ofText(string vd, float lv, string tf, int age, bool bearDiv, bool bullDiv) =>
         _t += " Bullish divergence agrees."
     _t + " Grades, never gates (unvalidated)."
 
+// ============================================================================
+// CHART PATTERNS  (v1.8, 27-Oct-2026)  -  VISUAL AID ONLY
+// ============================================================================
+// Double / triple bottoms and tops, head & shoulders (both ways), cup with handle and
+// the VCP, drawn on the chart with their neckline, invalidation and measured target.
+// Nothing here gates, scores or feeds anything: S5 publishes no plots, and the panel
+// row sits in section I, which the reviewer skips (s4_review.S5_SKIP_SECTIONS).
+//
+// HOW A PATTERN IS FOUND. The 5/5 pivots the geometry classifier already reads
+// (TradingView anchors every pattern to 5/5) are turned into a ZIGZAG - alternating
+// swing highs and lows, a higher high replacing the high before it when no low came in
+// between. Every pattern is a fixed sequence of the newest swings:
+//   DB  L H L            TB  L H L H L        iH&S  LS H HEAD H RS
+//   DT  H L H            TT  H L H L H        H&S   LS L HEAD L RS
+//   C&H left rim, cup low, right rim (the handle is what follows the right rim)
+//   VCP H L H L ... each pullback shallower than the one before, highs not rising
+//
+// WHAT MAKES ONE WORTH DRAWING (Bulkowski, Encyclopedia of Chart Patterns, and
+// thepatternsite.com; Minervini for the VCP). Shape alone has little edge - the same
+// finding as the candlestick research behind Add-ons M3 - so each pattern must clear:
+//   * a MOVE INTO IT: a bottom must follow a decline (the swing before it sits above
+//     the neckline), a top an advance. Bulkowski lists the prior trend first.
+//   * SIZE in ATR, not in fixed percent, so it means the same on 75m and Daily.
+//   * PROPORTION: equal bottoms / tops within a tolerance; H&S shoulders level and
+//     roughly evenly spaced around the head; a cup that is a U, not a V, with the
+//     handle in the upper half; VCP pullbacks that each contract.
+//   * CONFIRMATION = a CLOSE through the confirmation line (Bulkowski's rule for every
+//     one of these). Until then the pattern shows "?" - it is a possibility, not a
+//     signal. H&S uses his sloped-neckline rule: a close through the neckline, or
+//     through the right armpit when the neckline slopes the wrong way.
+//   * INVALIDATION: a close beyond the pattern's extreme before confirmation = ✗.
+//     After confirmation the same close = "busted".
+//   * RETEST: after confirmation, a pullback to the breakout level that holds is
+//     marked ↩ - the house entry is the retest, not the breakout (23-Jul A/B).
+//   * PRIMARY TREND: the 30-WMA 2x2 (Daily SMA150 and its 10-bar slope, S4's own
+//     definition). A bullish pattern under a FALLING 30-WMA is counter-trend, a
+//     bearish one over a RISING 30-WMA too - dimmed and marked ↺ (or hidden).
+// ============================================================================
+grpCP  = "Chart patterns — detection"
+grpCPP = "Chart patterns — which to draw"
+grpCPS = "Chart patterns — shape rules"
+grpCPL = "Chart patterns — look & feel"
+cp_on     = input.bool(true, "Detect chart patterns", group=grpCP, tooltip="Double / triple bottoms and tops, head & shoulders, cup with handle and VCP, from the same 5/5 pivots the geometry classifier uses. Visual aid only - nothing here gates or scores.")
+cp_eq     = input.float(0.75, "Equal tops / bottoms within (× ATR)", group=grpCP, minval=0.1, maxval=3.0, step=0.05, tooltip="How close two swing lows must be to count as a double bottom (two highs for a top). Bulkowski: 'close enough' - no fixed number - so it is set in ATR to mean the same on every timeframe.")
+cp_minH   = input.float(2.0, "Minimum pattern height (× ATR)", group=grpCP, minval=0.5, maxval=10.0, step=0.25, tooltip="Neckline to the pattern's extreme. Below this it is noise between two bars, not a pattern.")
+cp_minSep = input.int(10, "Minimum bars between the outer swings", group=grpCP, minval=3, maxval=100, tooltip="Bulkowski: the two bottoms of a double bottom are usually a month or more apart on a daily chart.")
+cp_maxSpan= input.int(250, "Maximum pattern width (bars)", group=grpCP, minval=30, maxval=1000)
+cp_prior  = input.bool(true, "Reversal patterns need a move into them", group=grpCP, tooltip="A bottom must follow a decline: the swing high before it sits above the neckline. A top must follow an advance. Bulkowski lists the prior trend as the first identification rule - without it a 'double bottom' is two dips in a range.")
+cp_expire = input.float(1.0, "Unconfirmed: expire after (× pattern width)", group=grpCP, minval=0.2, maxval=3.0, step=0.1, tooltip="A pattern that has not broken out within this many pattern-widths after its last swing is marked expired (⌛). Never less than 10 bars.")
+cp_rtAtr  = input.float(0.5, "Retest: back within (× ATR) of the breakout level", group=grpCP, minval=0.1, maxval=2.0, step=0.1, tooltip="After a confirmed breakout, a bar that comes back to the breakout level and closes on the right side of it is marked ↩ - the retest entry.")
+cp_rtWin  = input.int(20, "Retest: within (bars) of the breakout", group=grpCP, minval=3, maxval=100)
+cp_ctr    = input.string("Dim", "Counter-trend patterns", options=["Dim", "Hide", "Show"], group=grpCP, tooltip="Primary trend = the 30-WMA 2x2 (Daily SMA150 and its 10-bar slope, flat band 0.5% - S4's definition). Bullish under a FALLING 30-WMA, or bearish over a RISING one, is counter-trend.")
+cp_db  = input.bool(true, "Double bottom",            group=grpCPP, inline="p1")
+cp_dt  = input.bool(true, "Double top",               group=grpCPP, inline="p1")
+cp_tb  = input.bool(true, "Triple bottom",            group=grpCPP, inline="p2")
+cp_tt  = input.bool(true, "Triple top",               group=grpCPP, inline="p2")
+cp_ihs = input.bool(true, "Inverse head & shoulders", group=grpCPP, inline="p3")
+cp_hs  = input.bool(true, "Head & shoulders",         group=grpCPP, inline="p3")
+cp_ch  = input.bool(true, "Cup with handle",          group=grpCPP, inline="p4")
+cp_vcp = input.bool(true, "VCP",                      group=grpCPP, inline="p4")
+cp_hsSh   = input.float(40.0, "H&S: shoulders level within (% of height)", group=grpCPS, minval=5.0, maxval=100.0, step=5.0, tooltip="Bulkowski: the shoulders bottom (top) near the same price. Measured as a share of the head-to-neckline height.")
+cp_hsHead = input.float(0.5, "H&S: head beyond both shoulders by (× ATR)", group=grpCPS, minval=0.1, maxval=5.0, step=0.1)
+cp_hsSym  = input.float(2.5, "H&S: time asymmetry at most (wider ÷ narrower side)", group=grpCPS, minval=1.2, maxval=6.0, step=0.1, tooltip="Bulkowski: the shoulders sit at nearly the same distance from the head - proportional, not lopsided.")
+cp_cupMin = input.float(12.0, "Cup: depth at least (% of the left rim)", group=grpCPS, minval=2.0, maxval=50.0, step=1.0, tooltip="O'Neil 12-33%; Bulkowski accepts deeper (some 40-50%).")
+cp_cupMax = input.float(50.0, "Cup: depth at most (%)", group=grpCPS, minval=10.0, maxval=80.0, step=1.0)
+cp_cupBars= input.int(30, "Cup: width at least (bars)", group=grpCPS, minval=10, maxval=500, tooltip="Bulkowski: a cup lasts 7 to 65 weeks on a daily chart. 30 bars is the floor that keeps a V out.")
+cp_round  = input.float(20.0, "Cup: bars in the bottom third, at least (%)", group=grpCPS, minval=0.0, maxval=60.0, step=5.0, tooltip="The U test. A V-bottom spends almost no time near its low; a cup spends a lot. Checked when the cup fits inside the 300-bar history buffer.")
+cp_handle = input.float(50.0, "Handle: may retrace at most (% of cup depth)", group=grpCPS, minval=10.0, maxval=80.0, step=5.0, tooltip="Bulkowski: the handle forms in the upper half of the cup. A close below that line = handle too deep = failed.")
+cp_vcpN   = input.int(2, "VCP: contractions at least", group=grpCPS, minval=2, maxval=5)
+cp_vcpR   = input.float(0.8, "VCP: each pullback at most (× the previous)", group=grpCPS, minval=0.3, maxval=1.0, step=0.05, tooltip="Minervini: each contraction is shallower than the one before it, often roughly half.")
+cp_vcpLast= input.float(10.0, "VCP: last pullback at most (%)", group=grpCPS, minval=2.0, maxval=30.0, step=0.5)
+cp_vcpS2  = input.bool(true, "VCP: only above a rising 30-WMA (Stage 2)", group=grpCPS, tooltip="Minervini draws the VCP only inside a qualifying uptrend.")
+cp_keep   = input.int(300, "Show patterns from the last (bars)", group=grpCPL, minval=50, maxval=1500)
+cp_maxN   = input.int(6, "Patterns on the chart at most", group=grpCPL, minval=1, maxval=12, tooltip="The oldest goes first. Keeps the chart readable.")
+cp_txt    = input.string("Short code", "Label text", options=["Short code", "Full name", "Status only"], group=grpCPL, tooltip="Short code: DB, TT, iH&S, C&H, VCP·3T ... Hover any label for the full read.")
+cp_lblSz  = input.string("small", "Label size", options=["tiny", "small", "normal"], group=grpCPL)
+cp_colBu  = input.color(color.new(#26a69a, 0), "Bullish", group=grpCPL, inline="cc")
+cp_colBe  = input.color(color.new(#ef5350, 0), "Bearish", group=grpCPL, inline="cc")
+cp_colFl  = input.color(color.new(#787b86, 0), "Failed",  group=grpCPL, inline="cc")
+cp_legs   = input.bool(true, "Draw the swing legs", group=grpCPL, tooltip="The zigzag through the pattern's swings. OFF = neckline, target and label only.")
+cp_tgtOn  = input.bool(true, "Draw the measured-move target", group=grpCPL, tooltip="Pattern height projected from the breakout level - the classic measure. Bulkowski's own figure for the inverse H&S: 71% of patterns reach the full height.")
+cp_keepFl = input.bool(true, "Keep failed / expired patterns (greyed)", group=grpCPL)
+
+// --- primary trend: S4's 30-WMA 2x2, on the last CLOSED daily bar ----------------
+// The flat band equals S4's `wma_flat_pct` default (pinned by tests/test_s5_patterns.py).
+CP_WMA_FLAT = 0.5
+f_cpStageD() =>
+    float _s = ta.sma(close, 150)
+    float _g = _s > 0 ? (_s - _s[10]) / _s * 100.0 : na
+    [close, _s, _g, close[1], _s[1], _g[1]]
+[cpDc0, cpDs0, cpDg0, cpDc1, cpDs1, cpDg1] = request.security(syminfo.tickerid, "D", f_cpStageD(), lookahead=barmerge.lookahead_off)
+float cpDc = timeframe.isintraday ? cpDc1 : cpDc0
+float cpDs = timeframe.isintraday ? cpDs1 : cpDs0
+float cpDg = timeframe.isintraday ? cpDg1 : cpDg0
+bool  cpUp  = not na(cpDg) and cpDg >  CP_WMA_FLAT
+bool  cpDn  = not na(cpDg) and cpDg < -CP_WMA_FLAT
+bool  cpBel = not na(cpDs) and cpDc < cpDs
+string cpStgTxt = na(cpDs) or na(cpDg) ? "30-WMA n/a" : cpBel ? (cpUp ? "Stage 2 pullback (below a RISING 30-WMA)" : cpDn ? "Stage 4 (below a FALLING 30-WMA)" : "Stage 1/3 (below a FLAT 30-WMA)") : (cpUp ? "Stage 2 (above a RISING 30-WMA)" : cpDn ? "Stage 3 (above a FALLING 30-WMA)" : "Stage 1/3 (above a FLAT 30-WMA)")
+bool cpClosed = barstate.isconfirmed or (barstate.islast and timenow >= time_close)
+
+// --- the zigzag ------------------------------------------------------------------
+var array<float> cpZy = array.new<float>()
+var array<int>   cpZx = array.new<int>()
+var array<int>   cpZt = array.new<int>()     // +1 swing high, -1 swing low
+
+// Push a pivot onto the zigzag. Returns [changed, replacedX]: replacedX is the bar of
+// the swing an extension replaced (a higher high with no low in between), else na.
+f_cpPush(float y, int x, int t) =>
+    int  n   = array.size(cpZt)
+    bool ch  = false
+    int  rep = na
+    if n == 0 or array.get(cpZt, n - 1) != t
+        array.push(cpZy, y)
+        array.push(cpZx, x)
+        array.push(cpZt, t)
+        ch := true
+        if array.size(cpZy) > 14
+            array.shift(cpZy)
+            array.shift(cpZx)
+            array.shift(cpZt)
+    else if (t == 1 and y > array.get(cpZy, n - 1)) or (t == -1 and y < array.get(cpZy, n - 1))
+        rep := array.get(cpZx, n - 1)
+        array.set(cpZy, n - 1, y)
+        array.set(cpZx, n - 1, x)
+        ch := true
+    [ch, rep]
+
+// k-th swing from the newest (0 = newest)
+f_zy(int k) =>
+    array.get(cpZy, array.size(cpZy) - 1 - k)
+f_zx(int k) =>
+    array.get(cpZx, array.size(cpZx) - 1 - k)
+
+type CPat
+    string code
+    string name
+    int    dir                 // 1 bullish, -1 bearish
+    int    st     = 0          // 0 forming · 1 confirmed · 2 failed · 3 expired · 4 busted · 5 target reached
+    int    x0                  // first anchor
+    int    xL                  // last anchor
+    int    xD                  // bar it was found on
+    int    xC     = na         // confirmation bar
+    int    nx1
+    float  ny1
+    int    nx2
+    float  ny2
+    bool   armpit = false      // H&S: Bulkowski's right-armpit rule for a sloped neckline
+    float  inval
+    float  height = na         // na = no measured target (VCP)
+    float  brk    = na
+    float  tgt    = na
+    bool   ctr    = false
+    bool   rt     = false
+    int    life
+    string tip
+    string why    = ""
+    array<line> legs
+    line   nk
+    line   tl
+    label  lb
+
+var array<CPat> cpPats = array.new<CPat>()
+
+f_cpNeck(CPat p, int x) =>
+    p.nx2 == p.nx1 ? p.ny2 : p.ny1 + (p.ny2 - p.ny1) * float(x - p.nx1) / float(p.nx2 - p.nx1)
+
+// The confirmation level at bar x. For a horizontal neckline it is the line. For H&S
+// it is Bulkowski's rule: a close through the neckline, or through the right armpit
+// when the neckline slopes the wrong way - whichever comes first.
+f_cpLvl(CPat p, int x) =>
+    float nl = f_cpNeck(p, x)
+    p.armpit ? (p.dir == 1 ? math.min(nl, p.ny2) : math.max(nl, p.ny2)) : nl
+
+f_cpSize() =>
+    cp_lblSz == "tiny" ? size.tiny : cp_lblSz == "normal" ? size.normal : size.small
+
+f_cpCol(CPat p) =>
+    color b = p.dir == 1 ? cp_colBu : cp_colBe
+    int tr = p.st == 0 ? 55 : 10
+    if p.ctr
+        tr := math.min(90, tr + 25)
+    (p.st >= 2 and p.st <= 4) ? color.new(cp_colFl, 40) : color.new(b, tr)
+
+f_cpText(CPat p) =>
+    string s = p.st == 0 ? "?" : p.st == 1 ? (p.rt ? "✓↩" : "✓") : p.st == 5 ? (p.rt ? "✓↩🎯" : "✓🎯") : p.st == 2 ? "✗" : p.st == 3 ? "⌛" : "✗ busted"
+    string base = cp_txt == "Full name" ? p.name : cp_txt == "Status only" ? "" : p.code
+    (str.length(base) > 0 ? base + " " + s : s) + (p.ctr ? " ↺" : "")
+
+f_cpTip(CPat p) =>
+    string lvl = str.tostring(f_cpLvl(p, bar_index), format.mintick)
+    string s = p.st == 0 ? "FORMING - confirms on a close " + (p.dir == 1 ? "above " : "below ") + lvl + "; void on a close " + (p.dir == 1 ? "below " : "above ") + str.tostring(p.inval, format.mintick) :
+               p.st == 1 ? "CONFIRMED - closed through " + str.tostring(p.brk, format.mintick) + (na(p.tgt) ? "" : " · target " + str.tostring(p.tgt, format.mintick)) + (p.rt ? " · RETESTED and held" : " · retest = a pullback to " + str.tostring(p.brk, format.mintick) + " that holds") :
+               p.st == 5 ? "TARGET REACHED - broke out at " + str.tostring(p.brk, format.mintick) + ", reached " + str.tostring(p.tgt, format.mintick) + (p.rt ? " (after a retest)" : "") :
+               p.st == 2 ? "FAILED - " + p.why : p.st == 3 ? "EXPIRED - " + p.why : "BUSTED - confirmed, then " + p.why
+    p.tip + "\n" + s + "\nVisual aid only - never a grade."
+
+f_cpPaint(CPat p) =>
+    color c = f_cpCol(p)
+    label.set_text(p.lb, f_cpText(p))
+    label.set_color(p.lb, c)
+    label.set_tooltip(p.lb, f_cpTip(p))
+    line.set_color(p.nk, color.new(c, math.min(100, color.t(c) + 15)))
+    if array.size(p.legs) > 0
+        for i = 0 to array.size(p.legs) - 1
+            line.set_color(array.get(p.legs, i), color.new(c, math.min(100, color.t(c) + 30)))
+    if not na(p.tl)
+        line.set_color(p.tl, color.new(c, 20))
+
+f_cpKill(CPat p) =>
+    label.delete(p.lb)
+    line.delete(p.nk)
+    line.delete(p.tl)
+    if array.size(p.legs) > 0
+        for i = 0 to array.size(p.legs) - 1
+            line.delete(array.get(p.legs, i))
+
+// Mark a pattern confirmed at bar xc with breakout level lv.
+f_cpConfirm(CPat p, int xc, float lv) =>
+    p.st  := 1
+    p.xC  := xc
+    p.brk := lv
+    line.set_xy2(p.nk, xc, lv)
+    if not na(p.height)
+        p.tgt := lv + p.dir * p.height
+        if cp_tgtOn
+            p.tl := line.new(xc, p.tgt, xc + 15, p.tgt, xloc=xloc.bar_index, style=line.style_dotted, width=1, color=color.new(p.dir == 1 ? cp_colBu : cp_colBe, 20))
+
+// Build, draw and register a pattern. xs/ys are its swings, early -> late.
+f_cpMake(string code, string name, int dir, array<int> xs, array<float> ys, int nx1, float ny1, int nx2, float ny2, bool armpit, float inval, float height, string extra) =>
+    bool ctr = dir == 1 ? cpDn : cpUp
+    bool made = false
+    if not (ctr and cp_ctr == "Hide")
+        int x0 = array.get(xs, 0)
+        int xL = array.get(xs, array.size(xs) - 1)
+        int life = math.max(10, int(math.round(cp_expire * (xL - x0))))
+        string tip = name + "  ·  " + str.tostring(xL - x0) + " bars" + (na(height) ? "" : "  ·  height " + str.tostring(height, format.mintick) + " (" + str.tostring(height / chart_atr, "0.0") + "× ATR)") + "\nprimary trend: " + cpStgTxt + (ctr ? " - COUNTER-TREND" : "") + (str.length(extra) > 0 ? "\n" + extra : "")
+        CPat p = CPat.new(code=code, name=name, dir=dir, x0=x0, xL=xL, xD=bar_index, nx1=nx1, ny1=ny1, nx2=nx2, ny2=ny2, armpit=armpit, inval=inval, height=height, ctr=ctr and cp_ctr == "Dim", life=life, tip=tip, legs=array.new<line>())
+        color c0 = dir == 1 ? cp_colBu : cp_colBe
+        if cp_legs
+            for i = 0 to array.size(xs) - 2
+                array.push(p.legs, line.new(array.get(xs, i), array.get(ys, i), array.get(xs, i + 1), array.get(ys, i + 1), xloc=xloc.bar_index, width=1, color=color.new(c0, 60)))
+        p.nk := line.new(nx1, f_cpNeck(p, nx1), bar_index, f_cpLvl(p, bar_index), xloc=xloc.bar_index, style=line.style_dashed, width=1, color=color.new(c0, 40))
+        bool lowAnchor = array.get(ys, array.size(ys) - 1) < array.get(ys, array.size(ys) - 2)
+        p.lb := label.new(xL, array.get(ys, array.size(ys) - 1), "", xloc=xloc.bar_index, yloc=yloc.price, style=lowAnchor ? label.style_label_up : label.style_label_down, textcolor=color.white, size=f_cpSize())
+        // The last swing is confirmed geo_piv bars late, so the breakout (or the
+        // failure) may already be on the chart. Walk those bars oldest first.
+        int k0 = math.min(bar_index - xL - 1, 290)
+        if k0 >= 0
+            for k = k0 to 0
+                if p.st == 0
+                    int   xb = bar_index - k
+                    float lv = f_cpLvl(p, xb)
+                    if dir == 1 ? close[k] > lv : close[k] < lv
+                        f_cpConfirm(p, xb, lv)
+                    else if dir == 1 ? close[k] < inval : close[k] > inval
+                        p.st  := 2
+                        p.why := "closed beyond " + str.tostring(inval, format.mintick) + " before breaking out"
+        f_cpPaint(p)
+        array.push(cpPats, p)
+        made := true
+    made
+
+// Delete FORMING patterns built on a swing that has just been extended.
+f_cpDropOn(int x) =>
+    if array.size(cpPats) > 0
+        for i = array.size(cpPats) - 1 to 0
+            CPat p = array.get(cpPats, i)
+            if p.st == 0 and p.xL == x
+                f_cpKill(p)
+                array.remove(cpPats, i)
+
+// ---- detectors at a new swing LOW (bullish) -------------------------------------
+f_cpOnLow() =>
+    int n = array.size(cpZy)
+    float a = chart_atr
+    bool done = false
+    // INVERSE HEAD & SHOULDERS: LS H1 HEAD H2 RS
+    if cp_ihs and n >= 5
+        float rs = f_zy(0), h2 = f_zy(1), hd = f_zy(2), h1 = f_zy(3), ls = f_zy(4)
+        int xrs = f_zx(0), xh2 = f_zx(1), xhd = f_zx(2), xh1 = f_zx(3), xls = f_zx(4)
+        float nlh = h1 + (h2 - h1) * float(xhd - xh1) / float(math.max(xh2 - xh1, 1))
+        float ht = nlh - hd
+        float dl = float(xhd - xls)
+        float dr = float(xrs - xhd)
+        bool prior = not cp_prior or (n >= 6 and f_zy(5) > math.max(h1, h2))
+        if prior and hd < ls - cp_hsHead * a and hd < rs - cp_hsHead * a and ht >= cp_minH * a and math.abs(ls - rs) <= cp_hsSh / 100.0 * ht and math.min(dl, dr) > 0 and math.max(dl, dr) / math.min(dl, dr) <= cp_hsSym and xrs - xls <= cp_maxSpan
+            string ex = "neckline " + str.tostring(h1, format.mintick) + " → " + str.tostring(h2, format.mintick) + (h2 < h1 ? " (down-sloping: Bulkowski - marginally better)" : h2 > h1 ? " (up-sloping: confirms above the right armpit " + str.tostring(h2, format.mintick) + ")" : "") + (ls > rs ? "\nleft shoulder higher than the right (Bulkowski: worse performance)" : "") + "\nBulkowski (bull market, 3,197 trades): 65% throw back to the neckline; 71% reach the measured target"
+            done := f_cpMake("iH&S", "Inverse head & shoulders", 1, array.from(xls, xh1, xhd, xh2, xrs), array.from(ls, h1, hd, h2, rs), xh1, h1, xh2, h2, true, hd, ht, ex)
+    // TRIPLE BOTTOM: L1 H1 L2 H2 L3
+    if not done and cp_tb and n >= 5
+        float l3 = f_zy(0), h2 = f_zy(1), l2 = f_zy(2), h1 = f_zy(3), l1 = f_zy(4)
+        float lo = math.min(l1, l2, l3)
+        float nk = math.max(h1, h2)
+        bool prior = not cp_prior or (n >= 6 and f_zy(5) > nk)
+        if prior and math.max(l1, l2, l3) - lo <= cp_eq * a and nk - lo >= cp_minH * a and f_zx(0) - f_zx(4) >= 2 * cp_minSep and f_zx(0) - f_zx(4) <= cp_maxSpan
+            done := f_cpMake("TB", "Triple bottom", 1, array.from(f_zx(4), f_zx(3), f_zx(2), f_zx(1), f_zx(0)), array.from(l1, h1, l2, h2, l3), h1 >= h2 ? f_zx(3) : f_zx(1), nk, h1 >= h2 ? f_zx(3) : f_zx(1), nk, false, lo, nk - lo, "three bottoms within " + str.tostring((math.max(l1, l2, l3) - lo) / a, "0.0") + "× ATR")
+            if done
+                // the double bottom this grew out of is now part of it
+                f_cpDropOn(f_zx(2))
+    // VCP: pairs (H, L) newest first, each pullback shallower than the one before
+    if not done and cp_vcp and n >= 4 and (not cp_vcpS2 or (cpUp and not cpBel))
+        int m = 1
+        float dPrev = (f_zy(1) - f_zy(0)) / f_zy(1) * 100.0
+        string seq = str.tostring(dPrev, "0.0") + "%"
+        bool go = true
+        int c = 1
+        while go and c <= 4 and 2 * c + 1 <= n - 1
+            float hc = f_zy(2 * c + 1)
+            float lc = f_zy(2 * c)
+            float dc = (hc - lc) / hc * 100.0
+            if dPrev <= cp_vcpR * dc and f_zy(2 * c - 1) <= hc + cp_eq * a and f_zx(0) - f_zx(2 * c + 1) <= cp_maxSpan
+                m += 1
+                seq := str.tostring(dc, "0.0") + "% → " + seq
+                dPrev := dc
+                c += 1
+            else
+                go := false
+        float hFirst = f_zy(2 * m - 1)
+        float lFirst = f_zy(2 * m - 2)
+        float dLast = (f_zy(1) - f_zy(0)) / f_zy(1) * 100.0
+        if m >= cp_vcpN and dLast <= cp_vcpLast and hFirst - lFirst >= cp_minH * a
+            array<int> xs = array.new<int>()
+            array<float> ys = array.new<float>()
+            for j = 2 * m - 1 to 0
+                array.push(xs, f_zx(j))
+                array.push(ys, f_zy(j))
+            // volume dry-up: average volume in the last contraction vs the first
+            int oH0 = bar_index - f_zx(1), oL0 = bar_index - f_zx(0), oHf = bar_index - f_zx(2 * m - 1), oLf = bar_index - f_zx(2 * m - 2)
+            string vtx = ""
+            if oHf < 299
+                float v0 = 0.0, vf = 0.0
+                for o = oL0 to oH0
+                    v0 += nz(volume[o])
+                for o = oLf to oHf
+                    vf += nz(volume[o])
+                v0 := v0 / (oH0 - oL0 + 1)
+                vf := vf / (oHf - oLf + 1)
+                vtx := vf > 0 ? (v0 < vf ? "volume dried up: last contraction " + str.tostring(v0 / vf, "0.00") + "× the first" : "volume did NOT dry up: last contraction " + str.tostring(v0 / vf, "0.00") + "× the first") : ""
+            string ex = "contractions " + seq + "  ·  pivot " + str.tostring(f_zy(1), format.mintick) + "  ·  Minervini stop under the last low " + str.tostring(f_zy(0), format.mintick) + (str.length(vtx) > 0 ? "\n" + vtx : "")
+            done := f_cpMake("VCP·" + str.tostring(m) + "T", "VCP (" + str.tostring(m) + " contractions)", 1, xs, ys, f_zx(1), f_zy(1), f_zx(1), f_zy(1), false, f_zy(0), na, ex)
+    // DOUBLE BOTTOM: L1 H L2
+    if not done and cp_db and n >= 3
+        float l2 = f_zy(0), h = f_zy(1), l1 = f_zy(2)
+        float lo = math.min(l1, l2)
+        int sep = f_zx(0) - f_zx(2)
+        bool prior = not cp_prior or (n >= 4 and f_zy(3) > h)
+        if prior and math.abs(l2 - l1) <= cp_eq * a and h - lo >= cp_minH * a and sep >= cp_minSep and sep <= cp_maxSpan
+            done := f_cpMake("DB", "Double bottom", 1, array.from(f_zx(2), f_zx(1), f_zx(0)), array.from(l1, h, l2), f_zx(1), h, f_zx(1), h, false, lo, h - lo, "bottoms " + str.tostring(l1, format.mintick) + " / " + str.tostring(l2, format.mintick) + " · confirms on a close above the peak between them (Bulkowski)")
+    done
+
+// ---- detectors at a new swing HIGH (bearish, plus the cup) ----------------------
+f_cpOnHigh() =>
+    int n = array.size(cpZy)
+    float a = chart_atr
+    bool done = false
+    // HEAD & SHOULDERS: LS L1 HEAD L2 RS
+    if cp_hs and n >= 5
+        float rs = f_zy(0), l2 = f_zy(1), hd = f_zy(2), l1 = f_zy(3), ls = f_zy(4)
+        int xrs = f_zx(0), xl2 = f_zx(1), xhd = f_zx(2), xl1 = f_zx(3), xls = f_zx(4)
+        float nlh = l1 + (l2 - l1) * float(xhd - xl1) / float(math.max(xl2 - xl1, 1))
+        float ht = hd - nlh
+        float dl = float(xhd - xls)
+        float dr = float(xrs - xhd)
+        bool prior = not cp_prior or (n >= 6 and f_zy(5) < math.min(l1, l2))
+        if prior and hd > ls + cp_hsHead * a and hd > rs + cp_hsHead * a and ht >= cp_minH * a and math.abs(ls - rs) <= cp_hsSh / 100.0 * ht and math.min(dl, dr) > 0 and math.max(dl, dr) / math.min(dl, dr) <= cp_hsSym and xrs - xls <= cp_maxSpan
+            string ex = "neckline " + str.tostring(l1, format.mintick) + " → " + str.tostring(l2, format.mintick) + (l2 > l1 ? " (up-sloping)" : l2 < l1 ? " (down-sloping: confirms below the right armpit " + str.tostring(l2, format.mintick) + ")" : "")
+            done := f_cpMake("H&S", "Head & shoulders", -1, array.from(xls, xl1, xhd, xl2, xrs), array.from(ls, l1, hd, l2, rs), xl1, l1, xl2, l2, true, hd, ht, ex)
+    // TRIPLE TOP
+    if not done and cp_tt and n >= 5
+        float h3 = f_zy(0), l2 = f_zy(1), h2 = f_zy(2), l1 = f_zy(3), h1 = f_zy(4)
+        float hi = math.max(h1, h2, h3)
+        float nk = math.min(l1, l2)
+        bool prior = not cp_prior or (n >= 6 and f_zy(5) < nk)
+        if prior and hi - math.min(h1, h2, h3) <= cp_eq * a and hi - nk >= cp_minH * a and f_zx(0) - f_zx(4) >= 2 * cp_minSep and f_zx(0) - f_zx(4) <= cp_maxSpan
+            done := f_cpMake("TT", "Triple top", -1, array.from(f_zx(4), f_zx(3), f_zx(2), f_zx(1), f_zx(0)), array.from(h1, l1, h2, l2, h3), l1 <= l2 ? f_zx(3) : f_zx(1), nk, l1 <= l2 ? f_zx(3) : f_zx(1), nk, false, hi, hi - nk, "three tops within " + str.tostring((hi - math.min(h1, h2, h3)) / a, "0.0") + "× ATR")
+            if done
+                f_cpDropOn(f_zx(2))
+    // CUP WITH HANDLE: left rim ... cup low ... right rim (= this swing high)
+    if not done and cp_ch and n >= 3
+        float rr = f_zy(0)
+        int   xr = f_zx(0)
+        bool go = true
+        int k = 2
+        while go and not done and k <= n - 1
+            float lr = f_zy(k)
+            int   xl = f_zx(k)
+            int   w  = xr - xl
+            if w > cp_maxSpan
+                go := false
+            else
+                // cup low and the highest swing inside the cup
+                float cl = f_zy(1)
+                int   xc = f_zx(1)
+                float inHi = na
+                for j = 1 to k - 1
+                    if f_zy(j) < cl and array.get(cpZt, array.size(cpZt) - 1 - j) == -1
+                        cl := f_zy(j)
+                        xc := f_zx(j)
+                    if array.get(cpZt, array.size(cpZt) - 1 - j) == 1
+                        inHi := na(inHi) ? f_zy(j) : math.max(inHi, f_zy(j))
+                float dep = lr - cl
+                float rimTol = math.max(cp_eq * a, 0.15 * dep)
+                if not na(inHi) and inHi > math.min(lr, rr) + cp_eq * a
+                    // a higher swing inside: this left rim (and any further left) cannot hold one cup
+                    go := false
+                else if math.abs(rr - lr) <= rimTol and w >= cp_cupBars and dep >= cp_minH * a and dep / lr * 100.0 >= cp_cupMin and dep / lr * 100.0 <= cp_cupMax and xc >= xl + 0.2 * w and xc <= xl + 0.8 * w
+                    // the U test: share of bars with a low in the cup's bottom third
+                    string rtx = "roundness not checked (cup longer than the 300-bar buffer)"
+                    bool roundOk = true
+                    int oL = bar_index - xl
+                    if oL < 299
+                        int cnt = 0
+                        for o = bar_index - xr to oL
+                            if low[o] <= cl + dep / 3.0
+                                cnt += 1
+                        float sh = cnt * 100.0 / (w + 1)
+                        roundOk := sh >= cp_round
+                        rtx := str.tostring(sh, "0") + "% of the cup's bars in its bottom third (a V spends almost none)"
+                    if roundOk
+                        float hLim = rr - cp_handle / 100.0 * dep
+                        string ex = "cup depth " + str.tostring(dep / lr * 100.0, "0.0") + "% · rims " + str.tostring(lr, format.mintick) + " / " + str.tostring(rr, format.mintick) + "\n" + rtx + "\nhandle must hold above " + str.tostring(hLim, format.mintick) + " (upper " + str.tostring(100 - cp_handle, "0") + "% of the cup) · confirms on a close above the right rim"
+                        done := f_cpMake("C&H", "Cup with handle", 1, array.from(xl, xc, xr), array.from(lr, cl, rr), xl, rr, xr, rr, false, hLim, dep, ex)
+                        // a cup lives on its handle: allow about half the cup's width
+                        if done
+                            CPat p = array.get(cpPats, array.size(cpPats) - 1)
+                            p.life := math.max(10, int(math.round(0.5 * w)))
+                    go := false
+            k += 2
+    // DOUBLE TOP
+    if not done and cp_dt and n >= 3
+        float h2 = f_zy(0), l = f_zy(1), h1 = f_zy(2)
+        float hi = math.max(h1, h2)
+        int sep = f_zx(0) - f_zx(2)
+        bool prior = not cp_prior or (n >= 4 and f_zy(3) < l)
+        if prior and math.abs(h2 - h1) <= cp_eq * a and hi - l >= cp_minH * a and sep >= cp_minSep and sep <= cp_maxSpan
+            done := f_cpMake("DT", "Double top", -1, array.from(f_zx(2), f_zx(1), f_zx(0)), array.from(h1, l, h2), f_zx(1), l, f_zx(1), l, false, hi, hi - l, "tops " + str.tostring(h1, format.mintick) + " / " + str.tostring(h2, format.mintick) + " · confirms on a close below the valley between them (Bulkowski)")
+    done
+
+// ---- resolve every live pattern on a closed bar ---------------------------------
+f_cpStep() =>
+    if array.size(cpPats) > 0
+        for i = array.size(cpPats) - 1 to 0
+            CPat p = array.get(cpPats, i)
+            int st0 = p.st
+            bool rt0 = p.rt
+            if p.st == 0 and bar_index > p.xD
+                float lv = f_cpLvl(p, bar_index)
+                if p.dir == 1 ? close > lv : close < lv
+                    f_cpConfirm(p, bar_index, lv)
+                else if p.dir == 1 ? close < p.inval : close > p.inval
+                    p.st  := 2
+                    p.why := "closed beyond " + str.tostring(p.inval, format.mintick) + " before breaking out"
+                else if bar_index - p.xL > p.life
+                    p.st  := 3
+                    p.why := "no breakout within " + str.tostring(p.life) + " bars of the last swing"
+                else
+                    line.set_xy2(p.nk, bar_index, lv)
+            else if p.st == 1 and bar_index > p.xC
+                // A breakout is judged for one pattern-life after it: a later breach of
+                // the old extreme is a new story, not this pattern busting.
+                if not na(p.tgt) and (p.dir == 1 ? high >= p.tgt : low <= p.tgt)
+                    p.st := 5
+                else if bar_index - p.xC <= p.life and (p.dir == 1 ? close < p.inval : close > p.inval)
+                    p.st  := 4
+                    p.why := "closed back beyond " + str.tostring(p.inval, format.mintick) + " " + str.tostring(bar_index - p.xC) + " bars after the breakout"
+                else if not p.rt and bar_index - p.xC <= cp_rtWin
+                    float tol = cp_rtAtr * chart_atr
+                    if p.dir == 1 ? (low <= p.brk + tol and close >= p.brk - tol) : (high >= p.brk - tol and close <= p.brk + tol)
+                        p.rt := true
+            if p.st != st0 or p.rt != rt0
+                if p.st >= 2 and p.st <= 4 and not cp_keepFl
+                    f_cpKill(p)
+                    array.remove(cpPats, i)
+                else
+                    f_cpPaint(p)
+            else if bar_index - p.xD > cp_keep
+                f_cpKill(p)
+                array.remove(cpPats, i)
+        while array.size(cpPats) > cp_maxN
+            f_cpKill(array.shift(cpPats))
+
+if cp_on and cpClosed
+    f_cpStep()
+    if not na(_g5h)
+        [ch, rep] = f_cpPush(_g5h, bar_index - geo_piv, 1)
+        if ch
+            if not na(rep)
+                f_cpDropOn(rep)
+            f_cpOnHigh()
+    if not na(_g5l)
+        [ch, rep] = f_cpPush(_g5l, bar_index - geo_piv, -1)
+        if ch
+            if not na(rep)
+                f_cpDropOn(rep)
+            f_cpOnLow()
+
+// The newest pattern, for the panel row.
+f_cpRow() =>
+    string t = ""
+    color c = C_MUTE
+    int n = array.size(cpPats)
+    if not cp_on
+        t := "engine off"
+    else if n == 0
+        t := "none in the last " + str.tostring(cp_keep) + " bars (" + str.tostring(array.size(cpZy)) + " swings on the " + str.tostring(geo_piv) + "/" + str.tostring(geo_piv) + " zigzag)"
+    else
+        CPat p = array.get(cpPats, n - 1)
+        string s = p.st == 0 ? "FORMING - needs a close " + (p.dir == 1 ? "above " : "below ") + f_px(f_cpLvl(p, bar_index)) + ", void " + (p.dir == 1 ? "below " : "above ") + f_px(p.inval) : p.st == 1 ? "CONFIRMED " + str.tostring(bar_index - p.xC) + "b ago at " + f_px(p.brk) + (na(p.tgt) ? "" : " · target " + f_px(p.tgt)) + (p.rt ? " · retested ↩" : " · no retest yet") : p.st == 5 ? "TARGET REACHED " + f_px(p.tgt) + " (broke out at " + f_px(p.brk) + ")" + (p.rt ? " · after a retest ↩" : "") : p.st == 2 ? "FAILED - " + p.why : p.st == 3 ? "EXPIRED - " + p.why : "BUSTED - " + p.why
+        t := p.name + (p.ctr ? " ↺ counter-trend" : "") + "   ·   " + s + (n > 1 ? "   ·   +" + str.tostring(n - 1) + " older on the chart" : "")
+        c := (p.st >= 2 and p.st <= 4) ? C_MUTE : p.st == 0 ? C_WARN : p.dir == 1 ? C_OK : C_NO
+    [t, c]
+
 var table s5p = table.new(f_s5pos(), 2, 26, border_width=1, frame_width=1, frame_color=C_GRID, border_color=C_GRID)
 
 // S4's panel grammar: a numbered section band that says what the rows under it are
@@ -2148,7 +2720,7 @@ f_s5row(int r, string k, string v, color c) =>
     table.cell(s5p, 1, r, v, text_size=f_s5size(), text_color=C_SOFTTXT, bgcolor=_bg, text_halign=text.align_left)
 
 if show_s5p and barstate.islast
-    table.cell(s5p, 0, 0, "S5  v1.7", text_size=f_s5size(), text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_right)
+    table.cell(s5p, 0, 0, "S5  v1.8", text_size=f_s5size(), text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_right)
     table.cell(s5p, 1, 0, syminfo.ticker + "  ·  " + timeframe.period + "  ·  explain-surface for S4", text_size=f_s5size(), text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_left)
 
     f_s5sec(1, "  I · GEOMETRY            —  What shape is this, on TradingView criteria?")
@@ -2180,7 +2752,10 @@ if show_s5p and barstate.islast
     string _gStat = geom == "-" ? "-" : _gUp ? "BROKEN UP   ·   target " + f_px(close + nz(geoHeight, 0.0)) + "  (close + base height)" : _gDn ? "BROKEN DOWN   ·   target " + f_px(close - nz(geoHeight, 0.0)) + "  (close - base height)" : "AWAITING - price inside the boundaries" + (na(geoHeight) ? "" : "   ·   base height " + str.tostring(geoHeight / chart_atr, "0.0") + "x ATR, projecting " + f_px(close + geoHeight) + " up / " + f_px(close - geoHeight) + " down")
     f_s5row(5, "Status · target", _gStat, geom == "-" ? C_MUTE : _gUp ? C_OK : _gDn ? C_NO : C_WARN)
 
-    f_s5sec(6, "  II · LEVELS             —  The horizontal and diagonal levels around price.")
+    // v1.8 - the newest chart pattern (the chart carries up to cp_maxN of them)
+    [_cpT, _cpC] = f_cpRow()
+    f_s5row(6, "Chart pattern", _cpT, _cpC)
+    f_s5sec(7, "  II · LEVELS             —  The horizontal and diagonal levels around price.")
     // NEAREST S/R each side, across D/W/M, with the touch grade. These four lines were
     // collateral damage in the 8-Sep panel rebuild: they sat between the old Geometry row
     // and the Resistance row, so the slice that replaced the former removed them too.
@@ -2188,16 +2763,16 @@ if show_s5p and barstate.islast
     [_bLvl, _bTf] = f_pick(_cB1, _dB1, _wB1, _mB1, false)
     int _aT = _aTf == "D" ? _dA1t : _aTf == "W" ? _wA1t : _aTf == "M" ? _mA1t : _aTf == tfC ? _cA1t : na
     int _bT = _bTf == "D" ? _dB1t : _bTf == "W" ? _wB1t : _bTf == "M" ? _mB1t : _bTf == tfC ? _cB1t : na
-    f_s5row(7, "Resistance", not d_sr ? "engine off" : na(_aLvl) ? "none within reach" : f_px(_aLvl) + " ·" + _aTf + f_grade(_aT) + f_dist(_aLvl), na(_aLvl) ? C_MUTE : C_NO)
-    f_s5row(8, "Support",    not d_sr ? "engine off" : na(_bLvl) ? "none within reach - the stop has no level under it" : f_px(_bLvl) + " ·" + _bTf + f_grade(_bT) + f_dist(_bLvl), na(_bLvl) ? C_WARN : C_OK)
+    f_s5row(8, "Resistance", not d_sr ? "engine off" : na(_aLvl) ? "none within reach" : f_px(_aLvl) + " ·" + _aTf + f_grade(_aT) + f_dist(_aLvl), na(_aLvl) ? C_MUTE : C_NO)
+    f_s5row(9, "Support",    not d_sr ? "engine off" : na(_bLvl) ? "none within reach - the stop has no level under it" : f_px(_bLvl) + " ·" + _bTf + f_grade(_bT) + f_dist(_bLvl), na(_bLvl) ? C_WARN : C_OK)
 
     // 4. TRENDLINES — the diagonal pair, which the horizontal levels above cannot see
-    f_s5row(9, "Trendlines", not d_tl ? "engine off" : (na(tls_now) and na(tlr_now)) ? "none fitted" : "support " + f_px(tls_now) + f_dist(tls_now) + "   ·   resistance " + f_px(tlr_now) + f_dist(tlr_now), (na(tls_now) and na(tlr_now)) ? C_MUTE : C_INFO)
+    f_s5row(10, "Trendlines", not d_tl ? "engine off" : (na(tls_now) and na(tlr_now)) ? "none fitted" : "support " + f_px(tls_now) + f_dist(tls_now) + "   ·   resistance " + f_px(tlr_now) + f_dist(tlr_now), (na(tls_now) and na(tlr_now)) ? C_MUTE : C_INFO)
 
     // 5. PIVOT FUNNEL — the diagnostic S4 gave up. A missing level is now self-explaining:
     //    no pivots is a different failure from pivots that clustered into nothing.
-    f_s5sec(19, "  V · DIAGNOSTICS       —  If something above is missing, this says why.")
-    f_s5row(20, "Pivot pools", "200-DMA " + (na(sma200D) ? "na" : str.tostring(sma200D, format.mintick)) + "   ·   chart len " + str.tostring(pv_chart) + "   ·   geometry " + str.tostring(geo_piv) + "/" + str.tostring(geo_piv) + " " + str.tostring(array.size(g5hy)) + "H / " + str.tostring(array.size(g5ly)) + "L   ·   zones " + str.tostring(array.size(gphy)) + "H / " + str.tostring(array.size(gply)) + "L   ·   trendline " + str.tostring(array.size(tlhy)) + "H / " + str.tostring(array.size(tlly)) + "L", (array.size(gphy) >= 2 and array.size(gply) >= 2) ? C_MUTE : C_WARN)
+    f_s5sec(20, "  V · DIAGNOSTICS       —  If something above is missing, this says why.")
+    f_s5row(21, "Pivot pools", "200-DMA " + (na(sma200D) ? "na" : str.tostring(sma200D, format.mintick)) + "   ·   chart len " + str.tostring(pv_chart) + "   ·   geometry " + str.tostring(geo_piv) + "/" + str.tostring(geo_piv) + " " + str.tostring(array.size(g5hy)) + "H / " + str.tostring(array.size(g5ly)) + "L   ·   zones " + str.tostring(array.size(gphy)) + "H / " + str.tostring(array.size(gply)) + "L   ·   trendline " + str.tostring(array.size(tlhy)) + "H / " + str.tostring(array.size(tlly)) + "L", (array.size(gphy) >= 2 and array.size(gply) >= 2) ? C_MUTE : C_WARN)
 
     // 6. LEVEL FUNNEL — per timeframe, whether the clusterer produced anything at all
     string _fn = ""
@@ -2210,16 +2785,16 @@ if show_s5p and barstate.islast
     // enough pivots (q), bands picked (b) and how many of those are distinct (u). b must equal
     // u - this row is what exposed the re-picking bug (b16 against 8 real bands).
     string _dg = "   ·   build D " + (_okD ? chD.dbg : "-") + " | W " + (_okW ? chW.dbg : "-") + " | M " + (_okM ? chM.dbg : "-") + (isIntra ? " | " + tfC + " " + (_okC ? chC.dbg : "-") : "")
-    f_s5row(21, "Level funnel", _fn + "   (above/below per TF)" + _dg, C_MUTE)
+    f_s5row(22, "Level funnel", _fn + "   (above/below per TF)" + _dg, C_MUTE)
 
     // 8. FOOTPRINT — the order-flow read S4 has no access to at all
     string _fpTxt = not show_fp ? "engine off" : not fpKnown ? "n/a - the feed has no footprint for this bar (ordinary on older history; NOT a delta of zero)" : (fpDelta >= 0 ? "+" : "") + str.tostring(fpDelta, format.volume) + (fpDelta > 0 ? " buyers" : fpDelta < 0 ? " sellers" : " flat") + "   ·   cum " + str.tostring(fpCumWin) + "b " + (nz(fpCum) >= 0 ? "+" : "") + str.tostring(fpCum, format.volume) + "   ·   " + str.tostring(fpBuy, format.volume) + " vs " + str.tostring(fpSell, format.volume)
-    f_s5sec(10, "  III · PARTICIPATION     —  Who is actually trading it, and are they confirming price?")
-    f_s5row(11, "Order flow", _fpTxt, not fpKnown ? C_MUTE : fpDelta > 0 ? C_OK : fpDelta < 0 ? C_NO : C_MUTE)
+    f_s5sec(11, "  III · PARTICIPATION     —  Who is actually trading it, and are they confirming price?")
+    f_s5row(12, "Order flow", _fpTxt, not fpKnown ? C_MUTE : fpDelta > 0 ? C_OK : fpDelta < 0 ? C_NO : C_MUTE)
 
     // 9. the two things the footprint says that nothing else can
     string _fpDv = not fpKnown ? "-" : fpBearDiv ? "BEARISH - new " + str.tostring(fpDivWin) + "b high on WEAKER flow (absorption into strength)" : fpBullDiv ? "BULLISH - new " + str.tostring(fpDivWin) + "b low on STRONGER flow" : (nz(fpCum, 0.0) > 0 and close > close[fpDivWin]) or (nz(fpCum, 0.0) < 0 and close < close[fpDivWin]) ? "none - price and flow point the same way" : "no divergence AT AN EXTREME - but flow and price are pointing opposite ways; this test only fires on a new " + str.tostring(fpDivWin) + "b high or low"
-    f_s5row(12, "Divergence · VA", _fpDv + (na(fpPoc) ? "" : "   ·   this bar's footprint: POC " + f_px(fpPoc) + "  VAH " + f_px(fpVah) + "  VAL " + f_px(fpVal) + " (the profile of record is S4's)") + ((fpImbBuy == 0 and fpImbSell == 0) ? "" : "   ·   imb " + str.tostring(fpImbBuy) + "B/" + str.tostring(fpImbSell) + "S"), fpBearDiv ? C_NO : fpBullDiv ? C_OK : C_MUTE)
+    f_s5row(13, "Divergence · VA", _fpDv + (na(fpPoc) ? "" : "   ·   this bar's footprint: POC " + f_px(fpPoc) + "  VAH " + f_px(fpVah) + "  VAL " + f_px(fpVal) + " (the profile of record is S4's)") + ((fpImbBuy == 0 and fpImbSell == 0) ? "" : "   ·   imb " + str.tostring(fpImbBuy) + "B/" + str.tostring(fpImbSell) + "S"), fpBearDiv ? C_NO : fpBullDiv ? C_OK : C_MUTE)
 
     // 9b. ORDER FLOW AT THE LEVEL (12-Oct-2026) - what the footprint MEANS at S/R
     array<float> _ofP = array.new<float>()
@@ -2248,23 +2823,23 @@ if show_s5p and barstate.islast
     string _ofFacts = not show_fp or not of_on ? "engine off" : _ofNs == 0 ? "no footprint on the last closed bars" : _ofV != "" ? _ofF : _ofAny != "" ? _ofAny : "no absorption, trap, stacked imbalance or big row on the last 3 closed bars"
     string _ofRd = not show_fp or not of_on ? "engine off" : _ofNs == 0 ? "n/a - no footprint for the last closed bars" : _ofV != "" ? f_ofText(_ofV, _ofL, _ofTf, _ofAg, fpBearDiv, fpBullDiv) : _ofAny != "" ? "NO LEVEL · an order-flow event away from any S/R level - low information." : "none · no order-flow event at a level in the last 3 closed bars."
     color _ofC = _ofV == "DEFENDED" or _ofV == "RESPONSIVE BUYING" or _ofV == "INITIATIVE BREAKOUT" ? C_OK : _ofV == "BREAKING" or _ofV == "FAILED BREAKOUT" ? C_NO : _ofV == "CAPPED" ? C_WARN : C_MUTE
-    f_s5row(13, "At the level", _ofFacts, _ofV != "" ? C_INFO : C_MUTE)
-    f_s5row(14, "ORDER-FLOW READ", _ofCoarse + _ofRd, _ofCoarse != "" ? C_WARN : _ofC)
+    f_s5row(14, "At the level", _ofFacts, _ofV != "" ? C_INFO : C_MUTE)
+    f_s5row(15, "ORDER-FLOW READ", _ofCoarse + _ofRd, _ofCoarse != "" ? C_WARN : _ofC)
 
     // 10. WYCKOFF — named, never gating (see the note on the detection block)
-    f_s5sec(15, "  IV · SETUPS           —  Is there a structure here? Named only; nothing here gates.")
-    f_s5row(16, "Wyckoff", not show_wy ? "engine off" : str.length(wyTxt) == 0 ? "no distribution event on this bar" : str.trim(wyTxt) + "   —   named, not gated: tested null as both veto and score", str.length(wyTxt) == 0 ? C_MUTE : C_WARN)
+    f_s5sec(16, "  IV · SETUPS           —  Is there a structure here? Named only; nothing here gates.")
+    f_s5row(17, "Wyckoff", not show_wy ? "engine off" : str.length(wyTxt) == 0 ? "no distribution event on this bar" : str.trim(wyTxt) + "   —   named, not gated: tested null as both veto and score", str.length(wyTxt) == 0 ? C_MUTE : C_WARN)
 
     // 7. READ — one synthesis line. Says what the SHAPE implies for the trade S4 is
     //    judging, and never restates a number printed above it.
     string _read = geom == "Range / rectangle" ? "A range. Both edges are levels, so the edges are the trade and the middle is noise - S4's room-to-obstacle will be small by construction here." : geom == "Ascending triangle" ? "Higher lows into a flat ceiling. Continuation shape: the base is doing the work, and the break is the event." : geom == "Descending triangle" ? "Lower highs into a flat floor. The mirror, and against a long - the floor is being tested more often than it is being defended." : geom == "Symmetrical triangle" ? "Both edges converging. Genuinely directionless until one breaks; anyone calling it now is guessing." : geom == "Bullish flag" ? "A bull flag: a strong up-move, then a shallow parallel drift against it. The most reliable continuation shape on the board - the correction is orderly and the pole is what pays. Target is the pole projected from the break of the upper rail." : geom == "Bearish flag" ? "A bear flag - the mirror, and against a long. The drift up is the correction, not the turn." : geom == "Bullish pennant" ? "A bull pennant: the same pole as a flag, but the correction COILS instead of drifting. Tighter, usually shorter, and it resolves in the direction of the pole." : geom == "Bearish pennant" ? "A bear pennant. Coiling after a down pole, and it resolves down more often than the coil suggests." : geom == "Rising wedge" ? "Rising, but NARROWING. A rising wedge resolves DOWN more often than its slope suggests - buyers are paying up for less and less range. The least attractive shape to buy into strength." : geom == "Rising channel" ? "Rising with parallel edges. A channel trades its EDGES: the lower rail is the entry and the upper rail is the exit, and buying the middle is paying for room you do not get." : geom == "Falling wedge" ? "Falling but narrowing - sellers are getting less range for their effort. The one converging shape that resolves UP more often, though it needs the upper edge to break before it means anything." : geom == "Falling channel" ? "Falling on parallel edges. Against a long until the upper rail gives way; the lower rail is where it bounces, not where it turns." : str.startswith(geom, "Broadening") ? "Broadening. Volatility expanding rather than coiling - the opposite of the compression a breakout entry wants, and stops placed inside it get hit." : "No shape yet. Nothing here argues for or against the trade; read the levels instead."
     // 10. SWP-RC — the structure and its arithmetic, never a plan
     string _s3 = not show_s3 ? "engine off" : na(s3_lvl) ? "no daily level below price yet" : not na(s3_since) and s3_since <= s3_reclaim_n ? ("swept " + f_px(s3_lvl) + " to " + f_px(s3_swpLo) + " (" + str.tostring((s3_lvl - s3_swpLo) / chart_atr, "0.0") + "x ATR), " + str.tostring(s3_since) + "b ago" + (s3_recl ? "  ·  RECLAIMED" : "  ·  not reclaimed") + (na(s3_rr) ? "" : "  ·  room " + str.tostring(s3_rr, "0.0") + "R") + (s3_fire ? "  ·  STRUCTURE COMPLETE" : not s3_recl ? "" : not s3_hasTgt ? "  ·  no ceiling found - nothing to target, so no trade thesis (not a near ceiling)" : "  ·  no trade: ceiling too close to pay") + (not s3_recl ? "" : not s3_ctxKnown ? "  ·  200-DMA unresolved, check context on S4" : s3_ctx ? "  ·  above the 200-DMA" : "  ·  NOTE: below the 200-DMA")) : "no sweep in the last " + str.tostring(s3_reclaim_n) + " bars"
-    f_s5row(17, "SWP-RC", _s3, s3_fire ? C_OK : s3_recl ? C_WARN : C_MUTE)
+    f_s5row(18, "SWP-RC", _s3, s3_fire ? C_OK : s3_recl ? C_WARN : C_MUTE)
 
     // 11. RNG-EDGE — location inside the range, and whether the edge pays
     string _s6 = not show_s6 ? "engine off" : geom != "Range / rectangle" ? "not a range - no edge to trade" : na(s6_rng) ? "range edges unresolved" : "range " + f_px(geoBot) + " to " + f_px(geoTop) + " (" + str.tostring(s6_rng / chart_atr, "0.1") + "x ATR)" + (s6_at ? "  ·  AT THE LOWER EDGE" : "  ·  mid-range, no trade here") + (not s6_at ? "" : (s6_rev ? "  ·  reversal bar" : "  ·  no reversal bar yet")) + (na(s6_rr) ? "" : "  ·  " + str.tostring(s6_rr, "0.0") + "R to the ceiling") + (s6_fire ? "  ·  ALL CONDITIONS MET" : (s6_at and s6_rev and nz(s6_rr, 0.0) < s6_min_rr) ? "  ·  blocked: ceiling too close to pay" : "")
-    f_s5row(18, "RNG-EDGE", _s6, s6_fire ? C_OK : s6_at ? C_WARN : C_MUTE)
+    f_s5row(19, "RNG-EDGE", _s6, s6_fire ? C_OK : s6_at ? C_WARN : C_MUTE)
 
-    f_s5sec(22, "  VI · READ               —  One line. What the structure implies for the trade S4 is judging.")
-    f_s5row(23, "READ", _read, C_MUTE)
+    f_s5sec(23, "  VI · READ               —  One line. What the structure implies for the trade S4 is judging.")
+    f_s5row(24, "READ", _read, C_MUTE)

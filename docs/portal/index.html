@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 22 Oct · 79 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 27 Oct · 81 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,16 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">27 Oct<br>chart patterns</td>
+        <td><b>S5 v1.8 draws chart patterns.</b> Double and triple bottoms and tops, head and shoulders both ways, cup with handle and the VCP, from a zigzag of S5's 5/5 pivots. Each is drawn with its swing legs, neckline and measured target. A pattern needs a move into it, a size of at least 2× ATR and Bulkowski's proportions. It shows ? until a close breaks the confirmation line (✓), then ↩ on a retest that holds, 🎯 at the target, and ✗, ⌛ or busted when it fails. Counter-trend patterns (against S4's 30-WMA) are dimmed (↺). Visual aid only: the panel row sits in section I, which the reviewer skips. The classifier also applies TradingView's rectangle rule first, for open item #11 (ranges read as triangles).</td>
+        <td class="af">30</td>
+      </tr>
+      <tr>
+        <td class="dt">27 Oct<br>candlesticks</td>
+        <td><b>Commander Add-ons v1.4 adds M3: candlestick patterns at key levels.</b> Eleven bullish and eleven bearish patterns (hammer, engulfing, harami, piercing/dark cloud, tweezers, stars, three soldiers/crows, doji family, marubozu), each switchable. A pattern is drawn only when its low (bullish) or high (bearish) sits on one of S4's own S/R levels with the close holding it, price came into the level, and the pattern is at least 0.6× ATR tall. The Zigzag's strict trend sets the primary trend: a pattern against it is dimmed (↺). Patterns that need a follow-up close show ? until it comes (✓) or fails (✗). Visual aid only, never a grade. Shape alone has no tested edge on stocks, which is why the level, arrival and trend filters are there. Run BIND_S4_SOURCES after compiling Add-ons.</td>
+        <td class="af">26</td>
+      </tr>
       <tr>
         <td class="dt">22 Oct<br>S5 levels</td>
         <td><b>S5's S/R and trendlines rebuilt on the reference methods (v1.7).</b> S/R follows LonesomeTheBlue's <em>Support Resistance Channels</em>: pivot highs and lows banded within 5% of the 300-bar range, ranked by pivots plus bar touches, the strongest on each side of price, with the line on the band edge facing price. It also runs on the chart timeframe when intraday. The old engine kept the two nearest pivots per side and deleted shelves price had closed through, so congestion levels were never drawn. Trendlines are pivot pairs: a higher low to an earlier low, a lower high to an earlier high, with no close through. The envelope fit drew falling supports through declines. Tests still weaken a level (MTTWR). Compile and re-check against hand-drawn lines pending.</td>
@@ -1280,8 +1290,8 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         <p class="card-d">S4 decides, S5 explains. The real footprint delta, the Wyckoff ladder,
         geometry on TradingView's own criteria, the two named setups &mdash; on a second chart,
         because it cannot share one with S4. Nothing here gates; two sections stay withheld from
-        the reviewer until tuned. v1.5: shapes withdraw at the apex; the pattern scan stays inside
-        the bar buffer.</p>
+        the reviewer until tuned. v1.8: chart patterns (double/triple, head &amp; shoulders, cup
+        with handle, VCP) drawn with confirmation, retest and target marks; TradingView's rectangle rule.</p>
         <div class="card-m"><span>Beside the chart, never on it</span><span class="go">Open &rarr;</span></div>
       </div>
     </a>
