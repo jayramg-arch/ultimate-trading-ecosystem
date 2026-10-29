@@ -44,17 +44,19 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 # Every level the chart draws, in drawing order: (key, label, colour, marker symbol, size).
 LEVELS = [
-    ("rec_t2",    "Rec T2",            "#86EFAC", "triangle-up-open", 12),
-    ("rec_t1",    "Rec T1",            "#86EFAC", "triangle-up-open", 12),
-    ("t2",        "T2 (Dhan)",         "#16A34A", "triangle-up",      13),
-    ("t1",        "T1 (Dhan)",         "#22C55E", "triangle-up",      13),
-    ("ema20",     "EMA20 (D)",         "#60A5FA", "line-ns",          18),
-    ("initial",   "Initial SL",        "#9CA3AF", "circle-open",      13),
-    ("chand",     "Chandelier",        "#22D3EE", "line-ns",          20),
-    ("rec_sl",    "Rec SL 3×ATR",      "#D946EF", "diamond",          11),
+    # targets: one arrow, one size, told apart by colour
+    ("rec_t2",    "Rec T2",            "#60A5FA", "arrow-up",         14),
+    ("rec_t1",    "Rec T1",            "#2DD4BF", "arrow-up",         14),
+    ("t2",        "T2 (Dhan)",         "#A3E635", "arrow-up",         14),
+    ("t1",        "T1 (Dhan)",         "#22C55E", "arrow-up",         14),
+    ("ema20",     "EMA20 (D)",         "#F59E0B", "line-ns",          20),
+    # stops: one dot, one size, told apart by colour
+    ("initial",   "Initial SL",        "#9CA3AF", "circle",           12),
+    ("chand",     "Chandelier",        "#22D3EE", "circle",           12),
+    ("rec_sl",    "Rec SL 3×ATR",      "#D946EF", "circle",           12),
     # where this stock's WORST overnight gap of the last 2 years would open from LTP - gap_risk.py
-    ("gapw",      "Worst-gap open (2y)", "#FB7185", "triangle-down-open", 12),
-    ("disaster",  "Disaster SL (Dhan)", "#EF4444", "x-thin",          14),
+    ("gapw",      "Worst-gap open (2y)", "#FB7185", "triangle-down",  12),
+    ("disaster",  "Disaster SL (Dhan)", "#EF4444", "circle",          12),
     ("thesis",    "Thesis SL",         "#F97316", "circle",           12),
     ("avg",       "Avg entry",         "#FACC15", "square",           11),
     ("ltp",       "LTP",               "#F8FAFC", "diamond-wide",     15),

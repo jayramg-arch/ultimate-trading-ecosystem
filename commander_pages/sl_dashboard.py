@@ -225,10 +225,12 @@ if True:
             tips.append(f"<b>{r['symbol']} · {label}</b><br>₹{_fmt(p)}<br>{pct:+.1f}% · {atrd:+.1f}×ATR(D){extra}")
         if xs:
             hollow = sym.endswith("open") or sym in ("line-ns", "x-thin")
+            # a line-type marker is drawn by its outline only, so the width IS the bar's weight
+            lw = 4 if sym == "line-ns" else (2 if hollow else 1)
             _fig.add_trace(_go.Scatter(
                 x=xs, y=ys, mode="markers", name=label, text=tips, hovertemplate="%{text}<extra></extra>",
                 marker=dict(symbol=syms, size=size, color=colour,
-                            line=dict(width=2 if hollow else 1, color=colour if hollow else "#0B1220"))))
+                            line=dict(width=lw, color=colour if hollow else "#0B1220"))))
 
     # left: the verdict chip; right: the risk chip
     _ann = []
@@ -277,7 +279,7 @@ if True:
     st.plotly_chart(_fig, width="stretch", config={"displaylogo": False})
     st.caption("Lane = one holding: stops just below the line, LTP / Avg / EMA20 on it, targets just above. Red bar = Disaster SL → Thesis SL (the gap a news gap jumps straight across). "
                "Amber haze = within 1.5×ATR below LTP: a resting stop there is inside the noise. Green bar = runway "
-               "to T1. Pink ▽ = this stock's worst 2-year gap repeated from today; ↘n = times the Dhan stop was widened. Right: what the Dhan stop costs if it fills, against the per-trade rule, and the share count "
+               "to T1. Dots = stops (red = Disaster SL), arrows = targets, amber bar = EMA20. Pink ▼ = this stock's worst 2-year gap repeated from today; ↘n = times the Dhan stop was widened. Right: what the Dhan stop costs if it fills, against the per-trade rule, and the share count "
                "that fits the rule at that stop. Click a legend item to hide a level; double-click to isolate it.")
 
     # ── triage ───────────────────────────────────────────────────────────────

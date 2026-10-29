@@ -274,7 +274,7 @@ footer em{color:var(--ink-2)}
     <div class="blk do">
       <h4>Do</h4>
       <ul>
-        <li><b>Restart properly.</b> <span class="m">STOP_COMMANDER.bat</span>, then relaunch. <span class="m">python -m streamlit</span> forks a child that keeps port 8501, so Ctrl+C leaves the OLD code serving.</li>
+        <li><b>Restart properly.</b> <span class="m">Start Web Commander</span> (it stops the old server first). <span class="m">python -m streamlit</span> forks a child that keeps port 8501, so Ctrl+C leaves the OLD code serving.</li>
         <li><b>Check the data is today's.</b> The board prints <span class="m">As_Of</span> and a provenance strip. A stale cache once froze 15 names on 9-day-old bars.</li>
         <li><b>Rebuild after any Trigger-TF or X-Ray change.</b> Cached rows predate it.</li>
         <li><b>Confirm the source lists aren't empty.</b> The header names header-only CSVs — that is how Hunter names silently vanished.</li>
