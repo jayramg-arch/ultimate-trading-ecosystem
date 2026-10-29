@@ -1370,6 +1370,7 @@ with st.sidebar:
             ("🗂️ PORTFOLIO",   "PORTFOLIO"),
             ("⚡ COMMAND",     "COMMAND"),
             ("🛡️ RISK SHIELD", "RISK SHIELD"),
+            ("🎚️ SL DASHBOARD", "SL DASHBOARD"),
             ("🎯 ACTION CENTER", "ACTION CENTER"),
         ]),
         ("🩺  STATE OF MARKET", [
@@ -4402,6 +4403,10 @@ elif page == 'ACTION CENTER':
 # ══════════════════════════════════════════════════════════════════════════
 elif page == 'RISK SHIELD':
     commander_pages.run("risk_shield", globals())   # page body: commander_pages/risk_shield.py
+
+# 28-Oct-2026 — SL DASHBOARD: every stop and target of the book on one axis (sl_board.py)
+elif page == 'SL DASHBOARD':
+    commander_pages.run("sl_dashboard", globals())   # page body: commander_pages/sl_dashboard.py
 
 
 # ─────────────────────────────────────────────────────────────────────────────

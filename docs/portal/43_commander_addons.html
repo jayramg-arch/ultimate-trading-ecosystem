@@ -1,0 +1,561 @@
+<meta charset="utf-8">
+<title>Commander Add-ons</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Oswald:wght@500;600;700&family=Public+Sans:ital,wght@0,400;0,600;0,700;1,400&display=swap">
+
+<style>
+/* Section Four's typographic family, deliberately — the two panels are built to read as one
+   instrument. The accent is a deep teal so nothing here can be mistaken for S4's crimson
+   rulings: this page describes, it never decides. */
+:root{
+  --ground:#F1F3F3; --surface:#FFFFFF; --surface-2:#F7F9F9; --surface-3:#E9EDED;
+  --ink:#141818; --ink-2:#3B4444; --muted:#68726F; --faint:#97A09D;
+  --rule:#D6DCDB; --rule-soft:#E5EAE9;
+  --acc:#1F6F78; --acc-bg:#E2F0F2; --acc-rule:#A9CDD2;
+  --go:#0F7A52; --go-bg:#E2F1EA; --go-rule:#9AC9B4;
+  --wait:#9A5B00; --wait-bg:#FBF0DE; --wait-rule:#DFBB80;
+  --no:#9E2F16; --no-bg:#FAEAE5; --no-rule:#DFB2A2;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+  --disp:'Oswald','Helvetica Neue',Arial,sans-serif;
+  --body:'Public Sans','Helvetica Neue',Arial,sans-serif;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --ground:#101414; --surface:#161B1B; --surface-2:#1C2222; --surface-3:#242B2B;
+    --ink:#EAEFEE; --ink-2:#C1C9C7; --muted:#8D9795; --faint:#66706E;
+    --rule:#2A3232; --rule-soft:#222929;
+    --acc:#5FB8C4; --acc-bg:#0E2A2E; --acc-rule:#245A62;
+    --go:#33B98A; --go-bg:#0E2C22; --go-rule:#1E5643;
+    --wait:#E0A020; --wait-bg:#332608; --wait-rule:#6A4E14;
+    --no:#EE7A5C; --no-bg:#331B14; --no-rule:#6A3527;
+  }
+}
+:root[data-theme="dark"]{
+  --ground:#101414; --surface:#161B1B; --surface-2:#1C2222; --surface-3:#242B2B;
+  --ink:#EAEFEE; --ink-2:#C1C9C7; --muted:#8D9795; --faint:#66706E;
+  --rule:#2A3232; --rule-soft:#222929;
+  --acc:#5FB8C4; --acc-bg:#0E2A2E; --acc-rule:#245A62;
+  --go:#33B98A; --go-bg:#0E2C22; --go-rule:#1E5643;
+  --wait:#E0A020; --wait-bg:#332608; --wait-rule:#6A4E14;
+  --no:#EE7A5C; --no-bg:#331B14; --no-rule:#6A3527;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);font-family:var(--body);font-size:16.5px;line-height:1.62;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1220px;margin:0 auto;padding:0 24px}
+header.mast{background:var(--surface);border-bottom:1px solid var(--rule)}
+.mast-in{max-width:1220px;margin:0 auto;padding:50px 24px 34px;display:grid;grid-template-columns:minmax(0,1fr) auto;gap:40px;align-items:end}
+.eyebrow{font-family:var(--mono);font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--acc);margin:0 0 14px;font-weight:500}
+h1{font-family:var(--disp);font-weight:700;font-size:clamp(40px,6.6vw,68px);line-height:1;letter-spacing:.005em;margin:0;text-transform:uppercase}
+.dek{font-size:17px;color:var(--ink-2);max-width:60ch;margin:16px 0 0}
+.gatebox{border:1px solid var(--acc-rule);background:var(--acc-bg);border-radius:3px;padding:17px 20px;min-width:250px}
+.gatebox .lbl{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--acc);margin:0 0 11px;font-weight:500}
+.gatebox .eq{font-family:var(--mono);font-size:15px;font-weight:700;color:var(--ink);letter-spacing:.04em;line-height:1.8}
+.gatebox .sm{font-family:var(--mono);font-size:11px;color:var(--ink-2);margin-top:9px;padding-top:9px;border-top:1px dashed var(--acc-rule)}
+.cols{display:grid;grid-template-columns:206px minmax(0,1fr);gap:52px;padding:40px 0 92px}
+nav.toc{position:sticky;top:20px;align-self:start;max-height:calc(100vh - 40px);overflow-y:auto}
+nav.toc p{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);margin:16px 0 8px;font-weight:500}
+nav.toc p:first-child{margin-top:0}
+nav.toc ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:1px}
+nav.toc a{display:block;font-family:var(--mono);font-size:11px;line-height:1.4;color:var(--muted);text-decoration:none;padding:6px 9px;border-radius:2px;border-left:2px solid transparent}
+nav.toc a:hover,nav.toc a:focus-visible{background:var(--surface-2);color:var(--ink);border-left-color:var(--acc)}
+nav.toc a:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+main{min-width:0}
+section{margin:0 0 58px;scroll-margin-top:20px}
+h2{font-family:var(--disp);font-weight:600;font-size:clamp(26px,3.3vw,36px);line-height:1.1;letter-spacing:.01em;margin:0 0 16px;text-transform:uppercase}
+h2 .n{font-family:var(--mono);font-size:11px;font-weight:500;color:var(--acc);letter-spacing:.16em;display:block;margin-bottom:7px;text-transform:none}
+h3{font-family:var(--disp);font-weight:600;font-size:20px;letter-spacing:.01em;margin:30px 0 10px}
+h4{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:24px 0 9px;font-weight:500}
+p{margin:0 0 14px;max-width:74ch}
+ul,ol{margin:0 0 14px;padding-left:21px;max-width:74ch}
+li{margin:0 0 7px}
+b,strong{font-weight:700;color:var(--ink)}
+code{font-family:var(--mono);font-size:.85em;background:var(--surface-3);padding:1.5px 5px;border-radius:2px;color:var(--ink-2)}
+pre{font-family:var(--mono);font-size:12.5px;line-height:1.75;background:var(--surface-3);border:1px solid var(--rule);border-radius:2px;padding:14px 16px;overflow-x:auto;margin:0 0 18px;color:var(--ink-2)}
+pre b{color:var(--acc)}
+p.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);background:var(--surface-3);border:1px solid var(--rule);border-radius:2px;padding:9px 12px;overflow-x:auto;white-space:nowrap;max-width:none}
+.tw{overflow-x:auto;border:1px solid var(--rule);border-radius:3px;background:var(--surface);margin:0 0 18px}
+table{border-collapse:collapse;width:100%;font-size:14.5px}
+th{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;padding:10px 13px;background:var(--surface-2);border-bottom:1px solid var(--rule);font-weight:500;white-space:nowrap}
+td{padding:10px 13px;border-bottom:1px solid var(--rule-soft);color:var(--ink-2);vertical-align:top}
+tr:last-child td{border-bottom:none}
+td.k{color:var(--ink);font-weight:700;white-space:nowrap}
+td.m{font-family:var(--mono);font-size:12.5px;color:var(--ink);white-space:nowrap}
+.note{border:1px solid var(--rule);border-left:3px solid var(--acc);background:var(--surface);padding:15px 19px;border-radius:2px;margin:0 0 18px;font-size:15.5px}
+.note.no{border-left-color:var(--no);background:var(--no-bg);border-color:var(--no-rule)}
+.note.go{border-left-color:var(--go);background:var(--go-bg);border-color:var(--go-rule)}
+.note .tag{font-family:var(--mono);font-size:10px;letter-spacing:.15em;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:7px;font-weight:500}
+.note.no .tag{color:var(--no)} .note.go .tag{color:var(--go)}
+.note p:last-child{margin-bottom:0}
+.panel{display:grid;gap:0;border:1px solid var(--rule);border-radius:3px;overflow:hidden;margin:0 0 18px;background:var(--surface)}
+.pband{display:grid;grid-template-columns:40px minmax(0,1fr);border-bottom:1px solid var(--rule-soft)}
+.pband:last-child{border-bottom:none}
+.pband .num{font-family:var(--mono);font-size:13px;font-weight:700;color:var(--acc);background:var(--acc-bg);display:flex;align-items:center;justify-content:center;border-right:1px solid var(--rule-soft)}
+.pband .bd{padding:14px 17px}
+.pband .h{font-family:var(--disp);font-weight:600;font-size:16px;letter-spacing:.02em;margin:0 0 4px;text-transform:uppercase}
+.pband p{font-size:14.5px;margin:0;color:var(--ink-2);max-width:70ch}
+details.ref{border:1px solid var(--rule);border-radius:3px;background:var(--surface);margin:0 0 14px;overflow:hidden}
+details.ref>summary{cursor:pointer;list-style:none;padding:13px 17px;font-family:var(--mono);font-size:11.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink);font-weight:500;background:var(--surface-2);border-bottom:1px solid transparent;display:flex;justify-content:space-between;gap:14px}
+details.ref>summary::-webkit-details-marker{display:none}
+details.ref>summary::after{content:"▸";color:var(--acc);font-size:13px}
+details.ref[open]>summary{border-bottom-color:var(--rule)}
+details.ref[open]>summary::after{content:"▾"}
+details.ref>summary:hover{color:var(--acc)}
+details.ref>summary:focus-visible{outline:2px solid var(--acc);outline-offset:-2px}
+details.ref .rb{padding:16px 17px 4px}
+.refnote{font-size:14px;color:var(--muted);margin:-6px 0 14px}
+footer{border-top:1px solid var(--rule);background:var(--surface);font-family:var(--mono);font-size:11px;color:var(--muted)}
+.foot-in{max-width:1220px;margin:0 auto;padding:24px;display:flex;flex-wrap:wrap;gap:16px;justify-content:space-between}
+footer a{color:var(--acc)}
+@media (max-width:900px){
+  .cols{grid-template-columns:1fr;gap:0;padding:26px 0 66px}
+  nav.toc{position:static;max-height:none;margin-bottom:30px;border:1px solid var(--rule);border-radius:3px;padding:16px;background:var(--surface)}
+  .mast-in{grid-template-columns:1fr;gap:24px}
+}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<header class="mast">
+  <div class="mast-in">
+    <div>
+      <p class="eyebrow">Doc 43 · The live system</p>
+      <h1>Commander Add-ons</h1>
+      <p class="dek"><b>One indicator for the small reads.</b> Each new display read goes in here as a
+      module rather than becoming another indicator, and rather than costing S4 a compile. Three
+      modules today: <b>M1</b> the latest bar read, <b>M2</b> the v2 system status, and <b>M3</b>
+      candlestick patterns at key levels. None of them gates, scores or alerts. Since v1.5 M3's newest
+      candlestick is also printed on S4's <b>Intraday │ Pattern</b> row and in its <b>SUMMARY</b>.</p>
+    </div>
+    <div class="gatebox">
+      <p class="lbl">Where it runs</p>
+      <div class="eq">Any chart<br>beside S4</div>
+      <div class="sm">File <code>Commander_Addons_v1.0.pine</code>, title <b>v1.5</b>. Reads two Zigzag inputs; S4 binds three of its plots. After a compile run <b>BIND_S4_SOURCES</b>.</div>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+<div class="cols">
+
+<nav class="toc">
+  <p>The container</p>
+  <ol>
+    <li><a href="#why">Why it exists</a></li>
+    <li><a href="#rules">Rules for a module</a></li>
+  </ol>
+  <p>The modules</p>
+  <ol>
+    <li><a href="#m1">M1 · Latest bar read</a></li>
+    <li><a href="#m2">M2 · v2 status</a></li>
+    <li><a href="#m3">M3 · Candlesticks</a></li>
+    <li><a href="#m3where">M3 · Where it shows</a></li>
+    <li><a href="#m3filters">M3 · The three filters</a></li>
+    <li><a href="#m3trend">M3 · Primary trend</a></li>
+    <li><a href="#m3list">M3 · The 22 patterns</a></li>
+    <li><a href="#m3confirm">M3 · Confirmation</a></li>
+    <li><a href="#m3read">M3 · Reading a mark</a></li>
+    <li><a href="#m3age">M3 · How long a mark counts</a></li>
+    <li><a href="#m3research">M3 · The research</a></li>
+  </ol>
+  <p>Operating it</p>
+  <ol>
+    <li><a href="#inputs">Inputs reference</a></li>
+    <li><a href="#compile">After a compile</a></li>
+    <li><a href="#state">Known state</a></li>
+    <li><a href="#traps">Troubleshooting</a></li>
+  </ol>
+</nav>
+
+<main>
+
+<section id="why">
+  <h2><span class="n">01</span>Why it exists</h2>
+  <p>S4 sits at its compiled-token ceiling, and every S4 compile costs an S4Core publish, a re-bind on
+  every tab and fresh alert versions. A small display read is not worth that. Since 12 October each one
+  goes into this indicator as a <b>module</b>, so it costs a single Add-ons compile and nothing else.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Module</th><th>Since</th><th>What it shows</th><th>Feeds anything?</th></tr></thead>
+    <tbody>
+      <tr><td class="k">M1 · Latest bar read</td><td class="m">12 Oct</td><td>Weak / neutral / strong on the last closed bar, plus the bars before it</td><td>No. The board's <code>Bar</code> column uses the same four numbers</td></tr>
+      <tr><td class="k">M2 · v2 status</td><td class="m">18 Oct</td><td>v2's group, rank against the cut, holding, and its exit levels, on any v2 name</td><td>No. Read from a string pushed nightly</td></tr>
+      <tr><td class="k">M3 · Candlesticks</td><td class="m">27 Oct</td><td>22 candlestick patterns, drawn only at a key level, with confirmation marks</td><td>Display only. Since v1.5 S4 prints the newest one (row 22 and SUMMARY), so the reviewer reads it. Never a grade</td></tr>
+    </tbody>
+  </table></div>
+  <div class="note">
+    <span class="tag">Chart patterns live elsewhere</span>
+    <p>Double and triple bottoms, head and shoulders, cup with handle and the VCP are in <b>S5</b>
+    (Doc 30, §04b), because they are built from S5's pivot and geometry engines. Add-ons M3 is
+    candlesticks only: one to three bars, read at a level.</p>
+  </div>
+</section>
+
+<section id="rules">
+  <h2><span class="n">02</span>Rules for a module</h2>
+  <ol>
+    <li><b>Display only.</b> A module never feeds S4's GO or an alert. It may export a display-only read that
+    S4 binds and prints (M3, since v1.5); there too it never grades or gates. If a read earns a place in the
+    gate, it moves into S4 or S4Core at a compile that is happening anyway.</li>
+    <li><b>Its own input group with an Enable switch</b>, so any module can be turned off alone.</li>
+    <li><b>Its own section in the file</b>, self-contained, with no shared state between modules.</li>
+    <li><b>Numbers shared with Python are constants, not inputs</b>, and a test checks the pair
+    (M1: <code>tests/test_bar_read.py</code>; M3: <code>tests/test_addons_m3.py</code>).</li>
+    <li>It shares Pine's limits like any other script: 64 plots, compiled tokens, 40 request calls, 20 s.
+    Prefer labels and shapes; avoid request calls unless needed.</li>
+  </ol>
+</section>
+
+<section id="m1">
+  <h2><span class="n">03</span>M1 · Latest bar read</h2>
+  <p class="m">Weak.C:36%.TW:64% | 1b:W 2b:N 3b:S</p>
+  <p>S4's B gate passes a bar that closed green <em>or</em> in the upper half of its range, so a green
+  bar with a long top wick passes. That is loose on purpose: the GO is an alert trigger, and tightening it
+  was measured three times in August and cost winners. You read the latest closed bar by eye before
+  ordering; M1 names that read.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Grade</th><th>Rule</th><th>Mark</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Weak</td><td>Close in the lower third of the range, <b>or</b> an upper wick of half the range or more</td><td>Orange dot above the bar (on by default)</td></tr>
+      <tr><td class="k">Strong</td><td>Close in the upper third <b>and</b> an upper wick under a quarter of the range</td><td>Teal triangle below (off by default)</td></tr>
+      <tr><td class="k">Neutral</td><td>Everything else</td><td>—</td></tr>
+    </tbody>
+  </table></div>
+  <p>The label sits on the last <b>closed</b> bar: <code>C</code> is the close's position in the range,
+  <code>TW</code> the top wick's share of it. After the bar the label lists the previous bars' grades
+  (<code>1b:W</code> = one bar back was weak), because a price-action trigger may have fired up to three
+  bars back on a bearish bar while the latest bar is bullish. <b>Order on the latest bar; the PA bar is
+  context.</b></p>
+  <p>On Daily, TradingView keeps the day's bar unconfirmed after 15:30; M1 treats it as closed from then,
+  the same rule S4 uses.</p>
+  <div class="note">
+    <span class="tag">A read, not a rule</span>
+    <p>The four thresholds equal the board's <code>Bar</code> column (<code>gm_trigger_board.BAR_*</code>).
+    Whether the grade separates outcomes is pre-registered as H2 in
+    <code>docs/PREREG_rejection_at_level.md</code> and will be judged on rows from 12 October onward.</p>
+  </div>
+</section>
+
+<section id="m2">
+  <h2><span class="n">04</span>M2 · v2 system status</h2>
+  <p class="m">v2 · HOLD · rank 14/120 · cut 30 · your holding<br>exit if the decision close &lt; 100-DMA 1,842.30<br>decided 2026-10-19</p>
+  <p>The v2 system decides at Tuesday's close in Python. On the chart of any v2 name M2 prints that
+  decision: the group (<b>BUY · SELL · HOLD · WATCH</b>), the rank against the buy cut, whether the
+  holding is real or paper, and the decision date. The text is a single line pushed every evening by
+  <code>tv_push_addons.py</code> (auto-pilot, and step 5 of AFTER_COMPILE) from
+  <code>data/v2/addon_status.txt</code>. Do not edit the input; the next push overwrites it.</p>
+  <p><b>v2 has no stop.</b> It leaves on Clenow's exits, and M2 draws them, but only on a name v2 owns
+  or is buying this week (on a WATCH name, often a v1 holding, they would read as an instruction they
+  are not):</p>
+  <ul>
+    <li><b>The 100-day average of daily closes</b> (orange line). A decision close below it is sold at the next open; the label says <em>BELOW NOW</em> when it is.</li>
+    <li><b>The previous daily close ±15%</b> (dotted). A one-day move beyond either makes the name ineligible for 90 days.</li>
+    <li>Flags from Python: <b>X</b> not in the Nifty 500 (sold at the next rebalance), <b>S</b> NSE surveillance (out of the pool), <b>1</b> held by v1 (a v2 buy is a CONVERT; see the order sheet).</li>
+  </ul>
+  <p>S4's VERDICT and GO rows are the current system's entry rules and do not apply to v2 names. M2 is the
+  v2 read. The 100-DMA and the gap band are computed on the chart's own daily bars, so they cannot drift
+  from what you see.</p>
+</section>
+
+<section id="m3">
+  <h2><span class="n">05</span>M3 · Candlesticks at key levels (v1.4; S4 export v1.5, 27 Oct)</h2>
+  <p class="m">Hmr ? ↺       BuE ✓       MS       TwB ✗</p>
+  <p>Twenty-two candlestick patterns, eleven bullish and eleven bearish, each with its own switch. They are
+  drawn only where they can mean something: <b>at one of S4's own S/R levels, after price came into that
+  level, at a useful size</b>. Patterns that need a follow-up candle are marked pending until it comes.</p>
+  <p><b>Visual aid only.</b> M3 never grades a stock and never touches the GO or an alert. It answers one
+  question: did buyers (or sellers) show up at this level, in a shape worth noticing? Since v1.5 S4 prints
+  that answer too (§05b).</p>
+</section>
+
+<section id="m3where">
+  <h2><span class="n">05b</span>M3 · Where it shows, and what reads it</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Surface</th><th>Sees the candlestick marks?</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Your chart</td><td><b>Yes</b> — labels, the dotted level line and the ✓ on the confirming bar</td></tr>
+      <tr><td class="k">S4 panel</td><td><b>Yes, since v1.5 (S4 v11.34).</b> Section III Execution &amp; Timing, row <b>Intraday │ Pattern</b>: the newest pattern, its level, age, state, trend and what it means</td></tr>
+      <tr><td class="k">S4 SUMMARY</td><td><b>Yes.</b> A <b>CANDLE</b> section after LOCATION and LEVELS, saying what the candle means for the trade. It is left out when no pattern is recent</td></tr>
+      <tr><td class="k">The AI reviewer</td><td><b>Yes</b>, through S4's panel (the reviewer reads S4 in full). Its prompt says how to weigh a candle, and each review logs <code>candle</code> and <code>candle_state</code></td></tr>
+      <tr><td class="k">GM board</td><td>No candlestick column. M1's grade has a twin: the board's <code>Bar</code> column</td></tr>
+    </tbody>
+  </table></div>
+  <p class="m">Intraday 75 │ Pattern │ … │ 🕯 Bullish engulfing ✓ at Weekly S/R 1,842.50 · 2b ago · CONFIRMED — an up body that swallows the prior down body - buyers overwhelmed the last sellers at the level</p>
+  <p class="m">CANDLE · A bullish engulfing at the Weekly S/R 1,842.50 2 bars ago, confirmed by a later close above it: buyers defended a level S4 itself prints and followed through - timing evidence that the location is holding. A visual aid, untested on this book: it reads how the level is holding, it never replaces the location, the trigger or the stop.</p>
+  <h4>What SUMMARY says, by state</h4>
+  <div class="tw"><table>
+    <thead><tr><th>Candle</th><th>CANDLE section reads it as</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Bullish ✓ (confirmed or built in)</td><td>Timing evidence that the level is holding. It confirms the location; it does not replace it</td></tr>
+      <tr><td class="k">Bullish ?</td><td>A question the next bars answer, not a trigger. It names the close that would confirm it</td></tr>
+      <tr><td class="k">Bullish ✗</td><td>The level was tested and did not hold this time. Treat the next touch with suspicion</td></tr>
+      <tr><td class="k">Bearish (at resistance)</td><td>Sellers showed up overhead. Against buying into it; on a holding, a reason to tighten or trim, never to add</td></tr>
+      <tr><td class="k">Bearish ✗</td><td>The rejection did not stick, which mildly favours a long</td></tr>
+      <tr><td class="k">↺ counter-trend</td><td>Adds: these patterns hold up worst against the primary trend, so discount it</td></tr>
+    </tbody>
+  </table></div>
+  <h4>How it reaches S4</h4>
+  <p><code>input.source</code> carries numbers only, so M3 sends the newest pattern as three hidden plots:
+  <code>s4_candleCode</code> (the pattern, its state, age, level type and trend packed into one number),
+  <code>s4_candleLvl</code> (the level price) and <code>s4_candleTrig</code> (the close that confirms it).
+  S4 binds them as <em>Add-ons: candle code / level / trigger</em> and <code>S4Core.candleRead</code>
+  turns them back into words. Only a pattern no older than <b>5 bars</b> is sent (input <em>Show on S4
+  for</em>); after that the row reads <em>no candlestick at a key level recently</em>.
+  <code>tests/test_addons_m3.py</code> keeps the name lists in the two files equal and checks the packing
+  survives a 32-bit float.</p>
+  <p>Kept out of every grade until it has been measured.</p>
+</section>
+
+<section id="m3filters">
+  <h2><span class="n">06</span>M3 · The three filters</h2>
+  <p>Shape alone has almost no edge on stocks (see §11). Each mark must clear all three:</p>
+  <div class="panel">
+    <div class="pband"><div class="num">1</div><div class="bd">
+      <p class="h">Key level</p>
+      <p>The pattern's low (bullish) or high (bearish) is within <b>0.5 × ATR14</b> of a level, and the close
+      holds the level. Levels come from <b>S4's own S/R engine</b> (<code>S4Core.srLevels</code>, the same
+      settings as S4) on Daily, Weekly and Monthly: the two nearest each side. Monthly outranks Weekly,
+      Weekly outranks Daily, and a tie goes to the nearer level. A timeframe below the chart's is skipped
+      (on a Weekly chart, Daily levels are not used). Daily EMA20, the 50-DMA and the 200-DMA can be added
+      as extra levels; they are off by default because price touches them often.</p></div></div>
+    <div class="pband"><div class="num">2</div><div class="bd">
+      <p class="h">Arrival</p>
+      <p>Price came <em>into</em> the level: a bullish pattern holds the lowest low of the last <b>5 bars</b>,
+      a bearish one the highest high. This is the "prior decline" every textbook definition asks for. A hammer
+      in the middle of a range is not drawn.</p></div></div>
+    <div class="pband"><div class="num">3</div><div class="bd">
+      <p class="h">Size</p>
+      <p>The whole pattern spans at least <b>0.6 × ATR14</b> from high to low. Bulkowski finds tall candles
+      do better; a tiny candle at a level is noise.</p></div></div>
+  </div>
+  <p><b>One mark per bar.</b> When several patterns pass on the same bar, the strongest in priority order
+  takes the label (see the table in §08), and the others are listed in its tooltip as <em>also</em>. A
+  bearish pattern is only looked for on a bar with no bullish mark.</p>
+</section>
+
+<section id="m3trend">
+  <h2><span class="n">07</span>M3 · Primary trend</h2>
+  <p>The primary trend comes from the <b>Swing Zigzag's strict trend</b>, bound by BIND_S4_SOURCES through
+  two inputs: chart timeframe (the default) or weekly. A bullish pattern while the trend reads DOWN, or a
+  bearish one while it reads UP, is <b>counter-trend</b>: marked ↺ and dimmed. It can also be hidden or
+  shown in full.</p>
+  <div class="note">
+    <span class="tag">Why the Zigzag trend is not the "decline" test</span>
+    <p>Inside a Stage-2 pullback the Zigzag still reads UP, and that is exactly where these patterns work
+    best. Bulkowski finds bullish candles do best as a retrace inside a rising primary trend, and inside
+    a falling one they reverse it only briefly. So the Zigzag sets with-trend versus counter-trend, and
+    the separate arrival test (§06) checks that price came down into the level.</p>
+  </div>
+  <p>If the Zigzag inputs are not bound, M3 falls back to the 50-DMA (close against it and its 10-bar
+  slope) and prints a quiet note in the bottom-right corner: <em>Zigzag trend not bound — using the
+  50-DMA. Run BIND_S4_SOURCES.</em></p>
+</section>
+
+<section id="m3list">
+  <h2><span class="n">08</span>M3 · The 22 patterns, in priority order</h2>
+  <p class="refnote">"Built in" means the confirmation is inside the pattern, so no follow-up candle is
+  needed. Bulkowski figures are quoted only where read from his pages (thepatternsite.com).</p>
+  <div class="tw"><table>
+    <thead><tr><th>#</th><th>Bullish (at support)</th><th>Bearish (at resistance)</th><th>Shape rule</th><th>Confirm</th></tr></thead>
+    <tbody>
+      <tr><td class="m">1</td><td class="k">MS · Morning star</td><td class="k">ES · Evening star</td><td>Three bars. A tall first candle (body ≥ 0.6 × ATR), a small middle body (≤ 30% of the first) near the first's close, and a third that closes past the first's midpoint. No gap needed. Bulkowski: morning star 78% bullish reversal</td><td>Built in</td></tr>
+      <tr><td class="m">2</td><td class="k">3WS · Three white soldiers</td><td class="k">3BC · Three black crows</td><td>Three candles in one direction, each closing further, each opening inside the previous body, small wicks against the move (≤ 30% of range), each body ≥ 0.4 × ATR. Bulkowski: soldiers 82%, rare</td><td>Built in</td></tr>
+      <tr><td class="m">3</td><td class="k">BuE · Bullish engulfing</td><td class="k">BeE · Bearish engulfing</td><td>The second body covers the first, opposite colour, and is larger. Bulkowski: 63%; avoid in a falling primary trend. Confirmed = Three Outside Up / Down</td><td>Needs a close</td></tr>
+      <tr><td class="m">4</td><td class="k">Prc · Piercing line</td><td class="k">DC · Dark cloud cover</td><td>A tall first candle (≥ 0.6 × ATR); the second opens at or beyond its close and closes past its midpoint, but not past its open. No gap needed</td><td>Needs a close</td></tr>
+      <tr><td class="m">5</td><td class="k">Mbz · Bullish marubozu</td><td class="k">Mbz · Bearish marubozu</td><td>Body ≥ 90% of the range, range ≥ 1 × ATR. <b>Off by default</b> (it marks momentum, not a reversal)</td><td>Built in</td></tr>
+      <tr><td class="m">6</td><td class="k">Hmr · Hammer</td><td class="k">SS · Shooting star</td><td>A wick on one side ≥ 2 × the body and ≥ 55% of the range; the other wick ≤ 15%; a real body (≥ 5%). Bulkowski: hammer 60% bullish reversal (random is about 50%); a white body does better</td><td>Needs a close</td></tr>
+      <tr><td class="m">7</td><td class="k">Har · Bullish harami</td><td class="k">Har · Bearish harami</td><td>A tall first candle (≥ 0.6 × ATR), then a body inside it no more than half its size. Confirmed = Three Inside Up (Bulkowski: 65%) / Down</td><td>Needs a close</td></tr>
+      <tr><td class="m">8</td><td class="k">TwB · Tweezer bottom</td><td class="k">TwT · Tweezer top</td><td>Opposite-colour pair whose lows (tops: highs) match within 0.1 × ATR</td><td>Needs a close</td></tr>
+      <tr><td class="m">9</td><td class="k">IHm · Inverted hammer</td><td class="k">HgM · Hanging man</td><td>The hammer shapes on the "wrong" side: an inverted hammer at support, a hammer shape at resistance</td><td>Needs a close</td></tr>
+      <tr><td class="m">10</td><td class="k">DjD · Dragonfly doji</td><td class="k">DjG · Gravestone doji</td><td>Body ≤ 10% of the range with no wick on the other side (≤ 10%)</td><td>Needs a close</td></tr>
+      <tr><td class="m">11</td><td class="k">Dj · Doji</td><td class="k">Dj · Doji</td><td>Body ≤ 10% of the range. Indecision: only the confirming close gives it a direction</td><td>Needs a close</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="m3confirm">
+  <h2><span class="n">09</span>M3 · Confirmation</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Mark</th><th>Meaning</th></tr></thead>
+    <tbody>
+      <tr><td class="k">?</td><td>Pending. The pattern needs a follow-up candle and it has not come yet. Dimmer than a confirmed mark</td></tr>
+      <tr><td class="k">✓</td><td>Confirmed: a later close <b>above the pattern's high</b> (bullish) or <b>below its low</b> (bearish) within <b>3 bars</b>. Bulkowski's breakout test. A small ✓ is also drawn on the confirming bar</td></tr>
+      <tr><td class="k">✗</td><td>Failed: a close through the other end of the pattern, or no follow-through in 3 bars. Kept in grey by default; can be removed</td></tr>
+      <tr><td class="k">(no status)</td><td>The pattern carries its confirmation inside it (stars, soldiers / crows, marubozu)</td></tr>
+      <tr><td class="k">↺</td><td>Counter-trend (§07)</td></tr>
+    </tbody>
+  </table></div>
+  <p>A pattern is read on the <b>closed</b> bar only, so it cannot appear and vanish while a bar is
+  forming. On Daily, the day's bar counts as closed from 15:30.</p>
+</section>
+
+<section id="m3read">
+  <h2><span class="n">10</span>M3 · Reading a mark</h2>
+  <p>Each label sits under the bar (bullish) or over it (bearish) and shows the short code, the status and
+  ↺ if counter-trend. <b>Hover it</b> for the full read:</p>
+  <pre><b>Hammer</b> at Weekly S/R 1,842.50 · 3 touches
+primary trend UP (Zigzag chart TF)
+Bulkowski: bullish reversal 60% (random ~50%); a white body does better.
+also: Tweezer bottom
+PENDING - needs a close above 1,868.20 within 3 bars</pre>
+  <p>A short dotted line marks the level the pattern formed on, by default for the latest pattern only.
+  Patterns older than 150 bars are cleared.</p>
+  <div class="note go">
+    <span class="tag">How to use it</span>
+    <p>Treat a confirmed bullish mark at a level as <b>evidence that buyers showed up there</b>, the
+    same question S4's L and B gates ask in words. It does not replace the S4 GO and it is not an entry on
+    its own. A bearish mark at resistance on a holding is a reason to look at the Daily close, not to sell
+    on the mark.</p>
+  </div>
+</section>
+
+<section id="m3age">
+  <h2><span class="n">10b</span>M3 · How long a mark counts</h2>
+  <p>A candlestick is a timing event: one to three bars that say buyers or sellers showed up at a
+  level. It goes stale fast, and the windows below are where it stops counting.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Window</th><th>Bars</th><th>What happens</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Confirm</td><td><b>3</b></td><td>A pattern that needs confirmation reads <code>?</code> until a close beyond its high (bullish) or low (bearish). No such close within 3 bars turns it <code>✗</code>: "no follow-through" (input <em>Confirm within</em>)</td></tr>
+      <tr><td class="k">Shown on S4</td><td><b>5</b></td><td>S4's Intraday │ Pattern row and its SUMMARY CANDLE section print the newest pattern only while it is at most 5 bars old (input <em>Show on S4 for</em>). Older reads <code>🕯 no candlestick at a key level recently</code></td></tr>
+      <tr><td class="k">Drawn on the chart</td><td>150</td><td>History only, for looking back (input <em>Show patterns from the last</em>)</td></tr>
+    </tbody>
+  </table></div>
+  <ul>
+    <li><b><code>?</code> pending</b> is a question until its confirming close. It is not a trigger.</li>
+    <li><b><code>✓</code> older than 5 bars</b> is history, even if the level is still holding. The level's own reads (S4's L and B gates, S/R tests) take over.</li>
+    <li><b><code>✗</code> failed</b> is information: the level did not hold that time.</li>
+    <li><b>When a candle and a chart pattern disagree, the pattern carries more weight.</b> A chart pattern is structure that lasts as long as it took to build (Doc 30 §04c); a candle is one to three bars. On VIJAYA (27 Oct) a failed doji at 1,374.50 leaned mildly long while S5 showed a confirmed, counter-trend triple top at 1,380: the top decided it.</li>
+  </ul>
+  <div class="note">
+    <span class="tag">Bars, not days</span>
+    <p>Every age here is counted in bars of the chart it is drawn on, so read it on the trade's own
+    clock. A <b>positional</b> trade is decided on the Daily close: 3 bars is about 3 sessions, 5 bars
+    about a week. A <b>swing</b> is timed on 75m or 125m: 3 bars is half a day to a day, and an intraday
+    mark older than about a day says nothing about the setup.</p>
+  </div>
+  <p class="refnote">Not tested on this desk's data. The 3-bar confirm follows Bulkowski's
+  confirmation-by-close; the 5-bar display window follows the PA battery, where a pattern 1–3 bars old
+  tested no worse than one on today's bar on Daily, 125m and 75m (PREREG_pa_recency_daily /
+  _intraday, 15–16 Oct). The candles never gate, so these are reading rules, not measured edges.</p>
+</section>
+
+<section id="m3research">
+  <h2><span class="n">11</span>M3 · The research behind the filters</h2>
+  <ul>
+    <li><b>Shape alone has almost no edge on stocks.</b> Studies on Thai SET50 stocks (2017) and on 20 US
+    stocks found most patterns' returns not different from zero. That matches this desk's own result: the
+    PA gate times entries, it does not select them (PREREG_pa_selects). Hence the level, arrival and size
+    filters.</li>
+    <li><b>Where they work (Bulkowski):</b> as a retrace inside a rising primary trend; tall candles; and
+    confirmation by a later close beyond the pattern.</li>
+    <li><b>Modern adaptations used:</b> ATR-relative sizes instead of fixed points; no gap required for
+    piercing line, dark cloud or the stars, because NSE stocks rarely gap between candles intraday; one
+    label per bar by priority.</li>
+    <li><b>Left out on purpose:</b> Bulkowski's "best near the yearly low" (it works against Stage-2 leaders
+    near their highs), and a volume filter (the 13-August measurement showed relative volume does not
+    separate good pullbacks from bad ones).</li>
+  </ul>
+  <p class="refnote">Sources: thepatternsite.com (Morning Star, Hammer, Bullish Engulfing pages);
+  Bulkowski, <em>Eight best-performing candles</em> (S&amp;C); "Profitability of candlestick patterns"
+  (SAGE Open, 2017, SET50); candlestick patterns on US stocks (UCLAN).</p>
+</section>
+
+<section id="inputs">
+  <h2><span class="n">12</span>Inputs — field by field</h2>
+  <p class="refnote">Folded. Every module has its own group and Enable switch.</p>
+
+  <details class="ref"><summary>M1 · Latest bar read</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Mark weak bars · strong bars</td><td class="m">on · off</td><td>Orange dot over every closed weak bar; teal triangle under every strong one</td></tr>
+      <tr><td class="k">Label the last closed bar</td><td class="m">on</td><td>Grade, close position and top-wick share</td></tr>
+      <tr><td class="k">Also grade the previous bars</td><td class="m">3</td><td>Adds <code>1b:W 2b:N …</code> for the bars where a recent PA may have fired. 0 = off</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>M2 · v2 status</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">v2 status</td><td class="m">pushed</td><td>Written nightly by <code>tv_push_addons.py</code>. Do not edit</td></tr>
+      <tr><td class="k">Draw a v2 stop</td><td class="m">on</td><td>Only if one is recorded (v2 normally has none)</td></tr>
+      <tr><td class="k">Say so when not a v2 name</td><td class="m">off</td><td>A small grey label on non-v2 charts</td></tr>
+      <tr><td class="k">Draw v2's exit levels</td><td class="m">on</td><td>100-day average and the ±15% gap band, on names v2 owns or is buying</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>M3 · Candlesticks at key levels</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Enable · Bearish patterns at resistance</td><td class="m">on · on</td><td>Bearish marks are for holdings near overhead supply and for not buying into resistance</td></tr>
+      <tr><td class="k">Patterns to plot</td><td class="m">all on, Marubozu off</td><td>Ten switches: hammer / hanging man, inverted hammer / shooting star, doji family, engulfing, harami, piercing / dark cloud, tweezers, stars, soldiers / crows, marubozu</td></tr>
+      <tr><td class="k">Daily · Weekly · Monthly S/R</td><td class="m">on · on · on</td><td>S4's own levels. A timeframe below the chart's is skipped</td></tr>
+      <tr><td class="k">Daily EMA20 · 50-DMA · 200-DMA</td><td class="m">off</td><td>Moving averages as extra levels; they add marks</td></tr>
+      <tr><td class="k">Level tolerance</td><td class="m">0.5 × ATR14</td><td>How close the pattern's low (high) must come to the level; the close must also hold it</td></tr>
+      <tr><td class="k">Arrival window</td><td class="m">5 bars</td><td>The pattern must hold the lowest low (highest high) of this many bars</td></tr>
+      <tr><td class="k">Minimum pattern size</td><td class="m">0.6 × ATR14</td><td>High-to-low span of the whole pattern</td></tr>
+      <tr><td class="k">Primary trend</td><td class="m">Zigzag · chart TF</td><td>Or Zigzag · weekly, or Off. Unbound = 50-DMA fallback with a corner note</td></tr>
+      <tr><td class="k">Counter-trend patterns</td><td class="m">Dim</td><td>Dim, Hide or Show; marked ↺</td></tr>
+      <tr><td class="k">M3 · Zigzag trend (chart TF / weekly)</td><td class="m">bound</td><td>Source inputs bound by BIND_S4_SOURCES to the Zigzag's <code>trendState</code> and <code>mtfTrendState2</code></td></tr>
+      <tr><td class="k">Confirm within</td><td class="m">3 bars</td><td>A later close beyond the pattern's high (low) confirms it</td></tr>
+      <tr><td class="k">Mark the confirming bar · Keep failed</td><td class="m">on · on</td><td>✓ on the confirming bar; failed patterns stay in grey (off = removed)</td></tr>
+      <tr><td class="k">Show patterns from the last</td><td class="m">150 bars</td><td>Older marks are cleared</td></tr>
+      <tr><td class="k">Label text · size</td><td class="m">Short code · small</td><td>Or Full name / Status only; tiny / small / normal</td></tr>
+      <tr><td class="k">Colours</td><td class="m">teal · red · grey</td><td>Bullish, bearish, failed</td></tr>
+      <tr><td class="k">Draw the level</td><td class="m">Latest pattern only</td><td>Or every shown pattern, or off</td></tr>
+      <tr><td class="k">Show on S4 for</td><td class="m">5 bars</td><td>v1.5. S4's row and SUMMARY print the newest pattern while it is at most this many bars old</td></tr>
+  </tbody></table></div></div></details>
+</section>
+
+<section id="compile">
+  <h2><span class="n">13</span>After an Add-ons compile</h2>
+  <ol>
+    <li><b>Order for v1.5:</b> Add-ons imports S4Core/73, the same version as S4. Publish S4Core first, then
+    compile S4 and Add-ons.</li>
+    <li><b>Run BIND_S4_SOURCES</b> (or AFTER_COMPILE). A compile drops M3's two Zigzag inputs and S4's three
+    candle inputs; the binder wires both. On a tab with Add-ons it reads <code>bound 35/35</code> and ends
+    <code>add-ons M3: 2/2</code>. On a tab without Add-ons (Panel Layout) S4's three candle inputs are
+    skipped, not failed.</li>
+    <li>An S4 compile also drops the three candle bindings, so run the binder after either compile.</li>
+    <li>The binder's 8-second re-check covers S4 only. If M3's corner note appears later, run it again.</li>
+    <li>AFTER_COMPILE step 5 also pushes the v2 status for M2 (<code>tv_push_addons.py</code>).</li>
+    <li>An Add-ons compile does not touch S4's alerts. It does change the plots S4 binds, so re-run the binder.</li>
+  </ol>
+</section>
+
+<section id="state">
+  <h2><span class="n">14</span>Known state — v1.5, 27 October</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Module</th><th>State</th></tr></thead>
+    <tbody>
+      <tr><td class="k">M1</td><td>Compiled 12 Oct; labels verified against Python's <code>bar_grade</code> on the same bars. Its value as a filter is pre-registered (H2), not yet measured</td></tr>
+      <tr><td class="k">M2</td><td>Exit levels and flags since v1.2 (19 Oct); pushed nightly</td></tr>
+      <tr><td class="k">M3</td><td>Compiled and bound 2/2 on 27 Oct. Pattern thresholds are textbook values and have not been tuned against your charts; tell me which marks look wrong. Not tested as a filter, and not meant to be one. The v1.5 export to S4 (row 22, SUMMARY CANDLE, reviewer) passed the server compile check; the chart compile, binding and a live read are pending</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+<section id="traps">
+  <h2><span class="n">15</span>Troubleshooting</h2>
+  <div class="tw"><table>
+    <thead><tr><th>Symptom</th><th>Cause and fix</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Corner note: "Zigzag trend not bound"</td><td>M3's two source inputs are unbound, usually after a compile. Run BIND_S4_SOURCES. The Swing Zigzag must be on the same chart</td></tr>
+      <tr><td class="k">No candlestick marks at all</td><td>Working as designed most of the time: marks appear only at a level, after arrival, at size. Check the level switches (on a Weekly chart, Daily levels are skipped), and that the chart has enough history for S4's S/R levels</td></tr>
+      <tr><td class="k">Too many marks</td><td>Turn off doji and the moving-average levels, raise the minimum size, set counter-trend to Hide, shorten the lookback, or stop keeping failed marks</td></tr>
+      <tr><td class="k">A mark on today's Daily bar appears only after 15:30</td><td>By design: patterns are read on the closed bar, and the Daily bar counts as closed from 15:30</td></tr>
+      <tr><td class="k">S4 row: "🕯 candles not bound"</td><td>S4's three <em>Add-ons: candle</em> inputs are unbound (after either compile), or Add-ons is not on that chart. Run BIND_S4_SOURCES</td></tr>
+      <tr><td class="k">S4 row: "no candlestick at a key level recently"</td><td>Bound and working: no pattern in the last 5 bars (<em>Show on S4 for</em>). The chart may still show older marks</td></tr>
+      <tr><td class="k">S4 row: "candles off"</td><td>M3 is switched off in Add-ons</td></tr>
+      <tr><td class="k">S4 names a different pattern than a label on the chart</td><td>S4 prints only the NEWEST pattern on the last closed bar's read; older labels stay on the chart</td></tr>
+      <tr><td class="k">M1 label is on the previous bar</td><td>The latest bar is still forming; the label always sits on the last closed bar</td></tr>
+      <tr><td class="k">No v2 label on a v2 name</td><td>The status string has not been pushed, or the name is not in it. Run <code>python tv_push_addons.py</code></td></tr>
+      <tr><td class="k">v2 exit lines missing on a v2 name</td><td>Drawn only on names v2 owns or is buying this week (HOLD / BUY), not on WATCH</td></tr>
+    </tbody>
+  </table></div>
+</section>
+
+</main>
+</div>
+</div>
+
+<footer><div class="foot-in">
+  <span>docs/43 · Commander Add-ons · v1.5 · written against the code 27 Oct 2026</span>
+  <span><a href="index.html">Library index</a> · <a href="30_section_five.html">Doc 30 Section Five</a></span>
+</div></footer>

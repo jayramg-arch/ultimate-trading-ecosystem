@@ -3099,6 +3099,10 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
         ("PAIR", fund.get("PAIR", "")),
         ("IDXS", fund.get("IDXS", "")),
         ("IDXR", fund.get("IDXR", "")),
+        # GAP (29-Oct-2026): each name's worst 2-year overnight gap, for S4's Qty row - the
+        # size uses max(entry - stop, entry x |gap|), the GM sizer's and Risk Allocator
+        # v2.8's rule. Above the display tail because it changes a share count.
+        ("GAP",  _safe(s4_gap_list, uni, tf=tf)),
         # --- display only from here down ---
         # BR (21-Sep-2026): measured base rates per setup family for the S4 'Base rate'
         # row that replaced the May-vintage ML win probability. SYM:FAM_ER_P2R_PSTOP_n from
@@ -3121,6 +3125,28 @@ def s4_bundle(uni: dict | None = None, tf: str = None) -> str:
     # commas and copy any token holding '-' or '&'. Display only; empty leaves S4's
     # default text.
     return out + "|MKT=" + _safe(lambda: __import__("market_context").for_s4())
+
+
+def s4_gap_list(uni: dict | None = None, tf: str = None) -> str:
+    """GAP= section: SYM:worst-gap% for every board name and holding (gap_risk.gap_section).
+    '' on any failure - S4 then sizes on the stop and its Qty row says 'gap ?'."""
+    try:
+        import gap_risk
+        syms = set()
+        df, _ = load_board_cache(max_age_hours=24.0, tf=tf)
+        if df is not None and not getattr(df, "empty", True) and "Symbol" in df.columns:
+            syms |= {_canon_key(x) for x in df["Symbol"].dropna()}
+        if uni:
+            syms |= {_canon_key(x) for x in uni}
+        try:                      # holdings from the journal: no broker call inside a bundle build
+            import earnings_calendar
+            syms |= {_canon_key(x) for x in earnings_calendar.open_positions()}
+        except Exception as e:
+            _log.warning(f"s4_gap_list: holdings unavailable: {e}")
+        return gap_risk.gap_section(syms)
+    except Exception as e:
+        _log.warning(f"s4_gap_list: {e}")
+        return ""
 
 
 def s4_base_rates(tf: str = None) -> str:

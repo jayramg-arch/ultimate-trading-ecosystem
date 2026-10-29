@@ -40,6 +40,7 @@ def links(host: str = "localhost") -> dict:
     return {
         "dashboard": (page("DASHBOARD"), "Web Commander · Dashboard"),
         "risk": (page("RISK SHIELD"), "Risk Shield (🔥 Open risk card · 🔁 Swing ↔ Positional tab · warnings)"),
+        "sl": (page("SL DASHBOARD"), "SL Dashboard (every stop of the book on one axis · edit thesis & plan · stop moves · gap risk)"),
         "portfolio": (page("PORTFOLIO"), "Portfolio"),
         "premarket": (page("PRE-MARKET"), "Pre-Market"),
         "postmarket": (page("POST-MARKET"), "Post-Market"),
@@ -176,7 +177,7 @@ PHASES = [
                  "and trade log rebuilt, board reviews. Phase 14 sends the evening digest. 17:15 docs truth check, "
                  "18:45 F&O bhavcopy."]},
         {"t": "~17:30", "who": "you", "title": "Read the evening digest",
-         "how": ["Phases not OK · boards (5/5 counts against the 20-day median) · reviewer failures · bindings per tab (32/32) · "
+         "how": ["Phases not OK · boards (5/5 counts against the 20-day median) · reviewer failures · bindings per tab (35/35 with Add-ons, else 32/32) · "
                  "alert versions · exit review · TRADE CLASS (positional EXIT REVIEW, swings that may convert).",
                  "Anything red here is fixed tonight — this is the only window for code."]},
         {"t": "17:35", "who": "you", "title": "Risk Shield — the book after today",
@@ -187,6 +188,15 @@ PHASES = [
                  "New position today: check its Thesis SL in Settings & Overrides (s4_take copies S4's INVAL) and that the Dhan "
                  "stop is the DISASTER level, not the thesis (Doc 25 Part 7e)."],
          "links": ["risk", "rules7b", "rules7e"]},
+        {"t": "17:40", "who": "you", "title": "SL Dashboard — every stop in one place",
+         "how": ["Replaces the symbol-by-symbol check of thesis and disaster levels on TradingView. Look-at-first list "
+                 "top to bottom: THESIS BROKEN names are tomorrow's exits; a red '× rule' chip means the loss at the Dhan "
+                 "stop is over the per-trade rule — the fix is the share count shown, not a wider stop.",
+                 "Change a thesis or set a planned trim in the ✏️ tab, Save, then 📡 Push to TradingView (v67 book + thesis "
+                 "alerts). Orders stay yours, on Dhan.",
+                 "📜 Stop moves: ↘n on a lane = times its stop was widened. 📉 Gap risk: where a stock's worst 2-year gap "
+                 "would open below the stop, size for the gap."],
+         "links": ["sl"]},
         {"t": "17:45", "who": "you", "title": "Tomorrow's candidates — the boards",
          "how": ["Daily board: the 5/5 positional names are tomorrow's Daily-close candidates. 125m/75m boards: swing names "
                  "the alerts will time. Open each worth attention in the Golden Matcher and read the decision path.",

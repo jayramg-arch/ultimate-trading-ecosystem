@@ -195,8 +195,14 @@ def max_alloc() -> float:
 
 
 def size_qty(symbol: str, entry: float, stop: float, add: bool = False,
-             capital: float | None = None) -> tuple[int, str]:
-    """Shares for one order at house risk and the ₹ cap. Returns (qty, note)."""
+             capital: float | None = None, gap_pct: float | None = None) -> tuple[int, str]:
+    """Shares for one order at house risk and the ₹ cap. Returns (qty, note).
+
+    gap_pct (29-Oct-2026, optional): this stock's worst overnight gap in % (negative), e.g.
+    gap_risk.worst_gap(sym)['gap_worst']. When given, the loss per share is the larger of the
+    stop distance and entry x |gap| - a resting stop does not cap a gap - the same rule as
+    the GM sizer, S4's Qty row and Risk Allocator v2.8 (gap_risk.entry_qty). None = the stop
+    distance only (the pre-29-Oct behaviour, kept for callers that size a paper record)."""
     entry, stop = _num(entry), _num(stop)
     if not (entry > 0 and stop > 0 and stop < entry):
         return 0, "no valid entry/stop"
@@ -204,11 +210,16 @@ def size_qty(symbol: str, entry: float, stop: float, add: bool = False,
     if not (cap and cap > 0):
         return 0, "capital unset in GM settings"
     rk = risk_pct_for(symbol, add)
-    q = math.floor(cap * rk / 100.0 / (entry - stop))
+    per = entry - stop
+    gap_bound = False
+    g = _num(gap_pct)
+    if g == g and g < 0 and entry * abs(g) / 100.0 > per:
+        per, gap_bound = entry * abs(g) / 100.0, True
+    q = math.floor(cap * rk / 100.0 / per)
     lim = math.floor(max_alloc() / entry)
     if q > lim:
         return lim, f"alloc-capped at ₹{max_alloc():,.0f}"
-    return q, f"{rk:g}% risk"
+    return q, f"{rk:g}% risk" + (f", sized on the worst gap ({g:.1f}%)" if gap_bound else "")
 
 
 def regime() -> dict:

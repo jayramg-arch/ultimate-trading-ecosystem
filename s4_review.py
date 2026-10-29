@@ -378,6 +378,10 @@ def _table_rows(cells: list[dict]) -> list[str]:
 # ATR" on TITAN — upper below lower). Rows from a header in this set up to the next section
 # header are dropped, and S5's drawn labels/lines (the same levels) go with them.
 S5_SKIP_SECTIONS = ("I · GEOMETRY", "II · LEVELS", "VI · READ")   # READ is the geometry in prose
+# 27-Oct-2026 (S5 v1.9, Jay): the chart-pattern rows are NOT geometry-classifier output -
+# they come from S5's own pattern engine (double/triple bottom and top, head & shoulders,
+# cup with handle, VCP) - so they are shown even inside a withheld section.
+S5_SHOWN_ROWS = ("Chart pattern", "PATTERN READ")
 
 
 def _is_s5(name: str) -> bool:
@@ -392,9 +396,10 @@ def _filter_s5_rows(rows: list[str]) -> list[str]:
         if is_hdr:
             skipping = any(head.startswith(k) for k in S5_SKIP_SECTIONS)
             if skipping:
-                out.append(head.split("—")[0].strip() + " — [withheld: not yet fine-tuned]")
+                out.append(head.split("—")[0].strip() + " — [withheld: not yet fine-tuned"
+                           + ("; the chart-pattern rows below ARE shown]" if head.startswith(("I ·", "VI ·")) else "]"))
                 continue
-        if not skipping:
+        if not skipping or head.startswith(S5_SHOWN_ROWS):
             out.append(r)
     return out
 
@@ -624,6 +629,28 @@ PARTICIPATION — use these ACTIVELY, they are where the panel earns its keep, n
   backtested) - with ONE exception the system enforces itself: FLOW-GATE turns a TAKE on a
   breakout entry into WAIT after a FAILED BREAKOUT at that entry level. "Big passive order" is
   an inference from executed volume, never a sighting of the order book.
+- CANDLESTICK AT A LEVEL (S4 "Intraday │ Pattern" row, the part after the candle mark, and
+  SUMMARY "CANDLE"). Commander Add-ons marks a candlestick only when it formed AT one of S4's
+  own S/R levels (or a chosen moving average), after price arrived there, at least 0.6 x ATR
+  tall. "?" = pending (it needs the named close), "✓" = confirmed by a later close beyond the
+  pattern (or complete in itself: stars, three soldiers/crows), "✗" = failed. Read it as
+  TIMING EVIDENCE ABOUT THE LEVEL: a confirmed bullish candle at the support the plan stands
+  on says that level is holding; a pending one is a question, not evidence - name the close
+  that would confirm it; a failed one says the level did not hold on this attempt. A bearish
+  candle at a level overhead is a room obstacle for a new long, and on a holding a reason to
+  tighten or trim, never to add. "↺ COUNTER-TREND" discounts it. Candlestick shape alone has
+  shown no edge in stock studies and these are untested on this book: never a reason to TAKE
+  on its own, never an override of S4's gates.
+- CHART PATTERN (S5 "Chart pattern" and "PATTERN READ" rows - shown even though the rest of
+  S5's I · GEOMETRY is withheld). Bullish: double/triple bottom, inverse head & shoulders,
+  cup with handle, VCP; bearish: double/triple top, head & shoulders. FORMING = not yet a
+  pattern (it is a base until the named close). CONFIRMED = the structure supports a long
+  while price holds above the break; its MEASURED TARGET is a reference for room, never a
+  plan target - the canon T1/T2 still set the plan, and a target BELOW T1 is a ceiling to
+  name. TARGET REACHED = the move it projected is done; it no longer argues for an entry.
+  FAILED / EXPIRED / BUSTED = a warning. A confirmed bearish top argues against a new long.
+  "counter-trend" = against the 30-week stage, weaker. Visual aid, untested: it grades the
+  setup, it never gates it. Say in section 6 whether pattern and candle AGREE with S4.
 - Read participation as ONE story: e.g. short build-up + absorption at VAL + AVWAP-Low
   holding = trapped shorts on a defended floor (strong long); long build-up + bleeding
   delta above VAH = late longs being distributed to (fade the GO).
@@ -697,8 +724,9 @@ ANALYSIS
    pulling/adding), writer strikes S/R and where they sit vs the stop and T1. Then
    footprint delta on the bar and 20-bar cumulative, absorption vs bleeding, delta
    divergence. One story - and if the name is cash-only, one line saying so.
-6. STRUCTURE (S5) — whatever S5 sections are present: Wyckoff / sweep / range-edge, and
-   anything not marked withheld. The PRE-READ names the sections withheld on THIS read;
+6. STRUCTURE (S5) — whatever S5 sections are present: Wyckoff / sweep / range-edge, the
+   chart pattern (S5 "Chart pattern" / "PATTERN READ") and the candlestick at the level (S4
+   "Intraday │ Pattern"), and anything not marked withheld. The PRE-READ names the sections withheld on THIS read;
    say they are withheld rather than characterising them. "The geometry is clean" on a
    read whose geometry you were not shown is a fabrication, not a summary.
 7. THE PANEL'S OWN PLAN — entry method as printed (and whether it is a real retest or a
@@ -1279,7 +1307,8 @@ def build_prompt(read_txt: str, pos_txt: str) -> str:
             "  You were not shown them. In §6 name them as withheld and move on — do not\n"
             "  characterise this name's geometry, levels or structural read, not even to\n"
             "  call them clean, quiet or neutral. Write §6 from the sections that ARE\n"
-            "  present (participation, Wyckoff / sweep / range-edge, diagnostics).")
+            "  present (participation, Wyckoff / sweep / range-edge, diagnostics, and the\n"
+            "  'Chart pattern' / 'PATTERN READ' rows, which are shown).")
     pre = ("PRE-READ (computed by the script, not negotiable)\n%s\n\n" % note) if note else ""
     mc = market_context()
     if mc:
@@ -1679,6 +1708,31 @@ def flow_read(read_txt: str) -> dict:
     return out
 
 
+# PATTERNS (27-Oct-2026): the candlestick S4 prints from Add-ons M3 and S5's newest chart
+# pattern, logged so they can one day be measured against outcomes. Display only.
+PATTERN_FIELDS = ["candle", "candle_state", "chart_pattern", "pattern_state"]
+_CP_STATES = ("TARGET REACHED", "CONFIRMED", "FORMING", "FAILED", "EXPIRED", "BUSTED")
+
+
+def pattern_read(read_txt: str) -> dict:
+    """S4's candle (Intraday | Pattern row) and S5's chart pattern -> name + state."""
+    out = dict.fromkeys(PATTERN_FIELDS, "")
+    # S4 wraps its rows at a fixed width, so the candle text can be split across lines
+    t = re.sub(r"[ \t]*\n[ \t]*", " ", read_txt or "")
+    m = re.search(r"\U0001F56F (.+?) [?\u2713\u2717] at ([^\u00b7|]+?) \u00b7 [^\u00b7|]* \u00b7 "
+                  r"(PENDING|CONFIRMED|FAILED|complete)", t)
+    if m:
+        out["candle"] = "%s @ %s" % (m.group(1).strip(), m.group(2).strip())
+        out["candle_state"] = {"PENDING": "pending", "CONFIRMED": "confirmed",
+                               "FAILED": "failed", "complete": "complete"}[m.group(3)]
+    m = re.search(r"Chart pattern\s*\|\s*([^\n]*)", read_txt or "")   # S5 does not wrap
+    if m and "\u00b7" in m.group(1):
+        name, rest = m.group(1).split("\u00b7", 1)
+        out["chart_pattern"] = name.replace("\u21ba counter-trend", "").strip()
+        out["pattern_state"] = next((s.lower() for s in _CP_STATES if s in rest), "")
+    return out
+
+
 def _plan_levels(read_txt: str, review: str) -> dict:
     """The plan being judged: the model's own levels if it wrote them, else the panel's."""
     ml = _model_levels(review) or {}
@@ -1791,7 +1845,7 @@ def save_review(symbol: str, tf: str, read_txt: str, review: str, provider: str,
     # manual (REVIEW.bat), board (s4_review --board, the Python board's GO rows) or cli.
     # Appended LAST so the self-healing header below still pads older rows.
     header = ["ts", "symbol", "tf", "s4_verdict", "ai_ruling", "provider", "file",
-              "my_call", "agreed"] + DERIV_FIELDS + ["source"] + FLOW_FIELDS
+              "my_call", "agreed"] + DERIV_FIELDS + ["source"] + FLOW_FIELDS + PATTERN_FIELDS
     new = not os.path.exists(LOG_CSV)
     if not new:
         # SELF-HEAL THE HEADER (25-Sep-2026). The 16 derivative columns were added to the
@@ -1812,10 +1866,12 @@ def save_review(symbol: str, tf: str, read_txt: str, review: str, provider: str,
             w.writerow(header)
         dv = deriv_fields(read_txt)
         _of = flow_read(read_txt)
+        _pt = pattern_read(read_txt)
         w.writerow([ts.strftime("%Y-%m-%d %H:%M"), sym, tf, s4v, _ruling_line(review), provider,
                     os.path.relpath(path, HERE), "", ""] + [dv[k] for k in DERIV_FIELDS] + [source]
                    + [_of.get("verdict", ""), "" if _of.get("level") is None else _of["level"],
-                      _of.get("tf", ""), "" if _of.get("age") is None else _of["age"], flow_gate_val])
+                      _of.get("tf", ""), "" if _of.get("age") is None else _of["age"], flow_gate_val]
+                   + [_pt[k] for k in PATTERN_FIELDS])
     return path
 
 

@@ -42,6 +42,35 @@ def earnings_soon(days: int = 7) -> list[str]:
     return out
 
 
+def earnings_sizing(lines: list[str]) -> list[str]:
+    """29-Oct-2026: each earnings line gains the GAP-SIZED holding - the shares whose loss stays
+    inside the per-trade rule if the stock repeats its worst 2-year overnight gap from today
+    (gap_risk via sl_board, the SL Dashboard's own numbers). A result is a gap you can see coming;
+    the stop does not cap it. Best-effort: on any failure the plain lines are returned."""
+    syms = [ln.split()[0] for ln in lines if ln.strip()]
+    try:
+        import sl_board
+        df, _ = sl_board.build(symbols=syms)
+        rows = {r["symbol"]: r for r in df.to_dict("records")} if len(df) else {}
+    except Exception as e:
+        return lines + ["  (gap sizing unavailable: %s)" % str(e)[:60]]
+    out = []
+    for ln in lines:
+        r = rows.get(ln.split()[0]) if ln.strip() else None
+        if not r:
+            continue                 # not held: the cache also carries board names (29-Oct-2026)
+        if r.get("gap_worst") is None:
+            out.append(ln)
+            continue
+        q, fit, loss, rule = int(r["qty"]), r.get("gap_fit_qty"), r.get("gap_loss"), r.get("budget") or 0
+        if loss is None or loss <= rule * 1.05 or fit is None or fit >= q:
+            out.append(ln + " - worst gap (%.1f%%) stays inside the rule at %d sh" % (r["gap_worst"], q))
+        else:
+            out.append(ln + " - hold %d -> gap-sized %d (sell %d before); worst gap %.1f%% costs Rs %s vs rule Rs %s"
+                       % (q, fit, q - fit, r["gap_worst"], f"{loss:,.0f}", f"{rule:,.0f}"))
+    return out
+
+
 def build() -> str:
     t = now_ist()
     L = ["MORNING · %s" % t.strftime("%a %d %b %Y %H:%M IST")]
@@ -63,9 +92,9 @@ def build() -> str:
         L += [""] + thesis_lines()
     except Exception as e:
         L += ["", "THESIS: failed (%s)" % str(e)[:80]]
-    es = earnings_soon()
+    es = earnings_sizing(earnings_soon()) if earnings_soon() else []
     if es:
-        L += ["", "EARNINGS within 7 days (size, not direction):"] + es
+        L += ["", "EARNINGS within 7 days, holdings (size, not direction):"] + es
     return "\n".join(L)
 
 

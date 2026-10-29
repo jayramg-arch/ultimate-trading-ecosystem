@@ -43,10 +43,13 @@ CHECK_JS = r"""
   var bound=[],unbound=[];
   // no Unified Catalyst Bridge on this tab (the Panel Layout): its one source is not counted
   var hasUni=!!f(function(n){return n.indexOf("Unified Catalyst Bridge")===0;});
+  // 27-Oct-2026: the three Add-ons candle sources count only where Add-ons is on the tab.
+  var hasAd=!!f(function(n){return n.indexOf("Commander Add-ons")===0;});
   s4.getInputsInfo().forEach(function(inp){
     if(String(inp.type)!=="source")return;
-    if(inp.name.indexOf("v67:")!==0&&inp.name.indexOf("Zigzag:")!==0&&inp.name.indexOf("Unified:")!==0)return;
+    if(inp.name.indexOf("v67:")!==0&&inp.name.indexOf("Zigzag:")!==0&&inp.name.indexOf("Unified:")!==0&&inp.name.indexOf("Add-ons:")!==0)return;
     if(!hasUni&&inp.name.indexOf("Unified:")===0)return;
+    if(!hasAd&&inp.name.indexOf("Add-ons:")===0)return;
     var v=vals[inp.id];
     (typeof v==="string"&&v.indexOf("$")>-1?bound:unbound).push(inp.name);
   });

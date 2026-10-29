@@ -76,7 +76,13 @@
     // 0 bars, no error, while all twelve other studies finish) · 31 bound with Unified
     // alone off = ready. Unified is a strategy(); the bridge is the same catalyst code
     // as an indicator. If this row ever resolves to the strategy again, S4 stops dead.
-    "Unified: catalyst code":             ["uni", "s4_catalystCode"]
+    "Unified: catalyst code":             ["uni", "s4_catalystCode"],
+    // 27-Oct-2026 (S4 v11.34): the newest candlestick from Commander Add-ons M3 (v1.5+),
+    // printed on S4's Intraday | Pattern row and SUMMARY. Optional, like the Footprint
+    // Bridge: a tab without Add-ons (the Panel Layout) skips these three, it is not a fail.
+    "Add-ons: candle code":               ["ad", "s4_candleCode"],
+    "Add-ons: candle level":              ["ad", "s4_candleLvl"],
+    "Add-ons: candle trigger":            ["ad", "s4_candleTrig"]
   };
   try {
     var chart = (window.TradingViewApi || window.tvWidget).activeChart();
@@ -92,7 +98,8 @@
       // MUST match the BRIDGE, not the strategy. Anchored with indexOf(...)===0 so
       // "Weinstein Unified Ecosystem [v3.5]" can never satisfy it.
       uni: findBy(function (n) { return n.indexOf("Unified Catalyst Bridge") === 0; }),
-      fp:  findBy(function (n) { return n.indexOf("S4 Footprint Bridge") === 0; })
+      fp:  findBy(function (n) { return n.indexOf("S4 Footprint Bridge") === 0; }),
+      ad:  findBy(function (n) { return n.indexOf("Commander Add-ons") === 0; })
     };
     if (!ids.s4)  return "S4 not on this chart";
     if (!ids.v67) return "v67 Dashboard not on this chart — load it first, the plots are the source";
@@ -106,7 +113,7 @@
     var plotRef = {};
     // A missing study id is skipped rather than throwing - the bind used to die on
     // getStudyById(null) if any one source script was not on the chart.
-    ["v67", "zz", "uni", "fp"].forEach(function (key) {
+    ["v67", "zz", "uni", "fp", "ad"].forEach(function (key) {
       if (!ids[key]) return;
       var meta = chart.getStudyById(ids[key])._study.metaInfo();
       meta.plots.forEach(function (pl, ix) {
@@ -123,6 +130,7 @@
       if (!want) return;                                   // not one of ours
       var ref = plotRef[want[0] + "|" + want[1]];
       if (!ref && want[0] === "fp") { report.push("skip " + inp.name + " (no Footprint Bridge on this chart)"); return; }
+      if (!ref && want[0] === "ad" && !ids.ad) { report.push("skip " + inp.name + " (no Commander Add-ons on this chart)"); return; }
       if (!ref && want[0] === "uni" && !ids.uni) { report.push("skip " + inp.name + " (no Unified Catalyst Bridge on this chart)"); return; }
       if (!ref) { report.push("MISSING PLOT " + want[1] + " <- " + inp.name); return; }
       pending.push({ id: inp.id, value: ref });
@@ -134,7 +142,7 @@
     var got = {};
     s4.getInputValues().forEach(function (v) { got[v.id] = v.value; });
     var bad = pending.filter(function (p) { return got[p.id] !== p.value; });
-    var expect = Object.keys(MAP).filter(function (k) { return (MAP[k][0] !== "fp" || ids.fp) && (MAP[k][0] !== "uni" || ids.uni); }).length;
+    var expect = Object.keys(MAP).filter(function (k) { return (MAP[k][0] !== "fp" || ids.fp) && (MAP[k][0] !== "uni" || ids.uni) && (MAP[k][0] !== "ad" || ids.ad); }).length;
 
     // 27-Oct-2026: Commander Add-ons M3 (candlesticks at key levels) reads the Zigzag's
     // primary trend the same way. Optional - a tab without Add-ons is not an error, and
@@ -144,7 +152,7 @@
       "M3 · Zigzag trend (weekly)":   "mtfTrendState2"
     };
     var addTxt = "";
-    var adId = findBy(function (n) { return n.indexOf("Commander Add-ons") === 0; });
+    var adId = ids.ad;
     if (adId) {
       var ad = chart.getStudyById(adId), adPend = [];
       ad.getInputsInfo().forEach(function (inp) {

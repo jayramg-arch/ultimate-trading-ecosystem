@@ -37,18 +37,50 @@ def test_s5_uses_s4_stage_inputs():
     assert "ta.sma(close, 150)" in src and "(_s - _s[10]) / _s * 100.0" in src
 
 
-def test_pattern_row_sits_in_a_section_the_reviewer_skips():
-    import s4_review
+def _rows_and_sections():
     src = _read(S5)
     body = src[src.index("if show_s5p and barstate.islast"):]
     rows = {}
     for m in re.finditer(r'f_s5(row|sec)\((\d+),\s*"([^"]*)"', body):
         rows[int(m.group(2))] = (m.group(1), m.group(3))
-    pat = [r for r, (k, t) in rows.items() if k == "row" and t == "Chart pattern"]
-    assert len(pat) == 1
-    heads = sorted((r, t) for r, (k, t) in rows.items() if k == "sec" and r < pat[0])
-    section = heads[-1][1].strip()
-    assert any(section.startswith(k) for k in s4_review.S5_SKIP_SECTIONS), section
+    return rows
+
+
+def _section_of(rows, r):
+    heads = sorted((n, t) for n, (k, t) in rows.items() if k == "sec" and n < r)
+    return heads[-1][1].strip()
+
+
+def test_reviewer_sees_the_pattern_rows_but_not_the_geometry():
+    # 27-Oct-2026 (S5 v1.9, Jay): the chart pattern feeds the reviewer; the geometry
+    # classifier rows in the same sections stay withheld until tuned.
+    import s4_review
+    rows = _rows_and_sections()
+    shown = {t: n for n, (k, t) in rows.items() if k == "row" and t in s4_review.S5_SHOWN_ROWS}
+    assert set(shown) == {"Chart pattern", "PATTERN READ"}
+    lines = []
+    for n in sorted(rows):
+        k, t = rows[n]
+        lines.append(t if k == "sec" else "%s | value" % t)
+    out = s4_review._filter_s5_rows(lines)
+    assert "Chart pattern | value" in out and "PATTERN READ | value" in out
+    for geo in ("Shape", "Boundaries", "Resistance", "Support", "READ"):
+        assert "%s | value" % geo not in out, geo
+    # the two rows really do sit in withheld sections - that is why they are whitelisted
+    for t, n in shown.items():
+        sec = _section_of(rows, n)
+        assert any(sec.startswith(k) for k in s4_review.S5_SKIP_SECTIONS), (t, sec)
+
+
+def test_pattern_read_parses_s4_candle_and_s5_pattern():
+    import s4_review
+    txt = ("Intraday 75 │ Pattern | ok   │   🕯 Hammer ? at Daily S/R 98.5 · last bar · PENDING -\n"
+           "close above 101 · ↺ counter-trend  —  a long lower wick with the close near the high\n"
+           "Chart pattern | Cup with handle   ·   TARGET REACHED 140 (broke out at 120)\n")
+    got = s4_review.pattern_read(txt)
+    assert got == {"candle": "Hammer @ Daily S/R 98.5", "candle_state": "pending",
+                   "chart_pattern": "Cup with handle", "pattern_state": "target reached"}
+    assert s4_review.pattern_read("nothing here") == dict.fromkeys(s4_review.PATTERN_FIELDS, "")
 
 
 def test_panel_rows_unique_and_fit_the_table():

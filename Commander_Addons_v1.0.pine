@@ -9,8 +9,9 @@
 // a module here costs none of that.
 //
 // RULES FOR A MODULE
-//   1. Display only. A module never feeds S4's GO, an alert or a binding. If a read earns
-//      a place in the gate, it moves into S4/S4Core at a compile that is happening anyway.
+//   1. Display only. A module never feeds S4's GO or an alert. It MAY export a display-only
+//      read that S4 binds and prints (M3 since v1.5); it never grades or gates there either.
+//      If a read earns a place in the gate, it moves into S4/S4Core at a compile anyway.
 //   2. Own input group, with an "Enable" switch, so any module can be switched off alone.
 //   3. Its own section below, self-contained (no shared mutable state between modules).
 //   4. Numbers shared with Python are constants (not inputs) and a test checks the pair.
@@ -22,13 +23,16 @@
 //                           bars (where a recent PA fired) - board: Bar
 //   M2  v2 system status  - v2's group / rank / cut and its exit levels (v1.2, 19-Oct-2026)
 //   M3  Candlestick patterns at key levels - visual aid only, never a grade (v1.4, 27-Oct-2026)
+//       v1.5 (27-Oct-2026): exports the newest pattern as three hidden plots S4 binds
+//       (s4_candleCode / s4_candleLvl / s4_candleTrig) - S4's Intraday | Pattern row and
+//       its SUMMARY CANDLE section print it. Code layout: see "EXPORT FOR S4" below.
 // -----------------------------------------------------------------------------
 //@version=6
-indicator("Commander Add-ons v1.4", shorttitle = "Add-ons", overlay = true, max_labels_count = 500, max_lines_count = 500)
+indicator("Commander Add-ons v1.5", shorttitle = "Add-ons", overlay = true, max_labels_count = 500, max_lines_count = 500)
 
 // M3 reads S4's own S/R engine so a "key level" here is the level S4 prints. Keep this
 // version EQUAL to S4's import - tests/test_addons_m3.py fails if they differ.
-import jayramg/S4Core/72 as core
+import jayramg/S4Core/73 as core
 
 // "Closed" = confirmed, or past the bar's close time. On Daily, TradingView keeps the day's
 // bar unconfirmed after 15:30; this treats it as closed then (same as S4 v11.27).
@@ -288,6 +292,8 @@ colBull  = input.color(color.new(#26a69a, 0), "Bullish", group = G3L, inline = "
 colBear  = input.color(color.new(#ef5350, 0), "Bearish", group = G3L, inline = "c")
 colFail  = input.color(color.new(#787b86, 0), "Failed",  group = G3L, inline = "c")
 lvlMode  = input.string("Latest pattern only", "Draw the level", options = ["Latest pattern only", "Every shown pattern", "Off"], group = G3L, tooltip = "A short dotted line at the level the pattern formed on.")
+// v1.5: appended LAST so no saved setting moves.
+m3ExWin  = input.int(5, "Show on S4 for (bars)", minval = 1, maxval = 50, group = G3L, tooltip = "S4's Intraday | Pattern row and its SUMMARY print the newest pattern while it is at most this many bars old (S4 must be bound - BIND_S4_SOURCES).")
 
 string m3Size = lblSzS == "tiny" ? size.tiny : lblSzS == "normal" ? size.normal : size.small
 
@@ -451,6 +457,10 @@ type M3Pat
     string name
     string tip
     string why = ""
+    int    idx  = 0      // v1.5 export: position in the priority list (0-10, per side)
+    int    kind = 0      // 1 EMA20 · 2 50-DMA · 3 200-DMA · 4 Daily S/R · 5 Weekly S/R · 6 Monthly S/R
+    float  lvl  = na
+    int    trd  = 0      // primary trend when it formed: 1 up · 0 sideways · -1 down
 
 f_m3Text(M3Pat p) =>
     string s = p.st == 0 ? "?" : p.st == 1 ? "✓" : p.st == 2 ? "✗" : ""
@@ -527,6 +537,7 @@ if m3On and BAR_CLOSED
         int pickT = 0
         string pickTag = ""
         int pickNb = 1
+        int pickIdx = 0
         string also = ""
         for i = 0 to 10
             if f_m3Hit(i, bull)
@@ -553,6 +564,7 @@ if m3On and BAR_CLOSED
                             pickT := T
                             pickTag := tag
                             pickNb := nb
+                            pickIdx := i
                         else
                             also += (str.length(also) > 0 ? ", " : "") + nm
         if pick != ""
@@ -564,6 +576,10 @@ if m3On and BAR_CLOSED
                              "\nprimary trend " + trTxt + (ctr ? " - COUNTER-TREND" : "") +
                              (str.length(pickNt) > 0 ? "\n" + pickNt : "") + (str.length(also) > 0 ? "\nalso: " + also : "")
                 M3Pat p = M3Pat.new(na, na, bar_index, pickHi, pickLo, bull ? 1 : -1, pickCf ? 0 : 3, ctrShow, pick, pickNm, tip)
+                p.idx  := pickIdx
+                p.kind := pickTag == "Monthly S/R" ? 6 : pickTag == "Weekly S/R" ? 5 : pickTag == "Daily S/R" ? 4 : pickTag == "200-DMA" ? 3 : pickTag == "50-DMA" ? 2 : 1
+                p.lvl  := pickL
+                p.trd  := m3Trend
                 p.lb := label.new(bar_index, bull ? pickLo : pickHi, "", yloc = bull ? yloc.belowbar : yloc.abovebar,
                                   style = bull ? label.style_label_up : label.style_label_down, textcolor = color.white, size = m3Size)
                 f_m3Paint(p)
@@ -577,6 +593,35 @@ if m3On and BAR_CLOSED
 
 plotshape(m3On and cfMark and m3CfBu, "M3 confirmed (bullish)", shape.labelup,   location.belowbar, color.new(colBull, 20), text = "✓", textcolor = color.white, size = size.tiny)
 plotshape(m3On and cfMark and m3CfBe, "M3 confirmed (bearish)", shape.labeldown, location.abovebar, color.new(colBear, 20), text = "✓", textcolor = color.white, size = size.tiny)
+
+// ---- EXPORT FOR S4 (v1.5) ----
+// input.source carries floats only, so the newest pattern travels as a CODE:
+//   |code| = 1e7 + (idx+1) + 100*state + 1000*age + 1e5*kind + 1e6*(trend+1)
+//     idx   1-11  position in the priority list above (per side)
+//     state 0 pending · 1 confirmed · 2 failed · 3 confirmation built in
+//     age   bars since the pattern's bar (0-99)
+//     kind  1 EMA20 · 2 50-DMA · 3 200-DMA · 4 Daily S/R · 5 Weekly S/R · 6 Monthly S/R
+//     trend primary trend when it formed, +1 (0 down · 1 sideways · 2 up)
+//   sign = direction (+ bullish, - bearish). |code| == 1e7 = no pattern within m3ExWin bars.
+// The 1e7 floor is the BOUND test: an unbound S4 source reads close, and no NSE price
+// reaches 1e7. Every value stays below 2^24, so it is exact even in a 32-bit float.
+// S4Core.candleRead decodes it - tests/test_addons_m3.py keeps the two lists equal.
+float m3ExCode = na
+float m3ExLvl  = na
+float m3ExTrig = na
+if m3On
+    m3ExCode := 1e7
+    int m3N = array.size(m3Pats)
+    if m3N > 0
+        M3Pat q = array.get(m3Pats, m3N - 1)
+        int age = bar_index - q.bar
+        if age <= m3ExWin
+            m3ExCode := q.dir * (1e7 + (q.idx + 1) + 100 * q.st + 1000 * math.min(age, 99) + 1e5 * q.kind + 1e6 * (q.trd + 1))
+            m3ExLvl  := q.lvl
+            m3ExTrig := q.dir == 1 ? q.hi : q.lo
+plot(m3ExCode, "s4_candleCode", display = display.none)
+plot(m3ExLvl,  "s4_candleLvl",  display = display.none)
+plot(m3ExTrig, "s4_candleTrig", display = display.none)
 
 // A quiet note only when the trend input is not bound - no clutter when all is well.
 var table m3Note = table.new(position.bottom_right, 1, 1)

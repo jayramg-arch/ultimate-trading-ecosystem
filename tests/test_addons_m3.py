@@ -72,3 +72,64 @@ def test_candidate_tables_line_up():
         assert m, name
         items = re.findall(r'"[^"]*"|[^,\s][^,]*', m.group(1))
         assert len(items) == 11, (name, len(items))
+
+
+# ---- v1.5 export to S4 (27-Oct-2026) --------------------------------------------------
+CORE = os.path.join(HERE, "S4Core.pine")
+
+
+def _arr(src, name):
+    m = re.search(r"%s\s*=\s*array\.from\((.*?)\)\s*$" % re.escape(name), src, re.M)
+    assert m, name
+    return re.findall(r'"([^"]*)"', m.group(1))
+
+
+def test_s4core_names_equal_addons_names():
+    # S4Core.candleRead decodes the pattern by its position in Add-ons' list.
+    ad, core = _read(ADDONS), _read(CORE)
+    body = core[core.index("export candleRead("):]
+    assert _arr(body, "array<string> nmBu") == _arr(ad, "M3_BU_NM")
+    assert _arr(body, "array<string> nmBe") == _arr(ad, "M3_BE_NM")
+
+
+def test_s4_candle_inputs_bound_and_appended_last():
+    s4, ad, js = _read(_s4_file()), _read(ADDONS), _read(BINDER)
+    pairs = {"Add-ons: candle code": "s4_candleCode", "Add-ons: candle level": "s4_candleLvl",
+             "Add-ons: candle trigger": "s4_candleTrig"}
+    for title, plot in pairs.items():
+        assert 'input.source(close, "%s"' % title in s4
+        assert '"%s":' % title in js and '"%s"' % plot in js
+        assert 'plot(' in ad and '"%s"' % plot in ad
+    last_input = max(m.start() for m in re.finditer(r"= input\.", s4))
+    assert s4.rfind('"Add-ons: candle trigger"') >= last_input
+
+
+def _encode(dirn, idx, st, age, kind, trend):
+    return dirn * (1e7 + (idx + 1) + 100 * st + 1000 * min(age, 99) + 1e5 * kind + 1e6 * (trend + 1))
+
+
+def _decode(code):
+    # Python mirror of S4Core.candleRead's arithmetic.
+    import math
+    r = abs(code) - 1e7
+    tr = int(math.floor(r / 1e6 + 1e-9)); r -= tr * 1e6
+    kind = int(math.floor(r / 1e5 + 1e-9)); r -= kind * 1e5
+    age = int(math.floor(r / 1000 + 1e-9)); r -= age * 1000
+    st = int(math.floor(r / 100 + 1e-9))
+    idx = int(round(r - st * 100)) - 1
+    return (1 if code > 0 else -1, idx, st, age, kind, tr - 1)
+
+
+def test_code_round_trips_in_float32():
+    import itertools
+    import struct
+    for d, i, s, a, k, t in itertools.product((1, -1), range(11), range(4), (0, 1, 7, 99), range(1, 7), (-1, 0, 1)):
+        c = _encode(d, i, s, a, k, t)
+        c32 = struct.unpack("f", struct.pack("f", c))[0]
+        assert _decode(c32) == (d, i, s, a, k, t)
+        assert 1e7 < abs(c32) < 2 ** 24
+
+
+def test_encoder_matches_addons_source():
+    ad = _read(ADDONS)
+    assert "1e7 + (q.idx + 1) + 100 * q.st + 1000 * math.min(age, 99) + 1e5 * q.kind + 1e6 * (q.trd + 1)" in ad

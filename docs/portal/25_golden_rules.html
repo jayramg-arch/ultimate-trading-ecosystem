@@ -703,6 +703,40 @@ footer em{color:var(--ink-2)}
   quantity adds rupee risk, so each line also shows the <b>same-risk share count</b>; and a line marked
   <i>exit review</i> sits on a holding the Chandelier already says to exit - settle that first. Stops already
   wider are never moved by this rule.</p>
+  <h4>No Disaster SL comes down until the quantity has (29 Oct)</h4>
+  <p>The stop history (since June): <b>51 widenings</b> on the open book added ₹1,90,108 of risk at the shares
+  held — M&amp;MFIN seven times, from ₹333.5 to ₹251.5 at the same 257 shares (−32% open). Held to the first stop
+  it would have cost ₹13,842, inside the ₹15,000 rule. Most of those exits were slides, not gaps: the stop
+  worked, and lowering it is what made the loss bigger. So the rule now reads: <b>sell first, then lower the
+  stop</b>. A lower Disaster SL is allowed only when the shares held fit the per-trade rule at the new level,
+  measured from cost (a stop still above cost gives back profit, not capital, and is free). On M&amp;MFIN at
+  ₹251.5 the rule allows 115 shares — 142 had to go first.</p>
+  <p><b>Enforced by <code>stop_guard.py</code></b> (Web Commander scheduler: 09:05, every 15 minutes in the
+  session, 16:20 and 21:20). It compares every resting stop leg with its last approved level: a stop that rose
+  moves the baseline up; a stop lowered (or cancelled and replaced lower) with too many shares is a
+  <b>violation</b> — one Telegram per new level naming the shares to sell, and, with
+  <code>STOP_GUARD_REVERT=1</code> in .env, the leg is modified back to its approved trigger. It never moves a
+  stop back up to a level the price is already at or through (that is an exit review, not a widening) and never
+  sells. Revert starts <b>off</b> (alarm mode) so the first session's alarms can be checked. The numbers come
+  first from the SL Dashboard's Edit tab, <b>⬇️ Lower a Disaster SL</b>: shares allowed at the new stop, shares
+  to sell, the share count that keeps today's risk, and the gap check at the new stop. The evening digest lists
+  every widening that skipped the cut (12 in the last 20 recorded days, ₹70,306 of risk added, as of 28 Oct).</p>
+  <p><b>Change the stop from Web Commander, not by hand.</b> SL Dashboard › Edit › <b>Change a Disaster SL</b>:
+  <b>🔍 Check at Dhan</b> reads the live holding, every resting stop leg and the LTP and runs six blocking checks — Dhan
+  reachable; a live, non-v2 holding; resting stop legs; the new trigger at least 0.5× ATR below the price; <b>the shares
+  fit the rule at the new stop</b> (lowering only); the stop legs cover no more shares than you hold — plus warnings
+  (uncovered shares, below today's trail level, more than 1× ATR under the thesis, the worst gap opening below the new
+  stop, results within 7 days). <b>✅ Place the modify</b> re-checks on fresh data and sends only if all still pass:
+  every leg moves to one trigger on the half-rupee grid (limit 0.5% below), the journal stop and the trail floor
+  (<code>manual_sl_override</code>) follow — otherwise the 15:45 trail would put a lowered stop straight back up — and
+  the guard records it as approved (<code>stop_change.py</code>). It modifies resting stops only: the sale and the leg
+  shrink stay on Dhan, and a stop lowered there by hand is still caught by the guard.</p>
+  <h4>Results inside the hold: size for the gap (29 Oct)</h4>
+  <p>A result is a gap you can see coming, and the stop does not cap it. The morning digest's earnings lines
+  and the SL Dashboard (📅 on the lane, a triage line) name the <b>gap-sized holding</b>: the shares whose loss
+  stays inside the rule if the stock repeats its worst 2-year overnight gap from today. On 29 Oct: COALINDIA,
+  results that day, 526 shares held against 238 gap-sized; LAURUSLABS inside the rule. New entries are sized the
+  same way by the Risk Allocator v2.8 (Doc 10).</p>
 </section>
 
 

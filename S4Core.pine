@@ -2918,14 +2918,105 @@ export pfText(float cls, float pnl, float r, float rc, float chand, float left, 
 // EXPOSURE (the exposure rule - Option A - lifted from the MKT bundle line, between
 // GEOMETRY and DIRECTION). The rule is BINDING: when it says no new entries, DIRECTION's
 // "take it" is overridden by it, and the panel says so in the section's first words.
-export summarySplice(string sumRaw, string levels, string mkt) =>
-    string o = str.length(levels) > 0 ? str.replace(sumRaw, "PARTICIPATION · ", levels + "\n" + "PARTICIPATION · ", 0) : sumRaw
+// candle (27-Oct-2026), appended LAST with a default: the CANDLE section from candleRead,
+// placed after LEVELS and before PARTICIPATION - a candle at a level is a read of how
+// that level is holding, so it sits beside the location it is about.
+export summarySplice(string sumRaw, string levels, string mkt, string candle = "") =>
+    string lc = str.length(levels) > 0 and str.length(candle) > 0 ? levels + "\n" + candle : levels + candle
+    string o = str.length(lc) > 0 ? str.replace(sumRaw, "PARTICIPATION · ", lc + "\n" + "PARTICIPATION · ", 0) : sumRaw
     int p = str.pos(mkt, "EXPOSURE (")
     if not na(p)
         string ex = str.substring(mkt, p + 9)
         string lead = str.contains(ex, "no new entries") ? "BINDING - no new size today, whatever DIRECTION below says. " : "Binding house rule. "
         o := str.replace(o, "DIRECTION · ", "EXPOSURE\n" + lead + ex + "\n" + "DIRECTION · ", 0)
     o
+
+
+// ---- candleRead (27-Oct-2026, Jay) --------------------------------------------
+// Decodes Commander Add-ons M3's exported candlestick into (1) the text S4 appends to
+// its "Intraday | Pattern" row and (2) a SUMMARY "CANDLE" section. A VISUAL AID ONLY:
+// it reads the candle and says what it means at that level; it never grades, gates or
+// feeds the GO. Candlestick shape alone has not shown an edge in stock studies, and
+// these marks are untested on this book - the text says so rather than borrowing odds.
+// Code (Add-ons v1.5, "EXPORT FOR S4"):
+//   |code| = 1e7 + (idx+1) + 100*state + 1000*age + 1e5*kind + 1e6*(trend+1)
+//   state 0 pending · 1 confirmed · 2 failed · 3 built in ; kind 1 EMA20 · 2 50-DMA ·
+//   3 200-DMA · 4 Daily S/R · 5 Weekly S/R · 6 Monthly S/R ; sign = direction.
+//   |code| == 1e7 = bound, nothing recent. |code| < 1e7 = unbound (the source reads close).
+//   na = M3 switched off in Add-ons.
+// The name lists MUST equal Add-ons' M3_BU_NM / M3_BE_NM in order - tests/test_addons_m3.py.
+export candleRead(float code, float lvl, float trig) =>
+    string row = ""
+    string sum = ""
+    if na(code)
+        row := "🕯 candles off (Add-ons M3 disabled)"
+    else if math.abs(code) < 1e7 - 0.5
+        row := "🕯 candles not bound (Add-ons not on this chart, or run BIND_S4_SOURCES)"
+    else if math.abs(code) < 1e7 + 0.5
+        row := "🕯 no candlestick at a key level recently"
+    else
+        int dir = code > 0 ? 1 : -1
+        float r = math.abs(code) - 1e7
+        int tr = int(math.floor(r / 1e6 + 1e-9))
+        r -= tr * 1e6
+        int kind = int(math.floor(r / 1e5 + 1e-9))
+        r -= kind * 1e5
+        int age = int(math.floor(r / 1000 + 1e-9))
+        r -= age * 1000
+        int st = int(math.floor(r / 100 + 1e-9))
+        int idx = int(math.round(r - st * 100)) - 1
+        int trend = tr - 1
+        idx := math.max(0, math.min(10, idx))
+        array<string> nmBu = array.from("Morning star", "Three white soldiers", "Bullish engulfing", "Piercing line", "Bullish marubozu", "Hammer", "Bullish harami", "Tweezer bottom", "Inverted hammer", "Dragonfly doji", "Doji")
+        array<string> nmBe = array.from("Evening star", "Three black crows", "Bearish engulfing", "Dark cloud cover", "Bearish marubozu", "Shooting star", "Bearish harami", "Tweezer top", "Hanging man", "Gravestone doji", "Doji")
+        array<string> mnBu = array.from(
+             "a long down bar, a small pause, then a strong up close - selling ran out and buyers took over over three bars",
+             "three rising up-closes with small upper wicks - steady buying that is not giving anything back",
+             "an up body that swallows the prior down body - buyers overwhelmed the last sellers at the level",
+             "opened below the prior down bar's close and closed above its midpoint - buyers took back more than half the damage",
+             "a full up body with almost no wicks, at least one ATR tall - buyers in control from open to close",
+             "a long lower wick with the close near the high - sellers pushed below the level and were rejected",
+             "a small body inside a large prior down body - the selling stalled; the direction comes from the next close",
+             "two bars with matching lows - the same price was defended twice",
+             "a long upper wick after a decline - buyers probed higher but could not hold it; weak until a close confirms",
+             "open, high and close together over a long lower wick - sellers were rejected, but no buying has shown yet",
+             "open equals close - indecision; only the confirming close gives it a direction")
+        array<string> mnBe = array.from(
+             "a long up bar, a small pause, then a strong down close - buying ran out and sellers took over",
+             "three falling down-closes - steady selling into the level",
+             "a down body that swallows the prior up body - sellers overwhelmed buyers at the level",
+             "opened above the prior up bar's close and closed below its midpoint - sellers took back more than half the gain",
+             "a full down body with almost no wicks - sellers in control all bar",
+             "a long upper wick with the close near the low - buyers pushed above the level and were rejected",
+             "a small body inside a large prior up body - the buying stalled",
+             "two bars with matching highs - the same price was capped twice",
+             "a hammer shape after a rise - sellers tested below; bearish only if the next close confirms",
+             "a long upper wick with the close at the low - buyers were rejected at the level",
+             "open equals close - indecision; only the confirming close gives it a direction")
+        string nm = dir == 1 ? array.get(nmBu, idx) : array.get(nmBe, idx)
+        string mn = dir == 1 ? array.get(mnBu, idx) : array.get(mnBe, idx)
+        string kTxt = kind == 6 ? "Monthly S/R" : kind == 5 ? "Weekly S/R" : kind == 4 ? "Daily S/R" : kind == 3 ? "200-DMA" : kind == 2 ? "50-DMA" : "Daily EMA20"
+        string lTxt = kTxt + (na(lvl) ? "" : " " + str.tostring(lvl, format.mintick))
+        string agoTxt = age == 0 ? "on the last closed bar" : str.tostring(age) + (age == 1 ? " bar ago" : " bars ago")
+        string tTrig = na(trig) ? "" : " " + str.tostring(trig, format.mintick)
+        bool ctr = (dir == 1 and trend == -1) or (dir == -1 and trend == 1)
+        string glyph = st == 0 ? "?" : st == 2 ? "✗" : "✓"
+        // The ROW is kept short (row 22 wraps at PANEL_ROW_WRAP and every extra line is panel
+        // height); SUMMARY carries the long read. Trend is named only when it matters.
+        string rAgo = age == 0 ? "last bar" : str.tostring(age) + "b ago"
+        string rSt = st == 0 ? "PENDING - close " + (dir == 1 ? "above" : "below") + tTrig : st == 1 ? "CONFIRMED" : st == 2 ? "FAILED" : "complete"
+        row := "🕯 " + nm + " " + glyph + " at " + lTxt + " · " + rAgo + " · " + rSt + (ctr ? " · ↺ counter-trend" : "") + "  —  " + mn
+        string head = "CANDLE · A " + str.lower(nm) + " at the " + lTxt + " " + agoTxt
+        string ctrTxt = ctr ? " It is COUNTER-TREND to the primary trend, where these patterns hold up worst - discount it." : ""
+        string tail = " A visual aid, untested on this book: it reads how the level is holding, it never replaces the location, the trigger or the stop."
+        if dir == 1
+            sum := st == 2 ? head + " FAILED - price closed back through the pattern. The level was tested and did not hold on this attempt, so treat the next touch with suspicion rather than as a fresh chance." + ctrTxt :
+                   st == 0 ? head + " has not been confirmed - it needs a close above" + tTrig + ". Until a bar closes there it is a question the next bars answer, not a trigger." + ctrTxt + tail :
+                   head + (st == 1 ? ", confirmed by a later close above it" : ", complete in itself") + ": buyers defended a level S4 itself prints and followed through - timing evidence that the location is holding." + ctrTxt + tail
+        else
+            sum := st == 2 ? head + " FAILED - buyers closed it back above, so the rejection did not stick; mildly in favour of a long, no more." :
+                   head + (st == 0 ? " (not yet confirmed - a close below" + tTrig + " would)" : st == 1 ? ", confirmed by a close below it" : "") + ": sellers showed up at a level overhead. For a new long that argues against buying into it; on a holding it is a reason to tighten or trim, never to add." + ctrTxt
+    [row, sum]
 
 
 // ---- qualityRead ------------------------------------------------------------

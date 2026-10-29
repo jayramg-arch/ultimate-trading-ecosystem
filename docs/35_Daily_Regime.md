@@ -102,7 +102,7 @@ The machine rebuilds everything between 16:00 and about 17:30. Your 20 minutes s
 - Phase 12: Daily/125m/75m boards, bundles pushed to S4, the two watchlist alerts moved to today's GM_Swing list, positional Daily alerts and zone-approach alerts rebuilt, v67 slots + trail pushed, live record and trade log rebuilt, board reviews. Phase 14 sends the evening digest. 17:15 docs truth check, 18:45 F&O bhavcopy.
 
 ### ~17:30 · Read the evening digest (YOU)
-- Phases not OK · boards (5/5 counts against the 20-day median) · reviewer failures · bindings per tab (32/32) · alert versions · exit review · TRADE CLASS (positional EXIT REVIEW, swings that may convert).
+- Phases not OK · boards (5/5 counts against the 20-day median) · reviewer failures · bindings per tab (35/35 with Add-ons, else 32/32) · alert versions · exit review · TRADE CLASS (positional EXIT REVIEW, swings that may convert).
 - Anything red here is fixed tonight — this is the only window for code.
 
 ### 17:35 · Risk Shield — the book after today (YOU)
@@ -110,6 +110,12 @@ The machine rebuilds everything between 16:00 and about 17:30. Your 20 minutes s
 - 🔁 Swing ↔ Positional: a swing that passes all four gates may be converted now (it is a Daily close) — record it, then on Dhan set the new stop (and sell any trim), then Sync to TV. A losing swing converts only at half risk. EXIT REVIEW names are decided for tomorrow's open.
 - New position today: check its Thesis SL in Settings & Overrides (s4_take copies S4's INVAL) and that the Dhan stop is the DISASTER level, not the thesis (Doc 25 Part 7e).
 - Open: [Risk Shield (🔥 Open risk card · 🔁 Swing ↔ Positional tab · warnings)](http://localhost:8501/?p=RISK%20SHIELD) · [Doc 25 Part 7b · swing or positional](http://localhost:8502/docs/portal/25_golden_rules.html#p7b) · [Doc 25 Part 7e · two-tier stop](http://localhost:8502/docs/portal/25_golden_rules.html#p7e)
+
+### 17:40 · SL Dashboard — every stop in one place (YOU)
+- Replaces the symbol-by-symbol check of thesis and disaster levels on TradingView. Look-at-first list top to bottom: THESIS BROKEN names are tomorrow's exits; a red '× rule' chip means the loss at the Dhan stop is over the per-trade rule — the fix is the share count shown, not a wider stop.
+- Change a thesis or set a planned trim in the ✏️ tab, Save, then 📡 Push to TradingView (v67 book + thesis alerts). Orders stay yours, on Dhan.
+- 📜 Stop moves: ↘n on a lane = times its stop was widened. 📉 Gap risk: where a stock's worst 2-year gap would open below the stop, size for the gap.
+- Open: [SL Dashboard (every stop of the book on one axis · edit thesis & plan · stop moves · gap risk)](http://localhost:8501/?p=SL%20DASHBOARD)
 
 ### 17:45 · Tomorrow's candidates — the boards (YOU)
 - Daily board: the 5/5 positional names are tomorrow's Daily-close candidates. 125m/75m boards: swing names the alerts will time. Open each worth attention in the Golden Matcher and read the decision path.

@@ -526,6 +526,25 @@ def job_tunnel_check() -> None:
         logger.warning("Tunnel check failed: %s", exc)
 
 
+def job_stop_guard() -> None:
+    """stop_guard.py (29-Oct-2026): a lowered Disaster SL is accepted only once the holding
+    fits the per-trade rule at the new stop; otherwise one Telegram per new level and, with
+    STOP_GUARD_REVERT=1, the lowered leg goes back to its approved trigger. Runs before the
+    open, every 15 min in the session and twice after the close (stops are edited after hours
+    too). STOP_GUARD=0 switches the job off."""
+    if os.getenv("STOP_GUARD", "1") == "0":
+        return
+    try:
+        import stop_guard
+        r = stop_guard.check()
+        if not r.get("ok"):
+            logger.warning("Stop guard skipped: %s", r.get("why"))
+        elif r["violations"]:
+            logger.warning("Stop guard: %d violation(s)", len(r["violations"]))
+    except Exception as exc:
+        logger.warning("Stop guard failed: %s", exc)
+
+
 def job_daily_pnl_alarm() -> None:
     """Every 15 min in market hours — book unrealised-PnL drawdown guard. Computes
     portfolio P&L from the live Dhan holdings; if drawdown breaches PNL_DD_ALARM_PCT
@@ -618,6 +637,7 @@ def start_scheduler() -> BackgroundScheduler:
       - stale_feed_check : every 15 min 09:15–15:30 IST Mon–Fri  (feed heartbeat, 1C)
       - daily_pnl_alarm  : every 15 min 09:15–15:30 IST Mon–Fri  (book DD alarm, 1C)
       - tunnel_check     : every 15 min 09:15–15:30 IST Mon–Fri  (ngrok + receiver for S4 alerts)
+      - stop_guard       : 09:05-15:50 every 15 min + 16:20, 21:20 Mon-Fri (lowered stop needs the qty cut first)
 
     Returns:
         A running BackgroundScheduler instance.
@@ -782,6 +802,22 @@ def start_scheduler() -> BackgroundScheduler:
         CronTrigger(hour="9-15", minute="0,15,30,45", day_of_week="mon-fri", timezone=IST),
         id="daily_pnl_alarm",
         name="Daily-PnL Drawdown Alarm",
+        replace_existing=True,
+    )
+
+    # Stop guard (29-Oct-2026): no Disaster SL comes down until the quantity has.
+    scheduler.add_job(
+        job_stop_guard,
+        CronTrigger(hour="9-15", minute="5,20,35,50", day_of_week="mon-fri", timezone=IST),
+        id="stop_guard",
+        name="Stop Guard (in session)",
+        replace_existing=True,
+    )
+    scheduler.add_job(
+        job_stop_guard,
+        CronTrigger(hour="16,21", minute="20", day_of_week="mon-fri", timezone=IST),
+        id="stop_guard_after",
+        name="Stop Guard (after hours)",
         replace_existing=True,
     )
 

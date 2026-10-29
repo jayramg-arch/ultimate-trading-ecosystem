@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 27 Oct · 81 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 29 Oct · 87 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,36 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">29 Oct<br>stop changes via Web Commander</td>
+        <td><b>A Disaster SL is changed from Web Commander, and only when every condition holds.</b> SL Dashboard › Edit › Change a Disaster SL: <b>Check at Dhan</b> runs six blocking checks on live data (Dhan + token, a live non-v2 holding, resting legs, trigger ≥ 0.5× ATR below LTP, the shares fit the rule at the new stop, legs ≤ holding) and warnings (uncovered shares, below the trail level, under the thesis, gap through, results soon); <b>Place the modify</b> re-checks and moves every leg to one half-rupee trigger, then sets the journal stop and the trail floor so the 15:45 trail does not undo it, and marks it approved for the guard (<code>stop_change.py</code>). <b>S4 v11.35</b> and the <b>GM sizer</b> now size for the worst gap too (bundle section <code>GAP=</code>, receipt 18), so S4, the GM and Risk Allocator v2.8 quote one size</td>
+        <td class="af">10 · 22 · 23 · 25 · 26</td>
+      </tr>
+      <tr>
+        <td class="dt">29 Oct<br>stop guard + gap sizing</td>
+        <td><b>No Disaster SL comes down until the quantity has, and entries are sized for the gap.</b> <code>stop_guard.py</code> watches every resting Dhan stop leg (09:05, every 15 minutes in the session, 16:20, 21:20): a lowered stop is accepted only when the shares held fit the per-trade rule at the new level (from cost; a stop above cost is free), otherwise one Telegram names the shares to sell, and with <code>STOP_GUARD_REVERT=1</code> the leg goes back to its approved trigger - never into the price, never a sale. Alarm mode until switched on. SL Dashboard: <b>⬇️ Lower a Disaster SL</b> calculator, a widened-without-the-cut table (12 in 20 days, ₹70,306), 📅 results-within-7-days lanes with the gap-sized holding; the morning digest's earnings lines carry the same number and now list holdings only; the evening digest lists widenings that skipped the cut. <b>Risk Allocator v2.8</b>: loss per share = max(stop distance, entry × worst 2-year gap), Qty row says what bound it, new Gap stress row (compile pending). S4 Qty and the GM sizer followed the same day</td>
+        <td class="af">10 · 25 · 26</td>
+      </tr>
+      <tr>
+        <td class="dt">28 Oct<br>SL Dashboard</td>
+        <td><b>Every stop in one place, and the share count that keeps the rule.</b> New page CONTROL CENTER › 🎚️ SL DASHBOARD: one lane per holding on a common axis (distance from LTP in daily ATR), with the Initial, Thesis and Disaster (Dhan) stops, Rec SL 3×ATR, Chandelier, EMA20, T1/T2 and the canon targets. Each lane shows what the Dhan stop costs if it fills against the per-trade rule (0.5%, ETF 0.75%) and the shares that fit it. Tabs: <b>✏️ edit</b> thesis levels and planned trims (journal backed up first) and push to TradingView; <b>📜 stop moves</b> (every widening since June from the daily journal backups, one row a night from now on, Phase 12k); <b>📉 gap risk</b> (each stock&rsquo;s worst 2-year overnight gap repeated from today: a resting stop does not cap a gap). First reading: open risk ₹1,93,566 against a ₹90,000 budget, 6 of 15 over the per-trade rule, 7 theses broken on the close, 51 widenings adding ₹1,90,108 of risk. Chandelier and Rec SL are different levels: a trail that only rises vs a minimum distance from LTP</td>
+        <td class="af">26 · 35</td>
+      </tr>
+      <tr>
+        <td class="dt">27 Oct<br>pattern ageing</td>
+        <td><b>How long a candlestick or a chart pattern counts.</b> Candles (Add-ons M3): 3 bars to confirm, then <code>✗</code>; shown on S4 for 5 bars. Chart patterns (S5): appear 5 bars late (5/5 pivots); expire after 1× their width (at least 10 bars; a cup about half its width); retest within 20 bars of the breakout; busted only inside one pattern-life. Ages are in the chart's own bars, so read them on the trade's clock (Daily for positional, 75m/125m for swing). When a candle and a pattern disagree the pattern weighs more. None of the windows is tested on this desk's data: they are reading rules</td>
+        <td class="af">22 · 30 · 43</td>
+      </tr>
+      <tr>
+        <td class="dt">27 Oct<br>patterns to S4 + reviewer</td>
+        <td><b>The candlestick and the chart pattern now reach the reads that matter.</b> Commander Add-ons v1.5 exports its newest candlestick as three hidden plots; S4 v11.34 on S4Core/73 binds them and prints it at the end of the <b>Intraday │ Pattern</b> row (name, ✓ / ? / ✗, the level, age, state, trend and what the shape means) and as a <b>CANDLE</b> section in SUMMARY. S5 v1.9 adds a <b>PATTERN READ</b> row to its read section, and the reviewer is now shown S5's Chart pattern and PATTERN READ rows while the rest of the geometry stays withheld. The prompt says how to weigh both (a measured target is a room reference, never a plan target), and each review logs <code>candle · candle_state · chart_pattern · pattern_state</code>. Display only: no gate, GO or alert changed. S4 SUMMARY cannot read S5 (another chart), so the reviewer is where the two meet. Publish S4Core/73, compile S4, Add-ons and S5, then BIND_S4_SOURCES (35/35 with Add-ons on the tab)</td>
+        <td class="af">22 · 26 · 30 · 32 · 43</td>
+      </tr>
+      <tr>
+        <td class="dt">27 Oct<br>docs</td>
+        <td><b>New Doc 43, Commander Add-ons</b>: the container's rules, M1 bar read, M2 v2 status and M3 in full (the three filters, the primary trend, all 22 patterns with their shape rules, confirmation, reading a mark, the research, inputs). <b>Doc 30</b> updated for chart patterns: where they show, how to read them on the chart, timing, the inputs block and the known state</td>
+        <td class="af">30 · 43</td>
+      </tr>
       <tr>
         <td class="dt">27 Oct<br>chart patterns</td>
         <td><b>S5 v1.8 draws chart patterns.</b> Double and triple bottoms and tops, head and shoulders both ways, cup with handle and the VCP, from a zigzag of S5's 5/5 pivots. Each is drawn with its swing legs, neckline and measured target. A pattern needs a move into it, a size of at least 2× ATR and Bulkowski's proportions. It shows ? until a close breaks the confirmation line (✓), then ↩ on a retest that holds, 🎯 at the target, and ✗, ⌛ or busted when it fails. Counter-trend patterns (against S4's 30-WMA) are dimmed (↺). Visual aid only: the panel row sits in section I, which the reviewer skips. The classifier also applies TradingView's rectangle rule first, for open item #11 (ranges read as triangles).</td>
@@ -988,7 +1018,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </table></div>
 
   <div class="sec-head">
-    <h2>Pages</h2><div class="rule"></div><span class="ct">31 of 31</span>
+    <h2>Pages</h2><div class="rule"></div><span class="ct">32 of 32</span>
   </div>
   <p class="sec-note">The three documents that answer <em>what to trade</em>, <em>when to do
   what</em>, and <em>what the evidence actually says</em>. Read the Golden Rules first — the
@@ -1291,8 +1321,22 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         geometry on TradingView's own criteria, the two named setups &mdash; on a second chart,
         because it cannot share one with S4. Nothing here gates; two sections stay withheld from
         the reviewer until tuned. v1.8: chart patterns (double/triple, head &amp; shoulders, cup
-        with handle, VCP) drawn with confirmation, retest and target marks; TradingView's rectangle rule.</p>
+        with handle, VCP) drawn with confirmation, retest and target marks; TradingView's rectangle rule.
+        v1.9: a PATTERN READ row, and the chart-pattern rows are shown to the reviewer.</p>
         <div class="card-m"><span>Beside the chart, never on it</span><span class="go">Open &rarr;</span></div>
+      </div>
+    </a>
+
+    <a class="card" style="--spine:var(--honest)" href="43_commander_addons.html">
+      <div class="spine"></div>
+      <div class="card-b">
+        <p class="card-n">Doc 43 &middot; Live system</p>
+        <p class="card-t">Commander Add-ons</p>
+        <p class="card-d">One indicator for the small reads, so each one costs an Add-ons compile and
+        not an S4 one. M1 the latest bar read, M2 the v2 status, M3 candlesticks drawn only at S4's own
+        S/R levels, after arrival, at size, with confirmation marks. Since v1.5 S4 prints the newest
+        candle on its Intraday │ Pattern row and in SUMMARY. A visual aid, never a grade.</p>
+        <div class="card-m"><span>On the S4 chart</span><span class="go">Open &rarr;</span></div>
       </div>
     </a>
 
@@ -1520,6 +1564,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
         <tr><td class="id">33</td><td class="nm"><a href="33_live_record.html">The Live Record</a></td><td>The Log as the backtest: features × outcomes per tier</td><td class="st"><span class="pill page ev">Page</span></td></tr>
         <tr><td class="id">31</td><td class="nm"><a href="31_reviewer_log_v2.html">The Reviewer Log</a></td><td>Every AI review, newest first; the scoring lives here</td><td class="st"><span class="pill page ev">Page</span></td></tr>
         <tr><td class="id">30</td><td class="nm"><a href="30_section_five.html">Section Five</a></td><td>The explain-surface beside S4: footprint, Wyckoff, geometry, the named setups</td><td class="st"><span class="pill page s5">Page</span></td></tr>
+        <tr><td class="id">43</td><td class="nm"><a href="43_commander_addons.html">Commander Add-ons</a></td><td>Bar read, v2 status, candlesticks at key levels; the newest candle on S4's panel</td><td class="st"><span class="pill page">Page</span></td></tr>
         <tr><td class="id">07</td><td class="nm"><a href="07_mission_control.html">Mission Control</a></td><td>The operator console — 18 pages, six groups</td><td class="st"><span class="pill page cw">Page</span></td></tr>
         <tr><td class="id">08</td><td class="nm"><a href="08_swing_pro_dashboard.html">Swing Pro Dashboard</a></td><td>The primary trade chart and its validated alphas</td><td class="st"><span class="pill page db">Page</span></td></tr>
       </tbody>

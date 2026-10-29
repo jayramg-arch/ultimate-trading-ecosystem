@@ -52,6 +52,24 @@ def _isolate_armed_register(tmp_path, monkeypatch):
         monkeypatch.setattr(_gtb, "PC_LEDGER", str(tmp_path / "pa_combo_ledger.csv"), raising=False)
     except Exception:
         pass
+    # the SL Dashboard's stop history and planned quantities (28-Oct-2026)
+    try:
+        import stop_history as _sh
+        monkeypatch.setattr(_sh, "HIST", str(tmp_path / "stop_history.csv"), raising=False)
+    except Exception:
+        pass
+    try:
+        import sl_board as _slb
+        monkeypatch.setattr(_slb, "PLAN_PATH", str(tmp_path / "sl_plan.json"), raising=False)
+    except Exception:
+        pass
+    # the stop guard's baselines and event log (29-Oct-2026)
+    try:
+        import stop_guard as _sg
+        monkeypatch.setattr(_sg, "STATE", str(tmp_path / "stop_guard.json"), raising=False)
+        monkeypatch.setattr(_sg, "EVENTS", str(tmp_path / "stop_guard_events.csv"), raising=False)
+    except Exception:
+        pass
 
 
 @pytest.fixture(autouse=True)

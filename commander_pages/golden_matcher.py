@@ -2143,7 +2143,21 @@ if True:
                         _gm_logger.warning(f"{symbol}: dynamic risk failed, sizing at base: {_dz}")
                     _act_pct = float(_dyn["active_pct"]) if _dyn else _base_pct
                     _risk_amt = _gm_capital * _act_pct / 100.0
-                    _qty_sized = int(_risk_amt // (_pe - _psl))
+                    # GAP-AWARE (29-Oct-2026): a resting stop caps a slide, never a gap - the order
+                    # fills at the open. Loss per share = max(entry - stop, entry x |worst 2-year
+                    # overnight gap|), the rule S4's Qty row and Risk Allocator v2.8 use
+                    # (gap_risk.entry_qty). No gap history -> the stop distance, and the line says so.
+                    _gwrst = None
+                    try:
+                        import gap_risk as _gpr
+                        _gwrst = (_gpr.worst_gap(symbol) or {}).get("gap_worst")
+                    except Exception as _gpe:
+                        _gm_logger.warning(f"{symbol}: gap history unavailable, sizing on the stop: {_gpe}")
+                    _gap_ps = (_pe * abs(_gwrst) / 100.0) if _gwrst is not None else 0.0
+                    _per_sh = max(_pe - _psl, _gap_ps)
+                    _gap_bound = _gap_ps > (_pe - _psl)
+                    _qty_stop_only = int(_risk_amt // (_pe - _psl))
+                    _qty_sized = int(_risk_amt // _per_sh)
                     _ct_half = False
                     # MAX-ALLOCATION CEILING (mirrors S4: Qty = min(risk qty, cap ÷ entry)).
                     # Applied AFTER the counter-trend halving so the two reductions compose
@@ -2164,10 +2178,15 @@ if True:
                         st.caption("⚠ Dynamic risk unavailable — sized at the flat base, which S4 would not use.")
                     st.markdown(
                         f"**📏 Size @ {_act_pct:.2f}% risk:** {inr(_risk_amt)} ÷ "
-                        f"(entry {inr(_pe)} − SL {inr(_psl)}) = **{_qty_sized} shares** · "
+                        + (f"(entry × {abs(_gwrst):.1f}% worst gap = {inr(_per_sh)}/sh) = **{_qty_sized} shares** · "
+                           if _gap_bound else f"(entry {inr(_pe)} − SL {inr(_psl)}) = **{_qty_sized} shares** · ")
+                        + 
                         f"position {inr(_pos_val)}"
                         + (f" ({_pos_val / _gm_capital * 100:.1f}% of capital)" if _gm_capital else "")
                         + (" · ⚠ counter-trend — size halved" if _ct_half else "")
+                        + (f" · 🌩️ **sized on the gap**: worst 2-year gap {_gwrst:.1f}% is wider than the stop "
+                           f"({_qty_stop_only} sh on the stop alone)" if _gap_bound else
+                           (f" · gap {_gwrst:.1f}% inside the stop" if _gwrst is not None else " · gap history n/a"))
                         + (f" · 🧢 **capped by Max ₹/trade {inr(_gm_maxalloc)}** — actual risk "
                            f"{inr(_eff_risk)} ({_eff_pct:.2f}% of capital), not {_act_pct:.2f}%"
                            if _cap_bound else ""))
@@ -2180,7 +2199,7 @@ if True:
                         _ptype = _cc2.plan_type_ctx(ctx)
                         _dis = _HP.disaster_stop(_pe, _psl, _g(ctx, "atr"), _ptype)
                         if _dis is not None and _pe > _dis:
-                            _q2 = int(_risk_amt // (_pe - _dis))
+                            _q2 = int(_risk_amt // max(_pe - _dis, _gap_ps))
                             if _cap_qty is not None:
                                 _q2 = min(_q2, _cap_qty)
                             st.caption(

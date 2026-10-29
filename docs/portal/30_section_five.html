@@ -147,6 +147,7 @@ footer a{color:var(--acc)}
     <li><a href="#panel">The six sections</a></li>
     <li><a href="#geometry">I · Geometry</a></li>
     <li><a href="#patterns">I · Chart patterns</a></li>
+    <li><a href="#patternage">I · How long a pattern counts</a></li>
     <li><a href="#levels">II · Levels</a></li>
     <li><a href="#flow">III · Participation</a></li>
     <li><a href="#setups">IV · Setups</a></li>
@@ -182,6 +183,7 @@ footer a{color:var(--acc)}
       <tr><td class="k">Plots</td><td>Hidden numeric plots the board reads</td><td><b>None</b> — nothing can bind to S5, so it cannot drift from S4</td></tr>
       <tr><td class="k">Delta</td><td>An intrabar proxy (grades only)</td><td>The real <code>request.footprint()</code> read</td></tr>
       <tr><td class="k">Shape</td><td>An em-dash since v7.3</td><td>Twelve shapes on TradingView's criteria, status and target</td></tr>
+      <tr><td class="k">Chart patterns</td><td>None</td><td>Eight reversal and base patterns (v1.8) drawn with neckline, target and confirmation marks</td></tr>
       <tr><td class="k">Chart</td><td>Primary</td><td>A second one, symbol-synced</td></tr>
     </tbody>
   </table></div>
@@ -217,13 +219,14 @@ footer a{color:var(--acc)}
 
 <section id="panel">
   <h2><span class="n">03</span>Reading the panel</h2>
-  <p>Six sections, twenty-two rows, each band stating the question it answers. Row 0 is the
-  header — <code>S5  v1.4 │ CGPOWER · 125 · explain-surface for S4</code>.</p>
+  <p>Six sections, each band stating the question it answers. Row 0 is the
+  header — <code>S5  v1.9 │ CGPOWER · 125 · explain-surface for S4</code>.</p>
   <div class="panel">
     <div class="pband"><div class="num">I</div><div class="bd">
       <p class="h">Geometry</p>
-      <p>What shape is this, on TradingView's criteria? Four rows — the shape, its two boundaries,
-      the convergence and pole tests that decided it, and its status with a projected target.</p></div></div>
+      <p>What shape is this, on TradingView's criteria? Five rows — the shape, its two boundaries,
+      the convergence and pole tests that decided it, its status with a projected target, and
+      (since v1.8) the newest chart pattern.</p></div></div>
     <div class="pband"><div class="num">II</div><div class="bd">
       <p class="h">Levels</p>
       <p>The horizontal and diagonal levels around price — nearest resistance and support with
@@ -243,7 +246,8 @@ footer a{color:var(--acc)}
       funnel per timeframe.</p></div></div>
     <div class="pband"><div class="num">VI</div><div class="bd">
       <p class="h">Read</p>
-      <p>One line: what the structure implies for the trade S4 is judging.</p></div></div>
+      <p>What the structure implies for the trade S4 is judging: the shape in one line (READ) and,
+      since v1.9, the newest chart pattern in two (PATTERN READ).</p></div></div>
   </div>
   <div class="note go">
     <span class="tag">The one thing to carry away</span>
@@ -325,7 +329,7 @@ footer a{color:var(--acc)}
 </section>
 
 <section id="patterns">
-  <h2><span class="n">04b</span>I · Chart patterns — drawn, confirmed, never graded (v1.8, 27 Oct)</h2>
+  <h2><span class="n">04b</span>I · Chart patterns — drawn, confirmed, never graded (v1.8; reviewer + read v1.9, 27 Oct)</h2>
   <p class="m">Chart pattern │ Inverse head &amp; shoulders · CONFIRMED 3b ago at 1,234.50 · target 1,301.00 · no retest yet · +2 older on the chart</p>
   <p>Eight patterns, drawn on the chart with their swing legs, a dashed <b>neckline</b>, a dotted
   <b>measured-move target</b> and a label: <b>DB / DT</b> double bottom and top, <b>TB / TT</b> triple,
@@ -333,8 +337,31 @@ footer a{color:var(--acc)}
   contractions). They come from a zigzag of the same 5/5 pivots the geometry classifier reads. Each
   pattern is a fixed sequence of the newest swings: a double bottom is low, high, low, and an inverse
   head and shoulders is shoulder, armpit, head, armpit, shoulder.</p>
-  <p><b>Visual aid only.</b> Nothing here gates, scores or reaches S4. The panel row sits in section I,
-  which the reviewer skips, and a test fails if it ever moves out.</p>
+  <p><b>Visual aid only.</b> Nothing here gates or scores, and nothing reaches S4's GO or alert. Since
+  v1.9 the pattern is explained in prose in S5's own read and is shown to the AI reviewer.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Surface</th><th>Sees the chart pattern?</th></tr></thead>
+    <tbody>
+      <tr><td class="k">S5 chart</td><td>Yes. Legs, neckline, target, label and tooltip</td></tr>
+      <tr><td class="k">S5 panel</td><td>Yes. Row 6 <b>Chart pattern</b> (section I) states it; row 25 <b>PATTERN READ</b> (section VI) says what it means for a long</td></tr>
+      <tr><td class="k">AI reviewer</td><td><b>Yes, since v1.9.</b> Those two rows are shown, although the rest of sections I and VI stays withheld (<code>S5_SHOWN_ROWS</code> in <code>s4_review.py</code>). The prompt explains how to weigh them, and the pattern and its state are logged (<code>chart_pattern</code> / <code>pattern_state</code>)</td></tr>
+      <tr><td class="k">S4 panel and SUMMARY</td><td><b>No.</b> S5 runs on a different chart, and a Pine indicator cannot read a study on another chart. The reviewer is where S4's and S5's reads meet</td></tr>
+    </tbody>
+  </table></div>
+  <h4>Reading a pattern on the chart</h4>
+  <ul>
+    <li><b>Legs</b>: the zigzag through the pattern's swings.</li>
+    <li><b>Neckline</b> (dashed): the confirmation line. A close beyond it confirms the pattern.</li>
+    <li><b>Target</b> (dotted): the pattern's height projected from the breakout. It is a reference for room, not a plan target. S4's canon T1/T2 still set the plan.</li>
+    <li><b>Label and tooltip</b>: code and state on the label. Hover for the swings, height, primary trend and the confirmation, invalidation and target levels.</li>
+  </ul>
+  <h4>Timing and housekeeping</h4>
+  <ul>
+    <li>A pattern appears about five bars after its last swing, because a 5/5 pivot is only known five bars later.</li>
+    <li>When the newest swings fit more than one pattern, the larger one wins: inverse H&amp;S, then triple bottom, then VCP, then double bottom (tops mirror this; a cup is checked before a double top).</li>
+    <li>A triple bottom replaces the double bottom it grew out of. A swing that extends further removes any pattern still forming on it.</li>
+    <li>Closed bars only, so nothing is drawn on the forming bar. Patterns older than 300 bars drop off, and at most six stay on the chart.</li>
+  </ul>
   <div class="tw"><table>
     <thead><tr><th>Mark</th><th>Meaning</th></tr></thead>
     <tbody>
@@ -381,6 +408,45 @@ footer a{color:var(--acc)}
     symmetrical triangle. A rectangle's boundaries are also held flat now, so no apex is projected
     for it.</p>
   </div>
+</section>
+
+<section id="patternage">
+  <h2><span class="n">04c</span>I · How long a chart pattern counts</h2>
+  <p>A chart pattern is structure, so it stays live longer than a candlestick: roughly as long as it
+  took to build. These are the windows in the code.</p>
+  <div class="tw"><table>
+    <thead><tr><th>Window</th><th>Bars</th><th>What happens</th></tr></thead>
+    <tbody>
+      <tr><td class="k">Detection lag</td><td><b>5</b></td><td>A swing is only known 5 bars after it forms (5/5 pivots), so a new pattern is already 5 bars old when it first appears</td></tr>
+      <tr><td class="k">Forming → expired <code>⌛</code></td><td><b>1× the pattern's width, at least 10</b></td><td>No breakout within that many bars of the last swing (input <em>Unconfirmed: expire after</em>). A cup with handle gets about half the cup's width, at least 10, because only the handle is left to form</td></tr>
+      <tr><td class="k">Retest <code>↩</code></td><td><b>20</b> after the breakout</td><td>A bar back within 0.5× ATR of the breakout level that closes on the right side of it (inputs <em>Retest: within</em> / <em>back within</em>). That is the retest entry</td></tr>
+      <tr><td class="k">Busted</td><td><b>one pattern-life</b> after the breakout</td><td>A close back beyond the void level inside that span. After it the pattern no longer applies</td></tr>
+      <tr><td class="k">Drawn on the chart</td><td>300</td><td>Older patterns drop off; at most six stay</td></tr>
+    </tbody>
+  </table></div>
+  <h4>What each state means for a trade</h4>
+  <div class="tw"><table>
+    <thead><tr><th>State</th><th>Read</th></tr></thead>
+    <tbody>
+      <tr><td class="k">? forming</td><td>A base, not a trade, until a close through the confirmation line</td></tr>
+      <tr><td class="k">✓ confirmed, 0–20 bars, no retest</td><td>The pullback to the breakout level is the entry. That matches the house retest convention (23-Jul A/B), not chasing the breakout bar</td></tr>
+      <tr><td class="k">✓↩ retested and held</td><td>The cleanest state: the breakout level has been tested and defended</td></tr>
+      <tr><td class="k">✓🎯 target reached</td><td>The measured move is done. Don't enter on the pattern</td></tr>
+      <tr><td class="k">✗ busted · ⌛ expired · ✗ failed</td><td>Ignore it for entries, or read it as a warning</td></tr>
+    </tbody>
+  </table></div>
+  <p>A candlestick (Commander Add-ons M3, Doc 43 §10b) is a one-to-three-bar timing event and stops
+  counting after 5 bars. When the two disagree, the chart pattern carries more weight.</p>
+  <div class="note">
+    <span class="tag">Bars, not days</span>
+    <p>Every age here is counted in bars of the chart it is drawn on, so read it on the trade's own
+    clock. A <b>positional</b> trade is decided on the Daily close: 3 bars is about 3 sessions, 5 bars
+    about a week. A <b>swing</b> is timed on 75m or 125m: 3 bars is half a day to a day, and an intraday
+    mark older than about a day says nothing about the setup.</p>
+  </div>
+  <p class="refnote">Not fitted to this desk's data. The 1× width expiry and the 20-bar retest
+  window are standard textbook practice (Bulkowski's throwback and pullback figures); the patterns are
+  a visual aid that never gates, so these are reading rules, not tested edges.</p>
 </section>
 
 <section id="levels">
@@ -547,10 +613,17 @@ footer a{color:var(--acc)}
   range it says the useful thing plainly: <em>S4's room-to-obstacle will be small by construction
   here.</em> It is the geometry in prose — so it inherits the geometry's state, which matters for
   the next section.</p>
+  <p class="m">PATTERN READ │ PATTERN: a double bottom - sellers failed twice at the same low, CONFIRMED at 1,234.50 and retested.<br>The structure supports a long while price holds above that break; the measured target 1,301.00 is a reference for room, not a plan target - S4's plan sets T1/T2.</p>
+  <p><b>PATTERN READ (v1.9)</b> is the second line of the read: the newest chart pattern in prose,
+  in two lines, what it is and its state, then what that means for a long. Forming: a base,
+  not yet a breakout, with its void level. Confirmed: supports a long while price holds above
+  the break. Target reached: the move is done and no longer argues for an entry. Failed,
+  expired or busted: a warning. A bearish top argues against a new long and is a reason to
+  tighten a holding. It is not geometry-classifier output, so the reviewer is shown it.</p>
 </section>
 
 <section id="reviewer">
-  <h2><span class="n">09</span>The reviewer reads it — with two sections withheld</h2>
+  <h2><span class="n">09</span>The reviewer reads it — geometry withheld, chart patterns shown</h2>
   <p>Since 11 September the AI review (<code>s4_review.py</code>) reads this panel off the second
   chart, cell by cell, and merges it with S4, the dashboard, Unified and the Zigzag from the
   first. Participation and the Setups band go into the deliberation in full — the delta is what
@@ -569,6 +642,18 @@ footer a{color:var(--acc)}
     reading Participation and Setups in full; Geometry, Levels and the Read stay behind
     <code>S5_SKIP_SECTIONS</code> until a tuning pass has compared the shape row against hand-read
     charts on a dozen names.</p>
+  </div>
+  <div class="note go">
+    <span class="tag">Chart patterns shown — Jay, 27 October (v1.9)</span>
+    <p>The <b>Chart pattern</b> row (section I) and the <b>PATTERN READ</b> row (section VI) come from
+    the pattern engine, not the geometry classifier, so the reviewer sees them while the rest of
+    both sections stays withheld. The withheld header now says so:
+    <code>I · GEOMETRY — [withheld: not yet fine-tuned; the chart-pattern rows below ARE shown]</code>.
+    The prompt treats a pattern as structure that grades the setup and never gates it: a confirmed
+    base supports a long while the break holds, its measured target is a room reference and
+    never a plan target, a reached target or a failed pattern argues against a fresh entry. Each
+    review logs <code>chart_pattern</code> and <code>pattern_state</code>, so the pattern can be measured against
+    outcomes later. Doc 32 has the reviewer side.</p>
   </div>
   <div class="note">
     <span class="tag">Where the reviewer runs from now</span>
@@ -600,6 +685,26 @@ footer a{color:var(--acc)}
       <tr><td class="k">Boundaries must share</td><td class="m">60%</td><td>Of their span — the overlap gate</td></tr>
       <tr><td class="k">Marginal within</td><td class="m">20%</td><td>Of the flat threshold — the ⚖ marker</td></tr>
       <tr><td class="k">Channel width ratio start/end</td><td class="m">20%</td><td>The wedge-versus-channel line</td></tr>
+  </tbody></table></div></div></details>
+
+  <details class="ref"><summary>Chart patterns (v1.8)</summary><div class="rb">
+  <div class="tw"><table>
+    <thead><tr><th>Input</th><th>Default</th><th>Meaning</th></tr></thead><tbody>
+      <tr><td class="k">Detect chart patterns</td><td class="m">on</td><td>Master toggle. Off = the row reads <code>engine off</code></td></tr>
+      <tr><td class="k">Equal tops / bottoms within</td><td class="m">0.75 × ATR</td><td>How close two lows (or highs) must be to count as a double</td></tr>
+      <tr><td class="k">Minimum pattern height</td><td class="m">2.0 × ATR</td><td>Neckline to extreme. Below this it is noise</td></tr>
+      <tr><td class="k">Minimum bars between the outer swings · maximum width</td><td class="m">10 · 250</td><td>Bulkowski: the two bottoms of a double bottom are usually a month or more apart on a Daily chart</td></tr>
+      <tr><td class="k">Reversal patterns need a move into them</td><td class="m">on</td><td>A bottom must follow a decline, a top an advance</td></tr>
+      <tr><td class="k">Unconfirmed: expire after</td><td class="m">1.0 × width (min 10 bars)</td><td>No breakout in time = ⌛ expired</td></tr>
+      <tr><td class="k">Retest: back within · within</td><td class="m">0.5 × ATR · 20 bars</td><td>A return to the breakout that closes on the right side = ↩</td></tr>
+      <tr><td class="k">Counter-trend patterns</td><td class="m">Dim</td><td>Against S4's 30-WMA 2x2 (Daily SMA150, 10-bar slope, flat band 0.5%). Dim / Hide / Show</td></tr>
+      <tr><td class="k">Which to draw</td><td class="m">all on</td><td>One switch per pattern, both directions</td></tr>
+      <tr><td class="k">H&amp;S: shoulders level · head beyond · asymmetry</td><td class="m">40% · 0.5 × ATR · 2.5</td><td>Shoulders within 40% of the height; the wider side at most 2.5× the narrower</td></tr>
+      <tr><td class="k">Cup: depth · width · roundness</td><td class="m">12–50% · 30 bars · 20%</td><td>At least 20% of the cup's bars in its bottom third (a U, not a V)</td></tr>
+      <tr><td class="k">Handle: may retrace at most</td><td class="m">50%</td><td>Of the cup's depth. Deeper = failed</td></tr>
+      <tr><td class="k">VCP: contractions · ratio · last · Stage 2</td><td class="m">2 · 0.8× · 10% · on</td><td>Each pullback at most 0.8× the one before, the last one 10% or less, only above a rising 30-WMA</td></tr>
+      <tr><td class="k">Show patterns from the last · at most</td><td class="m">300 bars · 6</td><td>The oldest goes first</td></tr>
+      <tr><td class="k">Label text · size · colours · legs · target · keep failed</td><td class="m">Short code · small · on · on · on</td><td>Look and feel only</td></tr>
   </tbody></table></div></div></details>
 
   <details class="ref"><summary>S/R levels</summary><div class="rb">
@@ -638,7 +743,7 @@ footer a{color:var(--acc)}
 </section>
 
 <section id="state">
-  <h2><span class="n">11</span>Known state — v1.4, 16 September</h2>
+  <h2><span class="n">11</span>Known state — v1.9, 27 October</h2>
   <div class="tw"><table>
     <thead><tr><th>Component</th><th>State</th></tr></thead>
     <tbody>
@@ -647,7 +752,7 @@ footer a{color:var(--acc)}
       <tr><td class="k">Geometry</td><td>Rebuilt 8 Sep on TV criteria; the 11-Sep inverted boundary was the apex, fixed in v1.4 (apex solved, shape withdrawn past it, % to apex printed); otherwise <b>unverified in the field</b>; <b>withheld from the reviewer</b></td></tr>
       <tr><td class="k">Wyckoff ladder</td><td>Named only, by design — twice rejected as an input</td></tr>
       <tr><td class="k">SWP-RC · RNG-EDGE</td><td>Display-only until measured as catalyst families in R</td></tr>
-      <tr><td class="k">Chart patterns</td><td>New in v1.8 (27 Oct): eight patterns with confirmation, retest, target and failure marks; mirrored in Python for frequency only; <b>unverified on the chart</b>; display only, <b>withheld from the reviewer</b></td></tr>
+      <tr><td class="k">Chart patterns</td><td>New in v1.8 (27 Oct): eight patterns with confirmation, retest, target and failure marks; mirrored in Python for frequency only; compiled clean 27 Oct, <b>not yet checked against hand-read charts</b>; display only. Since v1.9 the <b>Chart pattern</b> and <b>PATTERN READ</b> rows are <b>shown to the reviewer</b> and logged; never graded</td></tr>
       <tr><td class="k">Open item #11</td><td>Rectangles read as triangles. v1.8 applies TradingView's rectangle rule (each pivot within 15% of the range height) ahead of the slope test; <b>to be confirmed on a live range</b></td></tr>
     </tbody>
   </table></div>
@@ -666,7 +771,11 @@ footer a{color:var(--acc)}
       <tr><td class="k">Shape reads “—” on a chart with an obvious base</td><td>Check the Pivot pools row — <code>geometry 5/5 nH / nL</code>. Fewer than two each side and there is nothing to anchor to; a 5/5 pivot on a 75-minute chart needs the swing to be real</td></tr>
       <tr><td class="k">Trendlines row quiet after a compile</td><td>The two external sources unbound. Re-point them at the S4 Trendline Tool, or leave the bridge off — the manual anchors do not need it</td></tr>
       <tr><td class="k">Divergence says “only fires on a new 10b high or low”</td><td>Working as designed. It tests flow <em>at an extreme</em>; between extremes it reports whether flow and price point the same way, which is a weaker read</td></tr>
-      <tr><td class="k">The reviewer's read shows “[withheld]” rows</td><td>Deliberate — Geometry, Levels and Read are held back until fine-tuned. <code>S5_SKIP_SECTIONS</code> in <code>s4_review.py</code></td></tr>
+      <tr><td class="k">Chart pattern row: “none in the last 300 bars”</td><td>The row prints how many swings the zigzag holds. Few swings = few chances; on a quiet chart nothing may pass the move-into-it and 2 × ATR height tests. That is the filter working</td></tr>
+      <tr><td class="k">A forming pattern vanished</td><td>Its last swing was extended (a lower low, or a higher high, with no swing between). The detectors ran again on the new swing</td></tr>
+      <tr><td class="k">A pattern appeared already ✓</td><td>The breakout came within the five bars it takes to confirm the last swing</td></tr>
+      <tr><td class="k">Too many patterns</td><td>Lower “Patterns on the chart at most”, switch off types you don't trade, or set counter-trend to Hide</td></tr>
+      <tr><td class="k">The reviewer's read shows “[withheld]” rows</td><td>Deliberate — Geometry, Levels and Read are held back until fine-tuned. <code>S5_SKIP_SECTIONS</code> in <code>s4_review.py</code>. The Chart pattern and PATTERN READ rows are the exception (<code>S5_SHOWN_ROWS</code>)</td></tr>
     </tbody>
   </table></div>
 </section>
@@ -676,6 +785,6 @@ footer a{color:var(--acc)}
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/30 · Section 5 — Analysis Panel · S5 v1.8 · written against the code 11 Sep 2026, revised 27 Oct 2026</span>
+  <span>docs/30 · Section 5 — Analysis Panel · S5 v1.9 · written against the code 11 Sep 2026, revised 27 Oct 2026</span>
   <span>Companions — <a href="22_section_four.html">22 Section Four</a> · <a href="24_pre_trade_gate.html">24 Pre-Trade Gate</a></span>
 </div></footer>

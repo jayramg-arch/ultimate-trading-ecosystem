@@ -209,7 +209,7 @@ footer a{color:var(--acc)}
     <thead><tr><th>Tab</th><th>Carries</th><th>What the reviewer takes from it</th></tr></thead>
     <tbody>
       <tr><td class="k">S4 stack</td><td>S4 · Swing Pro v67 · Unified · Zigzag</td><td>The five-gate TRIGGER row, location, room, OI and options rows, the plan, the verdict and SUMMARY; v67's chart context (its panel, and with it the FUTURES OI STATE row, was retired on 12 Oct — S4's Futures OI row reads the same OI from v67); the Zigzag's structure</td></tr>
-      <tr><td class="k">S5</td><td>Section Five alone</td><td>Participation (footprint delta, divergence, value area) and the Setups band in full. <b>Geometry, Levels and the Read are withheld</b> — replaced by “[withheld: not yet fine-tuned]” before the model sees them (<code>S5_SKIP_SECTIONS</code>)</td></tr>
+      <tr><td class="k">S5</td><td>Section Five alone</td><td>Participation (footprint delta, divergence, value area) and the Setups band in full. <b>Geometry, Levels and the Read are withheld</b> — replaced by “[withheld: not yet fine-tuned]” before the model sees them (<code>S5_SKIP_SECTIONS</code>). <b>Except, since 27 Oct (S5 v1.9), the Chart pattern and PATTERN READ rows</b> (<code>S5_SHOWN_ROWS</code>): they come from the pattern engine, not the geometry classifier</td></tr>
       <tr><td class="k">S4 Reviewer · S5 Reviewer</td><td>Copies of the two stacks above, <b>for the reviewer's exclusive use</b></td><td><b>Since 21 Sep.</b> Named in <code>S4_REVIEW_CHARTS</code> (two chart ids); when set, these are the only tabs the reviewer switches and reads, so your own S4 and S5 tabs never move. Before this, every review took your chart for ~90 s &mdash; 31 reviews on 18 Sep was 49 minutes. If the two tabs are not open the review fails loudly rather than falling back to yours</td></tr>
       <tr><td class="k">Phase-1</td><td>The S4 stack again, for the <b>underlying index</b></td><td>Only for an ETF. Designated by <code>S4_PHASE1_CHART</code> in <code>.env</code>; the ETF → index map is <code>data/tv_index_map.json</code>. Read first, labelled PHASE-1, and the ETF's own chart becomes PHASE-2</td></tr>
     </tbody>
@@ -269,6 +269,7 @@ footer a{color:var(--acc)}
       <tr><td class="k">Extension</td><td>&gt; 2.5 ATR above the daily EMA20 is a warning; &gt; 4 is a veto for a fresh entry — wait for the pullback the panel names</td></tr>
       <tr><td class="k">Participation, actively</td><td>Futures OI four states (long build-up strongest; short covering fades; short build-up is fuel if a trigger fires on volume); options <b>by field</b> when the row has numbers — PCR, max pain and its pull, ATM ΔOI, the writer strikes as obstacles above and shelf below; AVWAP as location only in confluence; VP value area; footprint delta to break ties. Read as one story</td></tr>
       <tr><td class="k">Two OI rows</td><td>Since 11 Sep S4 pairs the daily OI change with the <b>daily cash close</b>; v67 pairs it with the <b>daily futures close</b>. They differ only when cash and futures close in opposite directions on the day. When they differ it must say so and take v67's state. <em>The prompt's own explanation still says "last chart-TF bar" (s4_review.py:549, :704) — stale text, held with the frozen derivatives work</em></td></tr>
+      <tr><td class="k">Candle and chart pattern (27 Oct)</td><td>Two visual aids it now reads and must weigh <b>without letting them decide</b>. The <b>candlestick</b> is on S4's Intraday │ Pattern row and SUMMARY CANDLE (from Commander Add-ons, Doc 43): a confirmed bullish candle at the plan's support is timing evidence that the level is holding; a pending one is a question, so name the close that confirms it; a failed one says the level did not hold this time; a bearish one overhead is a room obstacle, and on a holding a reason to tighten, never to add; counter-trend is discounted. The <b>chart pattern</b> is on S5's Chart pattern and PATTERN READ rows (Doc 30): forming is a base, not a breakout; confirmed supports a long while the break holds; its measured target is a <b>room reference, never a plan target</b> (the canon still sets T1/T2, and a target below T1 is a ceiling to name); target reached means the move is done; failed, expired or busted is a warning. Neither is ever a reason to TAKE on its own, and section 6 must say whether they agree with S4</td></tr>
       <tr><td class="k">ETFs — two phases</td><td>Phase-1 is the index: its stage, location, trigger and room are the thesis. Phase-2 is the ETF: tradability, fills, thin volume. <b>INDEX ARM = ETF WAIT</b> (house rule, 13 Sep): if the index's own TRIGGER row is not GO, the ETF cannot be TAKE. Index in Stage 3/4 = NO TRADE</td></tr>
     </tbody>
   </table></div>
@@ -556,6 +557,9 @@ python s4_review.py TITAN --dump             # the raw panel read, no model call
   review, then the complete panel read under it — and one row in
   <code>logs/ai_review_log.csv</code>: timestamp, symbol, TF, S4's verdict, the ruling line,
   the provider, the file, and two empty columns, <b>my_call</b> and <b>agreed</b>, that are yours.
+  Further columns carry the derivatives, the trigger source, S5's order-flow verdict and, since
+  27 Oct, <b>candle · candle_state · chart_pattern · pattern_state</b>: the candlestick and the chart
+  pattern the review saw, logged so they can one day be measured against outcomes.
   <code>build_review_portal.py</code> renders all of it to one page, rebuilt after every alert
   review, at the end of Phase 12, after <code>s4_take</code>, and by hand any time.</p>
   <div class="tw"><table>
@@ -664,7 +668,7 @@ python s4_take.py CHOLAFIN --skip "sector Stage 4"            # passed on it —
     SL/T1/T2 however many bars after the trigger the review ran. Before that a tested zone could
     move the stop between the alert and the read.</li>
     <li><b>Not validated.</b> No review has an outcome attached yet. The my_call / agreed columns and the TAKEN blocks are how it earns or loses trust — after twenty-odd scored rows the Log can say whether its rulings beat the template, and whether your overrides beat its rulings. Until then it is a well-read colleague, not an authority.</li>
-    <li><b>Not reading Geometry, Levels or the Read on S5</b> — withheld until the classifier is field-verified (Doc 30).</li>
+    <li><b>Not reading Geometry, Levels or the Read on S5</b> — withheld until the classifier is field-verified (Doc 30). The chart-pattern rows are the exception (27 Oct).</li>
     <li><b>Not intraday-fast.</b> Ninety seconds after a bar close is the design; the alert marks a bar and the bar does not change. Do not size the queue for speed.</li>
   </ul>
 </section>
@@ -674,6 +678,6 @@ python s4_take.py CHOLAFIN --skip "sector Stage 4"            # passed on it —
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/32 · The Reviewer · s4_review.py · s4_alert_review.py · s4_take.py · written against the code 16 Sep 2026</span>
+  <span>docs/32 · The Reviewer · s4_review.py · s4_alert_review.py · s4_take.py · written against the code 16 Sep 2026, revised 27 Oct 2026</span>
   <span>Companions — <a href="31_reviewer_log_v2.html">31 The Reviewer Log</a> · <a href="26_operating_loop.html">26 The Operating Loop</a> · <a href="22_section_four.html">22 Section Four</a> · <a href="30_section_five.html">30 Section Five</a></span>
 </div></footer>

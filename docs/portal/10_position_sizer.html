@@ -216,7 +216,7 @@ footer a{color:var(--acc)}
     <thead><tr><th>File</th><th>In-file title</th><th>Status</th></tr></thead><tbody>
       <tr><td class="m">…v1.0.pine</td><td>v1.1</td><td>Archived to <code>_archive/pine_superseded/</code> (20 Sep)</td></tr>
       <tr><td class="m">…v2.0.pine</td><td>v2.1</td><td>Archived to <code>_archive/pine_superseded/</code> (20 Sep)</td></tr>
-      <tr><td class="m">…v2.2.pine</td><td><b>v2.6</b></td><td><b>The live one</b> (v2.5 24 Sep; v2.6 4 Oct adds the positional stop floor — compiled 4 Oct; table opens Top Left). The filename stays v2.2. Everything below is read from it</td></tr>
+      <tr><td class="m">…v2.2.pine</td><td><b>v2.8</b></td><td><b>The live one</b> (v2.5 24 Sep; v2.6 4 Oct adds the positional stop floor; v2.7 15 Oct the house plan-type fallback; <b>v2.8 29 Oct sizes for the worst overnight gap</b> — compile pending; table opens Top Left). The filename stays v2.2. Everything below is read from it</td></tr>
     </tbody></table></div>
   <div class="tw"><table>
     <thead><tr><th>Guide</th><th>Describes</th></tr></thead><tbody>
@@ -332,6 +332,27 @@ quantity      = risk amount ÷ (entry − stop)
     left the runner without a stop). Still different from S4: the Kelly points (S4 scores above-200/30W/rising
     150, RS slope and RV; the allocator scores the MA stack, RS above zero and volume) — S4's Qty row is the plan
     of record.</p>
+  </div>
+  <div class="note warn">
+    <span class="tag">v2.8 (29 Oct) — the size allows for a gap, not only the stop</span>
+    <p>A resting stop caps a <b>slide</b>, never a <b>gap</b>: on a news open the order fills at the open,
+    wherever that is (AUBANK opened −5.2% on 26 Oct; the worst 2-year gaps on the live book ran −4.9% to −19.7%).
+    So the loss per share used for sizing is now the larger of the stop distance and this stock's <b>worst
+    overnight gap of the last ~500 Daily sessions</b>, measured from the entry:</p>
+    <p><code>loss per share = max(entry − stop, entry × |worst gap|)</code> — quantity = min(stop-sized,
+    gap-sized, ₹ cap).</p>
+    <p>The budget is unchanged (risk % × capital, with the Kelly, volatility and regime adjustments), so the gap
+    can only <b>remove</b> shares, and only on names whose worst gap is wider than the stop — with a 4× ATR(D)
+    positional stop that is the high-gap names (VIJAYA, CAPLIPOINT, GLAXO on the 28-Oct book). The Quantity row
+    says what bound it — <em>[stop]</em>, <em>[GAP]</em> or <em>[Rs cap]</em> — and a new <b>Gap stress</b> row
+    shows the worst gap, the stop-only size beside the gap size, and the loss if that gap repeated. A gap of 40%
+    or more is dropped as a data fault; a listing with under 60 sessions shows <em>no gap history</em> and sizes
+    on the stop. Inputs <em>Size for the worst overnight gap</em> (on) and <em>Gap look-back</em> (500) sit in a
+    new group after the existing inputs, so saved settings keep their places. The Telegram note and the GTT JSON
+    carry <code>sized_by</code> and <code>gap_worst_pct</code>. Python twin: <code>gap_risk.entry_qty</code>.
+    <b>S4's Qty row (v11.35) and the GM sizer use the same rule</b> since 29 Oct (S4 reads the gap from the bundle's
+    <code>GAP=</code> section), so the three quote the same size for one trade, apart from the allocator's own Kelly
+    points.</p>
   </div>
   <div class="note">
     <span class="tag">Recovery targets are structural, not multiples</span>
@@ -520,6 +541,6 @@ quantity      = risk amount ÷ (entry − stop)
 </div>
 
 <footer><div class="foot-in">
-  <span>docs/10 · Commander Risk Allocator v2.6 · revised against the code 4 Oct 2026</span>
+  <span>docs/10 · Commander Risk Allocator v2.8 · revised against the code 29 Oct 2026</span>
   <span>Companions — <a href="13_unified_ecosystem.html">13 Unified Ecosystem</a> · <a href="15_context_layers.html">15 Context Layers</a></span>
 </div></footer>

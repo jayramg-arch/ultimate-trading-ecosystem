@@ -1331,6 +1331,31 @@ def main():
                 p.status = "SKIP"
                 p.message = f"skipped: {e}"[:160]
 
+    # 12k. STOP HISTORY (28-Oct-2026, Jay: "constant widening of my stop losses"). Tonight's row
+    # per holding - the resting Dhan stop, thesis, initial SL, Chandelier - into
+    # logs/stop_history.csv, so every widening is on record and the SL Dashboard can count them.
+    # Read-only on Dhan; refuses to record when the order book is unreadable. STOP_HISTORY=0 skips.
+    logger.info("\n[PHASE 12k] STOP HISTORY...")
+    with run.phase("Phase 12k — stop history") as p:
+        if os.getenv("STOP_HISTORY", "1") == "0":
+            p.status = "SKIP"; p.message = "STOP_HISTORY=0"
+        else:
+            try:
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                           "stop_history.py")],
+                             capture_output=True, text=True, timeout=10 * 60)
+                _lines = [l.strip() for l in _r.stdout.strip().splitlines()
+                          if l.strip() and ("recorded" in l or "widened" in l or "NOT recorded" in l)]
+                for _ln in _lines:
+                    logger.info(f"   ↳ {_ln}")
+                p.message = (" | ".join(_lines) or "done")[:160]
+                if _r.returncode != 0:
+                    p.status = "WARN"
+            except Exception as e:
+                logger.warning(f"⚠️  stop history skipped: {e}")
+                p.status = "SKIP"
+                p.message = f"skipped: {e}"[:160]
+
     # 12e. TRADE LOG (3-Oct-2026, Jay: "the Take-it / Take-it reduced reviews are the pool -
     # compare them with the actual trades and build the trade log"). Every TAKE review vs Dhan's
     # own BUY fills: TAKEN / SKIPPED (with what S4's plan did) / OFF-LOG buys. Read-only.

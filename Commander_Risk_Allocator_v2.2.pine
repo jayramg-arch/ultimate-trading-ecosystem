@@ -9,8 +9,19 @@
 //   • OCO-1 (50% Qty): Fixed Static Target 1 + Stop Loss.
 //   • OCO-2 (50% Qty): Fixed Static Target 2 + Stop Loss.
 //   • Panel Table and Chart Labels reflect clean 50/50 static OCO targets with Chandelier SL.
+// v2.8 (29 Oct 2026) — GAP-AWARE SIZING. A resting stop caps a slide, never a gap: on a
+//   news open the order fills at the OPEN, wherever that is (AUBANK opened -5.2% on 26-Oct;
+//   the worst 2-year gaps on the live book ran -4.9% to -19.7%). The size now uses the larger
+//   of the stop distance and this stock's WORST overnight gap of the last ~2 years (Daily
+//   open / prior close, |gap| >= 40% dropped as a data fault), measured from the entry:
+//       loss per share = max(entry - stop, entry x |worst gap|)
+//   Same budget as before (risk % x capital, Kelly/vol/regime scaling unchanged), so the gap
+//   only ever REMOVES shares, and only on names whose worst gap is wider than the stop. Qty =
+//   min(stop-sized, gap-sized, Rs cap); the Qty row says which one bound. Python twin:
+//   gap_risk.entry_qty (the SL Dashboard and stop guard use the same gap window).
+//   New inputs are appended after the existing ones, so saved settings keep their places.
 // ============================================================================
-indicator("Commander Risk Allocator v2.7", overlay=true, format=format.inherit, precision=2, max_lines_count=20, max_labels_count=20, max_boxes_count=10)
+indicator("Commander Risk Allocator v2.8", overlay=true, format=format.inherit, precision=2, max_lines_count=20, max_labels_count=20, max_boxes_count=10)
 
 // ============================================================================
 // 1. INPUTS
@@ -72,6 +83,10 @@ alloc_table_pos  = input.string("Top Left", "Table Position", options=["Bottom R
 show_lines       = input.bool(true, "Show Entry/Stop/Target Lines", group=grp_viz)
 line_extension   = input.int(8, "Line Extension (Bars)", minval=2, group=grp_viz)
 
+grp_gap = "Gap-aware sizing (v2.8)"
+use_gap_size = input.bool(true, "Size for the worst overnight gap", group=grp_gap, tooltip="ON: loss per share = the larger of (entry - stop) and (entry x this stock's worst 2-year overnight gap). A stop does not cap a gap - the order fills at the open. Only names whose worst gap is wider than the stop lose shares. Same rule budget; Python twin gap_risk.entry_qty.")
+gap_lookback = input.int(500, "Gap look-back (Daily sessions)", minval=60, maxval=2000, group=grp_gap, tooltip="~500 sessions = 2 years, the SL Dashboard's window (gap_risk.LOOKBACK_BARS). A gap of 40% or more is dropped as a data fault.")
+
 string pos_str = alloc_table_pos == "Bottom Right" ? position.bottom_right : alloc_table_pos == "Top Right" ? position.top_right : alloc_table_pos == "Bottom Left" ? position.bottom_left : alloc_table_pos == "Top Left" ? position.top_left : alloc_table_pos == "Middle Right" ? position.middle_right : position.middle_center
 
 // ============================================================================
@@ -130,6 +145,15 @@ string rs_quadrant = rsVal500 > 0 and rs_momentum > 0 ? "LEADING" : rsVal500 > 0
 // 4. DAILY STRUCTURE PACK
 // ============================================================================
 [d_50, d_150, d_200, d_ema20, d_high52, d_high40c, d_low10, d_low20, d_low40, d_atr14] = request.security(syminfo.tickerid, "D", [ta.sma(close, 50), ta.sma(close, 150), ta.sma(close, 200), ta.ema(close, 20), ta.highest(high, 250), ta.highest(close, 40), ta.lowest(low, 10), ta.lowest(low, 20), ta.lowest(low, 40), ta.atr(14)], lookahead=barmerge.lookahead_off)
+
+// v2.8: worst overnight gap (fraction, <= 0) over the look-back, Daily bars. A |gap| >= 40%
+// is a data fault, not a gap, and counts as 0 - same filter as gap_risk.gap_stats.
+f_gap_worst(int n) =>
+    float _g  = close[1] > 0 ? open / close[1] - 1.0 : 0.0
+    float _gf = math.abs(_g) < 0.40 ? _g : 0.0
+    int   _n  = math.max(1, math.min(n, bar_index))       // a young listing uses what it has (Python needs >= 60)
+    bar_index < 60 ? na : math.min(ta.lowest(_gf, _n), 0.0)
+float d_gap_worst = request.security(syminfo.tickerid, "D", f_gap_worst(gap_lookback), lookahead=barmerge.lookahead_off)
 
 bool stage2_uptrend = not na(d_200) and (close > d_50) and (d_50 > d_150) and (d_150 > d_200)
 bool rs_ok = rsVal500 > 0
@@ -305,9 +329,17 @@ float active_max_alloc = resolved_asset == "ETF" ? etf_max_alloc : stock_max_all
 float m_risk_amt   = active_capital * (active_risk_pct / 100.0)
 float qty_r        = m_dist > 0 ? math.floor((m_risk_amt / m_dist) / multiplier) : 0
 float qty_c        = m_entry > 0 ? math.floor((active_max_alloc / m_entry) / multiplier) : 0
-float m_final_qty  = math.min(qty_r, qty_c)
+// v2.8 gap-aware: loss per share = max(stop distance, entry x |worst gap|)
+float gap_abs      = na(d_gap_worst) ? na : math.abs(d_gap_worst)
+bool  gap_on       = use_gap_size and not na(gap_abs) and gap_abs > 0
+float gap_per_sh   = gap_on and m_dist > 0 ? math.max(m_dist, m_entry * gap_abs) : m_dist
+float qty_g        = gap_per_sh > 0 ? math.floor((m_risk_amt / gap_per_sh) / multiplier) : 0
+float m_final_qty  = gap_on ? math.min(qty_r, qty_c, qty_g) : math.min(qty_r, qty_c)
+bool  gap_through  = gap_on and m_entry * gap_abs > m_dist
+string sized_by    = (m_final_qty == qty_c and qty_c < qty_r and (not gap_on or qty_c < qty_g)) ? "Rs cap" : (gap_on and qty_g < qty_r and m_final_qty == qty_g) ? "GAP" : "stop"
 float m_invested   = m_final_qty * m_entry * multiplier
 float m_act_risk   = m_final_qty * m_dist * multiplier
+float m_gap_loss   = m_final_qty * gap_per_sh * multiplier
 
 
 // --- Standard 3-Leg Quantities ---
@@ -356,10 +388,10 @@ bool  is_px_stale = entry_p > 0 and close > 0 and (entry_p > close * 3 or entry_
 // 11. ALLOCATOR TABLE (Restored Dhan 50/50 Static 2-OCO Execution Assistant)
 // ============================================================================
 if barstate.islast and show_alloc_table and m_entry > 0
-    var table tbl_alloc = table.new(pos_str, 2, 14, bgcolor=color.new(color.black, 40), border_color=color.new(color.gray, 70), border_width=1)
+    var table tbl_alloc = table.new(pos_str, 2, 15, bgcolor=color.new(color.black, 40), border_color=color.new(color.gray, 70), border_width=1)
 
     // Header
-    table.cell(tbl_alloc, 0, 0, "Risk Allocator v2.6", bgcolor=color.blue, text_color=color.white, text_size=size.small, text_halign=text.align_right)
+    table.cell(tbl_alloc, 0, 0, "Risk Allocator v2.8", bgcolor=color.blue, text_color=color.white, text_size=size.small, text_halign=text.align_right)
     table.cell(tbl_alloc, 1, 0, resolved_asset + " · " + cat_src + " " + cat_fam, bgcolor=color.blue, text_color=color.white, text_size=size.small, text_halign=text.align_left)
 
     // Context: Stage + RRG
@@ -375,7 +407,7 @@ if barstate.islast and show_alloc_table and m_entry > 0
     table.cell(tbl_alloc, 1, 3, m_stop > 0 ? str.tostring(m_stop, "0.00") + " (" + str.tostring((ref_px - m_stop) / ref_px * 100, "0.0") + "%)" : "— set SL", text_color=color.red, text_size=size.small, text_halign=text.align_left)
 
     // Total Qty & Risk
-    table.cell(tbl_alloc, 0, 4, "Total Quantity", text_color=color.yellow, text_size=size.normal, text_halign=text.align_right)
+    table.cell(tbl_alloc, 0, 4, "Total Quantity [" + sized_by + "]", text_color=color.yellow, text_size=size.normal, text_halign=text.align_right)
     table.cell(tbl_alloc, 1, 4, str.tostring(m_final_qty) + " Shares = OCO-1 " + str.tostring(q_dhan_oco1) + " + OCO-2 " + str.tostring(q_dhan_oco2) + " + runner " + str.tostring(q_dhan_run), text_color=color.yellow, text_size=size.normal, text_halign=text.align_left)
     table.cell(tbl_alloc, 0, 5, "Invested / Risk", text_color=color.white, text_size=size.small, text_halign=text.align_right)
     table.cell(tbl_alloc, 1, 5, str.tostring(m_invested, format.volume) + " / " + str.tostring(m_act_risk, format.volume) + " (" + str.tostring(active_risk_pct, "0.00") + "%)", text_color=color.white, text_size=size.small, text_halign=text.align_left)
@@ -409,6 +441,12 @@ if barstate.islast and show_alloc_table and m_entry > 0
     // Standard Scale-Out Preview (Reference)
     table.cell(tbl_alloc, 0, 12, "T3 Stretch Target", text_color=color.gray, text_size=size.small, text_halign=text.align_right)
     table.cell(tbl_alloc, 1, 12, str.tostring(m_t3, "0.00") + " (" + str.tostring(t3_r, "0.0") + "R)", text_color=color.gray, text_size=size.small, text_halign=text.align_left)
+
+    // v2.8 gap stress
+    string _gap_txt = na(gap_abs) ? "no gap history" : "worst 2y gap " + str.tostring(-gap_abs * 100, "0.0") + "% · " + (not use_gap_size ? "gap sizing OFF" : gap_through ? "wider than the stop: sized on the gap, " + str.tostring(qty_g) + " sh (stop alone " + str.tostring(qty_r) + ") · gap loss " + str.tostring(m_gap_loss, format.volume) : "inside the stop - no shares lost")
+    color  _gap_col = gap_through and use_gap_size ? color.orange : color.gray
+    table.cell(tbl_alloc, 0, 14, "Gap stress", text_color=_gap_col, text_size=size.small, text_halign=text.align_right)
+    table.cell(tbl_alloc, 1, 14, _gap_txt, text_color=_gap_col, text_size=size.small, text_halign=text.align_left)
 
     // Detection source
     table.cell(tbl_alloc, 0, 13, "Catalyst Source", text_color=color.gray, text_size=size.small, text_halign=text.align_right)
@@ -461,7 +499,7 @@ string cat_txt = cat_src + " " + cat_fam + " | St" + str.tostring(stage)
 
 // --- Telegram / Pine-Log trade note ---
 if fire_notes_alert and barstate.islast and m_entry > 0 and m_stop > 0
-    string plain_note = "DHAN GTT OCO PLAN (" + (is_dhan_5050 ? "50/50" : "scale-out + runner") + ") | " + syminfo.ticker + " | " + cat_txt + "\n" + "EP: " + str.tostring(m_entry, "0.00") + "  SL: " + str.tostring(m_stop, "0.00") + " (" + trail_kind + " Step: " + str.tostring(trail_jump, "0.00") + ")\n" + "OCO-1 (" + p_oco1 + " x" + str.tostring(q_dhan_oco1) + "): Static T1 " + str.tostring(m_t1, "0.00") + " (" + str.tostring(t1_r, "0.0") + "R)\n" + "OCO-2 (" + p_oco2 + " x" + str.tostring(q_dhan_oco2) + "): Static T2 " + str.tostring(m_t2, "0.00") + " (" + str.tostring(t2_r, "0.0") + "R)\n" + "Total Qty: " + str.tostring(m_final_qty) + (q_dhan_run > 0 ? "  Runner: " + str.tostring(q_dhan_run) + " (SL-only GTT)" : "") + "  Invested: " + str.tostring(m_invested, format.volume) + "  Risk: " + str.tostring(m_act_risk, format.volume) + " (" + str.tostring(active_risk_pct, "0.00") + "%)\n" + "RRG: " + rrg_txt + "  Valid: " + val_txt
+    string plain_note = "DHAN GTT OCO PLAN (" + (is_dhan_5050 ? "50/50" : "scale-out + runner") + ") | " + syminfo.ticker + " | " + cat_txt + "\n" + "EP: " + str.tostring(m_entry, "0.00") + "  SL: " + str.tostring(m_stop, "0.00") + " (" + trail_kind + " Step: " + str.tostring(trail_jump, "0.00") + ")\n" + "OCO-1 (" + p_oco1 + " x" + str.tostring(q_dhan_oco1) + "): Static T1 " + str.tostring(m_t1, "0.00") + " (" + str.tostring(t1_r, "0.0") + "R)\n" + "OCO-2 (" + p_oco2 + " x" + str.tostring(q_dhan_oco2) + "): Static T2 " + str.tostring(m_t2, "0.00") + " (" + str.tostring(t2_r, "0.0") + "R)\n" + "Total Qty: " + str.tostring(m_final_qty) + (q_dhan_run > 0 ? "  Runner: " + str.tostring(q_dhan_run) + " (SL-only GTT)" : "") + "  Invested: " + str.tostring(m_invested, format.volume) + "  Risk: " + str.tostring(m_act_risk, format.volume) + " (" + str.tostring(active_risk_pct, "0.00") + "%)  Sized by: " + sized_by + (na(gap_abs) ? "" : " (worst gap " + str.tostring(-gap_abs * 100, "0.0") + "%)") + "\n" + "RRG: " + rrg_txt + "  Valid: " + val_txt
     log.info(plain_note)
     if str.length(telegram_chat_id) > 0
         string tg_text = "DHAN GTT OCO PLAN (" + (is_dhan_5050 ? "50/50" : "scale-out + runner") + ") | " + syminfo.ticker + "\\n" + "EP: " + str.tostring(m_entry, "0.00") + "  SL: " + str.tostring(m_stop, "0.00") + " (" + trail_kind + " Step: " + str.tostring(trail_jump, "0.00") + ")\\n" + "OCO-1 (" + p_oco1 + " x" + str.tostring(q_dhan_oco1) + "): Static T1 " + str.tostring(m_t1, "0.00") + "\\n" + "OCO-2 (" + p_oco2 + " x" + str.tostring(q_dhan_oco2) + "): Static T2 " + str.tostring(m_t2, "0.00") + "\\n" + "Total Qty: " + str.tostring(m_final_qty) + (q_dhan_run > 0 ? "  Runner: " + str.tostring(q_dhan_run) + " (SL-only GTT)" : "") + "  Risk: " + str.tostring(m_act_risk, format.volume)
@@ -472,6 +510,6 @@ if fire_notes_alert and barstate.islast and m_entry > 0 and m_stop > 0
 // --- Dhan GTT JSON Export (Structured payload for 2-OCO execution) ---
 if fire_gtt_alert and barstate.islast and m_entry > 0 and m_stop > 0
     string _ord_class = "FOREVER_GTT_2OCO"
-    string gtt_json = '{"source":"RiskAllocator_v2_2","broker":"DHAN","order_type":"' + _ord_class + '","symbol":"' + syminfo.ticker + '","exchange":"' + syminfo.prefix + '","total_qty":' + str.tostring(m_final_qty) + ',"entry":' + str.tostring(m_entry, "0.00") + ',"stop_loss":' + str.tostring(m_stop, "0.00") + ',"trail_jump":' + str.tostring(trail_jump, "0.00") + ',"order_1":{"qty":' + str.tostring(q_dhan_oco1) + ',"target_1_static":' + str.tostring(m_t1, "0.00") + ',"stop_loss":' + str.tostring(m_stop, "0.00") + '},"order_2":{"qty":' + str.tostring(q_dhan_oco2) + ',"target_2_static":' + str.tostring(m_t2, "0.00") + ',"stop_loss":' + str.tostring(m_stop, "0.00") + '},"runner":{"qty":' + str.tostring(q_dhan_run) + ',"stop_loss":' + str.tostring(m_stop, "0.00") + '}}'
+    string gtt_json = '{"source":"RiskAllocator_v2_2","broker":"DHAN","order_type":"' + _ord_class + '","symbol":"' + syminfo.ticker + '","exchange":"' + syminfo.prefix + '","total_qty":' + str.tostring(m_final_qty) + ',"sized_by":"' + sized_by + '","gap_worst_pct":' + str.tostring(na(gap_abs) ? 0.0 : -gap_abs * 100, "0.00") + ',"entry":' + str.tostring(m_entry, "0.00") + ',"stop_loss":' + str.tostring(m_stop, "0.00") + ',"trail_jump":' + str.tostring(trail_jump, "0.00") + ',"order_1":{"qty":' + str.tostring(q_dhan_oco1) + ',"target_1_static":' + str.tostring(m_t1, "0.00") + ',"stop_loss":' + str.tostring(m_stop, "0.00") + '},"order_2":{"qty":' + str.tostring(q_dhan_oco2) + ',"target_2_static":' + str.tostring(m_t2, "0.00") + ',"stop_loss":' + str.tostring(m_stop, "0.00") + '},"runner":{"qty":' + str.tostring(q_dhan_run) + ',"stop_loss":' + str.tostring(m_stop, "0.00") + '}}'
     log.info(gtt_json)
     alert(gtt_json, alert.freq_all)

@@ -325,10 +325,14 @@ footer a{color:var(--acc)}
   <h2><span class="n">02b</span>What changed since 1 September</h2>
   <p>The panel is <b>S4 v11.30 on S4Core/72</b> (file title v10.13), compiled 11 October and bound 32/32 on all three S4 tabs. Five things moved on 8–9 September, one
   measurement changed how a row should be read, the 12–15 September batch put the derivatives into
-  the ladders, and the 20 September audit batch closed three parity drifts and latched the stop.</p>
+  the ladders, and the 20 September audit batch closed three parity drifts and latched the stop.
+  <b>27 October: S4 v11.34 on S4Core/73</b> (file title v10.17) prints the newest candlestick from
+  Commander Add-ons (Doc 43) on the Intraday │ Pattern row and in SUMMARY.</p>
   <div class="tw"><table>
     <thead><tr><th>Date</th><th>Change</th><th>Where on the panel</th></tr></thead>
     <tbody>
+      <tr><td class="m">29 Oct</td><td><b>S4 v11.35 (title v10.18) — the Qty row sizes for the gap.</b> Loss per share = the larger of entry − SL and entry × this stock's <b>worst overnight gap of the last two years</b> (a resting stop caps a slide, never a gap). The gap arrives in a new bundle section <code>GAP=SYM:-6.8,…</code> (<code>gap_risk.gap_section</code>, every board name and holding), so S4, the GM sizer and Risk Allocator v2.8 use one number. The Qty row says <em>sized on gap −x%</em> when the gap bound, and <em>gap ?</em> for a name not in the bundle (sized on the stop). The receipt now expects <b>18</b> sections. No library change; GO and alerts unchanged. Compile pending, then AFTER_COMPILE.</td><td>Qty row · header receipt</td></tr>
+      <tr><td class="m">27 Oct</td><td><b>S4 v11.34 on S4Core/73 — the candlestick at the level.</b> Commander Add-ons M3 (v1.5) marks candlesticks only at S4's own S/R levels, after price arrived, at size. S4 now binds three of its plots (<em>Add-ons: candle code / level / trigger</em>) and prints the newest pattern, no older than 5 bars, at the end of the <b>Intraday │ Pattern</b> row: name, ✓ / ? / ✗, the level, its age, its state, the primary trend and what the shape means. SUMMARY gains a <b>CANDLE</b> section between LEVELS and PARTICIPATION. Display only: the GO, the alerts and every gate are unchanged, so the GO alerts need no recreating. Order: publish S4Core/73, compile S4 and Add-ons, then BIND_S4_SOURCES (<code>35/35</code> where Add-ons is on the tab; the three are skipped where it is not)</td><td>Intraday │ Pattern · SUMMARY</td></tr>
       <tr><td class="m">11 Oct</td><td><b>S4 v11.30 on S4Core/72 — AVWAP <code>L</code> anchors on this year's low.</b> It anchored on the last day the stock set a fresh 52-week low; on a long-running leader that is years back (48 of 66 board names; TVSMOTOR: March 2022 at ₹513), so <code>L</code> was a multi-year average that read differently per timeframe. It now anchors on the <b>lowest low within the last 252 days</b>, on S4 and on the board alike. TVSMOTOR's <code>L</code> moves to ₹3,841. Seven board names change AVWAP location: AUBANK, CUMMINSIND, HYUNDAI, MODEFENCE and TVSMOTOR gain it; M&amp;MFIN and MIDCAPETF lose it</td><td>AVWAP · Location</td></tr>
       <tr><td class="m">9 Oct</td><td><b>S4 v11.29 — Room inside a zone.</b> Room for Trade was measured from the demand zone's top even when price sat inside the zone, so an obstacle between price and the top read negative (TVSMOTOR 75m: <code>-0.5×zone</code>). Inside the zone it is now measured from price. <b>Fixed in v11.30:</b> the AVWAP <code>L</code> anchor is the last fresh 252-day low — on a long-running leader that is years old (TVSMOTOR: March 2022), and intraday history cuts it short, so <code>L</code> reads 1218 on 75m against about 1997 on the Daily. Anchoring on the lowest low within the last year would fix it, but it changes AVWAP location and triggers, so it waits for a decision</td><td>Room for Trade · AVWAP L</td></tr>
       <tr><td class="m">9 Oct</td><td><b>S4 v11.28 on S4Core/71 — from a sweep of all 49 board names.</b> <b>Holdings take the board's path.</b> A holding is tagged only <i>Held</i> on the board, so it was on neither of the two lists S4 uses to pick Bull or Recovery, and S4's own drawdown rule guessed: CUMMINSIND (board: Recovery, RFF 6/6) went to Bull and was blocked on BFF 3/5; CAPLIPOINT, GLAXO, NETWEB and M&amp;MFIN (board: Bull) went to Recovery with no RFF score, so F passed unchecked. Recovery holdings now join the REC list; Bull holdings go on a new path-only <code>BUL</code> list (the PB list was not used because it also lowers the volume floor). <b>QUALITY on an unscored name</b> now reads <i>"Not scored…"</i> instead of "The books clear the floor". The header expects 17 bundle sections</td><td>Path · QUALITY · header</td></tr>
@@ -1719,6 +1723,21 @@ R   RRG        chipped, measured, and deliberately off
   <h3>Rows 25–27 · Pattern | Combo, Setup, and the battery</h3>
   <p>Row 25 carries the pattern flag and the combo (section 05 lists all five). The Shape field
   is gone (29 Sep); geometry is read in Section Five.</p>
+  <h4>The candlestick at the level (v11.34, 27 Oct)</h4>
+  <p class="m">… │ 🕯 Hammer ? at Daily S/R 1,842.50 · last bar · PENDING - close above 1,868.20 — a long lower wick with the close near the high - sellers pushed below the level and were rejected</p>
+  <p>The last part of the Intraday │ Pattern row is the newest candlestick from Commander Add-ons M3
+  (Doc 43): name, mark (<code>✓</code> confirmed or complete in itself, <code>?</code> pending,
+  <code>✗</code> failed), the S/R level or average it formed on, how many bars ago, its state,
+  <code>↺ counter-trend</code> when it runs against the primary trend, and a one-line meaning. The row
+  is kept short because it wraps; SUMMARY's CANDLE section carries the long read. Only a
+  pattern no older than 5 bars is shown. Other readings: <code>🕯 no candlestick at a key level
+  recently</code> (bound, nothing recent), <code>🕯 candles not bound</code> (run BIND_S4_SOURCES, or
+  Add-ons is not on this chart), <code>🕯 candles off</code> (M3 switched off). <b>It times, it
+  never qualifies</b>: nothing in the GO reads it.</p>
+  <p><b>How long it counts.</b> A pending <code>?</code> has 3 bars to get its confirming close, then
+  turns <code>✗</code>; the row drops any pattern older than 5 bars. Bars are the chart's own: on Daily
+  5 bars is about a week, on 75m about a day. Doc 43 §10b has the full table, and Doc 30 §04c the
+  longer windows for S5's chart patterns.</p>
   <p><b>Row 26 is the Setup row</b> (8 Sep): the playbook in force and whether the pattern that
   fired is that playbook's trigger. <code>🟢 PULLBACK — the pattern that fired is this playbook's
   trigger</code> is the read you want; <code>🔴 … wants compression or a turn, not an ignition
@@ -1921,8 +1940,8 @@ R   RRG        chipped, measured, and deliberately off
 
   <h3>The SUMMARY column</h3>
   <p>The right-hand column reads the entire panel as <b>one judgement</b> — trend stack,
-  leadership, location, participation, geometry, direction — and says what the combination
-  <em>means</em>. It deliberately prints no value that appears above it. VERDICT is the short
+  leadership, location, levels, the candle at the level (CANDLE, v11.34, only when one is recent),
+  participation, geometry, exposure, direction — and says what the combination <em>means</em>. It deliberately prints no value that appears above it. VERDICT is the short
   ruling; SUMMARY is the long-form read. It is a column rather than a row because a Pine table
   cell does not auto-wrap: full-width, it stretched the panel across the monitor.</p>
 </section>

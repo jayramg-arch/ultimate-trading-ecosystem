@@ -1,6 +1,11 @@
 // ============================================================================
 // S5 ANALYSIS PANEL  v1.0  (8 Sep 2026)
 //
+// v1.9 (27 Oct 2026) - PATTERN READ. Row 25 in VI · READ says in prose what the newest
+//   chart pattern means for a long (forming / confirmed / target reached / failed). The
+//   reviewer is now shown this row and the Chart pattern row; the rest of I · GEOMETRY,
+//   II · LEVELS and the geometry READ stay withheld until tuned.
+//
 // v1.8 (27 Oct 2026) - CHART PATTERNS + THE RECTANGLE RULE.
 //   Double / triple bottoms and tops, head & shoulders both ways, cup with handle and
 //   the VCP, from a zigzag of the 5/5 pivots, drawn with neckline, invalidation and
@@ -121,7 +126,7 @@
 // while capping what footprint can hoard. IF THE CHART EVER REPORTS "Memory limits
 // exceeded": drop this first (800, then 400), and turn show_fp off second.
 // The D/W/M security calls have their own contexts and are unaffected by it.
-indicator("S5 Analysis Panel v1.8", shorttitle="S5", overlay=true, max_lines_count=250, max_labels_count=500, max_boxes_count=100, max_bars_back=300, calc_bars_count=1500)
+indicator("S5 Analysis Panel v1.9", shorttitle="S5", overlay=true, max_lines_count=250, max_labels_count=500, max_boxes_count=100, max_bars_back=300, calc_bars_count=1500)
 
 grpLab = "LAB -- which engine to test"
 d_sr = input.bool(true, "S/R levels engine", group=grpLab, tooltip="Master switch for the horizontal-level engine (auto clustering + your manual levels). Turn OFF to study trendlines alone on a clean chart.")
@@ -2683,6 +2688,43 @@ f_cpRow() =>
         c := (p.st >= 2 and p.st <= 4) ? C_MUTE : p.st == 0 ? C_WARN : p.dir == 1 ? C_OK : C_NO
     [t, c]
 
+// v1.9 (27-Oct-2026, Jay) - the newest chart pattern in prose: what it is, what its state
+// means for a long, and what would change it. S5's own READ section carries it, and the
+// reviewer is shown this row and the Chart pattern row (they are not geometry-classifier
+// output). Still a visual aid: it grades nothing and S4's plan levels stay the plan.
+f_cpRead() =>
+    string t = ""
+    int n = array.size(cpPats)
+    if cp_on and n > 0
+        CPat p = array.get(cpPats, n - 1)
+        string c = p.code
+        string what = c == "DB" ? "a double bottom - sellers failed twice at the same low" :
+             c == "TB" ? "a triple bottom - the same low held three times" :
+             c == "iH&S" ? "an inverse head & shoulders - a lower low sellers could not repeat, the classic reversal base" :
+             c == "C&H" ? "a cup with handle - a rounded base and a shallow final shake-out, the continuation base" :
+             str.startswith(c, "VCP") ? "a VCP - each pullback shallower than the last, supply drying up into the pivot" :
+             c == "DT" ? "a double top - buyers failed twice at the same high" :
+             c == "TT" ? "a triple top - the same high capped price three times" :
+             c == "H&S" ? "a head & shoulders - a higher high buyers could not repeat, the classic top" : p.name
+        string lvl = f_px(f_cpLvl(p, bar_index))
+        string ctr = p.ctr ? " It runs AGAINST the 30-week stage, which weakens it." : ""
+        if p.dir == 1
+            t := p.st == 0 ? "PATTERN: " + what + ", still FORMING. It is not a pattern until a close above " + lvl + "; until then it is a base, not a breakout, and it is void below " + f_px(p.inval) + "." :
+                 p.st == 1 ? "PATTERN: " + what + ", CONFIRMED at " + f_px(p.brk) + (p.rt ? " and retested" : "") + ". The structure supports a long while price holds above that break; the measured target" + (na(p.tgt) ? " (none - a VCP has no measured move)" : " " + f_px(p.tgt)) + " is a reference for room, not a plan target - S4's plan sets T1/T2." :
+                 p.st == 5 ? "PATTERN: " + what + " has REACHED its measured target " + f_px(p.tgt) + ". Its move is done, so it no longer argues for a new entry." :
+                 "PATTERN: " + what + " - " + (p.st == 2 ? "FAILED" : p.st == 3 ? "EXPIRED" : "BUSTED") + " (" + p.why + "). The structure that argued for a long did not deliver; treat it as a warning, not a setup."
+        else
+            t := p.st == 0 ? "PATTERN: " + what + ", forming. A close below " + lvl + " would complete the top; while it stands it argues against buying into strength here." :
+                 p.st == 1 ? "PATTERN: " + what + ", CONFIRMED at " + f_px(p.brk) + ". A completed top: against a new long, and a reason to tighten or trim a holding." :
+                 p.st == 5 ? "PATTERN: " + what + " has reached its measured target " + f_px(p.tgt) + " - the decline it projected is done." :
+                 "PATTERN: " + what + " - " + (p.st == 2 ? "FAILED" : p.st == 3 ? "EXPIRED" : "BUSTED") + " (" + p.why + "). The top did not complete, which mildly favours the long."
+        // two lines (what + state / what it means): S5 does not wrap its cells, so one long
+        // sentence would widen the whole value column
+        t := str.replace(t + ctr, ". ", ".\n", 0)
+    else
+        t := not cp_on ? "chart patterns off" : "no chart pattern in the last " + str.tostring(cp_keep) + " bars - nothing structural to add."
+    t
+
 var table s5p = table.new(f_s5pos(), 2, 26, border_width=1, frame_width=1, frame_color=C_GRID, border_color=C_GRID)
 
 // S4's panel grammar: a numbered section band that says what the rows under it are
@@ -2720,7 +2762,7 @@ f_s5row(int r, string k, string v, color c) =>
     table.cell(s5p, 1, r, v, text_size=f_s5size(), text_color=C_SOFTTXT, bgcolor=_bg, text_halign=text.align_left)
 
 if show_s5p and barstate.islast
-    table.cell(s5p, 0, 0, "S5  v1.8", text_size=f_s5size(), text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_right)
+    table.cell(s5p, 0, 0, "S5  v1.9", text_size=f_s5size(), text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_right)
     table.cell(s5p, 1, 0, syminfo.ticker + "  ·  " + timeframe.period + "  ·  explain-surface for S4", text_size=f_s5size(), text_color=C_BADGE_TXT, bgcolor=C_BADGE_BG, text_halign=text.align_left)
 
     f_s5sec(1, "  I · GEOMETRY            —  What shape is this, on TradingView criteria?")
@@ -2843,3 +2885,5 @@ if show_s5p and barstate.islast
 
     f_s5sec(23, "  VI · READ               —  One line. What the structure implies for the trade S4 is judging.")
     f_s5row(24, "READ", _read, C_MUTE)
+    // v1.9: the chart pattern in the same READ section (row 25 was the table's free row).
+    f_s5row(25, "PATTERN READ", f_cpRead(), _cpC)

@@ -853,10 +853,10 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v10.16 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.16", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v10.18 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.18", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.33"
+string S4_VER      = "v11.35"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -872,7 +872,7 @@ string S4_VER      = "v11.33"
 // twice the width of a letter - which is why its char count is NOT the wrap count.
 // Raise it if rows stop short of Confluence's edge; lower it if the panel widens.
 int PANEL_ROW_WRAP = 168
-string S4_CORE_VER = "72"
+string S4_CORE_VER = "73"
 // S4Core/27 (29-Aug-2026) takes the VP gate as a PARAMETER. A function that indexes its
 // series params must be CALLED on every calculation, or Pine warns that it should be
 // extracted from the scope; so the call sits in global scope and the loop stays behind
@@ -882,7 +882,7 @@ string S4_CORE_VER = "72"
 // fundStr() and bitsRow(), which the two FUNDAMENTALS rows need. Keep S4_CORE_VER above
 // in step with this number -- the panel header prints it, and it had already drifted to
 // 23 while the import was on 24.
-import jayramg/S4Core/72 as core   // bump S4_CORE_VER (line ~860) with this - the panel stamp is hand-kept and Pine cannot read a library version at runtime
+import jayramg/S4Core/73 as core   // bump S4_CORE_VER (line ~860) with this - the panel stamp is hand-kept and Pine cannot read a library version at runtime
 
 // v7.0.1 — colour constants. Purely mechanical de-duplication of the most
 // repeated color.new() literals: identical values, identical rendering, but one
@@ -4945,6 +4945,13 @@ show_plan_levels = input.bool(true, "Draw plan levels (E · SL · T1 · T2) on c
 // blank-fields incident. Placement here costs nothing but a Settings ordering.
 show_cpr   = input.bool(true, "CPR pivot line",    group=grpDisp, tooltip="Central pivot (H+L+C)/3 of the PREVIOUS completed day. Stepline, because it is one value per session and a sloped line between sessions would imply intraday movement it does not have.")
 show_mvwap = input.bool(true, "Monthly VWAP line", group=grpDisp, tooltip="Volume-weighted average price anchored to the first bar of the month — the average price everyone who traded this month actually paid.")
+// v11.34 (27-Oct-2026, Jay): the newest candlestick from Commander Add-ons M3, printed on
+// the Intraday | Pattern row and as a SUMMARY "CANDLE" section. Display only - nothing here
+// reaches the GO, an alert or a grade. Appended LAST for the same reason as the two above.
+// Bound by BIND_S4_SOURCES; unbound they read close, which core.candleRead detects (< 1e7).
+cdCode = input.source(close, "Add-ons: candle code",    group=grpDash, tooltip="Bind to Commander Add-ons' s4_candleCode (M3, v1.5+). The newest candlestick at a key level as a code - see S4Core.candleRead.")
+cdLvl  = input.source(close, "Add-ons: candle level",   group=grpDash, tooltip="Bind to s4_candleLvl - the S/R level or moving average the pattern formed on.")
+cdTrig = input.source(close, "Add-ons: candle trigger", group=grpDash, tooltip="Bind to s4_candleTrig - the close that confirms it (above the pattern high for bullish, below the low for bearish).")
 
 f_planLine(bool _on, float _lvl, string _txt, color _c, string _sty) =>
     var line  _ln = na
@@ -5102,7 +5109,7 @@ if show_panel and d_panel and barstate.islast
     // the split size (core.bundleSection needs a simple-string tag, so no loop over tags).
     int _bTags  = str.length(gm_bundle) == 0 ? 0 : array.size(str.split(gm_bundle, "|"))
     bool   _b2ok   = str.length(gm_bundle2) == 0 or str.pos(gm_bundle2, "OPT=") >= 0
-    string _bNote  = str.length(gm_bundle) == 0 ? "no bundle" : (str.tostring(str.length(gm_bundle)) + "ch·" + str.tostring(_bTags) + "/17" + (_bTags < 17 ? " ⚠tail?" : "") + (_b2ok ? "" : " ⚠b2"))
+    string _bNote  = str.length(gm_bundle) == 0 ? "no bundle" : (str.tostring(str.length(gm_bundle)) + "ch·" + str.tostring(_bTags) + "/18" + (_bTags < 18 ? " ⚠tail?" : "") + (_b2ok ? "" : " ⚠b2"))
     table.cell(pnl, 0, 0, "S4 " + S4_VER + "  │  core/" + S4_CORE_VER + "  │  " + _bNote, text_size=_pSize, text_color=color.white, bgcolor=C_REC, text_halign=text.align_right)
     table.merge_cells(pnl, 1, 0, PA_LAST_COL, 0)
     // Each banner states the QUESTION its block answers. The panel is read under time
@@ -5214,8 +5221,10 @@ if show_panel and d_panel and barstate.islast
     // Sigma cannot show. Built here rather than 650 lines below, where it used to live:
     // every flag it reads is a global from f_paCombos, so nothing moves but the text.
     string _cbTxt = cbSPRING[_so] ? "COILED SPRING  │  VCP " + str.tostring(_agVCP[_so]) + "b -> coil now" : cbIGNITE[_so] ? "INSTITUTIONAL IGNITION  │  BC " + str.tostring(_agBC[_so]) + "b -> " + (kPP[_so] ? "PP" : "GAP") + " now" : cbTRAP[_so] ? "BEAR TRAP  │  sweep " + str.tostring(_agSPR[_so]) + "b -> engulf now" : cbFLOOR[_so] ? "CAPITULATION FLOOR  │  climax " + str.tostring(_agCLX[_so]) + "b + spring " + str.tostring(_agSPRr[_so]) + "b -> engulf now" : cbSHIFT[_so] ? "STRUCTURE SHIFT  │  climax " + str.tostring(_agCLX[_so]) + "b + higher-low " + str.tostring(_ag2B[_so]) + "b -> dry-up now" : ""
+    // v11.34: the candlestick (Add-ons M3) joins the row - same question, "what fired here".
+    [_cdRow, _cdSum] = core.candleRead(cdCode[_so], cdLvl[_so], cdTrig[_so])
     f_row(22, "Intraday " + timeframe.period + " │ Pattern",   // v11.25: Intraday merged in
-         intra_status + "   │   " + _patTxt + (str.length(_cbTxt) > 0 ? "   │   ★ " + _cbTxt : ""),
+         intra_status + "   │   " + _patTxt + (str.length(_cbTxt) > 0 ? "   │   ★ " + _cbTxt : "") + "   │   " + _cdRow,
          str.length(_cbTxt) > 0 ? C_GO : intra_ok_v ? C_REC : not d_pat ? color.gray : str.length(pats[_so]) > 0 ? C_OK : color.gray)
 
     // Location (L) — verbose, own row (24-Jul, Jay's PLVB sequence). The TRIGGER row's
@@ -5720,11 +5729,17 @@ if show_panel and d_panel and barstate.islast
     // Qty — the last manual step before the GTT, computed from the panel's own Entry/SL.
     // #12: Qty from the DYNAMIC risk% (Risk-Allocator rules), capped by max-allocation.
     float _riskAmt = size_cap * active_risk / 100.0
-    int   _qtyR   = (na(pl_entry) or (pl_entry - pl_sl) <= 0) ? 0 : int(math.floor(_riskAmt / (pl_entry - pl_sl)))
+    // v11.35 (29-Oct-2026) GAP-AWARE: a resting stop caps a slide, never a gap - the order fills
+    // at the open. Loss per share = max(entry - SL, entry x |worst 2-year overnight gap|), the
+    // GM sizer's and Risk Allocator v2.8's rule. The gap comes from the bundle (GAP=SYM:-6.8,
+    // gap_risk.gap_section); a name not in it sizes on the stop and reads "gap ?".
+    float _gapW   = str.tonumber(core.fundStr(core.bundleSection(gm_bundle, "GAP"), syminfo.ticker))
+    float _perSh  = na(pl_entry) ? na : math.max(pl_entry - pl_sl, na(_gapW) ? 0.0 : pl_entry * math.abs(_gapW) / 100.0)
+    int   _qtyR   = (na(pl_entry) or (pl_entry - pl_sl) <= 0) ? 0 : int(math.floor(_riskAmt / _perSh))
     int   _qtyC   = (size_max_alloc > 0 and not na(pl_entry) and pl_entry > 0) ? int(math.floor(size_max_alloc / pl_entry)) : _qtyR
     int   _qtyF   = math.min(_qtyR, _qtyC)
     string _dynTag = not use_dyn_risk ? "" : " (" + str.tostring(_szb, "0.00") + "b ×" + str.tostring(kelly_mult, "0.00") + "K" + (vol_disc < 1.0 ? " ×" + str.tostring(vol_disc, "0.00") + "V" : "") + (not mkt_health ? " bear−" : "") + ")"
-    string _qtyTxt = na(pl_entry) ? "—" : size_cap <= 0 ? "set Capital in Sizing" : ((pl_entry - pl_sl) <= 0 ? "—" : str.tostring(_qtyF) + (_qtyC < _qtyR ? " sh (alloc-capped)" : " sh") + "  │  risk ₹" + str.tostring(_qtyF * (pl_entry - pl_sl), "0") + (_qtyC < _qtyR ? " of ₹" + str.tostring(_riskAmt, "0") + " budget" : "") + _dynTag)
+    string _qtyTxt = na(pl_entry) ? "—" : size_cap <= 0 ? "set Capital in Sizing" : ((pl_entry - pl_sl) <= 0 ? "—" : str.tostring(_qtyF) + (_qtyC < _qtyR ? " sh (alloc-capped)" : " sh") + "  │  risk ₹" + str.tostring(_qtyF * (pl_entry - pl_sl), "0") + (_qtyC < _qtyR ? " of ₹" + str.tostring(_riskAmt, "0") + " budget" : "") + _dynTag + (na(_gapW) ? " · gap ?" : _perSh > pl_entry - pl_sl ? " · sized on gap " + str.tostring(_gapW, "0.0") + "%" : ""))
     f_row(37, "Qty @ " + str.tostring(active_risk, "0.00") + "% risk", _qtyTxt, na(pl_entry) or size_cap <= 0 ? color.gray : C_OK)
     // ── IMPORTED FROM v67 (v8.4) ────────────────────────────────────────────────
     // Range checks first: an unwired source carries price, so anything outside a
@@ -6254,7 +6269,7 @@ if show_panel and d_panel and barstate.islast
              str.contains(_mkt, "regime Bear"))
         // v11.22: the reference levels read as their own LEVELS section, between LOCATION
         // and PARTICIPATION (core.refLevelsRead; empty when none is known).
-        string _sumRaw = str.replace(core.summarySplice(_sumRaw0, v22_lvls, _mkt), "EXPOSURE\n", "EXPOSURE · ", 0)   // LEVELS + EXPOSURE (6-Oct-2026)
+        string _sumRaw = str.replace(core.summarySplice(_sumRaw0, v22_lvls, _mkt, _cdSum), "EXPOSURE\n", "EXPOSURE · ", 0)   // LEVELS + EXPOSURE (6-Oct-2026)
         // Every cell of the column has to EXIST before it can be merged, so blank the
         // range first, write the text into the top-left cell, then merge. Skipping the
         // blanking pass is the usual reason a vertical merge silently does nothing.
