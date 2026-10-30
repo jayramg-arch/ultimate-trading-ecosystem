@@ -320,8 +320,7 @@ def compute_book() -> list[dict]:
     except Exception as e:
         print("regime unavailable (no bear widening):", e)
     try:
-        with open(os.path.join(HERE, "portfolio_history.json"), encoding="utf-8") as f:
-            cap_protect = rc.capital_protection_active(json.load(f))
+        cap_protect = rc.capital_protection_active(rc.book_nav_history())   # NAV, not cash + cost (30-Oct-2026)
     except Exception:
         cap_protect = False
     try:

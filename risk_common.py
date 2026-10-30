@@ -440,6 +440,42 @@ def capital_protection_active(history: dict) -> bool:
     return bool(s.iloc[-1] < s.ewm(span=20, adjust=False).mean().iloc[-1])
 
 
+# The book capital protection is judged on (30-Oct-2026). v2 has no stops and is out.
+BOOK_SYSTEMS = ("v1", "legacy")
+
+
+def book_nav_history(path: str | None = None) -> dict:
+    """date -> NAV of the trailed book (v1 + legacy), marked to market and net of money
+    moved in or out - from logs/system_equity.csv (auto-pilot Phase 12j).
+
+    WHY (30-Oct-2026): capital protection used to read portfolio_history.json, which is
+    Dhan cash + the COST of the holdings. Prices never moved it; cash did. Money taken
+    out of Dhan on 19 Oct (Rs 25.3L -> 19.7L) read as a 22% drawdown and held every
+    Chandelier at 2.5x for weeks while the v1 book was actually up 2%. NAV chains
+    (equity - flow) / previous equity, so a deposit or withdrawal is not a gain or loss.
+    Empty dict when the file is missing - capital protection then reads OFF."""
+    import os
+    if path is None:
+        _d = os.environ.get("SYSTEM_EQUITY_DIR") or os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+        path = os.path.join(_d, "system_equity.csv")
+    try:
+        d = pd.read_csv(path)
+    except Exception:
+        return {}
+    d = d[d["system"].isin(BOOK_SYSTEMS)]
+    if d.empty:
+        return {}
+    g = d.groupby("date")[["equity", "flow"]].sum().sort_index()
+    out, nav, prev = {}, 1.0, None
+    for day, r in g.iterrows():
+        eq, fl = float(r["equity"]), float(r["flow"])
+        if prev and prev > 0:
+            nav *= (eq - fl) / prev
+        out[str(day)] = nav
+        prev = eq
+    return out
+
+
 def r_unit_stop(row, atr):
     """(stop that defines 1R, is_policy) - the ONE R unit (14/15-Oct-2026).
 

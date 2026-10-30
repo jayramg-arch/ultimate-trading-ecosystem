@@ -423,16 +423,16 @@ def _live_oco_sl_legs(dhan):
 
 def _cap_protect_active() -> bool:
     """Risk Shield's CAPITAL PROTECTION switch (book equity below the 20-EMA of its own
-    daily history -> Chandelier 2.5x), read from the same portfolio_history.json and the
+    daily history -> Chandelier 2.5x), read from the same book NAV (risk_common.book_nav_history) and the
     same risk_common test as the Risk Shield page and the v67 push. Added 30-Oct-2026:
     the trail job never read it, so Dhan trailed on 5.0x while every screen showed the
     2.5x level (ANANDRATHI: Dhan 2036.5, screens 2143). Unreadable history = off."""
+    # 30-Oct-2026 (later): reads the v1 + legacy NAV (marked to market, net of money
+    # moved in or out), not portfolio_history.json (cash + cost), which read a cash
+    # withdrawal as a drawdown. See risk_common.book_nav_history.
     try:
-        import json as _json
-        from risk_common import capital_protection_active
-        _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "portfolio_history.json")
-        with open(_p, encoding="utf-8") as f:
-            return bool(capital_protection_active(_json.load(f)))
+        from risk_common import capital_protection_active, book_nav_history
+        return bool(capital_protection_active(book_nav_history()))
     except Exception as e:
         log.warning(f"cap-protect: history unreadable (off): {e}")
         return False

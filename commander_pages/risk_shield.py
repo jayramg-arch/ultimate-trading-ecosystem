@@ -223,15 +223,17 @@ if True:
     import risk_common as _rc
     _capital_protection_mode = False
     _cap_prot_msg = ""
-    if len(_portfolio_history) >= 5:
-        # Convert to pandas series to calculate EMA — SORTED by date key (a
-        # json file with out-of-order keys would otherwise scramble the EMA).
-        _s_port = pd.Series([v for _, v in sorted(_portfolio_history.items())])
+    # 30-Oct-2026: judged on the v1 + legacy NAV (marked to market, net of money moved in
+    # or out), not on portfolio_history (cash + cost), which read a withdrawal as a
+    # drawdown. Same series as the broker trail and the v67 push (risk_common).
+    _book_nav = _rc.book_nav_history()
+    if len(_book_nav) >= 5:
+        _s_port = pd.Series([v for _, v in sorted(_book_nav.items())])
         _port_ema20 = _s_port.ewm(span=20, adjust=False).mean().iloc[-1]
         _curr_port = _s_port.iloc[-1]
-        if _rc.capital_protection_active(_portfolio_history):   # shared with the v67 push
+        if _rc.capital_protection_active(_book_nav):   # shared with the v67 push + broker trail
             _capital_protection_mode = True
-            _cap_prot_msg = f"📉 CAPITAL PROTECTION MODE ACTIVE: Portfolio Equity (₹{format_inr_int(_curr_port)}) is below 20-EMA (₹{format_inr_int(_port_ema20)}). Mechanical stops will be tightened globally."
+            _cap_prot_msg = f"📉 CAPITAL PROTECTION MODE ACTIVE: book NAV (v1 + legacy, {_curr_port:.4f}) is below its 20-EMA ({_port_ema20:.4f}). Mechanical stops will be tightened globally."
 
     # --- AI review helper (uses fast model for batch) ---
     # Prompts are framed for Jay's NSE swing/positional method: Weinstein Stage 2,
