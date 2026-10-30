@@ -421,7 +421,24 @@ def _live_oco_sl_legs(dhan):
     return out
 
 
-def _chandelier_for(sym: str, j: dict, bear: bool):
+def _cap_protect_active() -> bool:
+    """Risk Shield's CAPITAL PROTECTION switch (book equity below the 20-EMA of its own
+    daily history -> Chandelier 2.5x), read from the same portfolio_history.json and the
+    same risk_common test as the Risk Shield page and the v67 push. Added 30-Oct-2026:
+    the trail job never read it, so Dhan trailed on 5.0x while every screen showed the
+    2.5x level (ANANDRATHI: Dhan 2036.5, screens 2143). Unreadable history = off."""
+    try:
+        import json as _json
+        from risk_common import capital_protection_active
+        _p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "portfolio_history.json")
+        with open(_p, encoding="utf-8") as f:
+            return bool(capital_protection_active(_json.load(f)))
+    except Exception as e:
+        log.warning(f"cap-protect: history unreadable (off): {e}")
+        return False
+
+
+def _chandelier_for(sym: str, j: dict, bear: bool, cap_protect: bool = False):
     """ONE Chandelier computation, shared by the trail and cover passes.
 
     Extracted 17-Aug after the cover pass — written as a separate copy of the same
@@ -456,7 +473,7 @@ def _chandelier_for(sym: str, j: dict, bear: bool):
     _tfj = str(j.get("timeframe") or "").lower()
     _swing = True if "swing" in _tfj else (False if "pos" in _tfj else None)
     ce, mult, src = chandelier_exit(h, l, c, setup=str(j.get("setup") or ""),
-                                    bear=bear, custom_mult=_cm,
+                                    bear=bear, custom_mult=_cm, cap_protect=cap_protect,
                                     above200=above200, swing=_swing, entry_date=j.get("entry_date"))
     if ce is None:
         return None
@@ -533,6 +550,7 @@ def run_cover_pass(auto_yes: bool = False, dry_run: bool = True):
         bear = _hp.is_bear((_mr.compute_regime(persist=False) or {}).get("score"))
     except Exception as e:
         log.warning(f"cover: regime unavailable (bear=False): {e}")
+    cap_protect = _cap_protect_active()
 
     import data_provider as _dp
     from risk_common import chandelier_exit
@@ -545,7 +563,7 @@ def run_cover_pass(auto_yes: bool = False, dry_run: bool = True):
             continue
         j = journal.get(sym, {})
         try:
-            _r = _chandelier_for(sym, j, bear)
+            _r = _chandelier_for(sym, j, bear, cap_protect)
         except Exception as e:
             print(f"   ⚠️  {sym}: Chandelier failed ({e}) — SKIPPED")
             continue
@@ -553,6 +571,18 @@ def run_cover_pass(auto_yes: bool = False, dry_run: bool = True):
             print(f"   ⚠️  {sym}: {naked} naked sh but no Chandelier could be computed — SKIPPED")
             continue
         ce, mult, src, ltp = _r["ce"], _r["mult"], _r["src"], _r["ltp"]
+        # Same floor as the trail pass (house_policy.DHAN_STOP_MIN_ATR, Jay 12-Oct): never
+        # closer than close - 3 x ATR14. Added 30-Oct with cap-protect, which can put the
+        # 2.5x Chandelier inside normal noise.
+        try:
+            import ai_risk_manager as _arm
+            import house_policy as _hpm
+            _a14 = float(_arm.get_atr(sym) or 0)
+            if _a14 > 0 and ltp - _hpm.DHAN_STOP_MIN_ATR * _a14 < ce:
+                ce = ltp - _hpm.DHAN_STOP_MIN_ATR * _a14
+                src = f"{src} · capped at close-{_hpm.DHAN_STOP_MIN_ATR:g}xATR"
+        except Exception as e:
+            log.warning(f"cover: {sym}: ATR14 unavailable, 3xATR floor not applied: {e}")
         if ce >= ltp:
             # Same rule as the trail pass: a stop at/above price is an EXIT signal.
             # Never auto-sell on it — report and let Jay decide.
@@ -666,6 +696,9 @@ def build_trail_proposals(dhan=None):
         bear = _hp.is_bear(_reg.get("score"))
     except Exception as e:
         log.warning(f"trail: regime unavailable (bear=False): {e}")
+    cap_protect = _cap_protect_active()
+    if cap_protect:
+        log.info("trail: CAPITAL PROTECTION active - Chandelier 2.5x (book equity below its 20-EMA)")
 
     import data_provider as _dp
     from risk_common import chandelier_exit
@@ -679,7 +712,7 @@ def build_trail_proposals(dhan=None):
         try:
             # Shared with run_cover_pass — see _chandelier_for(). Behaviour here is
             # unchanged: the helper is a move of exactly these lines.
-            _r = _chandelier_for(sym, j, bear)
+            _r = _chandelier_for(sym, j, bear, cap_protect)
             if _r is None:
                 log.warning(f"trail: {sym}: insufficient bars / no Chandelier — skipped")
                 continue

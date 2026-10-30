@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 30 Oct · 88 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 30 Oct · 89 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,11 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">30 Oct<br>trail = capital protection</td>
+        <td><b>The broker trail uses the same Chandelier as every screen.</b> <code>gtt_auto_shield --trail</code> never read Risk Shield's capital-protection switch, so while book equity sat below its 20-day EMA it trailed Dhan on 5.0× and the screens showed 2.5× (ANANDRATHI: Dhan 2,036.5 vs 2,143). It now reads the switch; the close − 3× ATR14 floor still applies, and was added to the manual <code>--cover</code> pass. First dry run: 14 stop legs raised, all held at the floor</td>
+        <td class="af">26</td>
+      </tr>
       <tr>
         <td class="dt">30 Oct<br>SL Dashboard readout · one launcher</td>
         <td><b>The SL Dashboard reads at a glance, and one shortcut restarts Web Commander.</b> Dots = stops (Disaster SL the bigger red dot), arrows = targets (Rec T1/T2 on their own row above the Dhan T1/T2, so neither hides the other), bold amber bar = Daily EMA20, filled pink ▼ = worst-gap open; off-scale levels sit side by side at the edge instead of on one point; every icon is in the legend. A <b>pulsing red ring</b> marks the act-today states on the level that caused them (thesis broken, Chandelier ≥ LTP, Dhan order problem). The coloured text right of each lane = loss from cost at the Dhan stop vs the rule (green ≤ 0.8×, amber to 1.0×, red over with the shares that fit; 🔒 = locks a profit). <b>Start Web Commander</b> (Batch Jobs) stops the old server, then starts — <code>start_commander.bat</code> and the separate Stop shortcut are gone</td>
