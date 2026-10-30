@@ -1169,6 +1169,30 @@ def main():
                 p.status = "SKIP"
                 p.message = f"skipped: {e}"[:160]
 
+    # 12b4a. THESIS RATCHET (30-Oct-2026, Jay). Raise each holding's thesis to S4's Daily INVAL
+    # when it is higher and >= 1xATR14 below the close; never lower. Runs before the thesis
+    # alerts (12b4) and the v67 push (12f) so both carry the raised level tonight. Drives only
+    # the S4 Reviewer tab. THESIS_RATCHET=0 skips.
+    logger.info("\n[PHASE 12b4a] THESIS RATCHET...")
+    with run.phase("Phase 12b4a — thesis ratchet") as p:
+        if os.getenv("THESIS_RATCHET", "1") == "0":
+            p.status = "SKIP"; p.message = "THESIS_RATCHET=0"
+        else:
+            try:
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                           "thesis_from_s4.py"), "--ratchet"],
+                             capture_output=True, text=True, timeout=15 * 60)
+                _lines = [l.strip() for l in _r.stdout.strip().splitlines() if l.strip()]
+                for _ln in _lines:
+                    logger.info(f"   ↳ {_ln}")
+                p.message = (_lines[-1] if _lines else "done")[:160]
+                if _r.returncode != 0:
+                    p.status = "WARN"
+            except Exception as e:
+                logger.warning(f"⚠️  thesis ratchet skipped: {e}")
+                p.status = "SKIP"
+                p.message = f"skipped: {e}"[:160]
+
     # 12b4. CLOSE-BELOW-THESIS ALERTS (12-Oct-2026, Jay - the two-tier stop). One price alert
     # per holding whose thesis sits ABOVE its resting Dhan stop: crossing down, once per bar
     # close on the trade's clock (Daily positional / 125m swing), webhook -> /thesis-alert ->

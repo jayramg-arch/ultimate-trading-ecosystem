@@ -696,6 +696,16 @@ footer em{color:var(--ink-2)}
   stop the position had below its entry (<code>initial_sl</code>), so T1/T2 stay 3R/5R of the risk taken at
   entry. With a 4× ATR(D) positional stop that is T1 ≈ 12× ATR and T2 ≈ 20× ATR - partial-profit points; most of
   the result comes from the trail.</p>
+  <h4>The thesis ratchets up, never down (30 Oct)</h4>
+  <p>The 13-Oct thesis was a snapshot that then never moved, so on a winner it went stale and the trail overtook
+  it (ANANDRATHI: thesis 2,015.9 under a 2,036.5 Dhan stop, so no thesis alert). Every evening the auto-pilot
+  (Phase 12b4a, <code>thesis_from_s4.py --ratchet</code>) re-reads S4's Daily INVAL on the S4 Reviewer tab and
+  <b>raises</b> the thesis to it when it is higher and still at least <b>1× ATR(14)</b> below the close. A level
+  inside that band is skipped, not capped. The thesis is <b>never lowered</b> by the machine: lowering an
+  invalidation is widening a stop, so it stays your edit on the SL Dashboard, under the sell-first rule. The
+  raised level reaches the thesis alerts (12b4) and v67 (12f) the same evening; every reading is logged in
+  <code>logs/thesis_ratchet.csv</code> and shows as THESIS ↑ in the stop history. On a loser the structure has not
+  improved, so the thesis stays where it is.</p>
   <h4>Dhan stops: at least 3× ATR from price (12 Oct)</h4>
   <p>In the current market a resting Dhan stop keeps at least <b>3× ATR(14)</b> from LTP
   (<code>house_policy.DHAN_STOP_MIN_ATR</code>). Closer stops get a recommended level, LTP − 3× ATR, on v67
