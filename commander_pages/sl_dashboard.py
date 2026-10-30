@@ -153,11 +153,51 @@ if True:
     def _fmt(v):
         return f"{v:,.2f}" if v < 100 else f"{v:,.1f}"
 
-    def _seg(x0, x1, yy, colour, width):
+    def _seg(x0, x1, yy, colour, width, group=None):
         a, _ = _clamp(x0)
         b, _ = _clamp(x1)
         _fig.add_trace(_go.Scatter(x=[a, b], y=[yy, yy], mode="lines", hoverinfo="skip", showlegend=False,
-                                   line=dict(color=colour, width=width)))
+                                   legendgroup=group, line=dict(color=colour, width=width)))
+
+    # Rows inside a lane: stops below the line, Dhan targets just above it, the house (Rec)
+    # targets a step higher - a Dhan target and its Rec twin often sit at the same price and
+    # one used to hide the other.
+    _REC_TG = ("rec_t1", "rec_t2")
+
+    def _off(key):
+        if key in _STOPS:
+            return -_DY
+        if key in _REC_TG:
+            return 1.9 * _DY
+        return _DY if key in _TGTS else 0.0
+
+    # Off-scale levels used to pin to the SAME edge point (Rec T2 under T2). Stagger them inward,
+    # furthest level at the very edge, so every pinned level stays visible; hover keeps the value.
+    _PIN_STEP = 0.5 if _unit == "atr" else 1.8
+    _pin, _pos = {}, {}
+    for r in _rows:
+        for _side in ("R", "L"):
+            _items = []
+            for key, *_ in _sb.LEVELS:
+                if (not _show_tg and key in _TGTS) or not r.get(key):
+                    continue
+                xv = _x(r, r[key])
+                if xv is not None and _clamp(xv)[1] == _side:
+                    _items.append((abs(xv), _off(key), key))
+            # stagger per row inside the lane (stops and targets never collide with each other)
+            for _row_off in {o for _, o, _k in _items}:
+                _same = sorted([it for it in _items if it[1] == _row_off], reverse=True)
+                for j, (_, _o, key) in enumerate(_same):
+                    _pin[(r["symbol"], key)] = (_LIM[1] - j * _PIN_STEP) if _side == "R" else (_LIM[0] + j * _PIN_STEP)
+
+    # Legend reading order: price -> stops -> gap -> targets -> bars -> edge arrow. The legend
+    # sits in its own band above the plot, sized for its rows (it used to wrap past a 70px top
+    # margin and the first row - the targets - was cut off).
+    _RANK = {"ltp": 1, "avg": 2, "ema20": 3, "disaster": 10, "thesis": 11, "initial": 12, "chand": 13,
+             "rec_sl": 14, "gapw": 20, "t1": 30, "t2": 31, "rec_t1": 32, "rec_t2": 33}
+    _BANDS = (("band_dz", "Red bar: Disaster → Thesis", "rgba(239,68,68,0.55)", 9),
+              ("band_noise", "Amber haze: within 1.5×ATR", "rgba(245,158,11,0.45)", 12),
+              ("band_run", "Green bar: runway to T1", "rgba(34,197,94,0.45)", 9))
 
     _shapes = []
     for i, r in enumerate(_rows):
@@ -171,13 +211,13 @@ if True:
         if r.get("atr"):
             xn = _x(r, r["ltp"] - 1.5 * r["atr"])
             if xn is not None:
-                _seg(xn, 0, y, "rgba(245,158,11,0.22)", 14)
+                _seg(xn, 0, y, "rgba(245,158,11,0.22)", 14, "band_noise")
         xd, xt = _x(r, r.get("disaster")), _x(r, r.get("thesis"))
         if xd is not None and xt is not None and xt > xd:
-            _seg(xd, xt, y - _DY, "rgba(239,68,68,0.40)", 9)
+            _seg(xd, xt, y - _DY, "rgba(239,68,68,0.40)", 9, "band_dz")
         xt1 = _x(r, r.get("t1") or r.get("rec_t1"))
         if _show_tg and xt1 is not None and xt1 > 0:
-            _seg(0, xt1, y + _DY, "rgba(34,197,94,0.18)", 9)
+            _seg(0, xt1, y + _DY, "rgba(34,197,94,0.18)", 9, "band_run")
         if i % 2 == 0:
             _shapes.append(dict(type="rect", xref="paper", yref="y", x0=0, x1=1, y0=y - 0.5, y1=y + 0.5,
                                 fillcolor="rgba(255,255,255,0.03)", line_width=0, layer="below"))
@@ -186,7 +226,7 @@ if True:
     for key, label, colour, sym, size in _sb.LEVELS:
         if not _show_tg and key in _TGTS:
             continue
-        off = -_DY if key in _STOPS else (_DY if key in _TGTS else 0.0)
+        off = _off(key)
         xs, ys, tips, syms = [], [], [], []
         for r in _rows:
             p = r.get(key)
@@ -196,6 +236,8 @@ if True:
             if xv is None:
                 continue
             xc, side = _clamp(xv)
+            xc = _pin.get((r["symbol"], key), xc)
+            _pos[(r["symbol"], key)] = (xc, r["_y"] + off)
             xs.append(xc)
             ys.append(r["_y"] + off)
             syms.append("arrow-right" if side == "R" else "arrow-left" if side == "L" else sym)
@@ -223,14 +265,45 @@ if True:
             if side:
                 extra += "<br><i>off the scale - pinned to the edge</i>"
             tips.append(f"<b>{r['symbol']} · {label}</b><br>₹{_fmt(p)}<br>{pct:+.1f}% · {atrd:+.1f}×ATR(D){extra}")
-        if xs:
-            hollow = sym.endswith("open") or sym in ("line-ns", "x-thin")
-            # a line-type marker is drawn by its outline only, so the width IS the bar's weight
-            lw = 4 if sym == "line-ns" else (2 if hollow else 1)
-            _fig.add_trace(_go.Scatter(
-                x=xs, y=ys, mode="markers", name=label, text=tips, hovertemplate="%{text}<extra></extra>",
-                marker=dict(symbol=syms, size=size, color=colour,
-                            line=dict(width=lw, color=colour if hollow else "#0B1220"))))
+        # every level gets a legend entry, even when no holding has it today
+        hollow = sym.endswith("open") or sym in ("line-ns", "x-thin")
+        # a line-type marker is drawn by its outline only, so the width IS the bar's weight
+        lw = 4 if sym == "line-ns" else (2 if hollow else 1)
+        _fig.add_trace(_go.Scatter(
+            x=xs or [None], y=ys or [None], mode="markers", name=label if xs else f"{label} (none today)",
+            text=tips, hovertemplate="%{text}<extra></extra>", legendrank=_RANK.get(key, 50),
+            marker=dict(symbol=syms or sym, size=size, color=colour,
+                        line=dict(width=lw, color=colour if hollow else "#0B1220"))))
+    # legend-only entries: the bars (clicking one hides that bar on every lane) and the edge arrow
+    for grp, label, colour, width in _BANDS:
+        if grp == "band_run" and not _show_tg:
+            continue
+        _fig.add_trace(_go.Scatter(x=[None], y=[None], mode="lines", name=label, legendgroup=grp,
+                                   legendrank=40, hoverinfo="skip", line=dict(color=colour, width=width)))
+    if not _fit:
+        _fig.add_trace(_go.Scatter(x=[None], y=[None], mode="markers", name="◀ ▶ off the scale",
+                                   legendrank=45, hoverinfo="skip",
+                                   marker=dict(symbol="arrow-right", size=12, color="#94A3B8")))
+
+    # ⚡ needs you NOW: a red ring that flashes on the level that triggered it. Only the three
+    # act-today states (triage 0-2): thesis broken on the close -> the Thesis SL; Chandelier at/above
+    # LTP -> the Chandelier; a Dhan order problem (uncovered shares / stops that disagree) -> the
+    # Disaster SL. It is the LAST trace, so the CSS below can find it; nothing flashes otherwise.
+    _ATTN_KEY = {0: "thesis", 1: "chand", 2: "disaster"}
+    _ax, _ay, _atip = [], [], []
+    for r in _rows:
+        _k = _ATTN_KEY.get(r.get("tri_rank"))
+        if _k and (r["symbol"], _k) in _pos:
+            _px, _py = _pos[(r["symbol"], _k)]
+            _ax.append(_px)
+            _ay.append(_py)
+            _atip.append(f"<b>{r['symbol']} · act now</b><br>{r.get('tri_why') or ''}")
+    _flash = bool(_ax)
+    if _flash:
+        _fig.add_trace(_go.Scatter(
+            x=_ax, y=_ay, mode="markers", name="⚡ needs you now (flashing)", legendrank=0, text=_atip,
+            hovertemplate="%{text}<extra></extra>",
+            marker=dict(symbol="circle-open", size=30, color="#EF4444", line=dict(width=3, color="#EF4444"))))
 
     # left: the verdict chip; right: the risk chip
     _ann = []
@@ -268,15 +341,30 @@ if True:
                ticksuffix="×" if _unit == "atr" else "%", dtick=1 if _unit == "atr" else 5)
     if not _fit:
         _xa["range"] = [_LIM[0] - 0.3, _LIM[1] + 0.3] if _unit == "atr" else [_LIM[0] - 1, _LIM[1] + 1]
+    # legend grid: 5 entries per row, each row ~24px, laid out in the top margin
+    _n_leg = len([t for t in _fig.data if t.showlegend is not False])
+    _leg_rows = -(-_n_leg // 5)
     _fig.update_layout(
-        height=max(380, 58 * _n + 150), shapes=_shapes, annotations=_ann,
-        margin=dict(l=210, r=210, t=70, b=50), paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)",
+        height=max(380, 58 * _n + 110 + 24 * _leg_rows), shapes=_shapes, annotations=_ann,
+        margin=dict(l=210, r=210, t=30 + 24 * _leg_rows, b=50), paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
         font=dict(color="#CBD5E1"), hoverlabel=dict(bgcolor="#0F172A", font_size=12),
-        legend=dict(orientation="h", yanchor="bottom", y=1.01, x=0, font=dict(size=12),
+        legend=dict(orientation="h", yanchor="bottom", y=1.0, x=0, font=dict(size=12),
+                    entrywidth=0.2, entrywidthmode="fraction", traceorder="normal",
                     itemclick="toggle", itemdoubleclick="toggleothers"),
         xaxis=_xa,
         yaxis=dict(showticklabels=False, showgrid=False, zeroline=False, range=[-0.6, _n - 0.4]))
-    st.plotly_chart(_fig, width="stretch", config={"displaylogo": False})
+    if _flash:
+        # Plotly cannot animate one trace, so CSS does. The ring is the only marker in this chart's
+        # container (key -> class st-key-sl_lanes) with a 3px red outline, so it is matched by its
+        # style - not by trace order, which shifts if a legend item is hidden.
+        st.markdown(
+            "<style>@keyframes slpulse{0%,100%{opacity:1}50%{opacity:0.1}}"
+            '.st-key-sl_lanes .scatterlayer path.point[style*="stroke: rgb(239, 68, 68)"]'
+            '[style*="stroke-width: 3px"]{animation:slpulse 0.9s ease-in-out infinite}</style>',
+            unsafe_allow_html=True)
+    with st.container(key="sl_lanes"):
+        st.plotly_chart(_fig, width="stretch", config={"displaylogo": False})
     st.caption("Lane = one holding: stops just below the line, LTP / Avg / EMA20 on it, targets just above. Red bar = Disaster SL → Thesis SL (the gap a news gap jumps straight across). "
                "Amber haze = within 1.5×ATR below LTP: a resting stop there is inside the noise. Green bar = runway "
                "to T1. Dots = stops (red = Disaster SL), arrows = targets, amber bar = EMA20. Pink ▼ = this stock's worst 2-year gap repeated from today; ↘n = times the Dhan stop was widened. Right: what the Dhan stop costs if it fills, against the per-trade rule, and the share count "

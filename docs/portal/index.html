@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 29 Oct · 87 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 30 Oct · 88 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,11 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">30 Oct<br>SL Dashboard readout · one launcher</td>
+        <td><b>The SL Dashboard reads at a glance, and one shortcut restarts Web Commander.</b> Dots = stops (Disaster SL the bigger red dot), arrows = targets (Rec T1/T2 on their own row above the Dhan T1/T2, so neither hides the other), bold amber bar = Daily EMA20, filled pink ▼ = worst-gap open; off-scale levels sit side by side at the edge instead of on one point; every icon is in the legend. A <b>pulsing red ring</b> marks the act-today states on the level that caused them (thesis broken, Chandelier ≥ LTP, Dhan order problem). The coloured text right of each lane = loss from cost at the Dhan stop vs the rule (green ≤ 0.8×, amber to 1.0×, red over with the shares that fit; 🔒 = locks a profit). <b>Start Web Commander</b> (Batch Jobs) stops the old server, then starts — <code>start_commander.bat</code> and the separate Stop shortcut are gone</td>
+        <td class="af">25 · 26 · 35</td>
+      </tr>
       <tr>
         <td class="dt">29 Oct<br>stop changes via Web Commander</td>
         <td><b>A Disaster SL is changed from Web Commander, and only when every condition holds.</b> SL Dashboard › Edit › Change a Disaster SL: <b>Check at Dhan</b> runs six blocking checks on live data (Dhan + token, a live non-v2 holding, resting legs, trigger ≥ 0.5× ATR below LTP, the shares fit the rule at the new stop, legs ≤ holding) and warnings (uncovered shares, below the trail level, under the thesis, gap through, results soon); <b>Place the modify</b> re-checks and moves every leg to one half-rupee trigger, then sets the journal stop and the trail floor so the 15:45 trail does not undo it, and marks it approved for the guard (<code>stop_change.py</code>). <b>S4 v11.35</b> and the <b>GM sizer</b> now size for the worst gap too (bundle section <code>GAP=</code>, receipt 18), so S4, the GM and Risk Allocator v2.8 quote one size</td>

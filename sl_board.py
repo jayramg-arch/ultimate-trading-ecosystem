@@ -56,7 +56,7 @@ LEVELS = [
     ("rec_sl",    "Rec SL 3×ATR",      "#D946EF", "circle",           12),
     # where this stock's WORST overnight gap of the last 2 years would open from LTP - gap_risk.py
     ("gapw",      "Worst-gap open (2y)", "#FB7185", "triangle-down",  12),
-    ("disaster",  "Disaster SL (Dhan)", "#EF4444", "circle",          12),
+    ("disaster",  "Disaster SL (Dhan)", "#EF4444", "circle",          16),
     ("thesis",    "Thesis SL",         "#F97316", "circle",           12),
     ("avg",       "Avg entry",         "#FACC15", "square",           11),
     ("ltp",       "LTP",               "#F8FAFC", "diamond-wide",     15),

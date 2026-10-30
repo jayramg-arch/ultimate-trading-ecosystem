@@ -192,6 +192,9 @@ PHASES = [
          "how": ["Replaces the symbol-by-symbol check of thesis and disaster levels on TradingView. Look-at-first list "
                  "top to bottom: THESIS BROKEN names are tomorrow's exits; a red '× rule' chip means the loss at the Dhan "
                  "stop is over the per-trade rule — the fix is the share count shown, not a wider stop.",
+                 "A pulsing red ring (⚡ needs you now) = act today: thesis broken on the close, Chandelier at/above "
+                 "LTP, or a Dhan order problem — it sits on the level that caused it. Text right of a lane = loss from "
+                 "cost if the Dhan stop fills: green ≤ 0.8× rule, amber 0.8–1.0×, red over (→ N sh fits), 🔒 = locks a profit.",
                  "Change a thesis or set a planned trim in the ✏️ tab, Save, then 📡 Push to TradingView (v67 book + thesis "
                  "alerts). Orders stay yours, on Dhan.",
                  "📜 Stop moves: ↘n on a lane = times its stop was widened. 📉 Gap risk: where a stock's worst 2-year gap "
