@@ -853,10 +853,10 @@
 //   C. INTRADAY timing (75/125-min): rising-10-EMA reclaim + TTM squeeze up.
 // ============================================================================
 //@version=6
-indicator("Section 4 Entry Trigger and Price Memory v10.18 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.18", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
+indicator("Section 4 Entry Trigger and Price Memory v10.19 (One-Paste + Ranked Panel)", shorttitle="S4 Entry v10.19", overlay=true, max_boxes_count=500, max_lines_count=250, max_labels_count=500, max_bars_back=300)
 // Panel-visible build stamp. BUMP BOTH with any functional change - the whole point is
 // that the chart can be told apart from a stale compile without opening Settings.
-string S4_VER      = "v11.35"
+string S4_VER      = "v11.36"
 // Keep this in step with the import line. It had been "14" while the file imported
 // /23, so the panel header advertised a build nine library versions old -- and the
 // header is the first thing read when a chart and the board disagree.
@@ -1121,9 +1121,9 @@ mk_style   = input.string("Dot", "Markers: GO marker style", options=["Dot", "La
 mk_bars    = input.int(10, "Markers: show only the last N bars", minval=1, maxval=300, group=grpV, tooltip="GO / PA★ / trigger markers are drawn only on the last N bars, so the chart shows the CURRENT setup instead of every historical one. Was hard-coded to 30. Lower it (5-10) to see just the latest trade; raise it to review recent history. This hides markers, it does NOT turn the detectors off — the panel still reads the live state.")
 panel_pos  = input.string("bottom_right", "Panel position", options=["top_right","top_left","bottom_right","bottom_left"], group=grpV)
 panel_size = input.string("small", "Panel size", options=["tiny","small","normal","large","auto"], group=grpV, tooltip="Controls the font and cell size for the Entry Trigger panel table.")
-c_low  = input.color(#42a5f5, "Low",  group=grpV, inline="c")
-c_bo   = input.color(#ab47bc, "BO",   group=grpV, inline="c")
-c_gap  = input.color(#ff9800, "Gap",  group=grpV, inline="c")
+c_low  = input.color(#42a5f5, "AVWAP colours: Low · BO · Gap",  group=grpV, inline="c")
+c_bo   = input.color(#ab47bc, "",   group=grpV, inline="c")
+c_gap  = input.color(#ff9800, "",  group=grpV, inline="c")
 
 // ==========================================================================
 // Z0. INSTITUTIONAL ZONE ENGINE — INPUTS  (ported from Zone Engine v4.2)
@@ -1169,16 +1169,16 @@ narrowWickToWick = input.bool(true, "Narrow zones: draw wick-to-wick", group=grp
 // its width (proximal−distal) is between Min and Max × the TF's ATR. Tighter maxima
 // on LTF force crisp entries; wider on HTF allow broad institutional bases. Native
 // chart-TF zones pick the pair matching the chart timeframe (75m / 125m / D / W / M).
-minZW_M   = input.float(0.5,  "Monthly — Min Width",  group=grpZW, minval=0.0, step=0.1,  inline="m")
-maxZW_M   = input.float(4.0,  "Max",                  group=grpZW, minval=0.5, step=0.1,  inline="m")
-minZW_W   = input.float(0.4,  "Weekly — Min Width",   group=grpZW, minval=0.0, step=0.1,  inline="w")
-maxZW_W   = input.float(3.5,  "Max",                  group=grpZW, minval=0.5, step=0.1,  inline="w")
-minZW_D   = input.float(0.3,  "Daily — Min Width",    group=grpZW, minval=0.0, step=0.1,  inline="d")
-maxZW_D   = input.float(3.0,  "Max",                  group=grpZW, minval=0.5, step=0.1,  inline="d")
-minZW_125 = input.float(0.25, "125-min — Min Width",  group=grpZW, minval=0.0, step=0.05, inline="i125")
-maxZW_125 = input.float(2.5,  "Max",                  group=grpZW, minval=0.5, step=0.1,  inline="i125")
-minZW_75  = input.float(0.2,  "75-min — Min Width",   group=grpZW, minval=0.0, step=0.05, inline="i75")
-maxZW_75  = input.float(2.0,  "Max",                  group=grpZW, minval=0.5, step=0.1,  inline="i75")
+minZW_M   = input.float(0.5,  "Monthly — Min / Max Width",  group=grpZW, minval=0.0, step=0.1,  inline="m")
+maxZW_M   = input.float(4.0,  "",                     group=grpZW, minval=0.5, step=0.1,  inline="m")
+minZW_W   = input.float(0.4,  "Weekly — Min / Max Width",   group=grpZW, minval=0.0, step=0.1,  inline="w")
+maxZW_W   = input.float(3.5,  "",                     group=grpZW, minval=0.5, step=0.1,  inline="w")
+minZW_D   = input.float(0.3,  "Daily — Min / Max Width",    group=grpZW, minval=0.0, step=0.1,  inline="d")
+maxZW_D   = input.float(3.0,  "",                     group=grpZW, minval=0.5, step=0.1,  inline="d")
+minZW_125 = input.float(0.25, "125-min — Min / Max Width",  group=grpZW, minval=0.0, step=0.05, inline="i125")
+maxZW_125 = input.float(2.5,  "",                     group=grpZW, minval=0.5, step=0.1,  inline="i125")
+minZW_75  = input.float(0.2,  "75-min — Min / Max Width",   group=grpZW, minval=0.0, step=0.05, inline="i75")
+maxZW_75  = input.float(2.0,  "",                     group=grpZW, minval=0.5, step=0.1,  inline="i75")
 
 volMult    = input.float(0.0,  "Volume Surge (× 20-bar Avg)",  group=grpZF, minval=0.0, step=0.1, tooltip="0 = disabled. When > 0 the leg-out volume must exceed this × 20-bar average.")
 useEMA     = input.bool(false,  "Require Daily EMA20 Alignment", group=grpZF)
@@ -1214,7 +1214,7 @@ markViolations = input.bool(true, "Mark Zone Violations (dot)",   group=grpZS, t
 testedTravelMode = input.string("ATR", "Tested: travel measured in", group=grpZS, options=["ATR", "Zone width"], tooltip="Rule 1 of 3 — how far price must travel from the proximal, after a reaction, before the zone counts as spent.\n\nATR (default): scale-consistent. A 3-point zone and a 30-point zone both need a REAL move to retire.\n\nZone width (legacy, pre-v3.2): travel measured in multiples of the zone's own width — which is INVERTED. The narrower the zone, the smaller the move needed to kill it, so the most precise zones (the ones worth keeping) died fastest. A 3pt zone was retired by a 6pt move.")
 testedTravelATR  = input.float(2.0, "Tested: travel × ATR14", group=grpZS, minval=0.5, maxval=10.0, step=0.5, tooltip="Used when travel is measured in ATR. Higher = zones survive longer. Turn on 'Show engine diagnostics row' and watch the removal attribution: if 'travel' dominates and zones you want are vanishing, raise this.")
 testedTravelMult = input.float(2.0, "Tested: travel × zone width (legacy)", group=grpZS, minval=0.5, maxval=6.0, step=0.5, tooltip="Only used when 'travel measured in' = Zone width. Retained so the pre-v3.2 behaviour is reproducible, not because it is correct.")
-tested_tf_match  = input.bool(false, "Tested rules 2 & 3: Daily zones only (legacy)", group=grpZS, tooltip="Rules 2 and 3 retire a zone on a close across the EMA20 / beyond a swing pivot.\n\nOFF (default, 26-Aug-2026): the rules apply on EVERY timeframe, each zone judged against its OWN reference -- a WEEKLY or MONTHLY zone against the chart EMA20 (weekly EMA20 for a weekly zone), and DAILY / 125m / 75m zones against the DAILY EMA20.\n\nON: the pre-26-Aug behaviour, where only DAILY zones consulted these rules. That restriction came from the #25 over-removal, which was really the wrong SERIES -- the daily EMA20 adjudicating a weekly base, evaluated at daily granularity. Measured after the fix: weekly zones lose 2.3%, monthly 0.0%, and the count of names AT a zone is unchanged.")
+tested_tf_match  = input.bool(false, "Tested rules 2 & 3: Daily zones only (legacy)", group=grpZS, tooltip="Rules 2 and 3 retire a zone on a close across the EMA20 / beyond a swing pivot.\n\nOFF (default, 26-Aug-2026): the rules apply on EVERY timeframe, each zone judged against its OWN timeframe's EMA20, whatever chart it is drawn on -- a MONTHLY zone against the monthly EMA20, a WEEKLY zone against the weekly EMA20, and DAILY / 125m / 75m zones against the DAILY EMA20.\n\nON: the pre-26-Aug behaviour, where only DAILY zones consulted these rules. That restriction came from the #25 over-removal, which was really the wrong SERIES -- the daily EMA20 adjudicating a weekly base, evaluated at daily granularity. Measured after the fix: weekly zones lose 2.3%, monthly 0.0%, and the count of names AT a zone is unchanged.")
 strongPivotTF  = input.string("Daily", "Tested: strong S/R pivot TF", group=grpZS, options=["Daily", "Weekly"], tooltip="Rule 3 of 3: a strong Support/Resistance = the most recent CONFIRMED pivot high/low on THIS higher timeframe (the normal swing-S/R definition). After a reaction, a demand zone is tested once price CLOSES above the nearest HTF pivot high sitting above the zone; a supply zone once price closes below the nearest HTF pivot low below it.")
 
 age_monthly_days = input.int(1460, "Monthly zone max age (days)", group=grpZAge, minval=30, tooltip="A zone ages out this many calendar days after its FORMATION. Monthly default 1460 = 4 years.")
@@ -1336,9 +1336,9 @@ coil_prox     = input.float(0.5, "  · Coil proximity (× ATR)", group=grpSR, mi
 coil_look     = input.int(10, "  · Coil lookback (bars)", group=grpSR, minval=3, maxval=60, tooltip="The window over which halting is measured.")
 coil_min      = input.int(4, "  · Coil: closes needed in the band", group=grpSR, minval=2, maxval=30, tooltip="How many of the lookback bars must CLOSE inside the band. A single touch is a test; repeated closes are a stall. Raise it to demand a tighter, more obvious coil.")
 coil_need_sqz = input.bool(true, "  · Coil requires the squeeze", group=grpSR, tooltip="ON (default): the range must also be COMPRESSING (TTM squeeze on) — halting without compression is just drift along a level. OFF: proximity + repeated closes alone are enough (more coils, more noise).")
-sr_show_M    = input.bool(true, "Show Monthly levels", group=grpSR, inline="tf")
-sr_show_W    = input.bool(true, "Weekly",              group=grpSR, inline="tf")
-sr_show_D    = input.bool(true, "Daily",               group=grpSR, inline="tf")
+sr_show_M    = input.bool(true, "Show levels: Monthly · Weekly · Daily", group=grpSR, inline="tf")
+sr_show_W    = input.bool(true, "",                    group=grpSR, inline="tf")
+sr_show_D    = input.bool(true, "",                    group=grpSR, inline="tf")
 
 sr_on = input.bool(true, "Enable manual levels (override auto)", group=grpSRM, tooltip="Manual levels OUTRANK auto ones on a side you have marked: your hand-drawn levels ARE the location layer (Gate 2), the auto ones are the fallback for a side you have not marked yet. A side you leave blank still falls back to auto.\n\nType the price once (from the panel), then drag the handle on the chart.")
 mv1 = input.price(0.0, "Monthly level 1", group=grpSRM)
@@ -1579,8 +1579,8 @@ retain_spent_supply = input.bool(true, "Keep TESTED supply zones (drawn + in Roo
 recencyDecay    = input.bool(true, "Recency: decay zone score as it ages", group=grpZV, tooltip="#27: two factors measure a zone — AGE (how long until it is aged off the chart) and RECENCY (a fresh zone is a stronger zone). A newly formed zone shows its FULL score; it loses points linearly as it ages toward its timeframe's ageing cap, floored at 0. Reflected in BOTH the on-chart label and the panel's Support Zone quality grade. OFF = static score (pre-#27).")
 recencyMaxDrop  = input.int(20, "Recency: max score drop at full age", group=grpZV, minval=0, maxval=60, tooltip="The full penalty a zone carries once it reaches its timeframe's ageing cap. A zone at HALF its lifespan loses half of this. 20 = a 90-pt fresh zone reads ~80 at half-life and ~70 when nearly aged out — enough to break score ties toward the fresher zone without demoting a genuinely strong old base out of contention.")
 drawInvCandles  = input.bool(false, "Draw Invisible Candles (gap-bridged overlay)", group=grpZV, tooltip="Plots the GAP-BRIDGED candles the zone engine reads: each bar's open re-anchored at the previous close, high/low expanded to cover the gap. A small-bodied gap day is really a big leg candle, and this is how you SEE that.\n\nVIEW ONLY. Zone detection ALWAYS uses these candles whether or not this is ticked — it is the marking methodology, not an option — so the overlay can never disagree with what the engine reads. Turning this off hides the candles, it does not change a single zone.\n\nTo see ONLY these candles, hide the native ones: Chart Settings → Symbol → uncheck Body / Borders / Wick.")
-invCandleUp     = input.color(color.new(#26a69a, 0), "Invisible candle — up",   group=grpZV, inline="ic")
-invCandleDn     = input.color(color.new(#ef5350, 0), "down",                    group=grpZV, inline="ic")
+invCandleUp     = input.color(color.new(#26a69a, 0), "Invisible candle — up · down", group=grpZV, inline="ic")
+invCandleDn     = input.color(color.new(#ef5350, 0), "",                        group=grpZV, inline="ic")
 
 // LAST INPUT, DELIBERATELY - anything new goes BELOW this line, never above it.
 // FOOTPRINT BRIDGE (6 Sep 2026). request.footprint() cannot live in S4 -- bound, it
@@ -1611,6 +1611,19 @@ srcFpKnown = input.source(close, "Footprint: delta available (0/1)", group=grpAF
 // which want `simple` — a function return is always `series`.
 // f_fold1386 moved to S4Core.tfGates (25-Aug-2026).
 [chartSec, dailySec, weeklySec, useDailyZ, useWeeklyZ, useMonthlyZ, useLvM, useLvW, useLvD, ctrlAllowChart] = core.tfGates(showDaily, showWeekly, showMonthly, controllingMinTf)
+// v11.36 ONE PATH PER TIMEFRAME (30-Oct-2026, Jay: "A monthly zone should be read and its
+// zones marked in its native timeframe. It shouldn't plot different monthly zones in other
+// timeframes."). M&MFIN: the Monthly DZ 266.65-308.85 showed on the Daily and Weekly charts
+// and was gone on the Monthly chart, and the Monthly SZ read fresh below and tested on the
+// Monthly. Cause: a D/W/M chart built its OWN timeframe's zones with the native engine -
+// a different creation filter (EMA20/RS at creation), a different controlling rule, the
+// DAILY EMA20 as the tested-rule reference, and judging of the chart's current bar - while
+// every lower chart took the same timeframe's zones from request.security and judged them
+// on the last CLOSED bar of that timeframe (hBarD/W/M). So on a Daily, Weekly or Monthly
+// chart the chart's own timeframe now comes through that same security path ("D"/"W"/"M"
+// zones, hBar lifecycle); the native engine runs on 75m/125m only. A monthly zone is now
+// one object with one state on every chart.
+bool _ownTfZ = timeframe.isdaily or timeframe.isweekly or timeframe.ismonthly
 bool ctrlAllowDaily   = ctrlAllowChart or controllingMinTf == "Daily"
 bool ctrlAllowWeekly  = ctrlAllowDaily or controllingMinTf == "Weekly"
 bool ctrlAllowMonthly = true
@@ -2235,14 +2248,14 @@ var label lbProv = na
 if barstate.islast
     box.delete(bxProv)
     label.delete(lbProv)
-if showChartZones and d_zones and not na(nativeSig) and nativeSig.isProv and barstate.islast
+if showChartZones and not _ownTfZ and d_zones and not na(nativeSig) and nativeSig.isProv and barstate.islast
     color _pc = nativeSig.isDemand ? #26a69a : #ef5350
     float _pTop = nativeSig.isDemand ? nativeSig.proximal : nativeSig.distal
     float _pBot = nativeSig.isDemand ? nativeSig.distal   : nativeSig.proximal
     bxProv := box.new(bar_index - nativeSig.bStart, _pTop, bar_index + 10, _pBot, xloc=xloc.bar_index, extend=extend.right, border_color=color.new(_pc, 30), bgcolor=color.new(_pc, 93), border_width=1, border_style=line.style_dashed)
     lbProv := label.new(bar_index + 10, _pTop, "          " + nativeSig.pattern + " (forming — FT/FVG pending)", xloc=xloc.bar_index, style=label.style_label_left, color=color.new(_pc, 85), textcolor=_pc, size=size.small)
 
-if showChartZones and not na(nativeSig) and not nativeSig.isProv and nativeSig.zoneTime > lastNativeTime
+if showChartZones and not _ownTfZ and not na(nativeSig) and not nativeSig.isProv and nativeSig.zoneTime > lastNativeTime
     lastNativeTime := nativeSig.zoneTime
     _dbgNatDetected := _dbgNatDetected + 1
     // FVG POLYGRAPH — Option C (default, require_intraday_fvg OFF): ALL intraday native
@@ -2254,21 +2267,21 @@ if showChartZones and not na(nativeSig) and not nativeSig.isProv and nativeSig.z
         f_createZone(nativeSig, "C", true)
         if array.size(activeZones) > _before
             _dbgNatCreated := _dbgNatCreated + 1
-if useDailyZ and not na(dailySig) and dailySig.zoneTime > lastDailyTime
+if (useDailyZ or (timeframe.isdaily and showChartZones)) and not na(dailySig) and dailySig.zoneTime > lastDailyTime
     lastDailyTime := dailySig.zoneTime
     _dbgPatDDet := _dbgPatDDet + 1
     int _bD = array.size(activeZones)
     f_createZone(dailySig, "D", false)
     if array.size(activeZones) > _bD
         _dbgPatDCr := _dbgPatDCr + 1
-if useWeeklyZ and not na(weeklySig) and weeklySig.zoneTime > lastWeeklyTime
+if (useWeeklyZ or (timeframe.isweekly and showChartZones)) and not na(weeklySig) and weeklySig.zoneTime > lastWeeklyTime
     lastWeeklyTime := weeklySig.zoneTime
     _dbgPatWDet := _dbgPatWDet + 1
     int _bW = array.size(activeZones)
     f_createZone(weeklySig, "W", false)
     if array.size(activeZones) > _bW
         _dbgPatWCr := _dbgPatWCr + 1
-if useMonthlyZ and not na(monthlySig) and monthlySig.zoneTime > lastMonthlyTime
+if (useMonthlyZ or (timeframe.ismonthly and showChartZones)) and not na(monthlySig) and monthlySig.zoneTime > lastMonthlyTime
     lastMonthlyTime := monthlySig.zoneTime
     _dbgPatMDet := _dbgPatMDet + 1
     int _bM = array.size(activeZones)
