@@ -371,7 +371,7 @@ if True:
                 tgt_qty = o.get("target_qty") or o.get("qty") or 0
                 sl_dist = ((ltp - sl) / ltp * 100) if ltp and sl is not None else 0.0
                 tgt_dist = ((target - ltp) / ltp * 100) if ltp and target is not None else 0.0
-                sl_str = f"SL ₹{format_inr_int(sl)} ({sl_dist:+.1f}%)" if sl is not None else "No SL"
+                sl_str = f"Disaster SL (resting Dhan stop) ₹{format_inr_int(sl)} ({sl_dist:+.1f}%)" if sl is not None else "No SL"
                 tgt_str = f"Tgt ₹{format_inr_int(target)} (+{tgt_dist:.1f}%)" if target is not None else "Trailing Runner (No Target)"
                 orders_desc.append(f"  Leg {o_idx+1}: {sl_str} | {tgt_str}")
             _pyr_class = kwargs.get("pyr_class", ""); _pyr_reason = kwargs.get("pyr_reason", "")
@@ -1637,7 +1637,7 @@ if True:
                                     for o_idx, o in enumerate(orders):
                                         sl = o["sl_trigger"]; tgt = o["target_trigger"]
                                         if sl is not None:
-                                            sl_str = f"SL <span style='color:var(--bear);font-weight:bold;'>₹{format_inr_int(sl)}</span>"
+                                            sl_str = f"Disaster SL <span style='color:var(--bear);font-weight:bold;'>₹{format_inr_int(sl)}</span>"
                                             if buy_price and ltp:
                                                 sl_d_e = (sl - buy_price) / buy_price * 100
                                                 sl_d_l = (sl - ltp) / ltp * 100
@@ -1916,7 +1916,7 @@ if True:
                                         _ms = _o.get("sl_trigger")
                                         _mtxt = (f"T{_oi+1} ₹{format_inr(_mt)}" if _mt is not None
                                                  else "<span style='color:var(--bear)'>no target leg</span>")
-                                        _mstxt = (f"SL ₹{format_inr(_ms)}" if _ms is not None
+                                        _mstxt = (f"Disaster SL ₹{format_inr(_ms)}" if _ms is not None
                                                   else "<span style='color:var(--bear)'>no SL leg</span>")
                                         # --bull, not --bull-rule: a RULE token is a border and
                                         # renders 1.63:1 on this card's ground. The ternary was also
@@ -2079,7 +2079,34 @@ if True:
                                     _rec_base = _held_qty if _held_qty else total_qty
                                     _base_note = ("" if _held_qty
                                                   else " \u00b7 holding unknown, sized off the resting legs")
-                                    _rq1, _rq2, _rq_rest = _alloc_qty(_rec_base, [_p1, _p2, _p_tail])
+                                    # T1 MET -> 50/50 (30-Oct-2026, Jay: "ANANDRATHI had already hit T1,
+                                    # so the recommended split should not be 25/25/50. It should stay at
+                                    # 50/50 - 50% Target 2 and 50% runner. Apply the same rule to stocks
+                                    # that have already met T1.") Met = LTP at/above the policy T1 now, OR
+                                    # the highest daily HIGH since entry reached it. The second matters:
+                                    # a name that tagged T1 and pulled back has still met it, and the
+                                    # split must not flip back to three legs on a pullback. This replaces
+                                    # the 22-Aug "no re-base" note - the base stays the CURRENT holding,
+                                    # only the split changes.
+                                    _t1_met, _t1_met_note = _t1_banked, ("LTP is above it" if _t1_banked else "")
+                                    if _r_t1 and not _t1_met:
+                                        try:
+                                            import data_provider as _dp_t1
+                                            _ed = (holding or {}).get("entry_date") or (_jov or {}).get("entry_date")
+                                            _dft1 = _dp_t1.fetch_ohlcv(sym, period="2y", interval="1d", use_cache=True)
+                                            if _ed and _dft1 is not None and len(_dft1):
+                                                _since = _dft1[_dft1.index >= pd.Timestamp(str(_ed)[:10])]
+                                                if len(_since) and float(_since["High"].max()) >= float(_r_t1):
+                                                    _hit_d = _since.index[(_since["High"] >= float(_r_t1)).values.argmax()]
+                                                    _t1_met = True
+                                                    _t1_met_note = f"reached on {pd.Timestamp(_hit_d):%d-%b}"
+                                        except Exception as _e_t1:
+                                            _gm_logger.warning(f"{sym}: T1-met check failed: {_e_t1}")
+                                    if _t1_met:
+                                        _rq1 = 0
+                                        _rq2, _rq_rest = _alloc_qty(_rec_base, [50, 50])
+                                    else:
+                                        _rq1, _rq2, _rq_rest = _alloc_qty(_rec_base, [_p1, _p2, _p_tail])
                                     # WHETHER T1 IS ALREADY TAKEN IS NOT SOMETHING THIS CARD CAN KNOW.
                                     # It used to infer it from `ltp >= policy T1` and grey OCO-1 out -
                                     # which read as "already banked". On ANANDRATHI that was FALSE:
@@ -2108,13 +2135,15 @@ if True:
                                     _rebase_html = (
                                         f"<div style='color:var(--warn);font-size:0.72rem;margin-top:4px;"
                                         f"border-top:1px dashed var(--warn);padding-top:4px;'>"
-                                        f"Note: LTP is above the policy T1, so that leg would fill on "
-                                        f"placement. Quantities below are thirds of what you hold "
-                                        f"NOW — they do not assume anything about earlier fills."
-                                        f"</div>") if _t1_banked else ""
+                                        f"T1 {_fr(_r_t1)} already met ({_t1_met_note}) - no T1 leg. "
+                                        f"Split 50/50 of what you hold NOW: half on a T2 OCO, half the "
+                                        f"runner on a single SL."
+                                        f"</div>") if _t1_met else ""
+                                    if _t1_met:
+                                        _row_t1 = ""
                                     _rec_rows = ((
                                         f"{_row_t1}"
-                                        f"<div style='color:var(--warn);font-weight:600;'>• <b>OCO-2 ({_rq2} sh):</b> "
+                                        f"<div style='color:var(--warn);font-weight:600;'>• <b>{'OCO (T2)' if _t1_met else 'OCO-2'} ({_rq2} sh):</b> "
                                         f"T2 {_fr(_r_t2)} <span style='color:var(--muted)'>({_t2r:.1f}R)</span> | SL {_fr(_r_sl)}</div>"
                                         f"<div style='color:var(--muted);font-size:0.72rem;margin-top:4px;'>"
                                         f"{_rq_rest} sh on a SINGLE SL (the uncapped tail) · SL = {_slsrc} · R from {_r_note}{_base_note}</div>"
@@ -2298,7 +2327,7 @@ if True:
                                             markers_html += _rs_v67_markers(_lv1x, bar_min, bar_range)
                                             for sv in sl_vals:
                                                 pos = (sv - bar_min) / bar_range * 100
-                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:var(--bear);border-radius:50%;transform:translateX(-50%);" title="SL ₹{format_inr_int(sv)}"></div>'
+                                                markers_html += f'<div style="position:absolute;left:{pos:.1f}%;top:-3px;width:14px;height:14px;background:var(--bear);border-radius:50%;transform:translateX(-50%);" title="Disaster SL (resting Dhan stop) ₹{format_inr_int(sv)}"></div>'
                                             if buy_price:
                                                 entry_pos = (buy_price - bar_min) / bar_range * 100
                                                 markers_html += f'<div style="position:absolute;left:{entry_pos:.1f}%;top:-2px;width:12px;height:12px;background:var(--faint);border-radius:50%;transform:translateX(-50%);" title="Entry ₹{format_inr_int(buy_price)}"></div>'
