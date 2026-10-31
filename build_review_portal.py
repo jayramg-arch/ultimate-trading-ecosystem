@@ -285,6 +285,7 @@ def render(items: list[dict]) -> str:
            ''.join('<span class="chip src" data-src="%s" title="%s">%s</span>' % (k, t, lbl) for k, lbl, t in
                    (("s4-alert", "S4 alert", "Started by S4's own GO alert"),
                     ("manual", "Manual", "REVIEW.bat - asked for by hand"),
+                    ("portfolio", "Portfolio", "PORTFOLIO_REVIEW.bat - a holding re-read on the Daily chart (HOLD / ADD / TRIM / REDUCE / EXIT)"),
                     ("board/cli", "Board / CLI", "s4_review run from the command line or over the Python board's GO rows (before 2-Oct the two are not separated)"),
                     ("nogo", "S4 not GO at read", "S4's own TRIGGER row did not read GO when the panel was read - not validated by S4"))),
            "</div>"]
@@ -300,7 +301,7 @@ def render(items: list[dict]) -> str:
             p1 = '<span class="pill other" title="ETF: the underlying index was read first (INDEX ARM = ETF WAIT)">ETF · index first</span>' if it["phase1"] else ""
             if it.get("flowgate"):
                 p1 += '<span class="pill wait" title="FLOW-GATE: a TAKE on a breakout entry overruled to WAIT after a FAILED BREAKOUT at that level (%s)">FLOW-GATE</span>' % html.escape(it["flowgate"])
-            _srcl = {"s4-alert": "S4 alert", "manual": "manual", "board": "board", "cli": "cli"}.get(it["source"], it["source"])
+            _srcl = {"s4-alert": "S4 alert", "manual": "manual", "board": "board", "cli": "cli", "portfolio": "portfolio"}.get(it["source"], it["source"])
             _srcp = ('<span class="pill %s" title="what started this review">%s</span>'
                      % ("take" if it["source"] == "s4-alert" else "other", html.escape(_srcl)))
             if not it["s4go"]:
@@ -308,10 +309,11 @@ def render(items: list[dict]) -> str:
             p1 = _srcp + p1
             out.append('<details class="rev" data-rc="%s" data-src="%s" data-go="%s" data-hay="%s"><summary><span class="t">%s</span><span class="sym">%s</span><span class="tf">%s</span>'
                        '<span class="rul">%s</span><span style="display:flex;gap:6px;align-items:center"><span class="pill %s">%s</span>%s%s</span></summary>'
-                       % (it["rclass"], html.escape(it["source"] if it["source"] in ("s4-alert", "manual") else "board/cli"),
+                       % (it["rclass"], html.escape(it["source"] if it["source"] in ("s4-alert", "manual", "portfolio") else "board/cli"),
                           "1" if it["s4go"] else "0", hay, it["time"], html.escape(it["symbol"]), html.escape(it["tf"] + ("m" if it["tf"].isdigit() else "")),
                           html.escape(it["ruling"]), it["rclass"],
-                          {"take": "take", "reduced": "reduced", "wait": "wait", "pass": "pass", "notrade": "no trade", "other": "—"}[it["rclass"]], p1, mine))
+                          ({"take": "take", "reduced": "reduced", "wait": "wait", "pass": "pass", "notrade": "no trade"}.get(it["rclass"])
+                           or ((it["ruling"].replace("RULING:", "").strip().split() or ["—"])[0].lower() if it["source"] == "portfolio" else "—")), p1, mine))
             if it["s4"]:
                 out.append('<div class="s4">S4 at read: <b>%s</b>%s</div>' % (html.escape(it["s4"]), (" · " + html.escape(it["provider"])) if it["provider"] else ""))
             # 18-Sep: only the last FULL_DAYS days carry the full deliberation; older rows keep

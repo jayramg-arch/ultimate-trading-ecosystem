@@ -421,6 +421,59 @@ python s4_review.py TITAN --dump             # the raw panel read, no model call
   or S5 on the wrong tab.</p>
 </section>
 
+<section id="portfolio">
+  <h2><span class="n">06b</span>The portfolio review — every holding, same depth as a new trade</h2>
+  <p><b>31 Oct.</b> <code>PORTFOLIO_REVIEW.bat</code> (or <code>python portfolio_review.py</code>) reads every
+  open holding on the <b>Daily</b> chart — management is Daily-only — with the same full S4 + S5 read a new trade
+  gets, the ETF index phase included. v2 names are left out: they run on Clenow's rules and carry no stops.
+  It never places an order and never writes the journal; every number is a proposal.</p>
+  <p><b>When it runs — by itself.</b> Every weekday after the close as auto-pilot <b>Phase 13b</b> (after the
+  board reviews; it queues every holding on the receiver and returns, so the run is not held up), and every
+  <b>Saturday at 09:30</b> as the Task Scheduler job <code>Portfolio_Review_Weekly</code>
+  (<code>run_portfolio_review.bat</code>; starts TradingView first if :9222 is down — the S4 / S5 Reviewer tabs must
+  be in its saved session). Never in session: mid-session the Daily bar is still forming, so a close-based thesis
+  has nothing to be judged on. <code>PORTFOLIO_REVIEW=0</code> skips the weekday phase.</p>
+  <p><b>Where the answer goes.</b> Web Commander › <b>PORTFOLIO</b> opens with the AI holdings review: one row per
+  holding (latest review, sold names drop out) sorted EXIT → REDUCE → TRIM → ADD → HOLD, a ⚠ count where the
+  script's checks objected, and the full review per holding in an expander. Telegram gets <b>one summary per run</b>,
+  sent when the last holding is done (a detached watcher waits for the queue): actions first with the reason, the new
+  invalidation and the stop line, then one line per HOLD. The receiver sends no per-holding message for these.</p>
+  <p><b>What the model is given beyond the panels</b> is a HOLDING block computed by the script from the
+  SL Dashboard's own engine (<code>sl_board.build</code>), so the two cannot disagree: quantity, cost, P&amp;L and
+  R; the resting Dhan stop and its distance in ATR; the thesis; the initial stop; the Chandelier; the house
+  3×ATR stop; resting and canon targets; the loss if the stop fills against the per-trade rule; the worst
+  two-year overnight gap; the results date; the ladder rung (dated — S4's MY TRADE row carries the live one);
+  and a DRAWDOWN table: the cost, from LTP, of a close at the thesis, a fill at the Dhan stop, the Chandelier,
+  and the worst gap. A level already above price reads <i>ALREADY THROUGH</i>.</p>
+  <p><b>The prompt</b> is the Reviewer's own doctrine, imported word for word, then the holder's job and house
+  rules: the invalidation is a structural Daily close level, raised when structure moves up and at least
+  1×ATR below the close, never lowered, and not the Dhan stop (the two-tier rule keeps the Disaster SL about
+  1×ATR below it); a Dhan stop is raised only to the house rule and never inside 3×ATR of the close; a lower
+  stop needs the shares sold first; adds only in Stage 2, on a winner, at a pullback location, at 1% risk, and
+  never when the exposure tier forbids them.</p>
+  <div class="tw"><table>
+    <tr><th>Recommendation line</th><th>What it says</th></tr>
+    <tr><td>RULING</td><td>HOLD · ADD · TRIM · REDUCE · EXIT, with the reason and its number</td></tr>
+    <tr><td>THESIS</td><td>INTACT · WEAKENING · BROKEN</td></tr>
+    <tr><td>INVALIDATION</td><td>the Daily close that proves it wrong now, its basis, and RAISE / KEEP / BROKEN against the journal thesis</td></tr>
+    <tr><td>STOP</td><td>KEEP, RAISE TO a price, or LOWER TO with the shares to sell first</td></tr>
+    <tr><td>DRAWDOWN</td><td>the realistic cost from the HOLDING block's rows</td></tr>
+    <tr><td>OPPORTUNITY</td><td>an add (level, stop, size) or why not, and the next target with the partial plan</td></tr>
+    <tr><td>WATCH · FLIPS IF</td><td>the level or event that decides it, and what would change the ruling</td></tr>
+  </table></div>
+  <p><b>The script's checks</b> (appended, like every other check): <code>ADD-CHECK</code> overrules an add to HOLD on a
+  loser or when the exposure tier forbids adds; <code>INVALIDATION-CHECK</code> flags a level at or above the close,
+  one below the journal thesis, one that is just the Dhan stop, and a raise less than 1×ATR below the close;
+  <code>STOP-CHECK</code> flags a raise inside 3×ATR of the close and computes the shares to sell before a lower stop.</p>
+  <p><b>How it runs.</b> With the S4 Alert Reviewer window up, the holdings queue on the receiver
+  (<code>"SYM S4 GO D - portfolio"</code>) behind any S4 GO review, one at a time, about 90 s each — they never drive
+  the reviewer tabs at the same moment. Without it they run in the script (<code>--direct</code> forces that, e.g. at
+  the weekend). <code>--symbols A,B</code> picks names, <code>--dump SYM</code> prints the HOLDING block only,
+  <code>--report</code> rebuilds the day's summary, <code>--telegram</code> sends it. Each review is a row in the
+  Reviewer Log labelled <i>portfolio</i> (its own TRIGGER filter); the run summary, sorted EXIT → REDUCE → TRIM →
+  ADD → HOLD, is <code>reports/portfolio_review/Portfolio_Review_YYYYMMDD.md</code>.</p>
+</section>
+
 <section id="output">
   <h2><span class="n">07</span>The review — three parts, fixed headings</h2>
   <div class="tw"><table>

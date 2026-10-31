@@ -141,8 +141,10 @@ async def handle_s4_review(request: Request):
         # Reviewer Log can separate S4's own alerts from hand-requested reviews (2-Oct-2026).
         _b = body if isinstance(body, bytes) else str(body).encode()
         # "- v2" (17-Oct-2026): the v2 system's weekly buys, reviewed for execution (Doc 41).
+        # "- portfolio" (31-Oct-2026): portfolio_review.py queues every holding here so it
+        # never drives the reviewer tabs at the same time as an S4 GO review.
         _src = ("manual" if b"- manual" in _b else "board" if b"- board" in _b
-                else "v2" if b"- v2" in _b else "tv-webhook")
+                else "v2" if b"- v2" in _b else "portfolio" if b"- portfolio" in _b else "tv-webhook")
         res = s4_alert_review.enqueue(sym, tf, source=_src, body=_b.decode("utf-8", "replace"))
         print(f"/s4-review: {sym} {tf} -> {res}")
         return {"status": "queued" if res["queued"] else "skipped", **res, "symbol": sym, "tf": tf}

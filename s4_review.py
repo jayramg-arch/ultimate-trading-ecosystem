@@ -1320,14 +1320,14 @@ def build_prompt(read_txt: str, pos_txt: str) -> str:
 # ---------------------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------------------
-def ask_claude(prompt: str, model: str = DEFAULT_MODEL) -> str:
+def ask_claude(prompt: str, model: str = DEFAULT_MODEL, system: str | None = None) -> str:
     key = os.getenv("S4_REVIEW_ANTHROPIC_KEY") or os.getenv("ANTHROPIC_API_KEY")
     if not key:
         raise RuntimeError("S4_REVIEW_ANTHROPIC_KEY / ANTHROPIC_API_KEY not set")
     r = requests.post(CLAUDE_BASE + "/v1/messages",
                       headers={"x-api-key": key, "anthropic-version": "2023-06-01",
                                "content-type": "application/json"},
-                      json={"model": model, "max_tokens": 2500, "system": SYSTEM,
+                      json={"model": model, "max_tokens": 4000 if system else 2500, "system": system or SYSTEM,
                             "messages": [{"role": "user", "content": prompt}]},
                       timeout=180)
     if r.status_code != 200:
@@ -1335,17 +1335,20 @@ def ask_claude(prompt: str, model: str = DEFAULT_MODEL) -> str:
     return "".join(b.get("text", "") for b in r.json().get("content", []) if b.get("type") == "text").strip()
 
 
-def ask_gemini(prompt: str, model: str = GEMINI_MODEL, key_env: str = "GEMINI_API_KEY") -> str:
+def ask_gemini(prompt: str, model: str = GEMINI_MODEL, key_env: str = "GEMINI_API_KEY",
+               system: str | None = None) -> str:
     key = os.getenv(key_env) or os.getenv("GEMINI_API_KEY")
     if not key:
         raise RuntimeError("GEMINI_API_KEY not set")
     from google import genai
     client = genai.Client(api_key=key, http_options={"timeout": 180_000})
-    resp = client.models.generate_content(model=model, contents=SYSTEM + "\n\n" + prompt)
+    resp = client.models.generate_content(model=model, contents=(system or SYSTEM) + "\n\n" + prompt)
     return (getattr(resp, "text", "") or "").strip()
 
 
-def deliberate(prompt: str, provider: str) -> tuple[str, str]:
+def deliberate(prompt: str, provider: str, system: str | None = None) -> tuple[str, str]:
+    # `system` (31-Oct-2026): the portfolio review (portfolio_review.py) asks with its own
+    # holding-review system prompt; every other caller keeps SYSTEM.
     # (provider, model, key env) in order; the fallback is skipped when it is the same model.
     gem = [("gemini", GEMINI_MODEL, "GEMINI_API_KEY")]
     if GEMINI_FALLBACK_MODEL and GEMINI_FALLBACK_MODEL != GEMINI_MODEL:
@@ -1354,7 +1357,8 @@ def deliberate(prompt: str, provider: str) -> tuple[str, str]:
     errs = []
     for p, model, key_env in order:
         try:
-            txt = ask_claude(prompt) if p == "claude" else ask_gemini(prompt, model=model, key_env=key_env)
+            txt = (ask_claude(prompt, system=system) if p == "claude"
+                   else ask_gemini(prompt, model=model, key_env=key_env, system=system))
             if txt:
                 from plain_text import delatex      # stray inline LaTeX -> plain text
                 txt = delatex(txt)
@@ -1940,6 +1944,13 @@ def review_one(symbol: str | None, tf: str | None, args) -> int:
     if not any(_is_s4(n) for n in names):
         print("S4 is not on this chart (tables found: %s). Add it and re-run." % names, file=sys.stderr)
         return 1
+    # PORTFOLIO REVIEW (31-Oct-2026): a holding gets the same full read, then the holder's
+    # prompt and checks (portfolio_review.py). Branches BEFORE the first-test veto on
+    # purpose - a holding needs the read most when it fails the entry test.
+    if str(getattr(args, "source", "")).lower() == "portfolio":
+        import portfolio_review
+        LAST_RESULT = portfolio_review.review_holding(d, read_txt, args)
+        return 0
     # FIRST TEST (26-Sep-2026, Jay): "reject the trade if stage is 3/4 and/or weekly trend
     # is down - no further analysis, straight veto". S4 v10.13 prints the rejection on the
     # VERDICT row; when it does, no model is called and nothing else is weighed. The row

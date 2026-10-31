@@ -189,8 +189,8 @@ def _src_label(source: str) -> str:
         return "manual"
     if "board" in s:
         return "board"
-    if s == "v2":
-        return "v2"
+    if s in ("v2", "portfolio"):
+        return s
     return "s4-alert" if ("webhook" in s or "alert" in s) else (s or "s4-alert")
 
 
@@ -210,8 +210,13 @@ def _run(symbol: str, tf: str, source: str) -> None:
             res = _review_with_retry(sr, symbol, tf, _src_label(source))
         rc, review, path = res["rc"], res["review"], res["path"]
         if rc == 0 and review:
-            msg = summary(review, symbol, tf)
-            sent = sr.telegram(msg + "\n\nfull: %s" % os.path.relpath(path, HERE).replace("\\", "/"))
+            if _src_label(source) == "portfolio":
+                # One summary per run instead of a message per holding (31-Oct-2026, Jay): the
+                # watcher started by portfolio_review.py --no-wait sends it when the queue drains.
+                sent = False
+            else:
+                msg = summary(review, symbol, tf)
+                sent = sr.telegram(msg + "\n\nfull: %s" % os.path.relpath(path, HERE).replace("\\", "/"))
             _log("%s %s reviewed in %ds → %s (telegram %s)" % (symbol, tf, time.time() - t0,
                  os.path.basename(path), "sent" if sent else "not configured"))
             last = "%s %sm · %ds" % (symbol, tf, time.time() - t0)

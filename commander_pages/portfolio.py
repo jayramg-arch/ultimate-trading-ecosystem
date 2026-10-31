@@ -6,7 +6,17 @@
 # The body stays under `if True:` so no line was re-indented. Edit the page HERE.
 if True:
     st.markdown('<div class="page-title">🗂️ Portfolio Analytics</div>', unsafe_allow_html=True)
-    st.markdown('<div class="page-desc">Factor exposure · VaR/CVaR · Stress testing · Walk-forward backtest</div>', unsafe_allow_html=True)
+    st.markdown('<div class="page-desc">AI holdings review · Factor exposure · VaR/CVaR · Stress testing</div>', unsafe_allow_html=True)
+
+    # AI HOLDINGS REVIEW (31-Oct-2026, Jay): every holding read by the Reviewer on the Daily
+    # chart with the same depth as a new trade - auto-pilot Phase 13b on weekdays, Saturday
+    # 09:30 task, or PORTFOLIO_REVIEW.bat. Body in portfolio_review.render_streamlit.
+    try:
+        import portfolio_review as _pfr
+        _pfr.render_streamlit()
+    except Exception as _pfe:
+        st.warning(f"AI holdings review unavailable: {_pfe}")
+    st.markdown("---")
 
     if not _PORT_OK:
         st.error("❌ portfolio_analytics module not available. Ensure portfolio_analytics.py is in the same folder.")

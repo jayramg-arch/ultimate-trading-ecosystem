@@ -236,7 +236,7 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   </div>
 
   <div class="sec-head">
-    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 30 Oct · 91 changes</span>
+    <h2>What the code did since the audit</h2><div class="rule"></div><span class="ct">27 Aug → 31 Oct · 93 changes</span>
   </div>
   <p class="sec-note">Listed because it dates the guides, not because it is news. Seven pages had
   been overtaken by these changes; all seven were rewritten against the code on 11 September and
@@ -246,6 +246,16 @@ footer{border-top:1px solid var(--rule);background:var(--surface);
   <div class="tw"><table>
     <thead><tr><th>When</th><th>What changed</th><th>Pages</th></tr></thead>
     <tbody>
+      <tr>
+        <td class="dt">31 Oct<br>portfolio review</td>
+        <td><b>Every holding gets the same analysis as a new trade.</b> <code>PORTFOLIO_REVIEW.bat</code> reads each holding on the Daily chart (S4 + S5, ETF index first), adds the SL Dashboard's numbers (stops, thesis, Chandelier, R, drawdown table, worst gap, results, ladder) and asks the Reviewer with a holder's prompt: HOLD / ADD / TRIM / REDUCE / EXIT, the new invalidation, stop, drawdown and opportunity. The script checks the answer against the house rules (no adds in a forbidding tier or on a loser, thesis never lowered and not the Dhan stop, no stop inside 3×ATR, sell-first for a lower stop). Runs every weekday after the close (auto-pilot Phase 13b) and Saturday 09:30 (task <code>Portfolio_Review_Weekly</code>); results open Web Commander › PORTFOLIO, one Telegram summary per run (actions first), rows labelled <i>portfolio</i> in the Reviewer Log. Proposals only</td>
+        <td class="af">26 · 32</td>
+      </tr>
+      <tr>
+        <td class="dt">30 Oct<br>capital protection = book NAV</td>
+        <td><b>A cash withdrawal is no longer a drawdown.</b> Capital protection (Chandelier 2.5×) read Dhan cash + the <em>cost</em> of the holdings, so moving cash out of Dhan on 19 Oct read as a 22% fall and held every Chandelier at 2.5× — the v67 line hugging the candles, and six Dhan stops raised to the 3× ATR floor on 30 Oct (kept). It now reads the v1 + legacy daily record (<code>risk_common.book_nav_history</code>: marked to market, net of money moved in or out), the same series for Risk Shield, the broker trail and the v67 push. 30-Oct reading 1.0145, above its average → off; v67 re-pushed at 5.0× positional / 2.0× swing. No v67 compile needed</td>
+        <td class="af">26</td>
+      </tr>
       <tr>
         <td class="dt">30 Oct<br>S4 v11.36 one zone per TF</td>
         <td><b>A zone is the same zone on every chart.</b> On Daily, Weekly and Monthly charts S4 built its own timeframe's zones with the native engine, which created and judged them differently from the higher-timeframe copy a lower chart shows (M&amp;MFIN: the Monthly DZ alive on the Daily/Weekly charts, gone on the Monthly). Those charts now take their own timeframe through the same path as lower charts, judged on the last closed bar of that timeframe; the native engine is 75m/125m only</td>

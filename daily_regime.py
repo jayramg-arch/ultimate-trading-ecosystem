@@ -174,8 +174,9 @@ PHASES = [
         {"t": "~17:00", "who": "auto", "title": "Evening run — boards, bundles, alerts, records",
          "how": ["Phase 12: Daily/125m/75m boards, bundles pushed to S4, the two watchlist alerts moved to today's GM_Swing "
                  "list, positional Daily alerts and zone-approach alerts rebuilt, v67 slots + trail pushed, live record "
-                 "and trade log rebuilt, board reviews. Phase 14 sends the evening digest. 17:15 docs truth check, "
-                 "18:45 F&O bhavcopy."]},
+                 "and trade log rebuilt, board reviews. Phase 13b queues every holding on the AI reviewer (Daily chart, "
+                 "holder's prompt); a Telegram summary follows when the last one is done. Phase 14 sends the evening "
+                 "digest. 17:15 docs truth check, 18:45 F&O bhavcopy."]},
         {"t": "~17:30", "who": "you", "title": "Read the evening digest",
          "how": ["Phases not OK · boards (5/5 counts against the 20-day median) · reviewer failures · bindings per tab (35/35 with Add-ons, else 32/32) · "
                  "alert versions · exit review · TRADE CLASS (positional EXIT REVIEW, swings that may convert).",
@@ -200,6 +201,13 @@ PHASES = [
                  "📜 Stop moves: ↘n on a lane = times its stop was widened. 📉 Gap risk: where a stock's worst 2-year gap "
                  "would open below the stop, size for the gap."],
          "links": ["sl"]},
+        {"t": "~17:40", "who": "you", "title": "Portfolio — the AI holdings review",
+         "how": ["The Telegram summary lists every holding: 🔴 EXIT · 🟠 REDUCE · 🟡 TRIM · 🟢 ADD first, with the reason, "
+                 "the new invalidation and the stop. Open Web Commander › PORTFOLIO for each full review.",
+                 "Proposals only. A new invalidation goes in on the SL Dashboard (the evening ratchet only raises it to "
+                 "S4's INVAL); a stop change on Dhan via SL Dashboard › Change a Disaster SL; a trim or exit is your order. "
+                 "A ⚠ in Checks means the model proposed something the house rules do not allow - read the check line."],
+         "links": ["portfolio", "sl"]},
         {"t": "17:45", "who": "you", "title": "Tomorrow's candidates — the boards",
          "how": ["Daily board: the 5/5 positional names are tomorrow's Daily-close candidates. 125m/75m boards: swing names "
                  "the alerts will time. Open each worth attention in the Golden Matcher and read the decision path.",
@@ -218,6 +226,11 @@ PHASES = [
      "lede": "The weekly stage only changes after a Friday close. The weekend is for the weekly read, the "
              "book's re-qualification, planning and system work — never for orders.",
      "steps": [
+        {"t": "Sat 09:30", "who": "auto", "title": "Portfolio review on the weekly close",
+         "how": ["Portfolio_Review_Weekly: every holding read by the AI reviewer on the Daily chart with Friday's Daily "
+                 "and weekly bars final; the summary goes to Telegram and Web Commander › PORTFOLIO. Starts TradingView "
+                 "if it is not up (the S4 / S5 Reviewer tabs must be in its saved session)."],
+         "links": ["portfolio"]},
         {"t": "Sat", "who": "you", "title": "Re-qualify the book on the weekly close",
          "how": ["🔁 Swing ↔ Positional: positional holdings that read Stage 3/4 on the confirmed weekly close are EXIT REVIEW — "
                  "plan the exit for Monday. WATCH names (below the 200-DMA, weekly trend down): decide trim or hold.",

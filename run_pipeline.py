@@ -1468,6 +1468,31 @@ def main():
                 p.status = "SKIP"
                 p.message = f"skipped: {e}"[:160]
 
+    # 13b. PORTFOLIO REVIEW (31-Oct-2026, Jay: "the same amount of analysis on my portfolio
+    # stocks as any new trade ... every weekday after market hours"). Every holding queued on the
+    # AI reviewer on the DAILY chart with the holder's prompt (portfolio_review.py) - HOLD / ADD /
+    # TRIM / REDUCE / EXIT, new invalidation, stop, drawdown, opportunity. Queues behind the board
+    # reviews and returns; results land on Web Commander > PORTFOLIO and in the Reviewer Log.
+    # Proposals only. PORTFOLIO_REVIEW=0 skips. Saturday 09:30 has its own task.
+    logger.info("\n[PHASE 13b] PORTFOLIO REVIEW (every holding -> AI reviewer, Daily)...")
+    with run.phase("Phase 13b — portfolio review") as p:
+        if os.getenv("PORTFOLIO_REVIEW", "1") == "0":
+            p.status = "SKIP"; p.message = "PORTFOLIO_REVIEW=0"
+        else:
+            try:
+                _r = _run_logged([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                                               "portfolio_review.py"), "--no-wait", "--telegram"],
+                                 capture_output=True, text=True, timeout=90 * 60)
+                _lines = [l.strip() for l in (_r.stdout or "").strip().splitlines() if l.strip()]
+                for _ln in _lines[-4:]:
+                    logger.info(f"   ↳ {_ln}")
+                p.message = next((l for l in reversed(_lines) if l.startswith("portfolio review:")), "done")[:160]
+                if _r.returncode != 0:
+                    p.status = "WARN"
+            except Exception as e:
+                logger.warning(f"⚠️  portfolio review skipped: {e}")
+                p.status = "SKIP"; p.message = f"skipped: {e}"[:160]
+
     run.finalize()
 
     logger.info("\n" + "="*60)

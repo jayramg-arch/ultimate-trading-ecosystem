@@ -193,11 +193,19 @@ footer em{color:var(--ink-2)}
           setup or manual override in the journal, press <b>🔄 Sync to TV</b> on the Journal page. The same push also fills v67's portfolio slots, so the old copy-the-code-and-compile step is gone; the auto-pilot repeats it every evening.</p>
         <p class="d"><b>Live again since 21 Oct</b> through the static-IP relay, positional holdings only (swing names are
           listed as not trailed). New stop = the <b>lower</b> of the Chandelier and close − 3× ATR14, rounded to the half-rupee
-          grid. <b>30 Oct:</b> the job now reads Risk Shield's <b>capital-protection</b> switch (book equity below its 20-day
-          EMA → Chandelier 2.5×), so Dhan, Risk Shield, v67 and the SL Dashboard use one Chandelier. Before, the job trailed
-          on 5.0× while every screen showed 2.5× (ANANDRATHI: Dhan 2,036.5, screens 2,143). While protection is on, the
-          3× ATR floor is what binds — the 2.5× level is usually inside it. The manual <code>--cover</code> pass keeps the
-          same floor.</p>
+          grid. <b>30 Oct:</b> the job now reads Risk Shield's <b>capital-protection</b> switch (book below its 20-day
+          average → Chandelier 2.5×), so Dhan, Risk Shield, v67 and the SL Dashboard use one Chandelier. While protection is
+          on, the 3× ATR floor is what binds — the 2.5× level is usually inside it. The manual <code>--cover</code> pass keeps
+          the same floor.</p>
+        <p class="d"><b>What "the book" means for capital protection (30 Oct, evening).</b> The switch now reads the
+          v1 + legacy daily record that auto-pilot Phase 12j writes (<code>logs/system_equity.csv</code>): holdings at
+          market price, with money moved in or out of Dhan not counted as gain or loss. It used to read Dhan cash plus the
+          <em>cost</em> of the holdings, which prices never move — so moving cash out of Dhan on 19 Oct (₹25.3L → ₹19.7L)
+          read as a 22% drawdown and held every Chandelier at 2.5× for eleven days. That is the v67 line that hugged the
+          candles, and the 30-Oct trail runs raised six Dhan stops to the close − 3× ATR floor because of it (ANANDRATHI
+          2,130.5, LAURUSLABS 2,165.5, SAILIFE 1,407.5, SONACOMS 802.5, TVSMOTOR 3,915.5, VIJAYA 1,324.5) — kept as they are.
+          If the record file is missing the switch reads <b>off</b> (the wider multiplier). It switches on again when the
+          book genuinely falls below its 20-day average.</p>
         <p class="d"><b>Stops you move on Dhan reach v67 by themselves (4 Oct).</b> The 16:30 journal sync reads
           your resting Dhan orders and writes each holding's stop and targets into the journal — the same rule the
           Journal page applies when it opens — and the auto-pilot's Phase 12f pushes them into v67's slots. The
@@ -292,6 +300,11 @@ footer em{color:var(--ink-2)}
             one at a time), labelled <i>board</i> in the Reviewer Log. Keep the S4 Alert Reviewer window
             up in the evening so they queue there; otherwise they run directly. <span class="m">REVIEW.bat</span>
             stays for anything else and is labelled <i>manual</i>.</li>
+          <li><b>Portfolio review (31 Oct).</b> <span class="m">PORTFOLIO_REVIEW.bat</span> re-reads every holding
+            on the Daily chart with the Reviewer's full analysis and returns HOLD / ADD / TRIM / REDUCE / EXIT, the new
+            invalidation, the stop, the drawdown and any add. Proposals only. Runs by itself: auto-pilot
+            <span class="m">Phase 13b</span> every weekday after the close, and <span class="m">Portfolio_Review_Weekly</span>
+            on Saturday 09:30. Results on Web Commander › PORTFOLIO; one Telegram summary per run. Doc 32 §06b.</li>
           <li><b>Live record (2 Oct).</b> Auto-pilot <span class="m">Phase 12d</span> rebuilds
             <a href="33_live_record.html">Doc 33</a> — every Reviewer-Log trigger, what S4 showed, and what it
             earned in R, per priority tier. <span class="m">entry_shadow</span> now also scores each fill

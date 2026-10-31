@@ -295,7 +295,7 @@ ul.how li{font-size:15px;color:var(--ink-2);margin:0 0 5px;max-width:64ch}
       <div class="clk">~17:00</div>
       <div class="bd">
         <p class="t">Evening run — boards, bundles, alerts, records<span class="who">automatic</span></p>
-        <ul class="how"><li>Phase 12: Daily/125m/75m boards, bundles pushed to S4, the two watchlist alerts moved to today&#x27;s GM_Swing list, positional Daily alerts and zone-approach alerts rebuilt, v67 slots + trail pushed, live record and trade log rebuilt, board reviews. Phase 14 sends the evening digest. 17:15 docs truth check, 18:45 F&amp;O bhavcopy.</li></ul>
+        <ul class="how"><li>Phase 12: Daily/125m/75m boards, bundles pushed to S4, the two watchlist alerts moved to today&#x27;s GM_Swing list, positional Daily alerts and zone-approach alerts rebuilt, v67 slots + trail pushed, live record and trade log rebuilt, board reviews. Phase 13b queues every holding on the AI reviewer (Daily chart, holder&#x27;s prompt); a Telegram summary follows when the last one is done. Phase 14 sends the evening digest. 17:15 docs truth check, 18:45 F&amp;O bhavcopy.</li></ul>
       </div>
     </div>
     <div class="ev you">
@@ -319,6 +319,14 @@ ul.how li{font-size:15px;color:var(--ink-2);margin:0 0 5px;max-width:64ch}
         <p class="t">SL Dashboard — every stop in one place<span class="who">you</span></p>
         <ul class="how"><li>Replaces the symbol-by-symbol check of thesis and disaster levels on TradingView. Look-at-first list top to bottom: THESIS BROKEN names are tomorrow&#x27;s exits; a red &#x27;× rule&#x27; chip means the loss at the Dhan stop is over the per-trade rule — the fix is the share count shown, not a wider stop.</li><li>A pulsing red ring (⚡ needs you now) = act today: thesis broken on the close, Chandelier at/above LTP, or a Dhan order problem — it sits on the level that caused it. Text right of a lane = loss from cost if the Dhan stop fills: green ≤ 0.8× rule, amber 0.8–1.0×, red over (→ N sh fits), 🔒 = locks a profit.</li><li>Change a thesis or set a planned trim in the ✏️ tab, Save, then 📡 Push to TradingView (v67 book + thesis alerts). Orders stay yours, on Dhan.</li><li>📜 Stop moves: ↘n on a lane = times its stop was widened. 📉 Gap risk: where a stock&#x27;s worst 2-year gap would open below the stop, size for the gap.</li></ul>
         <div class="lk"><a href="http://localhost:8501/?p=SL%20DASHBOARD">SL Dashboard (every stop of the book on one axis · edit thesis &amp; plan · stop moves · gap risk)</a></div>
+      </div>
+    </div>
+    <div class="ev you">
+      <div class="clk">~17:40</div>
+      <div class="bd">
+        <p class="t">Portfolio — the AI holdings review<span class="who">you</span></p>
+        <ul class="how"><li>The Telegram summary lists every holding: 🔴 EXIT · 🟠 REDUCE · 🟡 TRIM · 🟢 ADD first, with the reason, the new invalidation and the stop. Open Web Commander › PORTFOLIO for each full review.</li><li>Proposals only. A new invalidation goes in on the SL Dashboard (the evening ratchet only raises it to S4&#x27;s INVAL); a stop change on Dhan via SL Dashboard › Change a Disaster SL; a trim or exit is your order. A ⚠ in Checks means the model proposed something the house rules do not allow - read the check line.</li></ul>
+        <div class="lk"><a href="http://localhost:8501/?p=PORTFOLIO">Portfolio</a><a href="http://localhost:8501/?p=SL%20DASHBOARD">SL Dashboard (every stop of the book on one axis · edit thesis &amp; plan · stop moves · gap risk)</a></div>
       </div>
     </div>
     <div class="ev you">
@@ -351,6 +359,14 @@ ul.how li{font-size:15px;color:var(--ink-2);margin:0 0 5px;max-width:64ch}
   <h2>Weekends and holidays</h2>
   <p class="lede">The weekly stage only changes after a Friday close. The weekend is for the weekly read, the book&#x27;s re-qualification, planning and system work — never for orders.</p>
   <div class="tl">
+    <div class="ev">
+      <div class="clk">Sat 09:30</div>
+      <div class="bd">
+        <p class="t">Portfolio review on the weekly close<span class="who">automatic</span></p>
+        <ul class="how"><li>Portfolio_Review_Weekly: every holding read by the AI reviewer on the Daily chart with Friday&#x27;s Daily and weekly bars final; the summary goes to Telegram and Web Commander › PORTFOLIO. Starts TradingView if it is not up (the S4 / S5 Reviewer tabs must be in its saved session).</li></ul>
+        <div class="lk"><a href="http://localhost:8501/?p=PORTFOLIO">Portfolio</a></div>
+      </div>
+    </div>
     <div class="ev you">
       <div class="clk">Sat</div>
       <div class="bd">
