@@ -342,6 +342,13 @@ def _num(txt: str):
     return float(m.group(1).replace(",", "")) if m else None
 
 
+def _model_part(body: str) -> str:
+    """The review text without the panel read AND without the HOLDING block appended after
+    "---" - otherwise a missing model line (DRAWDOWN) is filled from the block's heading."""
+    rev = (body or "").split("## PANEL READ")[0]
+    return rev.split("\n---\nHOLDING")[0]
+
+
 def ruling_word(review: str) -> str:
     m = re.match(r"(HOLD|ADD|TRIM|REDUCE|EXIT)", _line(review, "RULING").upper())
     return m.group(1) if m else ""
@@ -384,6 +391,13 @@ def post_checks(sym: str, review: str) -> tuple[str, list[str]]:
             out.append("INVALIDATION-CHECK: %.2f is the Dhan stop itself - the two-tier rule wants the thesis on "
                        "structure, about 1 x ATR (%.2f) ABOVE the Disaster SL; read the chart's zones / swing lows "
                        "for the real level" % (inv, atr))
+            inv = None
+        if inv is not None and dhan and inv < dhan:
+            # 31-Oct-2026 (SAILIFE, TVSMOTOR, LAURUSLABS): a structural level below the resting
+            # stop can never be acted on - the Disaster SL fires first. Single tier, superseded.
+            out.append("INVALIDATION-CHECK: %.2f is BELOW the Dhan stop %.2f - the Disaster SL fires first, so this "
+                       "thesis is superseded (single tier). Either the stop sits on structure now, or it was "
+                       "raised past it - check that the stop is where you want the trade to end" % (inv, dhan))
             inv = None
         if inv is None:
             pass
@@ -529,7 +543,7 @@ def build_report(since: datetime | None = None, send_telegram: bool = False) -> 
             body = open(f, encoding="utf-8").read()
         except Exception:
             body = ""
-        rev = body.split("## PANEL READ")[0] if body else ""
+        rev = _model_part(body)
         word = ruling_word(rev)
         cells = [_line(rev, t) for t in ("THESIS", "INVALIDATION", "STOP", "DRAWDOWN", "OPPORTUNITY")]
         full.append((order.get(word, 5), r["symbol"], word, cells, r.get("file", ""), _line(rev, "RULING")))
@@ -588,7 +602,7 @@ def latest_reviews() -> list[dict]:
             body = open(os.path.join(HERE, r.get("file", "")), encoding="utf-8").read()
         except Exception:
             body = ""
-        rev = body.split("## PANEL READ")[0]
+        rev = _model_part(body)
         d = {"symbol": sym, "ts": r.get("ts", ""), "file": r.get("file", ""), "provider": r.get("provider", ""),
              "ruling_word": ruling_word(rev), "review": rev,
              "checks": [ln.strip() for ln in rev.splitlines()

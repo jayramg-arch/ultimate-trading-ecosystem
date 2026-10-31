@@ -32,7 +32,7 @@ def test_invalidation_equal_to_dhan_stop_is_flagged(monkeypatch):
 
 
 def test_invalidation_never_lowered(monkeypatch):
-    monkeypatch.setattr(pr, "holding_row", lambda s: ROW)
+    monkeypatch.setattr(pr, "holding_row", lambda s: dict(ROW, disaster=1800.0))   # stop below the thesis
     _, out = pr.post_checks("X", _rev("HOLD", "Daily close below 1900.00 (weekly level)", "KEEP 2165.50"))
     assert any("never lowered" in o for o in out)
 
@@ -50,3 +50,14 @@ def test_drawdown_row_marks_a_broken_level(monkeypatch):
     monkeypatch.setattr(sl_board, "_journal_rows", lambda: {})
     txt = pr.holding_block("X")
     assert "ALREADY THROUGH" in txt
+
+
+def test_invalidation_below_the_dhan_stop_is_flagged(monkeypatch):
+    monkeypatch.setattr(pr, "holding_row", lambda s: ROW)
+    _, out = pr.post_checks("X", _rev("HOLD", "Daily close below 2050.00 (swing low)", "KEEP 2165.50"))
+    assert any("BELOW the Dhan stop" in o for o in out)
+
+
+def test_report_ignores_the_appended_holding_block():
+    body = "RULING: HOLD - x\nDRAWDOWN\n\n---\nHOLDING (computed...)\nDRAWDOWN from LTP (cost...)\n## PANEL READ\n"
+    assert pr._line(pr._model_part(body), "DRAWDOWN") == ""
