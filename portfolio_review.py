@@ -106,10 +106,14 @@ HOUSE RULES FOR A HELD POSITION (not negotiable - the script checks your answer 
 - TRIM at the canon targets (positional 3R / 5R, swing 2R / 4R), when price is 4 x ATR or more
   above the daily EMA20, or with results inside three sessions. A trim is a partial, never the
   whole position.
-- EXIT on a Daily close through the thesis, Stage 4, the Chandelier breached, P&L at or below
-  -8%, or the time stop (swing 60 sessions, positional 180 with R below 0.5). Stage 3 alone is a
-  REDUCE or a tighter thesis, not an automatic exit. In the first 10 sessions after entry the
-  structural exits are held off; the hard ones (P&L -8%, Stage 4, the stop breached) are not.
+- EXIT - these are the ladder's own rules and the script ENFORCES them on your ruling: price at
+  or through the Dhan stop; P&L at or below -8%; Stage 4; a Daily close through the thesis; price
+  below the Chandelier; within 1.5 x ATR of the stop while losing; a swing below its swing low; a
+  positional below its 30-week MA. There is no time stop (removed 24-Sep-2026). Stage 3 alone is
+  a REDUCE or a tighter thesis, not an automatic exit. In the first 10 sessions after entry the
+  structural exits are held off; the hard ones (P&L -8%, Stage 4, the stop breached) never are.
+  If one of these is true, the ruling is EXIT - say which, and how to exit (at the open, into a
+  bounce to a named level, or let the resting stop take it).
 - The LADDER rung in the HOLDING block is the deterministic engine's opinion as of last
   evening's run. S4's MY TRADE / POSITION rows (when present) carry the same engine's LIVE rung
   from v67 - if the two differ, the live one is current; say which you used. Weigh it, say
@@ -354,13 +358,74 @@ def ruling_word(review: str) -> str:
     return m.group(1) if m else ""
 
 
-def post_checks(sym: str, review: str) -> tuple[str, list[str]]:
+EXIT_PNL_PCT = -8.0          # pyramid_logic.classify: "P&L <= -8% - thesis underwater, exit"
+
+
+def _stage(read_txt: str):
+    """Weekly stage from S4's Structure basis row (or the ETF Phase-2 row)."""
+    m = re.search(r"(?:Structure basis|PHASE 2 · trigger chart)[^\n]*?Stage ([1-4])", read_txt or "")
+    return int(m.group(1)) if m else None
+
+
+def exit_rules(sym: str, read_txt: str = "") -> tuple[list[str], list[str]]:
+    """The ladder's EXIT rules for one holding (pyramid_logic.classify, 31-Oct-2026).
+    Returns (hard, structural): hard ones apply always; structural ones are held off in the
+    first LADDER_GRACE_SESSIONS sessions after entry (the second list then says so)."""
+    r = holding_row(sym) or {}
+    ltp, avg, close = _f(r.get("ltp")), _f(r.get("avg")), _f(r.get("close")) or _f(r.get("ltp"))
+    atr, dhan, thesis, chand = _f(r.get("atr")), _f(r.get("disaster")), _f(r.get("thesis")), _f(r.get("chand"))
+    pnl = _f(r.get("pnl_pct"))
+    hard, struct = [], []
+    if ltp and dhan and ltp <= dhan:
+        hard.append("price %.2f is at/through the Dhan stop %.2f" % (ltp, dhan))
+    if pnl is not None and pnl <= EXIT_PNL_PCT:
+        hard.append("P&L %+.1f%% is at or below %.0f%%" % (pnl, EXIT_PNL_PCT))
+    st = _stage(read_txt)
+    if st == 4:
+        hard.append("Stage 4 on the weekly 2x2")
+    if thesis and close and close < thesis and (not dhan or thesis > dhan):
+        struct.append("the Daily close %.2f is below the thesis %.2f" % (close, thesis))
+    if chand and close and close < chand:
+        struct.append("the close %.2f is below the Chandelier %.2f" % (close, chand))
+    if ltp and dhan and atr and pnl is not None and pnl <= 0 and (ltp - dhan) <= 1.5 * atr and ltp > dhan:
+        struct.append("losing and within 1.5 x ATR of the stop (%.1f x ATR)" % ((ltp - dhan) / atr))
+    if struct:
+        try:
+            import house_policy as hp
+            import pyramid_logic as pl
+            import sl_board
+            ed = (sl_board._journal_rows().get(sym.split(":")[-1].upper()) or {}).get("entry_date")
+            n = pl.sessions_since(ed) if ed else None
+            g = int(getattr(hp, "LADDER_GRACE_SESSIONS", 0) or 0)
+            if n is not None and n < g:
+                struct = ["(held off - grace session %d/%d) %s" % (n, g, s) for s in struct]
+        except Exception:
+            pass
+    return hard, struct
+
+
+def post_checks(sym: str, review: str, read_txt: str = "") -> tuple[str, list[str]]:
     """(review with any house-rule overrule applied, check lines to append)."""
     r = holding_row(sym) or {}
     out = []
     ltp, avg, close = _f(r.get("ltp")), _f(r.get("avg")), _f(r.get("close")) or _f(r.get("ltp"))
     atr, dhan, thesis = _f(r.get("atr")), _f(r.get("disaster")), _f(r.get("thesis"))
     word = ruling_word(review)
+
+    # EXIT-CHECK first: a house EXIT rule outranks the model's ruling (DNA: system rules are
+    # final). M&MFIN 31-Oct: -32%, Chandelier above price, ladder EXIT - the model said REDUCE.
+    hard, struct = exit_rules(sym, read_txt)
+    live = hard + [s for s in struct if not s.startswith("(held off")]
+    if live and word and word != "EXIT":
+        why = "; ".join(live)
+        review = re.sub(r"(RULING:?\**:?\s*\**\s*)(HOLD|ADD|TRIM|REDUCE)",
+                        r"\1EXIT (house rule: %s; the model had ruled \2)" % why.replace("\\", ""), review, count=1)
+        out.append("EXIT-CHECK: overruled %s to EXIT - %s" % (word, why))
+        word = "EXIT"
+    elif live:
+        out.append("EXIT-CHECK: EXIT confirmed by the house rules - %s" % "; ".join(live))
+    if any(s.startswith("(held off") for s in struct):
+        out.append("EXIT-CHECK: " + "; ".join(s for s in struct if s.startswith("(held off")))
 
     if word == "ADD":
         why = ""
@@ -479,7 +544,7 @@ def review_holding(d: dict, read_txt: str, args) -> dict:
                                        "STOP, DRAWDOWN and OPPORTUNITY lines.", args.provider, system=system)
         if ruling_word(review2):
             review, prov = review2, prov2
-    review, checks = post_checks(sym, review)
+    review, checks = post_checks(sym, review, read_txt)
     _, oi_txt = s4.oi_digest(read_txt)
     for extra in checks + ([oi_txt] if oi_txt else []):
         review = review.rstrip() + "\n\n" + extra
@@ -500,7 +565,7 @@ def summary(review: str, sym: str) -> str:
         if v:
             parts.append("%s: %s" % (tag, v[:300]))
     for ln in review.splitlines():
-        if ln.startswith(("ADD-CHECK", "INVALIDATION-CHECK", "STOP-CHECK")):
+        if ln.startswith(("EXIT-CHECK", "ADD-CHECK", "INVALIDATION-CHECK", "STOP-CHECK")):
             parts.append(ln[:240])
     return "\n".join(parts)
 
@@ -606,7 +671,7 @@ def latest_reviews() -> list[dict]:
         d = {"symbol": sym, "ts": r.get("ts", ""), "file": r.get("file", ""), "provider": r.get("provider", ""),
              "ruling_word": ruling_word(rev), "review": rev,
              "checks": [ln.strip() for ln in rev.splitlines()
-                        if ln.startswith(("ADD-CHECK", "INVALIDATION-CHECK", "STOP-CHECK"))]}
+                        if ln.startswith(("EXIT-CHECK", "ADD-CHECK", "INVALIDATION-CHECK", "STOP-CHECK"))]}
         for tag in ("RULING", "THESIS", "INVALIDATION", "STOP", "DRAWDOWN", "OPPORTUNITY", "WATCH", "FLIPS IF"):
             d[tag] = _line(rev, tag)
         out.append(d)

@@ -461,7 +461,13 @@ python s4_review.py TITAN --dump             # the raw panel read, no model call
     <tr><td>OPPORTUNITY</td><td>an add (level, stop, size) or why not, and the next target with the partial plan</td></tr>
     <tr><td>WATCH · FLIPS IF</td><td>the level or event that decides it, and what would change the ruling</td></tr>
   </table></div>
-  <p><b>The script's checks</b> (appended, like every other check): <code>ADD-CHECK</code> overrules an add to HOLD on a
+  <p><b>The script's checks</b> (appended, like every other check): <code>EXIT-CHECK</code> comes first and turns any
+  ruling into <b>EXIT</b> when a ladder exit rule is true — price at or through the Dhan stop, P&amp;L at or below −8%,
+  Stage 4 on S4's Structure basis row (those three always), a Daily close below the thesis (when the thesis sits above the
+  Dhan stop), the close below the Chandelier, or losing within 1.5×ATR of the stop (those three are held off in the
+  first 10 sessions after entry, and the check says so). System rules are final; the model's reasoning stays in the
+  review. Added 31 Oct after the first run ruled M&amp;MFIN (−32%, Stage 4, below the Chandelier) a REDUCE.
+  <code>ADD-CHECK</code> overrules an add to HOLD on a
   loser or when the exposure tier forbids adds; <code>INVALIDATION-CHECK</code> flags a level at or above the close,
   one below the journal thesis, one that is just the Dhan stop, and a raise less than 1×ATR below the close;
   <code>STOP-CHECK</code> flags a raise inside 3×ATR of the close and computes the shares to sell before a lower stop.</p>
