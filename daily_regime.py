@@ -206,7 +206,11 @@ PHASES = [
                  "the new invalidation and the stop. Open Web Commander › PORTFOLIO for each full review.",
                  "Proposals only. A new invalidation goes in on the SL Dashboard (the evening ratchet only raises it to "
                  "S4's INVAL); a stop change on Dhan via SL Dashboard › Change a Disaster SL; a trim or exit is your order. "
-                 "A ⚠ in Checks means the model proposed something the house rules do not allow - read the check line."],
+                 "A ⚠ in Checks means the model proposed something the house rules do not allow - read the check line. "
+                 "An EXIT marked 'house rule' was overruled by the script: a ladder exit rule is true (stop breached, "
+                 "P&L -8%, Stage 4, a close below the thesis or the Chandelier) whatever the model ruled - its reasoning "
+                 "is still there. If you read the chart differently, change the thesis on the SL Dashboard tonight; the "
+                 "next run judges against it."],
          "links": ["portfolio", "sl"]},
         {"t": "17:45", "who": "you", "title": "Tomorrow's candidates — the boards",
          "how": ["Daily board: the 5/5 positional names are tomorrow's Daily-close candidates. 125m/75m boards: swing names "

@@ -120,7 +120,7 @@ The machine rebuilds everything between 16:00 and about 17:30. Your 20 minutes s
 
 ### ~17:40 · Portfolio — the AI holdings review (YOU)
 - The Telegram summary lists every holding: 🔴 EXIT · 🟠 REDUCE · 🟡 TRIM · 🟢 ADD first, with the reason, the new invalidation and the stop. Open Web Commander › PORTFOLIO for each full review.
-- Proposals only. A new invalidation goes in on the SL Dashboard (the evening ratchet only raises it to S4's INVAL); a stop change on Dhan via SL Dashboard › Change a Disaster SL; a trim or exit is your order. A ⚠ in Checks means the model proposed something the house rules do not allow - read the check line.
+- Proposals only. A new invalidation goes in on the SL Dashboard (the evening ratchet only raises it to S4's INVAL); a stop change on Dhan via SL Dashboard › Change a Disaster SL; a trim or exit is your order. A ⚠ in Checks means the model proposed something the house rules do not allow - read the check line. An EXIT marked 'house rule' was overruled by the script: a ladder exit rule is true (stop breached, P&L -8%, Stage 4, a close below the thesis or the Chandelier) whatever the model ruled - its reasoning is still there. If you read the chart differently, change the thesis on the SL Dashboard tonight; the next run judges against it.
 - Open: [Portfolio](http://localhost:8501/?p=PORTFOLIO) · [SL Dashboard (every stop of the book on one axis · edit thesis & plan · stop moves · gap risk)](http://localhost:8501/?p=SL%20DASHBOARD)
 
 ### 17:45 · Tomorrow's candidates — the boards (YOU)

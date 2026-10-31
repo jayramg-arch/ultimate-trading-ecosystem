@@ -469,8 +469,18 @@ python s4_review.py TITAN --dump             # the raw panel read, no model call
   review. Added 31 Oct after the first run ruled M&amp;MFIN (−32%, Stage 4, below the Chandelier) a REDUCE.
   <code>ADD-CHECK</code> overrules an add to HOLD on a
   loser or when the exposure tier forbids adds; <code>INVALIDATION-CHECK</code> flags a level at or above the close,
-  one below the journal thesis, one that is just the Dhan stop, and a raise less than 1×ATR below the close;
+  one below the journal thesis, one that is just the Dhan stop, one <b>below</b> the Dhan stop (the Disaster SL would
+  fire first, so that thesis is superseded — usually because a trail raised the stop past it), and a raise less than
+  1×ATR below the close;
   <code>STOP-CHECK</code> flags a raise inside 3×ATR of the close and computes the shares to sell before a lower stop.</p>
+  <p><b>First run, 31 Oct (15 holdings, Gemini Flash-Lite).</b> EXIT 7 — BAJFINANCE, CAPLIPOINT, COALINDIA, NETWEB
+  (the model's own call, each confirmed by a house rule), M&amp;MFIN, IKS and SYRMA (the model had REDUCE / TRIM; the
+  EXIT-CHECK overruled them: M&amp;MFIN −32%, Stage 4, below the Chandelier; IKS and SYRMA closed below their thesis).
+  TRIM 2 — ANANDRATHI, LAURUSLABS (extended winners). HOLD 6 — GLAXO, PHARMABEES, SAILIFE, SONACOMS, TVSMOTOR, VIJAYA.
+  Four holdings had an invalidation below their Dhan stop after the 30-Oct trail raises. Two lessons the run produced:
+  the model will stop at REDUCE on a position the rules say to exit, which is why the exit rules are enforced by the
+  script rather than left to the prompt; and its stage label was right where a stale reference was wrong (COALINDIA
+  reads Stage 4 on the panel). Read the rulings as a second opinion against the chart — the orders stay yours.</p>
   <p><b>How it runs.</b> With the S4 Alert Reviewer window up, the holdings queue on the receiver
   (<code>"SYM S4 GO D - portfolio"</code>) behind any S4 GO review, one at a time, about 90 s each — they never drive
   the reviewer tabs at the same moment. Without it they run in the script (<code>--direct</code> forces that, e.g. at
